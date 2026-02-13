@@ -192,6 +192,49 @@ export interface BillingInfo {
   maxProjects: number;
 }
 
+export interface SubscriptionInfo {
+  id: string;
+  planCode: string;
+  status: "active" | "trialing" | "past_due" | "canceled";
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+}
+
+export interface PaymentRecord {
+  id: string;
+  amountCents: number;
+  currency: string;
+  status: "succeeded" | "pending" | "failed";
+  stripeInvoiceId: string;
+  createdAt: string;
+}
+
+export interface AdminStats {
+  mrr: number;
+  mrrByPlan: Record<string, number>;
+  totalRevenue: number;
+  failedPayments: number;
+  activeSubscribers: number;
+  totalCustomers: number;
+  churnRate: number;
+}
+
+export interface AdminCustomer {
+  id: string;
+  email: string;
+  name: string | null;
+  plan: string;
+  stripeCustomerId: string | null;
+  createdAt: string;
+}
+
+export interface AdminCustomerDetail {
+  user: AdminCustomer;
+  subscriptions: SubscriptionInfo[];
+  payments: PaymentRecord[];
+}
+
 export interface QuickWin {
   code: string;
   category: string;
@@ -562,6 +605,59 @@ export const api = {
       const res = await apiClient.post<ApiEnvelope<{ url: string }>>(
         "/api/billing/portal",
         { returnUrl },
+        { token },
+      );
+      return res.data;
+    },
+
+    async getSubscription(token: string): Promise<SubscriptionInfo | null> {
+      const res = await apiClient.get<ApiEnvelope<SubscriptionInfo | null>>(
+        "/api/billing/subscription",
+        { token },
+      );
+      return res.data;
+    },
+
+    async getPayments(token: string): Promise<PaymentRecord[]> {
+      const res = await apiClient.get<ApiEnvelope<PaymentRecord[]>>(
+        "/api/billing/payments",
+        { token },
+      );
+      return res.data;
+    },
+
+    async cancelSubscription(token: string): Promise<void> {
+      await apiClient.post("/api/billing/cancel", undefined, { token });
+    },
+  },
+
+  // ── Admin ───────────────────────────────────────────────────────
+  admin: {
+    async getStats(token: string): Promise<AdminStats> {
+      const res = await apiClient.get<ApiEnvelope<AdminStats>>(
+        "/api/admin/stats",
+        { token },
+      );
+      return res.data;
+    },
+
+    async getCustomers(
+      token: string,
+      params?: { page?: number; limit?: number; search?: string },
+    ): Promise<PaginatedResponse<AdminCustomer>> {
+      const qs = buildQueryString(params);
+      return apiClient.get<PaginatedResponse<AdminCustomer>>(
+        `/api/admin/customers${qs}`,
+        { token },
+      );
+    },
+
+    async getCustomerDetail(
+      token: string,
+      userId: string,
+    ): Promise<AdminCustomerDetail> {
+      const res = await apiClient.get<ApiEnvelope<AdminCustomerDetail>>(
+        `/api/admin/customers/${userId}`,
         { token },
       );
       return res.data;

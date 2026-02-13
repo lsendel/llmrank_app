@@ -2,12 +2,18 @@ import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, FolderKanban, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
 
 const sidebarLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 async function checkOnboarding(token: string): Promise<boolean> {
