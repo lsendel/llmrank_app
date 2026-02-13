@@ -75,40 +75,46 @@ impl CrawlEngine {
             hex::encode(hasher.finalize())
         };
 
-        // Upload HTML
+        // Upload HTML + run Lighthouse concurrently
         let html_r2_key = format!(
             "crawls/{}/html/{}.html.gz",
             job_id,
             &content_hash[..16]
         );
-        if let Err(e) = self.storage.upload_html(&html_r2_key, &fetch_result.body).await {
+
+        let html_upload_fut = self.storage.upload_html(&html_r2_key, &fetch_result.body);
+        let lighthouse_fut = async {
+            if let Some(ref runner) = self.lighthouse {
+                match runner.run_lighthouse(url).await {
+                    Ok(result) => Some(result),
+                    Err(e) => {
+                        tracing::warn!(url = %url, error = %e, "Lighthouse failed");
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        };
+
+        let (html_result, mut lighthouse_result) = tokio::join!(html_upload_fut, lighthouse_fut);
+        if let Err(e) = html_result {
             tracing::warn!(url = %url, error = %e, "Failed to upload HTML");
         }
 
-        // Lighthouse
-        let lighthouse_result = if let Some(ref runner) = self.lighthouse {
-            match runner.run_lighthouse(url).await {
-                Ok(mut result) => {
-                    let lh_key = format!(
-                        "crawls/{}/lighthouse/{}.json.gz",
-                        job_id,
-                        &content_hash[..16]
-                    );
-                    let lh_json = serde_json::to_string(&result).unwrap_or_default();
-                    if let Err(e) = self.storage.upload_json(&lh_key, &lh_json).await {
-                        tracing::warn!(url = %url, error = %e, "Failed to upload LH JSON");
-                    }
-                    result.lh_r2_key = Some(lh_key);
-                    Some(result)
-                }
-                Err(e) => {
-                    tracing::warn!(url = %url, error = %e, "Lighthouse failed");
-                    None
-                }
+        // Upload Lighthouse JSON (depends on lighthouse result, so sequential)
+        if let Some(ref mut result) = lighthouse_result {
+            let lh_key = format!(
+                "crawls/{}/lighthouse/{}.json.gz",
+                job_id,
+                &content_hash[..16]
+            );
+            let lh_json = serde_json::to_string(&result).unwrap_or_default();
+            if let Err(e) = self.storage.upload_json(&lh_key, &lh_json).await {
+                tracing::warn!(url = %url, error = %e, "Failed to upload LH JSON");
             }
-        } else {
-            None
-        };
+            result.lh_r2_key = Some(lh_key);
+        }
 
         // Build extracted data
         let structured_data: Option<Vec<serde_json::Value>> = if self.config.extract_schema {

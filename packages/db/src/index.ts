@@ -5,3 +5,4 @@ export { projectQueries } from "./queries/projects";
 export { crawlQueries } from "./queries/crawls";
 export { pageQueries } from "./queries/pages";
 export { scoreQueries } from "./queries/scores";
+export { visibilityQueries } from "./queries/visibility";

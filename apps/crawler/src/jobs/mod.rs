@@ -2,8 +2,9 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
@@ -131,7 +132,7 @@ impl JobManager {
         }
     }
 
-    /// Execute the actual crawl job.
+    /// Execute the actual crawl job with concurrent page workers.
     async fn run_crawl_job(
         payload: CrawlJobPayload,
         entry: Arc<Mutex<JobEntry>>,
@@ -195,92 +196,134 @@ impl JobManager {
             None
         };
 
-        // Initialize CrawlEngine
-        let engine = CrawlEngine::new(
+        // Initialize CrawlEngine wrapped in Arc for sharing across workers
+        let engine = Arc::new(CrawlEngine::new(
             fetcher,
             lighthouse_runner,
             storage,
             robots,
             crawl_config.clone(),
-        );
+        ));
+
+        // Reuse a single HTTP client for all callbacks
+        let callback_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("Failed to build callback client");
 
         // Initialize frontier
         let mut frontier = Frontier::new(&crawl_config.seed_urls, crawl_config.max_depth);
+        let max_workers = config.max_concurrent_fetches;
 
         let mut pages_crawled: u32 = 0;
         let mut pages_errored: u32 = 0;
         let mut batch_pages: Vec<CrawlPageResult> = Vec::new();
         let mut batch_index: u32 = 0;
         let mut last_batch_time = Instant::now();
+        let mut join_set: JoinSet<(String, u32, Result<CrawlPageResult, CrawlEngineError>)> =
+            JoinSet::new();
 
-        while let Some((url, depth)) = frontier.next() {
-            // Check cancellation
-            if cancel_token.is_cancelled() {
-                tracing::info!(job_id = %payload.job_id, "Job cancelled");
+        loop {
+            // Fill worker slots from the frontier
+            while join_set.len() < max_workers {
+                // Don't exceed max pages (count in-flight tasks too)
+                if pages_crawled + join_set.len() as u32 >= crawl_config.max_pages {
+                    break;
+                }
+                if let Some((url, depth)) = frontier.next() {
+                    let eng = engine.clone();
+                    let jid = payload.job_id.clone();
+                    join_set.spawn(async move {
+                        let result = eng.crawl_page(&url, &jid).await;
+                        (url, depth, result)
+                    });
+                } else {
+                    break;
+                }
+            }
+
+            // No more work: frontier empty and all workers finished
+            if join_set.is_empty() {
                 break;
             }
 
-            // Check max pages
-            if pages_crawled >= crawl_config.max_pages {
-                tracing::info!(job_id = %payload.job_id, "Max pages reached");
-                break;
-            }
-
-            match engine.crawl_page(&url, &payload.job_id).await {
-                Ok(page_result) => {
-                    // Add discovered links to frontier
-                    if crawl_config.extract_links {
-                        frontier.add_discovered(&page_result.extracted.internal_links, depth + 1);
+            // Wait for the next worker to finish, or cancellation
+            tokio::select! {
+                biased;
+                _ = cancel_token.cancelled() => {
+                    tracing::info!(job_id = %payload.job_id, "Job cancelled");
+                    join_set.abort_all();
+                    break;
+                }
+                Some(result) = join_set.join_next() => {
+                    match result {
+                        Ok((_url, depth, Ok(page_result))) => {
+                            if crawl_config.extract_links {
+                                frontier.add_discovered(
+                                    &page_result.extracted.internal_links,
+                                    depth + 1,
+                                );
+                            }
+                            batch_pages.push(page_result);
+                            pages_crawled += 1;
+                        }
+                        Ok((_url, _, Err(CrawlEngineError::BlockedByRobots(u)))) => {
+                            tracing::debug!(url = %u, "Blocked by robots.txt");
+                        }
+                        Ok((url, _, Err(e))) => {
+                            tracing::warn!(url = %url, error = %e, "Crawl failed");
+                            pages_errored += 1;
+                        }
+                        Err(e) => {
+                            tracing::error!("Worker task panicked: {}", e);
+                            pages_errored += 1;
+                        }
                     }
 
-                    batch_pages.push(page_result);
-                    pages_crawled += 1;
+                    // Update stats
+                    {
+                        let mut e = entry.lock().await;
+                        e.stats = Some(CrawlStats {
+                            pages_found: frontier.pending_count() as u32
+                                + pages_crawled
+                                + pages_errored,
+                            pages_crawled,
+                            pages_errored,
+                            elapsed_s: job_start.elapsed().as_secs_f64(),
+                        });
+                    }
+
+                    // Send batch every 10 pages or 30 seconds
+                    let should_send_batch =
+                        batch_pages.len() >= 10 || last_batch_time.elapsed().as_secs() >= 30;
+
+                    if should_send_batch && !batch_pages.is_empty() {
+                        let batch = CrawlResultBatch {
+                            job_id: payload.job_id.clone(),
+                            batch_index,
+                            is_final: false,
+                            pages: std::mem::take(&mut batch_pages),
+                            stats: CrawlStats {
+                                pages_found: frontier.pending_count() as u32
+                                    + pages_crawled
+                                    + pages_errored,
+                                pages_crawled,
+                                pages_errored,
+                                elapsed_s: job_start.elapsed().as_secs_f64(),
+                            },
+                        };
+
+                        Self::send_callback(
+                            &callback_client,
+                            &payload.callback_url,
+                            &batch,
+                            &config.shared_secret,
+                        )
+                        .await;
+                        batch_index += 1;
+                        last_batch_time = Instant::now();
+                    }
                 }
-                Err(CrawlEngineError::BlockedByRobots(_)) => {
-                    tracing::debug!(url = %url, "Blocked by robots.txt");
-                    // Do not count as error or crawled, just skip
-                    continue;
-                }
-                Err(e) => {
-                    tracing::warn!(url = %url, error = %e, "Crawl failed");
-                    pages_errored += 1;
-                }
-            }
-
-            // Update stats in the entry
-            {
-                let mut e = entry.lock().await;
-                e.stats = Some(CrawlStats {
-                    pages_found: frontier.pending_count() as u32 + pages_crawled + pages_errored,
-                    pages_crawled,
-                    pages_errored,
-                    elapsed_s: job_start.elapsed().as_secs_f64(),
-                });
-            }
-
-            // Send batch every 10 pages or 30 seconds
-            let should_send_batch =
-                batch_pages.len() >= 10 || last_batch_time.elapsed().as_secs() >= 30;
-
-            if should_send_batch && !batch_pages.is_empty() {
-                let batch = CrawlResultBatch {
-                    job_id: payload.job_id.clone(),
-                    batch_index,
-                    is_final: false,
-                    pages: std::mem::take(&mut batch_pages),
-                    stats: CrawlStats {
-                        pages_found: frontier.pending_count() as u32
-                            + pages_crawled
-                            + pages_errored,
-                        pages_crawled,
-                        pages_errored,
-                        elapsed_s: job_start.elapsed().as_secs_f64(),
-                    },
-                };
-
-                Self::send_callback(&payload.callback_url, &batch, &config.shared_secret).await;
-                batch_index += 1;
-                last_batch_time = Instant::now();
             }
         }
 
@@ -300,7 +343,13 @@ impl JobManager {
             stats: final_stats.clone(),
         };
 
-        Self::send_callback(&payload.callback_url, &final_batch, &config.shared_secret).await;
+        Self::send_callback(
+            &callback_client,
+            &payload.callback_url,
+            &final_batch,
+            &config.shared_secret,
+        )
+        .await;
 
         // Update final status
         {
@@ -321,7 +370,13 @@ impl JobManager {
     }
 
     /// POST a CrawlResultBatch to the callback URL with HMAC-SHA256 authentication.
-    async fn send_callback(callback_url: &str, batch: &CrawlResultBatch, secret: &str) {
+    /// Accepts a pre-built client to reuse TCP connections across batches.
+    async fn send_callback(
+        client: &reqwest::Client,
+        callback_url: &str,
+        batch: &CrawlResultBatch,
+        secret: &str,
+    ) {
         let body = match serde_json::to_string(batch) {
             Ok(b) => b,
             Err(e) => {
@@ -343,7 +398,6 @@ impl JobManager {
         mac.update(body.as_bytes());
         let signature = format!("hmac-sha256={}", hex::encode(mac.finalize().into_bytes()));
 
-        let client = reqwest::Client::new();
         match client
             .post(callback_url)
             .header("Content-Type", "application/json")

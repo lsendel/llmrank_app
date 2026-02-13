@@ -87,24 +87,19 @@ pageRoutes.get("/job/:jobId", async (c) => {
     return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
   }
 
-  const pageList = await pageQueries(db).listByJob(jobId);
-  const pagesWithScores = await Promise.all(
-    pageList.map(async (page) => {
-      const [score, issueList] = await Promise.all([
-        scoreQueries(db).getByPage(page.id),
-        scoreQueries(db).getIssuesByPage(page.id),
-      ]);
-      return {
-        ...page,
-        overall_score: score?.overallScore ?? null,
-        technical_score: score?.technicalScore ?? null,
-        content_score: score?.contentScore ?? null,
-        ai_readiness_score: score?.aiReadinessScore ?? null,
-        letter_grade: score ? letterGrade(score.overallScore) : null,
-        issue_count: issueList.length,
-      };
-    }),
-  );
+  // 3 parallel queries instead of 2N (eliminates N+1)
+  const scoresWithPages = await scoreQueries(db).listByJobWithPages(jobId);
+
+  const pagesWithScores = scoresWithPages.map((s) => ({
+    ...(s.page ?? {}),
+    id: s.page?.id ?? s.pageId,
+    overall_score: s.overallScore,
+    technical_score: s.technicalScore ?? null,
+    content_score: s.contentScore ?? null,
+    ai_readiness_score: s.aiReadinessScore ?? null,
+    letter_grade: letterGrade(s.overallScore),
+    issue_count: s.issueCount,
+  }));
 
   return c.json({
     data: pagesWithScores,

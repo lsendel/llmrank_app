@@ -5,6 +5,8 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
+use tokio::sync::RwLock;
+use url::Url;
 
 #[derive(Error, Debug)]
 pub enum FetchError {
@@ -23,41 +25,79 @@ pub struct FetchResult {
     pub final_url: String,
 }
 
-/// HTTP fetcher with built-in rate limiting via `governor`.
+type DomainLimiter = RateLimiter<
+    governor::state::NotKeyed,
+    governor::state::InMemoryState,
+    governor::clock::DefaultClock,
+>;
+
+/// HTTP fetcher with per-domain rate limiting.
+///
+/// Each domain gets its own rate limiter so crawling subdomain assets
+/// or future multi-domain support won't bottleneck on a single limiter.
+#[derive(Clone)]
 pub struct RateLimitedFetcher {
     client: Client,
-    limiter: Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>,
+    domain_limiters: Arc<RwLock<HashMap<String, Arc<DomainLimiter>>>>,
+    rate_per_second: u32,
 }
 
 impl RateLimitedFetcher {
     /// Create a new rate-limited fetcher.
     ///
-    /// - `rate_per_second`: maximum requests per second (e.g. 2)
+    /// - `rate_per_second`: maximum requests per second per domain (e.g. 2)
     /// - `timeout_secs`: per-request timeout in seconds (e.g. 30)
     /// - `user_agent`: custom User-Agent header string
     pub fn new(rate_per_second: u32, timeout_secs: u64, user_agent: &str) -> Self {
-        let rate = NonZeroU32::new(rate_per_second.max(1)).unwrap();
-        let quota = Quota::per_second(rate);
-        let limiter = Arc::new(RateLimiter::direct(quota));
-
         let client = Client::builder()
             .user_agent(user_agent)
             .timeout(Duration::from_secs(timeout_secs))
             .redirect(reqwest::redirect::Policy::limited(10))
             .gzip(true)
+            .pool_max_idle_per_host(20)
             .build()
             .expect("Failed to build HTTP client");
 
-        RateLimitedFetcher { client, limiter }
+        RateLimitedFetcher {
+            client,
+            domain_limiters: Arc::new(RwLock::new(HashMap::new())),
+            rate_per_second: rate_per_second.max(1),
+        }
+    }
+
+    /// Get or create a rate limiter for the given domain.
+    async fn get_limiter(&self, domain: &str) -> Arc<DomainLimiter> {
+        // Fast path: check read lock
+        {
+            let limiters = self.domain_limiters.read().await;
+            if let Some(limiter) = limiters.get(domain) {
+                return limiter.clone();
+            }
+        }
+
+        // Slow path: create new limiter under write lock
+        let mut limiters = self.domain_limiters.write().await;
+        limiters
+            .entry(domain.to_string())
+            .or_insert_with(|| {
+                let rate = NonZeroU32::new(self.rate_per_second).unwrap();
+                let quota = Quota::per_second(rate);
+                Arc::new(RateLimiter::direct(quota))
+            })
+            .clone()
     }
 
     /// Fetch a URL, waiting for rate limit clearance first.
-    /// Returns a `FetchResult` with status, body, headers, and final URL (after redirects).
+    /// Rate limiting is applied per-domain.
     pub async fn fetch(&self, url: &str) -> Result<FetchResult, FetchError> {
-        // Wait for rate limiter
-        self.limiter
-            .until_ready()
-            .await;
+        // Extract domain for per-domain rate limiting
+        let domain = Url::parse(url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
+            .unwrap_or_default();
+
+        let limiter = self.get_limiter(&domain).await;
+        limiter.until_ready().await;
 
         let response = self.client.get(url).send().await?;
 

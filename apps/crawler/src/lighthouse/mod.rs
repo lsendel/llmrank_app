@@ -18,6 +18,7 @@ pub enum LighthouseError {
 }
 
 /// Lighthouse runner that limits concurrency via a semaphore.
+#[derive(Clone)]
 pub struct LighthouseRunner {
     semaphore: Arc<Semaphore>,
     timeout_secs: u64,

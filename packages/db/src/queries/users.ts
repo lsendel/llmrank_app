@@ -35,6 +35,15 @@ export function userQueries(db: Database) {
       return user;
     },
 
+    async updateProfile(id: string, data: { name?: string; phone?: string }) {
+      const [updated] = await db
+        .update(users)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return updated;
+    },
+
     async updatePlan(id: string, plan: Plan, stripeSubId?: string) {
       await db
         .update(users)

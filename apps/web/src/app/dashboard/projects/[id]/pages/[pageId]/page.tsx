@@ -1,0 +1,593 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import {
+  ArrowLeft,
+  Globe,
+  Code2,
+  FileText,
+  LayoutList,
+  Gauge,
+  Bug,
+  Brain,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScoreCircle } from "@/components/score-circle";
+import { IssueCard } from "@/components/issue-card";
+import { cn } from "@/lib/utils";
+import { useApi } from "@/lib/use-api";
+import { api, type PageScoreDetail } from "@/lib/api";
+
+function gradeColor(score: number): string {
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  return "text-destructive";
+}
+
+function scoreBarColor(score: number): string {
+  if (score >= 80) return "bg-success";
+  if (score >= 60) return "bg-warning";
+  if (score >= 40) return "bg-orange-500";
+  return "bg-destructive";
+}
+
+export default function PageDetailPage() {
+  const params = useParams<{ id: string; pageId: string }>();
+  const { withToken } = useApi();
+
+  const [page, setPage] = useState<PageScoreDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    withToken(async (token) => {
+      const data = await api.scores.getPage(token, params.pageId);
+      setPage(data);
+    })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [withToken, params.pageId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-muted-foreground">Loading page analysis...</p>
+      </div>
+    );
+  }
+
+  if (!page) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <p className="text-muted-foreground">Page not found.</p>
+      </div>
+    );
+  }
+
+  const detail = page.score?.detail ?? {};
+  const extracted = (detail.extracted ?? {}) as Record<string, unknown>;
+  const lighthouse = detail.lighthouse as Record<string, number> | null;
+  const llmScores = detail.llmContentScores as Record<string, number> | null;
+
+  return (
+    <div className="space-y-8">
+      {/* Back + header */}
+      <div>
+        <Link
+          href={`/dashboard/projects/${params.id}`}
+          className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Project
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Page Analysis</h1>
+          <p className="mt-0.5 font-mono text-sm text-muted-foreground">
+            {page.url}
+          </p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="overview">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="overview">
+            <Globe className="mr-1.5 h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="technical">
+            <Code2 className="mr-1.5 h-4 w-4" />
+            Technical
+          </TabsTrigger>
+          <TabsTrigger value="content">
+            <FileText className="mr-1.5 h-4 w-4" />
+            Content
+          </TabsTrigger>
+          <TabsTrigger value="structure">
+            <LayoutList className="mr-1.5 h-4 w-4" />
+            Structure
+          </TabsTrigger>
+          <TabsTrigger value="performance">
+            <Gauge className="mr-1.5 h-4 w-4" />
+            Performance
+          </TabsTrigger>
+          <TabsTrigger value="issues">
+            <Bug className="mr-1.5 h-4 w-4" />
+            Issues ({page.issues.length})
+          </TabsTrigger>
+          {llmScores && (
+            <TabsTrigger value="llm-quality">
+              <Brain className="mr-1.5 h-4 w-4" />
+              LLM Quality
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6 pt-4">
+          {page.score ? (
+            <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+              <Card className="flex items-center justify-center p-8">
+                <ScoreCircle
+                  score={page.score.overallScore}
+                  size={160}
+                  label="Overall Score"
+                />
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Category Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {[
+                    {
+                      label: "Technical SEO",
+                      score: page.score.technicalScore,
+                    },
+                    {
+                      label: "Content Quality",
+                      score: page.score.contentScore,
+                    },
+                    {
+                      label: "AI Readiness",
+                      score: page.score.aiReadinessScore,
+                    },
+                    {
+                      label: "Performance",
+                      score: (detail.performanceScore as number) ?? null,
+                    },
+                  ].map((cat) => (
+                    <div key={cat.label} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{cat.label}</span>
+                        <span
+                          className={cn(
+                            "font-semibold",
+                            cat.score != null ? gradeColor(cat.score) : "",
+                          )}
+                        >
+                          {cat.score != null
+                            ? `${Math.round(cat.score)} / 100`
+                            : "--"}
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            cat.score != null
+                              ? scoreBarColor(cat.score)
+                              : "bg-muted",
+                          )}
+                          style={{ width: `${cat.score ?? 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">No score data available.</p>
+            </Card>
+          )}
+
+          {/* Key metrics */}
+          <div className="grid gap-4 sm:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground">Status Code</p>
+                <p className="text-2xl font-bold">
+                  <Badge
+                    variant={
+                      page.statusCode === 200 ? "success" : "destructive"
+                    }
+                  >
+                    {page.statusCode ?? "--"}
+                  </Badge>
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground">Word Count</p>
+                <p className="text-2xl font-bold">{page.wordCount ?? "--"}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground">Title</p>
+                <p className="text-sm font-medium truncate">
+                  {page.title ?? "--"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground">Grade</p>
+                <p
+                  className={cn(
+                    "text-2xl font-bold",
+                    page.score ? gradeColor(page.score.overallScore) : "",
+                  )}
+                >
+                  {page.score?.letterGrade ?? "--"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Technical Tab */}
+        <TabsContent value="technical" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Technical Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <DetailRow label="Canonical URL" value={page.canonicalUrl} />
+              <DetailRow label="Meta Description" value={page.metaDesc} />
+              <DetailRow
+                label="HTTP Status"
+                value={page.statusCode?.toString()}
+              />
+              <DetailRow
+                label="Robots Directives"
+                value={
+                  Array.isArray(extracted.robots_directives)
+                    ? (extracted.robots_directives as string[]).join(", ") ||
+                      "None"
+                    : "N/A"
+                }
+              />
+              <DetailRow
+                label="Has Robots Meta"
+                value={
+                  extracted.has_robots_meta != null
+                    ? String(extracted.has_robots_meta)
+                    : "N/A"
+                }
+              />
+              <DetailRow
+                label="Schema Types"
+                value={
+                  Array.isArray(extracted.schema_types)
+                    ? (extracted.schema_types as string[]).join(", ") ||
+                      "None found"
+                    : "N/A"
+                }
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Content Tab */}
+        <TabsContent value="content" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Heading Hierarchy</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map((tag) => {
+                const headings = (extracted[tag] as string[]) ?? [];
+                if (headings.length === 0) return null;
+                return (
+                  <div key={tag}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                      {tag.toUpperCase()} ({headings.length})
+                    </p>
+                    <ul className="space-y-1">
+                      {headings.map((h, i) => (
+                        <li
+                          key={i}
+                          className="text-sm pl-2 border-l-2 border-muted"
+                        >
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+              {!extracted.h1 && (
+                <p className="text-sm text-muted-foreground">
+                  No extracted heading data available.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Content Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <DetailRow
+                label="Word Count"
+                value={page.wordCount?.toLocaleString()}
+              />
+              <DetailRow label="Content Hash" value={page.contentHash} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Structure Tab */}
+        <TabsContent value="structure" className="space-y-4 pt-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Schema.org Types</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(extracted.schema_types) &&
+                (extracted.schema_types as string[]).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {(extracted.schema_types as string[]).map((type, i) => (
+                      <Badge key={i} variant="secondary">
+                        {type}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No Schema.org types found.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Open Graph Tags</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {extracted.og_tags &&
+                typeof extracted.og_tags === "object" &&
+                Object.keys(extracted.og_tags as object).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(
+                      extracted.og_tags as Record<string, string>,
+                    ).map(([key, val]) => (
+                      <DetailRow key={key} label={key} value={val} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No OG tags found.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Internal Links</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(extracted.internal_links) ? (
+                  <p className="text-2xl font-bold">
+                    {(extracted.internal_links as string[]).length}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">N/A</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">External Links</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Array.isArray(extracted.external_links) ? (
+                  <p className="text-2xl font-bold">
+                    {(extracted.external_links as string[]).length}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">N/A</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {extracted.images_without_alt != null && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Images Without Alt Text
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p
+                  className={cn(
+                    "text-2xl font-bold",
+                    (extracted.images_without_alt as number) > 0
+                      ? "text-destructive"
+                      : "text-success",
+                  )}
+                >
+                  {extracted.images_without_alt as number}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Performance Tab */}
+        <TabsContent value="performance" className="space-y-4 pt-4">
+          {lighthouse ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: "Performance", key: "performance" },
+                { label: "SEO", key: "seo" },
+                { label: "Accessibility", key: "accessibility" },
+                { label: "Best Practices", key: "best_practices" },
+              ].map(({ label, key }) => {
+                const raw = lighthouse[key];
+                const score = raw != null ? Math.round(raw * 100) : null;
+                return (
+                  <Card
+                    key={key}
+                    className="flex items-center justify-center p-6"
+                  >
+                    <ScoreCircle score={score ?? 0} size={120} label={label} />
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">
+                No Lighthouse data available for this page.
+              </p>
+            </Card>
+          )}
+
+          {page.score?.lighthousePerf != null && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Stored Lighthouse Scores
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <DetailRow
+                  label="Lighthouse Performance"
+                  value={`${Math.round(page.score.lighthousePerf * 100)}%`}
+                />
+                <DetailRow
+                  label="Lighthouse SEO"
+                  value={
+                    page.score.lighthouseSeo != null
+                      ? `${Math.round(page.score.lighthouseSeo * 100)}%`
+                      : undefined
+                  }
+                />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Issues Tab */}
+        <TabsContent value="issues" className="space-y-3 pt-4">
+          {page.issues.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">
+                No issues found for this page.
+              </p>
+            </Card>
+          ) : (
+            page.issues.map((issue, i) => (
+              <IssueCard key={`${issue.code}-${i}`} {...issue} />
+            ))
+          )}
+        </TabsContent>
+
+        {/* LLM Quality Tab */}
+        {llmScores && (
+          <TabsContent value="llm-quality" className="space-y-4 pt-4">
+            <LLMQualityTab scores={llmScores} />
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}
+
+// ─── Detail row helper ──────────────────────────────────────────
+
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-start gap-3 py-1">
+      <span className="w-40 shrink-0 text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-sm break-all">{value ?? "--"}</span>
+    </div>
+  );
+}
+
+// ─── LLM Quality Tab ────────────────────────────────────────────
+
+function LLMQualityTab({ scores }: { scores: Record<string, number> }) {
+  const dimensions = [
+    { key: "clarity", label: "Clarity" },
+    { key: "authority", label: "Authority" },
+    { key: "comprehensiveness", label: "Comprehensiveness" },
+    { key: "structure", label: "Structure" },
+    { key: "citation_worthiness", label: "Citation Worthiness" },
+  ];
+
+  const avg = Math.round(
+    dimensions.reduce((sum, d) => sum + (scores[d.key] ?? 0), 0) /
+      dimensions.length,
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+        <Card className="flex items-center justify-center p-8">
+          <ScoreCircle score={avg} size={140} label="LLM Quality" />
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Content Quality Dimensions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {dimensions.map((dim) => {
+              const score = scores[dim.key] ?? 0;
+              return (
+                <div key={dim.key} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{dim.label}</span>
+                    <span className={cn("font-semibold", gradeColor(score))}>
+                      {score} / 100
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        scoreBarColor(score),
+                      )}
+                      style={{ width: `${score}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

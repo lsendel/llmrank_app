@@ -205,7 +205,7 @@ export default function PagesPage() {
                   <SortHeader field="title">Title</SortHeader>
                   <SortHeader field="overallScore">Score</SortHeader>
                   <SortHeader field="issueCount">Issues</SortHeader>
-                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -261,11 +261,13 @@ export default function PagesPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          {expandedRow === page.id ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          )}
+                          <Link
+                            href={`/dashboard/projects/${params.id}/pages/${page.id}`}
+                            className="text-sm font-medium text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Details
+                          </Link>
                         </TableCell>
                       </TableRow>
                       {expandedRow === page.id && (
