@@ -143,6 +143,19 @@ importers:
         specifier: ^4
         version: 4.65.0(@cloudflare/workers-types@4.20260213.0)
 
+  packages/billing:
+    dependencies:
+      '@llm-boost/db':
+        specifier: workspace:*
+        version: link:../db
+      '@llm-boost/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/db:
     dependencies:
       '@llm-boost/shared':
