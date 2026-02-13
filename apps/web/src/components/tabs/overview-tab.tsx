@@ -1,0 +1,143 @@
+"use client";
+
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScoreCircle } from "@/components/score-circle";
+import { IssueCard } from "@/components/issue-card";
+import { QuickWinsCard } from "@/components/quick-wins-card";
+import { cn } from "@/lib/utils";
+import type { CrawlJob, PageIssue } from "@/lib/api";
+
+function scoreBarColor(score: number): string {
+  if (score >= 80) return "bg-success";
+  if (score >= 60) return "bg-warning";
+  if (score >= 40) return "bg-orange-500";
+  return "bg-destructive";
+}
+
+function gradeColor(score: number): string {
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  return "text-destructive";
+}
+
+export function OverviewTab({
+  latestCrawl,
+  issues,
+  projectId,
+}: {
+  latestCrawl: CrawlJob | null | undefined;
+  issues: PageIssue[];
+  projectId: string;
+}) {
+  const hasScores = latestCrawl?.scores != null;
+
+  if (!hasScores) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">
+          No crawl data yet. Click &quot;Run Crawl&quot; to analyze this site.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      {/* Hero section with ScoreCircle */}
+      <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+        <Card className="flex items-center justify-center p-8">
+          <ScoreCircle
+            score={latestCrawl!.overallScore ?? 0}
+            size={160}
+            label="Overall Score"
+          />
+        </Card>
+
+        {/* Category breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Category Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {[
+              {
+                key: "technical",
+                label: "Technical SEO",
+                score: latestCrawl!.scores!.technical,
+              },
+              {
+                key: "content",
+                label: "Content Quality",
+                score: latestCrawl!.scores!.content,
+              },
+              {
+                key: "aiReadiness",
+                label: "AI Readiness",
+                score: latestCrawl!.scores!.aiReadiness,
+              },
+              {
+                key: "performance",
+                label: "Performance",
+                score: latestCrawl!.scores!.performance,
+              },
+            ].map((cat) => (
+              <div key={cat.key} className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{cat.label}</span>
+                  <span className={cn("font-semibold", gradeColor(cat.score))}>
+                    {cat.score} / 100
+                  </span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      scoreBarColor(cat.score),
+                    )}
+                    style={{ width: `${cat.score}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Wins */}
+      {latestCrawl?.id && <QuickWinsCard crawlId={latestCrawl.id} />}
+
+      {/* View All Pages link */}
+      {latestCrawl?.status === "complete" && (
+        <div className="flex justify-end">
+          <Link
+            href={`/dashboard/projects/${projectId}/pages`}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            View All Pages →
+          </Link>
+        </div>
+      )}
+
+      {/* Top Issues */}
+      {issues.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Top Issues</h2>
+            <Link
+              href={`/dashboard/projects/${projectId}/issues`}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              View all issues
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {issues.slice(0, 5).map((issue) => (
+              <IssueCard key={issue.code} {...issue} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

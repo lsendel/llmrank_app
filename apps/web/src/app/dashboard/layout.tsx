@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { LayoutDashboard, FolderKanban, Settings } from "lucide-react";
@@ -10,14 +10,37 @@ const sidebarLinks = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
+async function checkOnboarding(token: string): Promise<boolean> {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+  try {
+    const res = await fetch(`${apiBase}/api/account`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return false;
+    const { data } = await res.json();
+    return !!data?.phone;
+  } catch {
+    return false;
+  }
+}
+
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     redirect("/sign-in");
+  }
+
+  const token = await getToken();
+  if (token) {
+    const hasPhone = await checkOnboarding(token);
+    if (!hasPhone) {
+      redirect("/onboarding");
+    }
   }
 
   return (

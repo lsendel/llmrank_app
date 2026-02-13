@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { CheckCircle, XCircle, AlertTriangle, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useApi } from "@/lib/use-api";
+import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type PlatformReadinessResult } from "@/lib/api";
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -29,16 +28,13 @@ function passRateColor(rate: number): string {
 }
 
 export function PlatformReadinessMatrix({ crawlId }: { crawlId: string }) {
-  const { withToken } = useApi();
-  const [matrix, setMatrix] = useState<PlatformReadinessResult[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    withToken((token) => api.platformReadiness.get(token, crawlId))
-      .then(setMatrix)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [withToken, crawlId]);
+  const { data: matrix, isLoading: loading } = useApiSWR(
+    `platform-readiness-${crawlId}`,
+    useCallback(
+      (token: string) => api.platformReadiness.get(token, crawlId),
+      [crawlId],
+    ),
+  );
 
   if (loading) {
     return (
@@ -56,7 +52,7 @@ export function PlatformReadinessMatrix({ crawlId }: { crawlId: string }) {
     );
   }
 
-  if (matrix.length === 0) return null;
+  if (!matrix || matrix.length === 0) return null;
 
   return (
     <Card>
@@ -77,7 +73,7 @@ export function PlatformReadinessMatrix({ crawlId }: { crawlId: string }) {
                 {matrix.map((platform) => (
                   <th
                     key={platform.platform}
-                    className="pb-3 px-3 text-center font-medium"
+                    className="px-3 pb-3 text-center font-medium"
                   >
                     <div className="flex flex-col items-center gap-1">
                       <span>{PLATFORM_ICONS[platform.platform] ?? "🔹"}</span>
@@ -96,7 +92,6 @@ export function PlatformReadinessMatrix({ crawlId }: { crawlId: string }) {
               </tr>
             </thead>
             <tbody>
-              {/* Gather all unique factors across platforms */}
               {getAllFactors(matrix).map((factor) => (
                 <tr key={factor} className="border-b last:border-0">
                   <td className="py-2.5 pr-4 text-muted-foreground">
@@ -109,7 +104,7 @@ export function PlatformReadinessMatrix({ crawlId }: { crawlId: string }) {
                     return (
                       <td
                         key={platform.platform}
-                        className="py-2.5 px-3 text-center"
+                        className="px-3 py-2.5 text-center"
                       >
                         {check ? (
                           check.pass ? (

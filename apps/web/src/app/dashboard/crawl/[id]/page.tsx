@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ExternalLink, Share2, Copy, Check } from "lucide-react";
@@ -14,8 +14,9 @@ import {
 import { ScoreCircle } from "@/components/score-circle";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
+import { useApiSWR } from "@/lib/use-api-swr";
 import { Button } from "@/components/ui/button";
-import { api, ApiError, type CrawlJob } from "@/lib/api";
+import { api } from "@/lib/api";
 
 function scoreColor(score: number): string {
   if (score >= 80) return "text-success";
@@ -25,60 +26,32 @@ function scoreColor(score: number): string {
 
 export default function CrawlDetailPage() {
   const params = useParams<{ id: string }>();
-  const { withToken } = useApi();
+  const [pollInterval, setPollInterval] = useState(3000);
 
-  const [crawl, setCrawl] = useState<CrawlJob | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const fetchCrawl = useCallback(async () => {
-    try {
-      const data = await withToken((token) => api.crawls.get(token, params.id));
-      setCrawl(data);
-      return data;
-    } catch (err) {
-      // Only set error on initial load, not during polling
-      if (!crawl) {
-        setError(err instanceof Error ? err.message : "Failed to load crawl");
-      }
-      return null;
-    }
-  }, [withToken, params.id, crawl]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchCrawl().finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Poll every 3 seconds while crawl is active
-  useEffect(() => {
-    if (!crawl || !isActiveCrawlStatus(crawl.status as CrawlStatus)) {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-      return;
-    }
-
-    pollRef.current = setInterval(async () => {
-      const data = await fetchCrawl();
-      if (data && !isActiveCrawlStatus(data.status as CrawlStatus)) {
-        if (pollRef.current) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
+  const {
+    data: crawl,
+    error,
+    isLoading: loading,
+  } = useApiSWR(
+    `crawl-${params.id}`,
+    useCallback(
+      (token: string) => api.crawls.get(token, params.id),
+      [params.id],
+    ),
+    {
+      refreshInterval: pollInterval,
+      onSuccess: (data) => {
+        if (!isActiveCrawlStatus(data.status as CrawlStatus)) {
+          setPollInterval(0); // stop polling
+        } else {
+          // Exponential backoff: 3s → 4.5s → 6.75s → ... → 30s cap
+          setPollInterval((prev) =>
+            prev === 0 ? 0 : Math.min(Math.round(prev * 1.5), 30_000),
+          );
         }
-      }
-    }, 3000);
-
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
-  }, [crawl?.status, fetchCrawl]);
+      },
+    },
+  );
 
   if (loading) {
     return (
@@ -91,12 +64,13 @@ export default function CrawlDetailPage() {
   if (error || !crawl) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">{error ?? "Crawl not found."}</p>
+        <p className="text-muted-foreground">
+          {error instanceof Error ? error.message : "Crawl not found."}
+        </p>
       </div>
     );
   }
 
-  // Show friendly message when crawler service is not yet available
   const isCrawlerUnavailable =
     crawl.status === "failed" &&
     crawl.errorMessage?.toLowerCase().includes("not yet available");

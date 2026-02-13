@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useApi } from "@/lib/use-api";
+import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type Project } from "@/lib/api";
 
 function gradeColor(score: number): string {
@@ -30,18 +30,12 @@ function gradeLabel(score: number): string {
 }
 
 export default function ProjectsPage() {
-  const { withToken } = useApi();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: result, isLoading: loading } = useApiSWR(
+    "projects-list",
+    useCallback((token: string) => api.projects.list(token), []),
+  );
 
-  useEffect(() => {
-    withToken(async (token) => {
-      const result = await api.projects.list(token);
-      setProjects(result.data);
-    })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [withToken]);
+  const projects = result?.data ?? [];
 
   if (loading) {
     return (

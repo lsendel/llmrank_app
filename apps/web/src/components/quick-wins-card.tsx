@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { Zap, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useApi } from "@/lib/use-api";
-import { api, type QuickWin } from "@/lib/api";
+import { useApiSWR } from "@/lib/use-api-swr";
+import { api } from "@/lib/api";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -15,17 +15,14 @@ const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function QuickWinsCard({ crawlId }: { crawlId: string }) {
-  const { withToken } = useApi();
-  const [wins, setWins] = useState<QuickWin[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: wins, isLoading: loading } = useApiSWR(
+    `quick-wins-${crawlId}`,
+    useCallback(
+      (token: string) => api.quickWins.get(token, crawlId),
+      [crawlId],
+    ),
+  );
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
-
-  useEffect(() => {
-    withToken((token) => api.quickWins.get(token, crawlId))
-      .then(setWins)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [withToken, crawlId]);
 
   if (loading) {
     return (
@@ -43,7 +40,7 @@ export function QuickWinsCard({ crawlId }: { crawlId: string }) {
     );
   }
 
-  if (wins.length === 0) return null;
+  if (!wins || wins.length === 0) return null;
 
   return (
     <Card>

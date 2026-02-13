@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useApi } from "@/lib/use-api";
+import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type DashboardStats, type DashboardActivity } from "@/lib/api";
 
 function gradeColor(score: number): string {
@@ -59,25 +59,19 @@ function getStatusBadgeVariant(
 
 export default function DashboardPage() {
   const { user } = useUser();
-  const { withToken } = useApi();
   const firstName = user?.firstName ?? "there";
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activity, setActivity] = useState<DashboardActivity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: stats, isLoading: statsLoading } = useApiSWR(
+    "dashboard-stats",
+    useCallback((token: string) => api.dashboard.getStats(token), []),
+  );
 
-  useEffect(() => {
-    withToken(async (token) => {
-      const [s, a] = await Promise.all([
-        api.dashboard.getStats(token),
-        api.dashboard.getRecentActivity(token),
-      ]);
-      setStats(s);
-      setActivity(a);
-    })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [withToken]);
+  const { data: activity, isLoading: activityLoading } = useApiSWR(
+    "dashboard-activity",
+    useCallback((token: string) => api.dashboard.getRecentActivity(token), []),
+  );
+
+  const loading = statsLoading || activityLoading;
 
   if (loading) {
     return (
@@ -233,13 +227,13 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {activity.length === 0 ? (
+          {(activity ?? []).length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               No recent activity. Start a crawl to see results here.
             </p>
           ) : (
             <div className="space-y-0">
-              {activity.map((item, index) => (
+              {(activity ?? []).map((item, index) => (
                 <div key={item.id}>
                   {index > 0 && <div className="border-t border-border" />}
                   <div className="flex items-center justify-between py-3">

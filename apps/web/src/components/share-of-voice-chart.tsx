@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { TrendingUp } from "lucide-react";
 import {
   LineChart,
@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApi } from "@/lib/use-api";
+import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type VisibilityTrend } from "@/lib/api";
 
 const PROVIDER_COLORS: Record<string, string> = {
@@ -38,16 +38,13 @@ interface ChartDataPoint {
 }
 
 export function ShareOfVoiceChart({ projectId }: { projectId: string }) {
-  const { withToken } = useApi();
-  const [trends, setTrends] = useState<VisibilityTrend[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    withToken((token) => api.visibility.getTrends(token, projectId))
-      .then(setTrends)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [withToken, projectId]);
+  const { data: trends, isLoading: loading } = useApiSWR(
+    `sov-trends-${projectId}`,
+    useCallback(
+      (token: string) => api.visibility.getTrends(token, projectId),
+      [projectId],
+    ),
+  );
 
   if (loading) {
     return (
@@ -65,7 +62,7 @@ export function ShareOfVoiceChart({ projectId }: { projectId: string }) {
     );
   }
 
-  if (trends.length === 0) {
+  if (!trends || trends.length === 0) {
     return (
       <Card>
         <CardHeader>
