@@ -1,0 +1,23 @@
+{
+  "name": "@llm-boost/db",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "push": "drizzle-kit push",
+    "studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10",
+    "drizzle-orm": "^0.38",
+    "@llm-boost/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30",
+    "typescript": "^5.7"
+  }
+}

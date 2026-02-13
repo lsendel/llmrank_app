@@ -1,0 +1,225 @@
+import {
+  pgTable,
+  pgEnum,
+  text,
+  integer,
+  real,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+export const planEnum = pgEnum("plan", ["free", "starter", "pro", "agency"]);
+
+export const crawlStatusEnum = pgEnum("crawl_status", [
+  "pending",
+  "queued",
+  "crawling",
+  "scoring",
+  "complete",
+  "failed",
+  "cancelled",
+]);
+
+export const issueCategoryEnum = pgEnum("issue_category", [
+  "technical",
+  "content",
+  "ai_readiness",
+  "performance",
+  "schema",
+  "llm_visibility",
+]);
+
+export const issueSeverityEnum = pgEnum("issue_severity", [
+  "critical",
+  "warning",
+  "info",
+]);
+
+export const llmProviderEnum = pgEnum("llm_provider", [
+  "chatgpt",
+  "claude",
+  "perplexity",
+  "gemini",
+  "copilot",
+]);
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  avatarUrl: text("avatar_url"),
+  plan: planEnum("plan").notNull().default("free"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubId: text("stripe_sub_id"),
+  crawlCreditsRemaining: integer("crawl_credits_remaining")
+    .notNull()
+    .default(100),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    domain: text("domain").notNull(),
+    settings: jsonb("settings").default({}),
+    deletedAt: timestamp("deleted_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_projects_user").on(t.userId)],
+);
+
+// ---------------------------------------------------------------------------
+// Crawl Jobs
+// ---------------------------------------------------------------------------
+
+export const crawlJobs = pgTable(
+  "crawl_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    status: crawlStatusEnum("status").notNull().default("pending"),
+    config: jsonb("config").notNull(),
+    pagesFound: integer("pages_found").default(0),
+    pagesCrawled: integer("pages_crawled").default(0),
+    pagesScored: integer("pages_scored").default(0),
+    errorMessage: text("error_message"),
+    r2Prefix: text("r2_prefix"),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_jobs_project").on(t.projectId),
+    index("idx_jobs_status").on(t.status),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Pages
+// ---------------------------------------------------------------------------
+
+export const pages = pgTable(
+  "pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    canonicalUrl: text("canonical_url"),
+    statusCode: integer("status_code"),
+    title: text("title"),
+    metaDesc: text("meta_desc"),
+    contentHash: text("content_hash"),
+    wordCount: integer("word_count"),
+    r2RawKey: text("r2_raw_key"),
+    r2LhKey: text("r2_lh_key"),
+    crawledAt: timestamp("crawled_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_pages_job").on(t.jobId),
+    index("idx_pages_url").on(t.projectId, t.url),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Page Scores
+// ---------------------------------------------------------------------------
+
+export const pageScores = pgTable("page_scores", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pageId: uuid("page_id")
+    .notNull()
+    .references(() => pages.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id")
+    .notNull()
+    .references(() => crawlJobs.id, { onDelete: "cascade" }),
+  overallScore: real("overall_score").notNull(),
+  technicalScore: real("technical_score"),
+  contentScore: real("content_score"),
+  aiReadinessScore: real("ai_readiness_score"),
+  lighthousePerf: real("lighthouse_perf"),
+  lighthouseSeo: real("lighthouse_seo"),
+  detail: jsonb("detail"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Issues
+// ---------------------------------------------------------------------------
+
+export const issues = pgTable(
+  "issues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    category: issueCategoryEnum("category").notNull(),
+    severity: issueSeverityEnum("severity").notNull(),
+    code: text("code").notNull(),
+    message: text("message").notNull(),
+    recommendation: text("recommendation"),
+    data: jsonb("data"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_issues_page").on(t.pageId),
+    index("idx_issues_severity").on(t.jobId, t.severity),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Visibility Checks
+// ---------------------------------------------------------------------------
+
+export const visibilityChecks = pgTable(
+  "visibility_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    llmProvider: llmProviderEnum("llm_provider").notNull(),
+    query: text("query").notNull(),
+    responseText: text("response_text"),
+    brandMentioned: boolean("brand_mentioned").default(false),
+    urlCited: boolean("url_cited").default(false),
+    citationPosition: integer("citation_position"),
+    competitorMentions: jsonb("competitor_mentions"),
+    r2ResponseKey: text("r2_response_key"),
+    checkedAt: timestamp("checked_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)],
+);
