@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@llm-boost/billing": "workspace:*",
     "@llm-boost/db": "workspace:*",
     "@llm-boost/llm": "workspace:*",
     "@llm-boost/scoring": "workspace:*",

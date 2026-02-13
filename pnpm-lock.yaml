@@ -114,6 +114,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@llm-boost/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@llm-boost/db':
         specifier: workspace:*
         version: link:../db

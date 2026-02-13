@@ -4,6 +4,7 @@ export type {
   StripeSubscription,
   StripeInvoice,
   StripeCustomer,
+  StripeEvent,
 } from "./gateway";
 export {
   STRIPE_PLAN_MAP,

@@ -15,6 +15,7 @@ import { scoreRoutes } from "./routes/scores";
 import { dashboardRoutes } from "./routes/dashboard";
 import { accountRoutes } from "./routes/account";
 import { publicRoutes } from "./routes/public";
+import { adminRoutes } from "./routes/admin";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -30,6 +31,7 @@ export type Bindings = {
   GOOGLE_API_KEY: string;
   PERPLEXITY_API_KEY: string;
   STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
   CRAWLER_URL: string;
@@ -88,6 +90,7 @@ app.route("/api/scores", scoreRoutes);
 app.route("/api/dashboard", dashboardRoutes);
 app.route("/api/account", accountRoutes);
 app.route("/api/public", publicRoutes);
+app.route("/api/admin", adminRoutes);
 
 // Fallback
 app.notFound((c) => {
