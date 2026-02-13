@@ -1,15 +1,17 @@
-# LLM Boost MVP Implementation Plan
+# LLM Boost Full Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build the LLM Boost MVP — a platform that crawls websites, scores pages for AI-readiness across 37 factors, and shows actionable results in a dashboard.
+**Goal:** Build the complete LLM Boost platform — crawl websites, score pages for AI-readiness across 37 factors, track AI visibility across 5 LLM providers, full Stripe billing with 4 tiers, scheduled crawls, competitor tracking, PDF reports, agency white-labeling, marketing site, and launch-ready production deployment.
 
-**Architecture:** Turborepo monorepo with Next.js frontend on Cloudflare Pages, Hono API on Cloudflare Workers (D1/R2/KV), Rust crawler on Hetzner VPS with Lighthouse. Clerk auth, Stripe billing, Anthropic/OpenAI for LLM scoring.
+**Architecture:** Turborepo monorepo with Next.js frontend on Cloudflare Pages, Hono API on Cloudflare Workers (D1/R2/KV), Rust crawler on Hetzner VPS with Lighthouse. Clerk auth, Stripe billing, Anthropic/OpenAI for LLM scoring. PostHog analytics, Sentry error tracking.
 
-**Tech Stack:** Next.js 15, Hono, Drizzle ORM, Cloudflare D1/R2/KV, Rust (Axum/Tokio), Lighthouse, Clerk, Stripe, shadcn/ui, Tailwind, pnpm, Turborepo
+**Tech Stack:** Next.js 15, Hono, Drizzle ORM, Cloudflare D1/R2/KV/Cron Triggers, Rust (Axum/Tokio), Lighthouse, Clerk, Stripe, shadcn/ui, Tailwind, Recharts, @react-pdf/renderer, PostHog, Sentry, pnpm, Turborepo
 
 **Design doc:** `docs/plans/2026-02-13-mvp-design.md`
-**Requirements doc:** `ai-seo-requirements.md` (Sections 7-12 are critical references for scoring factors, DB schema, API contracts, crawler implementation)
+**Requirements doc:** `ai-seo-requirements.md` (all sections — Sections 7-12 for scoring/DB/API/crawler, Section 16 for analytics, Section 17-18 for phasing, Section 22 for CI/CD)
+
+**Total Tasks:** 28 (Tasks 1-15: MVP foundation, Tasks 16-28: Full platform)
 
 ---
 
@@ -2535,13 +2537,97 @@ jobs:
       - run: pnpm build
 ```
 
-**Step 2: Create Cloudflare deploy workflow**
+**Step 2: Create Cloudflare deploy workflow using native Wrangler**
 
-Reference: `ai-seo-requirements.md` Section 22.1.
+`.github/workflows/deploy-cloudflare.yml`:
+
+```yaml
+name: Deploy Cloudflare
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - "apps/web/**"
+
+jobs:
+  deploy-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build --filter=api
+      - name: Deploy Worker via Wrangler
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      - name: Run D1 migrations
+        run: npx wrangler d1 migrations apply ai-seo-db --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+
+  deploy-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build --filter=web
+      - name: Deploy Pages via Wrangler
+        run: npx wrangler pages deploy apps/web/.next --project-name=llm-boost
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+```
+
+Note: Uses `wrangler deploy` (Worker) and `wrangler pages deploy` (Pages) natively — no third-party actions. All Cloudflare deployment goes through Wrangler CLI with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from GitHub secrets.
 
 **Step 3: Create Hetzner crawler deploy workflow**
 
-Reference: `ai-seo-requirements.md` Section 22.2.
+`.github/workflows/deploy-crawler.yml`:
+
+```yaml
+name: Deploy Crawler
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/crawler/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/crawler/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/crawler:latest
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: deploy
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/crawler
+            docker compose pull
+            docker compose up -d --force-recreate
+            docker system prune -f
+```
 
 **Step 4: Commit**
 
@@ -2610,7 +2696,847 @@ Task 14 (CI/CD) ──── can start after Tasks 6, 9, 10
 Task 15 (E2E integration) ──── requires all above
 ```
 
-**Parallelizable tracks:**
+**Parallelizable tracks (MVP):**
 - Track A: Tasks 1-2-3-4-5-6-12 (TypeScript backend)
 - Track B: Tasks 7-8-9-13 (Rust crawler, can start after Task 2)
 - Track C: Tasks 10-11 (Next.js frontend, can start after Task 2)
+
+---
+---
+
+# FULL PLATFORM — Tasks 16-28
+
+Everything below extends the MVP (Tasks 1-15) into the complete launch-ready product.
+
+---
+
+## Phase H: Crawl History & Comparison
+
+### Task 16: Crawl History & Score Comparison
+
+**Files:**
+- Create: `apps/web/app/(dashboard)/projects/[id]/history/page.tsx`
+- Create: `apps/web/components/crawl-comparison.tsx`
+- Create: `apps/web/components/score-trend-chart.tsx`
+- Modify: `packages/db/src/queries/crawls.ts` — add `listCompletedByProject`, `getComparisonData`
+- Modify: `packages/api/src/routes/crawls.ts` — add `GET /api/projects/:id/history` and `GET /api/crawls/:id/compare/:otherId`
+- Test: `packages/db/src/__tests__/crawl-queries.test.ts`
+
+**Step 1: Write failing test for comparison query**
+
+Test `getComparisonData(jobId1, jobId2)` — should return both crawl scores with per-page deltas (score improved/declined/unchanged).
+
+**Step 2: Implement comparison query helper**
+
+In `packages/db/src/queries/crawls.ts`:
+
+```typescript
+async getComparisonData(jobId1: string, jobId2: string) {
+  // Join pages + page_scores for both jobs
+  // Match pages by URL across jobs
+  // Return: { url, oldScore, newScore, delta, oldIssueCount, newIssueCount }[]
+}
+```
+
+Also add `listCompletedByProject(projectId)` to return all completed crawls with summary scores for the history timeline.
+
+**Step 3: Add API routes**
+
+- `GET /api/projects/:id/history` — returns list of completed crawls with summary (date, overall score, pages crawled, issue counts)
+- `GET /api/crawls/:id/compare/:otherId` — returns per-page comparison data
+
+**Step 4: Build history page**
+
+`apps/web/app/(dashboard)/projects/[id]/history/page.tsx`:
+- Timeline of all completed crawls
+- Score trend chart (Recharts line chart: date on x-axis, overall score on y-axis)
+- Select two crawls to compare
+- Comparison view: side-by-side scores with green/red delta indicators
+- "Score improved by X points!" celebration banner when positive
+
+```bash
+cd apps/web && pnpm add recharts && cd ../..
+```
+
+**Step 5: Build comparison component**
+
+`crawl-comparison.tsx`:
+- Two columns showing crawl date + overall score
+- Per-page table: URL, old score, new score, delta (color-coded)
+- Summary: issues resolved, new issues, unchanged
+- Filter: show only improved / declined / all
+
+**Step 6: Run tests and commit**
+
+```bash
+pnpm test
+git add packages/db/ packages/api/ apps/web/
+git commit -m "feat: add crawl history timeline and score comparison views"
+```
+
+---
+
+## Phase I: Stripe Billing (Full)
+
+### Task 17: Stripe Products, Pricing Page & Checkout
+
+**Files:**
+- Create: `apps/web/app/(marketing)/pricing/page.tsx`
+- Create: `apps/web/components/pricing-table.tsx`
+- Modify: `packages/api/src/routes/billing.ts` — full Stripe integration
+- Create: `packages/api/src/lib/stripe.ts` — Stripe client + helpers
+- Modify: `packages/db/src/queries/users.ts` — add plan update methods
+- Test: `packages/api/src/__tests__/billing.test.ts`
+
+**Step 1: Create Stripe products and prices**
+
+In Stripe Dashboard (or via API), create:
+- Product: "LLM Boost Starter" — $79/mo
+- Product: "LLM Boost Pro" — $149/mo
+- Product: "LLM Boost Agency" — $299/mo
+
+Store price IDs as constants in `packages/shared/src/constants/plans.ts`:
+
+```typescript
+export const STRIPE_PRICE_IDS = {
+  starter: "price_xxx", // Fill from Stripe
+  pro: "price_xxx",
+  agency: "price_xxx",
+} as const;
+```
+
+**Step 2: Implement Stripe helper module**
+
+`packages/api/src/lib/stripe.ts`:
+
+```typescript
+import Stripe from "stripe";
+
+export function createStripeClient(secretKey: string) {
+  return new Stripe(secretKey, { apiVersion: "2025-01-27.acacia" });
+}
+
+export async function createCheckoutSession(
+  stripe: Stripe,
+  userId: string,
+  priceId: string,
+  successUrl: string,
+  cancelUrl: string
+) {
+  return stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer_email: undefined, // Or pass email
+    metadata: { userId },
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
+}
+```
+
+**Step 3: Implement billing API routes**
+
+`packages/api/src/routes/billing.ts`:
+
+- `POST /api/billing/checkout` — Create Stripe checkout session. Body: `{ plan: "starter"|"pro"|"agency" }`. Returns checkout URL.
+- `POST /api/billing/webhook` — Handle Stripe webhooks:
+  - `checkout.session.completed` → update user plan in D1, set crawl credits
+  - `customer.subscription.updated` → handle plan changes (up/downgrade), prorate credits
+  - `customer.subscription.deleted` → revert to free plan, keep data for 90 days
+  - `invoice.payment_failed` → flag account, send notification
+- `GET /api/billing/usage` — Return current usage against plan limits (crawls used, pages scored, projects count)
+- `POST /api/billing/portal` — Create Stripe Customer Portal session for self-service management
+
+**Step 4: Build pricing page**
+
+`apps/web/app/(marketing)/pricing/page.tsx`:
+- 4-column comparison table (Free, Starter, Pro, Agency)
+- Feature rows: pages/crawl, crawls/month, projects, AI scoring tier, visibility checks, history retention, API access
+- CTA buttons: "Start Free" (free), "Subscribe" (paid tiers)
+- FAQ section below pricing table
+- Toggle for monthly/annual pricing (if applicable)
+
+**Step 5: Build billing settings page**
+
+In `apps/web/app/(dashboard)/settings/page.tsx`:
+- Current plan with badge
+- Usage bars (crawls used / limit, projects used / limit)
+- Next billing date
+- "Manage Subscription" button → Stripe Customer Portal
+- "Upgrade" button → pricing page
+
+**Step 6: Test webhook handling**
+
+Use Stripe CLI to test webhooks locally:
+
+```bash
+stripe listen --forward-to localhost:8787/api/billing/webhook
+stripe trigger checkout.session.completed
+```
+
+**Step 7: Commit**
+
+```bash
+git add packages/api/ packages/shared/ apps/web/
+git commit -m "feat: full Stripe billing with checkout, webhooks, usage metering, and pricing page"
+```
+
+---
+
+### Task 18: Usage Metering & Plan Limit Enforcement
+
+**Files:**
+- Create: `packages/api/src/middleware/planLimits.ts`
+- Modify: `packages/api/src/routes/crawls.ts` — enforce crawl credits
+- Modify: `packages/api/src/routes/projects.ts` — enforce project limits
+- Modify: `packages/db/src/queries/users.ts` — add credit management
+- Test: `packages/api/src/__tests__/plan-limits.test.ts`
+
+**Step 1: Write failing tests for limit enforcement**
+
+Test cases:
+- Free user with 0 crawl credits → 429 CRAWL_LIMIT_REACHED
+- Free user with 1 project tries to create another → 403 PLAN_LIMIT_REACHED
+- Free user crawl capped at 10 pages, depth 2
+- Pro user allowed up to 500 pages, depth 5
+- Credit decrement on crawl start, not crawl complete
+- Monthly credit reset (check via Cron Trigger)
+
+**Step 2: Implement plan limits middleware**
+
+`packages/api/src/middleware/planLimits.ts`:
+
+```typescript
+import { createMiddleware } from "hono/factory";
+import { PLAN_LIMITS } from "@llm-boost/shared";
+
+export const enforcePlanLimit = (resource: "crawl" | "project" | "visibility") =>
+  createMiddleware(async (c, next) => {
+    const user = c.get("user"); // Set by auth middleware
+    const limits = PLAN_LIMITS[user.plan];
+    // Check resource-specific limits against current usage
+    // Return 403/429 with appropriate error code if exceeded
+    await next();
+  });
+```
+
+**Step 3: Add monthly credit reset via Cron Trigger**
+
+Add to `wrangler.toml`:
+
+```toml
+[triggers]
+crons = ["0 0 1 * *"] # First of every month at midnight
+```
+
+In `packages/api/src/index.ts`, add scheduled handler:
+
+```typescript
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    // Reset crawl_credits_remaining for all users based on their plan
+    const db = createDb(env.DB);
+    // UPDATE users SET crawl_credits_remaining = (plan limit) for each plan tier
+  },
+};
+```
+
+**Step 4: Commit**
+
+```bash
+git add packages/api/ wrangler.toml
+git commit -m "feat: add usage metering, plan limit enforcement, and monthly credit reset"
+```
+
+---
+
+## Phase J: AI Visibility Tracking
+
+### Task 19: Multi-LLM Visibility Checker
+
+**Files:**
+- Create: `packages/llm/src/visibility.ts`
+- Create: `packages/llm/src/providers/chatgpt.ts`
+- Create: `packages/llm/src/providers/claude.ts`
+- Create: `packages/llm/src/providers/perplexity.ts`
+- Create: `packages/llm/src/providers/gemini.ts`
+- Test: `packages/llm/src/__tests__/visibility.test.ts`
+- Modify: `packages/llm/package.json` — add openai SDK
+
+**Step 1: Install provider SDKs**
+
+```bash
+cd packages/llm && pnpm add openai @google/generative-ai && cd ../..
+```
+
+**Step 2: Implement provider interfaces**
+
+Each provider module exports:
+
+```typescript
+interface VisibilityCheckResult {
+  provider: string;
+  query: string;
+  responseText: string;
+  brandMentioned: boolean;
+  urlCited: boolean;
+  citationPosition: number | null;
+  competitorMentions: { domain: string; mentioned: boolean; position: number | null }[];
+}
+
+async function checkVisibility(
+  query: string,
+  targetDomain: string,
+  competitors: string[],
+  apiKey: string
+): Promise<VisibilityCheckResult>;
+```
+
+Implementation for each provider:
+- **ChatGPT** (`providers/chatgpt.ts`): Use OpenAI SDK, send query, parse response for domain/brand mentions
+- **Claude** (`providers/claude.ts`): Use Anthropic SDK, same pattern
+- **Perplexity** (`providers/perplexity.ts`): Use Perplexity API (OpenAI-compatible), parse citations
+- **Gemini** (`providers/gemini.ts`): Use Google Generative AI SDK
+
+**Step 3: Implement visibility orchestrator**
+
+`packages/llm/src/visibility.ts`:
+
+```typescript
+export class VisibilityChecker {
+  async checkAllProviders(
+    query: string,
+    targetDomain: string,
+    competitors: string[],
+    providers: string[], // which LLMs to check
+    apiKeys: Record<string, string>
+  ): Promise<VisibilityCheckResult[]> {
+    // Run all provider checks in parallel
+    // Cache results in KV by query+provider (24h TTL)
+    // Return array of results
+  }
+}
+```
+
+**Step 4: Write tests (mock API calls)**
+
+Test brand/URL detection logic, competitor parsing, caching behavior.
+
+**Step 5: Commit**
+
+```bash
+git add packages/llm/
+git commit -m "feat: add multi-LLM visibility checker for ChatGPT, Claude, Perplexity, and Gemini"
+```
+
+---
+
+### Task 20: Visibility API Routes & Dashboard
+
+**Files:**
+- Modify: `packages/api/src/routes/` — create `visibility.ts`
+- Modify: `packages/api/src/index.ts` — register visibility routes
+- Create: `apps/web/app/(dashboard)/projects/[id]/visibility/page.tsx`
+- Create: `apps/web/components/visibility-table.tsx`
+- Create: `apps/web/components/visibility-trend-chart.tsx`
+
+**Step 1: Add API routes**
+
+- `POST /api/visibility/check` — Run visibility check. Body: `{ projectId, query, providers: ["chatgpt", "claude", ...], competitors?: string[] }`. Enforces plan limits on visibility check credits.
+- `GET /api/visibility/:projectId` — Get all visibility results for a project, with pagination and optional query filter.
+- `GET /api/visibility/:projectId/trends` — Get visibility trend data (mention rate over time per provider).
+
+**Step 2: Build visibility setup page**
+
+`apps/web/app/(dashboard)/projects/[id]/visibility/page.tsx`:
+- "Add Query" form: search query text + checkbox for which LLM providers to check
+- Pro/Agency: competitor domain input (up to 5)
+- "Run Check" button → triggers POST, shows loading state
+- Usage indicator: "3 of 25 visibility checks used this month"
+
+**Step 3: Build results table**
+
+`visibility-table.tsx`:
+- Rows: one per query
+- Columns: Query, then one column per provider with green check/red X for brand mentioned
+- Expandable row shows: full response text excerpt, citation position, competitor mentions
+- Competitor comparison: "Your Domain vs. Competitors" side-by-side for each query
+
+**Step 4: Build trend chart**
+
+`visibility-trend-chart.tsx`:
+- Recharts line chart: date on x-axis, mention rate (%) on y-axis
+- One line per provider (color-coded)
+- Tooltip showing specific check results on hover
+
+**Step 5: Commit**
+
+```bash
+git add packages/api/ apps/web/
+git commit -m "feat: add AI visibility tracking dashboard with multi-LLM results and trends"
+```
+
+---
+
+## Phase K: Scheduled Crawls, Email, Analytics, Error Tracking
+
+### Task 21: Scheduled Crawls (Cron Triggers)
+
+**Files:**
+- Modify: `packages/db/src/schema.ts` — add `schedule` field to projects
+- Create: `packages/db/migrations/0002_add_schedule.sql`
+- Modify: `packages/api/src/index.ts` — add scheduled crawl handler
+- Modify: `wrangler.toml` — add cron trigger for scheduled crawls
+- Test: `packages/api/src/__tests__/scheduled-crawls.test.ts`
+
+**Step 1: Add schedule column to projects**
+
+```sql
+ALTER TABLE projects ADD COLUMN crawl_schedule TEXT DEFAULT 'manual'
+  CHECK(crawl_schedule IN ('manual', 'daily', 'weekly', 'monthly'));
+ALTER TABLE projects ADD COLUMN next_crawl_at TEXT;
+```
+
+**Step 2: Add cron trigger**
+
+In `wrangler.toml`:
+
+```toml
+[triggers]
+crons = ["0 0 1 * *", "0 6 * * *"] # Credit reset + daily crawl check at 6am UTC
+```
+
+**Step 3: Implement scheduled handler**
+
+In the `scheduled` export:
+- Query projects where `crawl_schedule != 'manual'` and `next_crawl_at <= now()`
+- For each: check user has crawl credits, create crawl job, POST to Hetzner
+- Update `next_crawl_at` based on schedule (daily: +1 day, weekly: +7 days, monthly: +30 days)
+
+**Step 4: Add schedule UI to project settings**
+
+In `apps/web/app/(dashboard)/projects/[id]/settings/page.tsx`:
+- Dropdown: Manual, Daily, Weekly, Monthly
+- Show next crawl date
+- Starter+ plans only (free users see upgrade prompt)
+
+**Step 5: Commit**
+
+```bash
+git add packages/db/ packages/api/ apps/web/ wrangler.toml
+git commit -m "feat: add scheduled crawls with Cron Triggers (daily/weekly/monthly)"
+```
+
+---
+
+### Task 22: Email Notifications
+
+**Files:**
+- Create: `packages/api/src/lib/email.ts`
+- Modify: `packages/api/src/routes/ingest.ts` — send email on crawl complete
+- Modify: `packages/db/src/schema.ts` — add notification preferences to users
+
+**Step 1: Choose email provider**
+
+Use Cloudflare's native `fetch` to call a transactional email API (Resend, Postmark, or SendGrid). Create a thin wrapper:
+
+```typescript
+// packages/api/src/lib/email.ts
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  apiKey: string
+) {
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "LLM Boost <notifications@llmboost.com>",
+      to,
+      subject,
+      html,
+    }),
+  });
+}
+```
+
+**Step 2: Send crawl completion email**
+
+In the ingest route, when `is_final: true`:
+- Look up user email from project → user
+- Send email: "Your crawl is complete! Score: X/100 (Grade). Y issues found. [View Results →]"
+
+**Step 3: Add notification preferences**
+
+Users can toggle: crawl complete, weekly summary, visibility alerts. Store in `users.settings` JSON column.
+
+**Step 4: Commit**
+
+```bash
+git add packages/api/ packages/db/
+git commit -m "feat: add email notifications for crawl completion"
+```
+
+---
+
+### Task 23: PostHog Analytics Integration
+
+**Files:**
+- Create: `apps/web/lib/analytics.ts`
+- Modify: `apps/web/app/layout.tsx` — add PostHog provider
+- Modify relevant pages to track events from requirements Section 16.3
+
+**Step 1: Install PostHog**
+
+```bash
+cd apps/web && pnpm add posthog-js && cd ../..
+```
+
+**Step 2: Create analytics helper**
+
+`apps/web/lib/analytics.ts`:
+
+```typescript
+import posthog from "posthog-js";
+
+export function initAnalytics(apiKey: string) {
+  if (typeof window !== "undefined") {
+    posthog.init(apiKey, {
+      api_host: "https://us.i.posthog.com",
+      capture_pageview: true,
+    });
+  }
+}
+
+export function trackEvent(event: string, properties?: Record<string, unknown>) {
+  posthog.capture(event, properties);
+}
+```
+
+**Step 3: Add tracking calls**
+
+Instrument all events from requirements Section 16.3:
+- `user_signed_up` — after Clerk signup
+- `project_created` — after project creation
+- `crawl_started` — after crawl initiation
+- `crawl_completed` — on crawl results page load
+- `page_detail_viewed` — on page detail view
+- `issue_recommendation_viewed` — on recommendation expand
+- `visibility_check_run` — after visibility check
+- `report_exported` — after PDF download
+- `upgrade_initiated` — on upgrade CTA click
+- `upgrade_completed` — on Stripe success redirect
+- `subscription_cancelled` — on cancellation confirm
+
+**Step 4: Commit**
+
+```bash
+git add apps/web/
+git commit -m "feat: add PostHog analytics with full event tracking plan"
+```
+
+---
+
+### Task 24: Sentry Error Tracking
+
+**Files:**
+- Modify: `apps/web/` — add Sentry Next.js SDK
+- Modify: `packages/api/src/index.ts` — add Sentry for Workers
+- Modify: `apps/crawler/Cargo.toml` — add sentry crate
+
+**Step 1: Install Sentry in Next.js**
+
+```bash
+cd apps/web && pnpm add @sentry/nextjs && cd ../..
+npx @sentry/wizard@latest -i nextjs
+```
+
+Configure `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`.
+
+**Step 2: Add Sentry to Workers API**
+
+Use `toucan-js` (Sentry SDK for Cloudflare Workers):
+
+```bash
+cd packages/api && pnpm add toucan-js && cd ../..
+```
+
+Add error boundary middleware in Hono:
+
+```typescript
+import { Toucan } from "toucan-js";
+
+app.onError((err, c) => {
+  const sentry = new Toucan({ dsn: c.env.SENTRY_DSN, context: c.executionCtx });
+  sentry.captureException(err);
+  return c.json({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } }, 500);
+});
+```
+
+**Step 3: Add Sentry to Rust crawler**
+
+Add `sentry = "0.35"` to `apps/crawler/Cargo.toml`. Initialize in `main.rs`:
+
+```rust
+let _guard = sentry::init(std::env::var("SENTRY_DSN").ok());
+```
+
+**Step 4: Commit**
+
+```bash
+git add apps/web/ packages/api/ apps/crawler/
+git commit -m "feat: add Sentry error tracking to frontend, API, and crawler"
+```
+
+---
+
+## Phase L: Reports, Competitor Tracking, White-Label, Marketing
+
+### Task 25: PDF Report Export
+
+**Files:**
+- Create: `apps/web/app/api/reports/[jobId]/route.ts` — Next.js API route for PDF generation
+- Create: `apps/web/components/report/report-template.tsx`
+- Create: `apps/web/components/report/report-header.tsx`
+- Create: `apps/web/components/report/report-scores.tsx`
+- Create: `apps/web/components/report/report-issues.tsx`
+
+**Step 1: Install PDF library**
+
+```bash
+cd apps/web && pnpm add @react-pdf/renderer && cd ../..
+```
+
+**Step 2: Build report template**
+
+`report-template.tsx` — React PDF document with:
+- Executive summary: overall score, letter grade, category breakdown
+- Top 10 critical issues with recommendations
+- Page-by-page score table (sorted worst first)
+- Score trend chart (if multiple crawls exist)
+- Generated date, project name, domain
+
+**Step 3: Build white-label support**
+
+For Agency tier: accept custom logo URL, company name, brand colors via project settings. Apply to report header.
+
+```typescript
+interface ReportOptions {
+  customLogo?: string; // URL to logo image
+  companyName?: string;
+  primaryColor?: string;
+}
+```
+
+**Step 4: Create PDF API route**
+
+`apps/web/app/api/reports/[jobId]/route.ts`:
+- Fetch crawl data from API
+- Render React PDF to buffer
+- Return as `application/pdf` with `Content-Disposition: attachment`
+- For large crawls (500+ pages): queue generation, store in R2, email download link
+
+**Step 5: Add "Export PDF" button to project overview**
+
+In crawl results page, add button that triggers download. Track `report_exported` analytics event.
+
+**Step 6: Commit**
+
+```bash
+git add apps/web/
+git commit -m "feat: add PDF report export with white-label support for agency tier"
+```
+
+---
+
+### Task 26: Competitor Tracking
+
+**Files:**
+- Modify: `packages/db/src/schema.ts` — add `competitors` table
+- Create: `packages/db/migrations/0003_add_competitors.sql`
+- Modify: `packages/api/src/routes/visibility.ts` — integrate competitor data
+- Modify: `apps/web/app/(dashboard)/projects/[id]/visibility/page.tsx` — competitor UI
+
+**Step 1: Add competitors table**
+
+```sql
+CREATE TABLE competitors (
+  id    TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_competitors_project ON competitors(project_id);
+```
+
+**Step 2: Add competitor management UI**
+
+In visibility settings:
+- "Add Competitor" form (domain input, up to 5 per project)
+- Delete button per competitor
+- Pro/Agency tiers only
+
+**Step 3: Enhance visibility checks with competitor data**
+
+When running visibility checks, also check if competitor domains are mentioned. Store in `visibility_checks.competitor_mentions` JSON column.
+
+**Step 4: Build comparison table**
+
+In visibility dashboard, add "Competitor Comparison" section:
+- Table: Query | Your Domain | Competitor 1 | Competitor 2 | ...
+- Cells: green check (mentioned + cited), yellow (mentioned), red X (not mentioned)
+- Per-provider breakdown on expand
+
+**Step 5: Commit**
+
+```bash
+git add packages/db/ packages/api/ apps/web/
+git commit -m "feat: add competitor tracking with visibility comparison"
+```
+
+---
+
+### Task 27: Onboarding Flow & User Settings
+
+**Files:**
+- Create: `apps/web/app/(dashboard)/onboarding/page.tsx`
+- Create: `apps/web/components/onboarding-wizard.tsx`
+- Modify: `apps/web/app/(dashboard)/settings/page.tsx` — full settings page
+- Modify: `packages/api/src/routes/` — user settings endpoints
+
+**Step 1: Build 3-step onboarding wizard**
+
+Per requirements Section 4.1:
+
+1. **Step 1:** "Enter your website URL" — domain input with validation
+2. **Step 2:** "Choose crawl settings" — depth, max pages (within plan limits)
+3. **Step 3:** "Start your first crawl" — summary + "Start Crawl" button
+
+Show onboarding on first login (check if user has any projects). "Skip" button dismisses permanently.
+
+**Step 2: Build full settings page**
+
+Tabs:
+- **Profile:** Name, email (from Clerk), avatar
+- **Billing:** Current plan, usage, upgrade/manage subscription
+- **Notifications:** Toggle email preferences (crawl complete, weekly summary, visibility alerts)
+- **API Keys:** (Pro/Agency only) Generate/revoke API keys for programmatic access
+
+**Step 3: Add API key management**
+
+For Pro/Agency tiers:
+- `POST /api/settings/api-keys` — generate new API key (store hashed in D1)
+- `DELETE /api/settings/api-keys/:id` — revoke key
+- `GET /api/settings/api-keys` — list active keys (masked)
+- API key auth middleware (alternative to Clerk for programmatic access)
+
+**Step 4: Commit**
+
+```bash
+git add apps/web/ packages/api/ packages/db/
+git commit -m "feat: add onboarding wizard, user settings, and API key management"
+```
+
+---
+
+### Task 28: Marketing Site & Launch Preparation
+
+**Files:**
+- Create: `apps/web/app/(marketing)/page.tsx` — landing page
+- Create: `apps/web/app/(marketing)/layout.tsx` — marketing layout (no sidebar)
+- Modify: `apps/web/app/(marketing)/pricing/page.tsx` — already built in Task 17
+- Create: `apps/web/components/marketing/hero.tsx`
+- Create: `apps/web/components/marketing/features.tsx`
+- Create: `apps/web/components/marketing/testimonials.tsx`
+- Create: `apps/web/components/marketing/footer.tsx`
+
+**Step 1: Build landing page**
+
+Sections:
+1. **Hero:** "See How AI Search Engines View Your Content" — headline, subhead, CTA (Start Free), hero screenshot
+2. **Problem/Solution:** Pain points → LLM Boost solution (3 columns)
+3. **How It Works:** 3-step visual flow (Enter URL → Get Scored → Fix Issues)
+4. **Feature Highlights:** Score dashboard screenshot, issue recommendations, visibility tracking
+5. **Pricing:** Embed pricing table from Task 17
+6. **Social Proof:** Testimonial placeholders, logos, "trusted by X agencies"
+7. **CTA:** "Start Optimizing for AI Search — Free" button
+8. **Footer:** Links, legal, social
+
+**Step 2: Build marketing layout**
+
+Separate layout from dashboard — no sidebar, top nav with: Logo, Features, Pricing, Login, "Get Started" CTA button.
+
+**Step 3: Add legal pages**
+
+- `/terms` — Terms of Service (placeholder)
+- `/privacy` — Privacy Policy (placeholder with GDPR compliance notes)
+
+**Step 4: SEO optimization for marketing pages**
+
+- Proper meta tags, og:tags, structured data (Organization, WebApplication)
+- Sitemap generation
+- Performance optimization (static generation where possible)
+
+**Step 5: Launch readiness checklist**
+
+Reference: `ai-seo-requirements.md` Section 20.
+
+Verify all items:
+- [ ] All P0 features functional
+- [ ] Scoring engine correct for 50+ test cases
+- [ ] Full crawl pipeline works end-to-end
+- [ ] Auth secure
+- [ ] Stripe billing works
+- [ ] API error rate < 1%
+- [ ] Dashboard load < 2s
+- [ ] No critical security vulnerabilities
+- [ ] Sentry + PostHog configured
+- [ ] Pricing page live
+- [ ] Terms + Privacy published
+- [ ] Support email configured
+
+**Step 6: Commit**
+
+```bash
+git add apps/web/
+git commit -m "feat: add marketing landing page and complete launch preparation"
+```
+
+---
+
+## Full Task Dependency Graph
+
+```
+PHASE A-G (MVP Foundation — Tasks 1-15)
+  │
+  ├── PHASE H (Task 16: Crawl History & Comparison)
+  │     Depends on: Tasks 3, 6, 11
+  │
+  ├── PHASE I (Tasks 17-18: Stripe Billing Full + Usage Metering)
+  │     Depends on: Tasks 2, 3, 6
+  │
+  ├── PHASE J (Tasks 19-20: AI Visibility Tracking)
+  │     Depends on: Tasks 5, 6, 11
+  │
+  ├── PHASE K (Tasks 21-24: Scheduled Crawls, Email, Analytics, Sentry)
+  │     Depends on: Tasks 6, 9, 11
+  │     Tasks 21-24 are independent of each other — parallelize
+  │
+  └── PHASE L (Tasks 25-28: Reports, Competitors, Onboarding, Marketing)
+        Depends on: Tasks 17, 20
+        Tasks 25-28 are mostly independent — parallelize
+
+TASK 15 (E2E Integration) — do this AFTER Tasks 1-14
+FINAL E2E VALIDATION — do this AFTER all 28 tasks
+```
+
+**Parallelizable work after MVP (Tasks 1-15):**
+- Track D: Tasks 16 + 17 + 18 (History + Billing)
+- Track E: Tasks 19 + 20 (Visibility)
+- Track F: Tasks 21 + 22 + 23 + 24 (Scheduled, Email, Analytics, Sentry — all independent)
+- Track G: Tasks 25 + 26 + 27 + 28 (Reports, Competitors, Onboarding, Marketing — mostly independent)
