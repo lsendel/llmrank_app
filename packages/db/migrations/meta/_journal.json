@@ -8,6 +8,13 @@
       "when": 1770962831928,
       "tag": "0000_exotic_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770975681177,
+      "tag": "0001_fixed_menace",
+      "breakpoints": true
     }
   ]
 }

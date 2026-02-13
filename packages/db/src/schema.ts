@@ -42,6 +42,13 @@ export const issueSeverityEnum = pgEnum("issue_severity", [
   "info",
 ]);
 
+export const crawlScheduleEnum = pgEnum("crawl_schedule", [
+  "manual",
+  "daily",
+  "weekly",
+  "monthly",
+]);
+
 export const llmProviderEnum = pgEnum("llm_provider", [
   "chatgpt",
   "claude",
@@ -65,6 +72,10 @@ export const users = pgTable("users", {
   crawlCreditsRemaining: integer("crawl_credits_remaining")
     .notNull()
     .default(100),
+  notifyOnCrawlComplete: boolean("notify_on_crawl_complete")
+    .notNull()
+    .default(true),
+  notifyOnScoreDrop: boolean("notify_on_score_drop").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -83,6 +94,10 @@ export const projects = pgTable(
     name: text("name").notNull(),
     domain: text("domain").notNull(),
     settings: jsonb("settings").default({}),
+    crawlSchedule: crawlScheduleEnum("crawl_schedule")
+      .notNull()
+      .default("manual"),
+    nextCrawlAt: timestamp("next_crawl_at"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
