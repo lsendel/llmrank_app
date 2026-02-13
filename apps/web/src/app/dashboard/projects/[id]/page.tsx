@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Bug,
   History,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +27,13 @@ import {
 } from "@/components/ui/table";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
+import { QuickWinsCard } from "@/components/quick-wins-card";
+import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
+import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   api,
   ApiError,
@@ -35,6 +41,7 @@ import {
   type CrawlJob,
   type CrawledPage,
   type PageIssue,
+  type VisibilityCheck,
 } from "@/lib/api";
 
 function scoreBarColor(score: number): string {
@@ -174,6 +181,10 @@ export default function ProjectPage() {
             <History className="mr-1.5 h-4 w-4" />
             History
           </TabsTrigger>
+          <TabsTrigger value="visibility">
+            <Eye className="mr-1.5 h-4 w-4" />
+            Visibility
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -247,6 +258,21 @@ export default function ProjectPage() {
                 </Card>
               </div>
 
+              {/* Quick Wins */}
+              {latestCrawl?.id && <QuickWinsCard crawlId={latestCrawl.id} />}
+
+              {/* View All Pages link */}
+              {latestCrawl?.status === "complete" && (
+                <div className="flex justify-end">
+                  <Link
+                    href={`/dashboard/projects/${project.id}/pages`}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    View All Pages →
+                  </Link>
+                </div>
+              )}
+
               {/* Top Issues */}
               {issues.length > 0 && (
                 <div>
@@ -290,6 +316,18 @@ export default function ProjectPage() {
         {/* History Tab */}
         <TabsContent value="history" className="pt-4">
           <HistoryTabContent crawlHistory={crawlHistory} />
+        </TabsContent>
+
+        {/* Visibility Tab */}
+        <TabsContent value="visibility" className="space-y-6 pt-4">
+          {latestCrawl?.id && (
+            <PlatformReadinessMatrix crawlId={latestCrawl.id} />
+          )}
+          <ShareOfVoiceChart projectId={project.id} />
+          <VisibilityTabContent
+            projectId={project.id}
+            domain={project.domain}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -546,6 +584,272 @@ function IssuesTabContent({ issues }: { issues: PageIssue[] }) {
 }
 
 // ─── History Tab ────────────────────────────────────────────────────
+
+// ─── Visibility Tab ─────────────────────────────────────────────
+
+const PROVIDERS = [
+  { id: "chatgpt", label: "ChatGPT" },
+  { id: "claude", label: "Claude" },
+  { id: "perplexity", label: "Perplexity" },
+  { id: "gemini", label: "Gemini" },
+] as const;
+
+function VisibilityTabContent({
+  projectId,
+  domain,
+}: {
+  projectId: string;
+  domain: string;
+}) {
+  const { withToken } = useApi();
+  const [query, setQuery] = useState("");
+  const [competitors, setCompetitors] = useState("");
+  const [selectedProviders, setSelectedProviders] = useState<string[]>(
+    PROVIDERS.map((p) => p.id),
+  );
+  const [results, setResults] = useState<VisibilityCheck[]>([]);
+  const [history, setHistory] = useState<VisibilityCheck[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load history on mount
+  useEffect(() => {
+    withToken(async (token) => {
+      const data = await api.visibility.list(token, projectId);
+      setHistory(data);
+    })
+      .catch(console.error)
+      .finally(() => setHistoryLoaded(true));
+  }, [withToken, projectId]);
+
+  async function handleRunCheck() {
+    if (!query.trim() || selectedProviders.length === 0) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await withToken(async (token) => {
+        const competitorList = competitors
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean);
+        const data = await api.visibility.run(token, {
+          projectId,
+          query: query.trim(),
+          providers: selectedProviders,
+          competitors: competitorList.length > 0 ? competitorList : undefined,
+        });
+        setResults(data);
+        // Refresh history
+        const updated = await api.visibility.list(token, projectId);
+        setHistory(updated);
+      });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Failed to run visibility check.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleProvider(id: string) {
+    setSelectedProviders((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Run Check Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Run Visibility Check</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="vis-query">Search Query</Label>
+            <Input
+              id="vis-query"
+              placeholder={`e.g. "best ${domain.split(".")[0]} alternatives"`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="vis-competitors">
+              Competitor Domains (comma-separated, optional)
+            </Label>
+            <Input
+              id="vis-competitors"
+              placeholder="competitor1.com, competitor2.com"
+              value={competitors}
+              onChange={(e) => setCompetitors(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>LLM Providers</Label>
+            <div className="flex flex-wrap gap-2">
+              {PROVIDERS.map((p) => (
+                <Button
+                  key={p.id}
+                  variant={
+                    selectedProviders.includes(p.id) ? "default" : "outline"
+                  }
+                  size="sm"
+                  onClick={() => toggleProvider(p.id)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          {error && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <Button onClick={handleRunCheck} disabled={loading || !query.trim()}>
+            {loading ? "Checking..." : "Run Check"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Results */}
+      {results.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Results</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {results.map((r) => (
+              <VisibilityResultCard key={r.id} check={r} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      {historyLoaded && history.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Previous Checks</h3>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Query</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Brand Mentioned</TableHead>
+                  <TableHead>URL Cited</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.map((check) => (
+                  <TableRow key={check.id}>
+                    <TableCell className="text-sm">
+                      {new Date(check.checkedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate">
+                      {check.query}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{check.llmProvider}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          check.brandMentioned ? "success" : "destructive"
+                        }
+                      >
+                        {check.brandMentioned ? "Yes" : "No"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={check.urlCited ? "success" : "destructive"}
+                      >
+                        {check.urlCited ? "Yes" : "No"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base capitalize">
+            {check.llmProvider}
+          </CardTitle>
+          <div className="flex gap-2">
+            <Badge variant={check.brandMentioned ? "success" : "destructive"}>
+              {check.brandMentioned ? "Mentioned" : "Not Mentioned"}
+            </Badge>
+            <Badge variant={check.urlCited ? "success" : "destructive"}>
+              {check.urlCited ? "Cited" : "Not Cited"}
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {check.citationPosition != null && (
+          <p className="text-sm text-muted-foreground">
+            Position:{" "}
+            <span className="font-medium text-foreground">
+              #{check.citationPosition}
+            </span>
+          </p>
+        )}
+        {check.responseText && (
+          <div className="max-h-40 overflow-y-auto rounded-md bg-muted p-3 text-xs">
+            {check.responseText.slice(0, 500)}
+            {check.responseText.length > 500 && "..."}
+          </div>
+        )}
+        {check.competitorMentions &&
+          (check.competitorMentions as { domain: string; mentioned: boolean }[])
+            .length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Competitors
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {(
+                  check.competitorMentions as {
+                    domain: string;
+                    mentioned: boolean;
+                    position: number | null;
+                  }[]
+                ).map((comp) => (
+                  <Badge
+                    key={comp.domain}
+                    variant={comp.mentioned ? "warning" : "secondary"}
+                  >
+                    {comp.domain}:{" "}
+                    {comp.mentioned
+                      ? `Found (#${comp.position ?? "?"})`
+                      : "Not found"}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── History Tab ────────────────────────────────────────────────
 
 function HistoryTabContent({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
   if (crawlHistory.length === 0) {

@@ -123,6 +123,66 @@ export interface PageIssue {
   data?: Record<string, unknown>;
 }
 
+export interface VisibilityCheck {
+  id: string;
+  projectId: string;
+  llmProvider: "chatgpt" | "claude" | "perplexity" | "gemini" | "copilot";
+  query: string;
+  responseText: string | null;
+  brandMentioned: boolean;
+  urlCited: boolean;
+  citationPosition: number | null;
+  competitorMentions:
+    | {
+        domain: string;
+        mentioned: boolean;
+        position: number | null;
+      }[]
+    | null;
+  checkedAt: string;
+}
+
+export interface PageScoreEntry {
+  id: string;
+  pageId: string;
+  url: string;
+  title: string | null;
+  statusCode: number | null;
+  wordCount: number | null;
+  overallScore: number;
+  technicalScore: number | null;
+  contentScore: number | null;
+  aiReadinessScore: number | null;
+  lighthousePerf: number | null;
+  lighthouseSeo: number | null;
+  letterGrade: string;
+  detail: Record<string, unknown> | null;
+}
+
+export interface PageScoreDetail {
+  id: string;
+  jobId: string;
+  url: string;
+  canonicalUrl: string | null;
+  statusCode: number | null;
+  title: string | null;
+  metaDesc: string | null;
+  wordCount: number | null;
+  contentHash: string | null;
+  crawledAt: string | null;
+  score: {
+    overallScore: number;
+    technicalScore: number | null;
+    contentScore: number | null;
+    aiReadinessScore: number | null;
+    lighthousePerf: number | null;
+    lighthouseSeo: number | null;
+    letterGrade: string;
+    detail: Record<string, unknown>;
+  } | null;
+  issues: PageIssue[];
+}
+
 export interface BillingInfo {
   plan: "free" | "starter" | "pro" | "agency";
   crawlCreditsRemaining: number;
@@ -130,6 +190,87 @@ export interface BillingInfo {
   maxPagesPerCrawl: number;
   maxDepth: number;
   maxProjects: number;
+}
+
+export interface QuickWin {
+  code: string;
+  category: string;
+  severity: string;
+  scoreImpact: number;
+  effortLevel: "low" | "medium" | "high";
+  message: string;
+  recommendation: string;
+  implementationSnippet?: string;
+  priority: number;
+  affectedPages: number;
+}
+
+export interface PublicScanResult {
+  url: string;
+  domain: string;
+  scores: {
+    overall: number;
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+    letterGrade: string;
+  };
+  issues: PageIssue[];
+  quickWins: QuickWin[];
+  meta: {
+    title: string | null;
+    description: string | null;
+    wordCount: number;
+    hasLlmsTxt: boolean;
+    hasSitemap: boolean;
+    sitemapUrls: number;
+    aiCrawlersBlocked: string[];
+    schemaTypes: string[];
+    ogTags: Record<string, string>;
+  };
+}
+
+export interface SharedReport {
+  crawlId: string;
+  completedAt: string | null;
+  pagesScored: number;
+  scores: {
+    overall: number;
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    letterGrade: string;
+  };
+  pages: {
+    url: string;
+    title: string | null;
+    overallScore: number;
+    technicalScore: number | null;
+    contentScore: number | null;
+    aiReadinessScore: number | null;
+    issueCount: number;
+  }[];
+  issueCount: number;
+  quickWins: QuickWin[];
+}
+
+export interface PlatformReadinessResult {
+  platform: string;
+  checks: {
+    factor: string;
+    label: string;
+    importance: "critical" | "important" | "recommended";
+    pass: boolean;
+  }[];
+}
+
+export interface VisibilityTrend {
+  weekStart: string;
+  provider: string;
+  mentionRate: number;
+  citationRate: number;
+  totalChecks: number;
 }
 
 export interface DashboardStats {
@@ -427,10 +568,128 @@ export const api = {
     },
   },
 
+  // ── Scores ──────────────────────────────────────────────────────
+  scores: {
+    async listByJob(token: string, jobId: string): Promise<PageScoreEntry[]> {
+      const res = await apiClient.get<ApiEnvelope<PageScoreEntry[]>>(
+        `/api/scores/job/${jobId}/pages`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getPage(token: string, pageId: string): Promise<PageScoreDetail> {
+      const res = await apiClient.get<ApiEnvelope<PageScoreDetail>>(
+        `/api/scores/page/${pageId}`,
+        { token },
+      );
+      return res.data;
+    },
+  },
+
+  // ── Visibility ─────────────────────────────────────────────────
+  visibility: {
+    async run(
+      token: string,
+      data: {
+        projectId: string;
+        query: string;
+        providers: string[];
+        competitors?: string[];
+      },
+    ): Promise<VisibilityCheck[]> {
+      const res = await apiClient.post<ApiEnvelope<VisibilityCheck[]>>(
+        "/api/visibility/check",
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async list(token: string, projectId: string): Promise<VisibilityCheck[]> {
+      const res = await apiClient.get<ApiEnvelope<VisibilityCheck[]>>(
+        `/api/visibility/${projectId}`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getTrends(
+      token: string,
+      projectId: string,
+    ): Promise<VisibilityTrend[]> {
+      const res = await apiClient.get<ApiEnvelope<VisibilityTrend[]>>(
+        `/api/visibility/${projectId}/trends`,
+        { token },
+      );
+      return res.data;
+    },
+  },
+
   // ── Account ─────────────────────────────────────────────────────
   account: {
     async deleteAccount(token: string): Promise<void> {
       await apiClient.delete<void>("/api/account", { token });
+    },
+  },
+
+  // ── Public (no auth) ──────────────────────────────────────────
+  public: {
+    async scan(url: string): Promise<PublicScanResult> {
+      const res = await apiClient.post<ApiEnvelope<PublicScanResult>>(
+        "/api/public/scan",
+        { url },
+      );
+      return res.data;
+    },
+
+    async getReport(token: string): Promise<SharedReport> {
+      const res = await apiClient.get<ApiEnvelope<SharedReport>>(
+        `/api/public/reports/${token}`,
+      );
+      return res.data;
+    },
+  },
+
+  // ── Quick Wins ─────────────────────────────────────────────────
+  quickWins: {
+    async get(token: string, crawlId: string): Promise<QuickWin[]> {
+      const res = await apiClient.get<ApiEnvelope<QuickWin[]>>(
+        `/api/crawls/${crawlId}/quick-wins`,
+        { token },
+      );
+      return res.data;
+    },
+  },
+
+  // ── Platform Readiness ─────────────────────────────────────────
+  platformReadiness: {
+    async get(
+      token: string,
+      crawlId: string,
+    ): Promise<PlatformReadinessResult[]> {
+      const res = await apiClient.get<ApiEnvelope<PlatformReadinessResult[]>>(
+        `/api/crawls/${crawlId}/platform-readiness`,
+        { token },
+      );
+      return res.data;
+    },
+  },
+
+  // ── Share ──────────────────────────────────────────────────────
+  share: {
+    async enable(
+      token: string,
+      crawlId: string,
+    ): Promise<{ shareToken: string; shareUrl: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ shareToken: string; shareUrl: string }>
+      >(`/api/crawls/${crawlId}/share`, undefined, { token });
+      return res.data;
+    },
+
+    async disable(token: string, crawlId: string): Promise<void> {
+      await apiClient.delete(`/api/crawls/${crawlId}/share`, { token });
     },
   },
 };

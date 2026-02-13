@@ -114,5 +114,42 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     deduct("MISSING_SITEMAP", -5);
   }
 
+  // SITEMAP_INVALID_FORMAT
+  if (
+    page.siteContext?.hasSitemap &&
+    page.siteContext.sitemapAnalysis &&
+    !page.siteContext.sitemapAnalysis.isValid
+  ) {
+    deduct("SITEMAP_INVALID_FORMAT", -8);
+  }
+
+  // SITEMAP_STALE_URLS
+  if (
+    page.siteContext?.sitemapAnalysis &&
+    page.siteContext.sitemapAnalysis.staleUrlCount > 0
+  ) {
+    deduct("SITEMAP_STALE_URLS", -3, {
+      staleUrlCount: page.siteContext.sitemapAnalysis.staleUrlCount,
+      totalUrls: page.siteContext.sitemapAnalysis.urlCount,
+    });
+  }
+
+  // SITEMAP_LOW_COVERAGE
+  if (
+    page.siteContext?.sitemapAnalysis &&
+    page.siteContext.sitemapAnalysis.discoveredPageCount > 0
+  ) {
+    const coverage =
+      page.siteContext.sitemapAnalysis.urlCount /
+      page.siteContext.sitemapAnalysis.discoveredPageCount;
+    if (coverage < 0.5) {
+      deduct("SITEMAP_LOW_COVERAGE", -5, {
+        sitemapUrls: page.siteContext.sitemapAnalysis.urlCount,
+        discoveredPages: page.siteContext.sitemapAnalysis.discoveredPageCount,
+        coverage: Math.round(coverage * 100),
+      });
+    }
+  }
+
   return { score: Math.max(0, score), issues };
 }

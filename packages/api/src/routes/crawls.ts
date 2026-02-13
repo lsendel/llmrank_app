@@ -2,10 +2,16 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { signPayload } from "../middleware/hmac";
-import { projectQueries, crawlQueries, userQueries } from "@llm-boost/db";
+import {
+  projectQueries,
+  crawlQueries,
+  userQueries,
+  scoreQueries,
+} from "@llm-boost/db";
 import {
   ERROR_CODES,
   PLAN_LIMITS,
+  getQuickWins,
   type CrawlJobPayload,
 } from "@llm-boost/shared";
 
@@ -231,7 +237,58 @@ crawlRoutes.get("/:id", async (c) => {
     );
   }
 
-  return c.json({ data: crawlJob });
+  // Aggregate scores from page_scores when crawl is complete
+  let overallScore: number | null = null;
+  let letterGrade: string | null = null;
+  let scores: {
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+  } | null = null;
+
+  if (crawlJob.status === "complete") {
+    const pageScoreRows = await scoreQueries(db).listByJob(crawlId);
+    if (pageScoreRows.length > 0) {
+      const avg = (vals: (number | null)[]) => {
+        const nums = vals.filter((v): v is number => v !== null);
+        return nums.length > 0
+          ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length)
+          : 0;
+      };
+
+      overallScore = avg(pageScoreRows.map((s) => s.overallScore));
+      const technical = avg(pageScoreRows.map((s) => s.technicalScore));
+      const content = avg(pageScoreRows.map((s) => s.contentScore));
+      const aiReadiness = avg(pageScoreRows.map((s) => s.aiReadinessScore));
+
+      // Performance from detail.performanceScore or lighthouse data
+      const perfScores = pageScoreRows.map((s) => {
+        const detail = s.detail as Record<string, unknown> | null;
+        return (detail?.performanceScore as number) ?? null;
+      });
+      const performance = avg(perfScores);
+
+      scores = { technical, content, aiReadiness, performance };
+
+      // Derive letter grade from overall score
+      if (overallScore >= 90) letterGrade = "A";
+      else if (overallScore >= 80) letterGrade = "B";
+      else if (overallScore >= 70) letterGrade = "C";
+      else if (overallScore >= 60) letterGrade = "D";
+      else letterGrade = "F";
+    }
+  }
+
+  return c.json({
+    data: {
+      ...crawlJob,
+      projectName: project.name,
+      overallScore,
+      letterGrade,
+      scores,
+    },
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -256,4 +313,142 @@ crawlRoutes.get("/project/:projectId", async (c) => {
     data: crawls,
     pagination: { page: 1, limit: 50, total: crawls.length, totalPages: 1 },
   });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/quick-wins — Top 5 highest-impact, easiest-to-fix issues
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/:id/quick-wins", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId = c.req.param("id");
+
+  const crawlJob = await crawlQueries(db).getById(crawlId);
+  if (!crawlJob) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(crawlJob.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  const issues = await scoreQueries(db).getIssuesByJob(crawlId);
+  const wins = getQuickWins(issues);
+
+  return c.json({ data: wins });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/platform-readiness — Pass/fail per AI platform
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/:id/platform-readiness", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId = c.req.param("id");
+
+  const crawlJob = await crawlQueries(db).getById(crawlId);
+  if (!crawlJob) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(crawlJob.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  const issues = await scoreQueries(db).getIssuesByJob(crawlId);
+  const issueCodes = new Set(issues.map((i) => i.code));
+
+  // Import dynamically to keep the route file lean
+  const { PLATFORM_REQUIREMENTS } = await import("@llm-boost/shared");
+
+  const matrix = Object.entries(PLATFORM_REQUIREMENTS).map(
+    ([platform, checks]) => ({
+      platform,
+      checks: checks.map((check) => ({
+        factor: check.factor,
+        label: check.label,
+        importance: check.importance,
+        pass: !issueCodes.has(check.issueCode),
+      })),
+    }),
+  );
+
+  return c.json({ data: matrix });
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/share — Enable sharing, generate token
+// ---------------------------------------------------------------------------
+
+crawlRoutes.post("/:id/share", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId = c.req.param("id");
+
+  const crawlJob = await crawlQueries(db).getById(crawlId);
+  if (!crawlJob) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(crawlJob.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  // Re-use existing token if already shared, otherwise generate
+  let updated;
+  if (crawlJob.shareToken && crawlJob.shareEnabled) {
+    updated = crawlJob;
+  } else if (crawlJob.shareToken) {
+    // Re-enable existing token
+    updated = await crawlQueries(db).generateShareToken(crawlId);
+  } else {
+    updated = await crawlQueries(db).generateShareToken(crawlId);
+  }
+
+  const shareUrl = `/report/${updated.shareToken}`;
+
+  return c.json({
+    data: { shareToken: updated.shareToken, shareUrl },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /:id/share — Disable sharing
+// ---------------------------------------------------------------------------
+
+crawlRoutes.delete("/:id/share", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId = c.req.param("id");
+
+  const crawlJob = await crawlQueries(db).getById(crawlId);
+  if (!crawlJob) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  const project = await projectQueries(db).getById(crawlJob.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
+  }
+
+  await crawlQueries(db).disableSharing(crawlId);
+
+  return c.json({ data: { disabled: true } });
 });

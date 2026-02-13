@@ -4,4 +4,6 @@ export * from "./schemas/scoring";
 export * from "./schemas/api";
 export * from "./constants/issues";
 export * from "./constants/plans";
+export * from "./constants/platform-requirements";
 export * from "./utils/env";
+export * from "./utils/quick-wins";

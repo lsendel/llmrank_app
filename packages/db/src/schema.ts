@@ -66,6 +66,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   clerkId: text("clerk_id").unique(),
   name: text("name"),
+  phone: text("phone"),
   avatarUrl: text("avatar_url"),
   plan: planEnum("plan").notNull().default("free"),
   stripeCustomerId: text("stripe_customer_id"),
@@ -124,6 +125,9 @@ export const crawlJobs = pgTable(
     pagesScored: integer("pages_scored").default(0),
     errorMessage: text("error_message"),
     r2Prefix: text("r2_prefix"),
+    shareToken: text("share_token").unique(),
+    shareEnabled: boolean("share_enabled").default(false),
+    sharedAt: timestamp("shared_at"),
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -131,6 +135,7 @@ export const crawlJobs = pgTable(
   (t) => [
     index("idx_jobs_project").on(t.projectId),
     index("idx_jobs_status").on(t.status),
+    index("idx_jobs_share_token").on(t.shareToken),
   ],
 );
 

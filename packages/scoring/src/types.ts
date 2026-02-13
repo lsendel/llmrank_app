@@ -21,6 +21,12 @@ export interface PageData {
     hasLlmsTxt: boolean;
     aiCrawlersBlocked: string[];
     hasSitemap: boolean;
+    sitemapAnalysis?: {
+      isValid: boolean;
+      urlCount: number;
+      staleUrlCount: number;
+      discoveredPageCount: number;
+    };
     contentHashes: Map<string, string>; // hash -> other page URL (for duplicate detection)
     responseTimeMs?: number;
     pageSizeBytes?: number;

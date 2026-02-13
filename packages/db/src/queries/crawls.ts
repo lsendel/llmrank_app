@@ -56,5 +56,31 @@ export function crawlQueries(db: Database) {
         orderBy: [desc(crawlJobs.createdAt)],
       });
     },
+
+    async generateShareToken(id: string) {
+      const token = crypto.randomUUID();
+      const [updated] = await db
+        .update(crawlJobs)
+        .set({ shareToken: token, shareEnabled: true, sharedAt: new Date() })
+        .where(eq(crawlJobs.id, id))
+        .returning();
+      return updated;
+    },
+
+    async getByShareToken(token: string) {
+      return db.query.crawlJobs.findFirst({
+        where: (fields, { and, eq: eq_ }) =>
+          and(eq_(fields.shareToken, token), eq_(fields.shareEnabled, true)),
+      });
+    },
+
+    async disableSharing(id: string) {
+      const [updated] = await db
+        .update(crawlJobs)
+        .set({ shareEnabled: false })
+        .where(eq(crawlJobs.id, id))
+        .returning();
+      return updated;
+    },
   };
 }

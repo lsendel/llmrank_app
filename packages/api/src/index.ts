@@ -11,8 +11,10 @@ import { pageRoutes } from "./routes/pages";
 import { billingRoutes } from "./routes/billing";
 import { ingestRoutes } from "./routes/ingest";
 import { visibilityRoutes } from "./routes/visibility";
+import { scoreRoutes } from "./routes/scores";
 import { dashboardRoutes } from "./routes/dashboard";
 import { accountRoutes } from "./routes/account";
+import { publicRoutes } from "./routes/public";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -24,6 +26,9 @@ export type Bindings = {
   DATABASE_URL: string;
   SHARED_SECRET: string;
   ANTHROPIC_API_KEY: string;
+  OPENAI_API_KEY: string;
+  GOOGLE_API_KEY: string;
+  PERPLEXITY_API_KEY: string;
   STRIPE_SECRET_KEY: string;
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
@@ -79,8 +84,10 @@ app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
 app.route("/ingest", ingestRoutes);
 app.route("/api/visibility", visibilityRoutes);
+app.route("/api/scores", scoreRoutes);
 app.route("/api/dashboard", dashboardRoutes);
 app.route("/api/account", accountRoutes);
+app.route("/api/public", publicRoutes);
 
 // Fallback
 app.notFound((c) => {

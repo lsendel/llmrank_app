@@ -1,16 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CrawlProgress } from "@/components/crawl-progress";
+import {
+  CrawlProgress,
+  isActiveCrawlStatus,
+  type CrawlStatus,
+} from "@/components/crawl-progress";
 import { ScoreCircle } from "@/components/score-circle";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
-import { api, type CrawlJob } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { api, ApiError, type CrawlJob } from "@/lib/api";
 
 function scoreColor(score: number): string {
   if (score >= 80) return "text-success";
@@ -25,18 +30,55 @@ export default function CrawlDetailPage() {
   const [crawl, setCrawl] = useState<CrawlJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    withToken(async (token) => {
-      const data = await api.crawls.get(token, params.id);
+  const fetchCrawl = useCallback(async () => {
+    try {
+      const data = await withToken((token) => api.crawls.get(token, params.id));
       setCrawl(data);
-    })
-      .catch((err) => {
-        console.error(err);
+      return data;
+    } catch (err) {
+      // Only set error on initial load, not during polling
+      if (!crawl) {
         setError(err instanceof Error ? err.message : "Failed to load crawl");
-      })
-      .finally(() => setLoading(false));
-  }, [withToken, params.id]);
+      }
+      return null;
+    }
+  }, [withToken, params.id, crawl]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchCrawl().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll every 3 seconds while crawl is active
+  useEffect(() => {
+    if (!crawl || !isActiveCrawlStatus(crawl.status as CrawlStatus)) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+
+    pollRef.current = setInterval(async () => {
+      const data = await fetchCrawl();
+      if (data && !isActiveCrawlStatus(data.status as CrawlStatus)) {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      }
+    }, 3000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [crawl?.status, fetchCrawl]);
 
   if (loading) {
     return (
@@ -119,19 +161,11 @@ export default function CrawlDetailPage() {
 
       {/* Crawl Progress */}
       <CrawlProgress
-        crawlId={crawl.id}
-        initialStatus={
-          crawl.status as
-            | "pending"
-            | "crawling"
-            | "scoring"
-            | "complete"
-            | "failed"
-        }
-        initialPagesFound={crawl.pagesFound}
-        initialPagesCrawled={crawl.pagesCrawled}
-        initialPagesScored={crawl.pagesScored}
-        initialStartedAt={crawl.startedAt ?? undefined}
+        status={crawl.status as CrawlStatus}
+        pagesFound={crawl.pagesFound}
+        pagesCrawled={crawl.pagesCrawled}
+        pagesScored={crawl.pagesScored}
+        startedAt={crawl.startedAt}
       />
 
       {/* Score summary (when complete) */}
@@ -140,13 +174,16 @@ export default function CrawlDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Score Summary</CardTitle>
-              <Link
-                href={`/dashboard/projects/${crawl.projectId}`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-              >
-                View Project
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <ShareButton crawlId={params.id} />
+                <Link
+                  href={`/dashboard/projects/${crawl.projectId}`}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  View Project
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -207,5 +244,67 @@ export default function CrawlDetailPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function ShareButton({ crawlId }: { crawlId: string }) {
+  const { withToken } = useApi();
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleShare() {
+    setLoading(true);
+    try {
+      const result = await withToken((token) =>
+        api.share.enable(token, crawlId),
+      );
+      const fullUrl = `${window.location.origin}${result.shareUrl}`;
+      setShareUrl(fullUrl);
+      await navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (shareUrl) {
+    return (
+      <div className="flex items-center gap-2">
+        <code className="max-w-[200px] truncate rounded bg-muted px-2 py-1 text-xs">
+          {shareUrl}
+        </code>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={async () => {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-success" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleShare}
+      disabled={loading}
+    >
+      <Share2 className="mr-1.5 h-3.5 w-3.5" />
+      {loading ? "Sharing..." : "Share Report"}
+    </Button>
   );
 }

@@ -1,7 +1,12 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { projectQueries, userQueries, visibilityChecks } from "@llm-boost/db";
+import {
+  projectQueries,
+  userQueries,
+  visibilityChecks,
+  visibilityQueries,
+} from "@llm-boost/db";
 import { PLAN_LIMITS, ERROR_CODES } from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -91,10 +96,10 @@ visibilityRoutes.post("/check", async (c) => {
     competitors: body.competitors ?? [],
     providers: body.providers,
     apiKeys: {
-      chatgpt: c.env.ANTHROPIC_API_KEY, // TODO: separate keys per provider
+      chatgpt: c.env.OPENAI_API_KEY,
       claude: c.env.ANTHROPIC_API_KEY,
-      perplexity: c.env.ANTHROPIC_API_KEY,
-      gemini: c.env.ANTHROPIC_API_KEY,
+      perplexity: c.env.PERPLEXITY_API_KEY,
+      gemini: c.env.GOOGLE_API_KEY,
     },
   });
 
@@ -147,4 +152,26 @@ visibilityRoutes.get("/:projectId", async (c) => {
   });
 
   return c.json({ data: results });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:projectId/trends — Weekly share-of-voice trends
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.get("/:projectId/trends", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const trends = await visibilityQueries(db).getTrends(projectId);
+
+  return c.json({ data: trends });
 });
