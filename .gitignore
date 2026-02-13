@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.wrangler/
+.env
+.env.local
+*.local
+target/
+.vercel
+.DS_Store
