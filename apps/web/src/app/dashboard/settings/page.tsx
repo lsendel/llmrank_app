@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +31,13 @@ import {
   Check,
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
-import { api, type BillingInfo } from "@/lib/api";
+import { useApiSWR } from "@/lib/use-api-swr";
+import {
+  api,
+  type BillingInfo,
+  type SubscriptionInfo,
+  type PaymentRecord,
+} from "@/lib/api";
 
 const plans = [
   {
@@ -95,8 +101,19 @@ export default function SettingsPage() {
   const { withToken } = useApi();
   const { signOut } = useClerk();
 
-  const [billing, setBilling] = useState<BillingInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: billing, isLoading: loading } = useApiSWR<BillingInfo>(
+    "billing-info",
+    useCallback((token: string) => api.billing.getInfo(token), []),
+  );
+  const { data: subscription } = useApiSWR<SubscriptionInfo | null>(
+    "billing-subscription",
+    useCallback((token: string) => api.billing.getSubscription(token), []),
+  );
+  const { data: payments } = useApiSWR<PaymentRecord[]>(
+    "billing-payments",
+    useCallback((token: string) => api.billing.getPayments(token), []),
+  );
+
   const [emailNotifications, setEmailNotifications] = useState({
     crawlComplete: true,
     weeklyReport: true,
@@ -106,15 +123,22 @@ export default function SettingsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [upgrading, setUpgrading] = useState<string | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
-  useEffect(() => {
-    withToken(async (token) => {
-      const info = await api.billing.getInfo(token);
-      setBilling(info);
-    })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [withToken]);
+  async function handleCancelSubscription() {
+    setCanceling(true);
+    try {
+      await withToken(async (token) => {
+        await api.billing.cancelSubscription(token);
+      });
+      setCancelDialogOpen(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCanceling(false);
+    }
+  }
 
   function handleToggle(key: keyof typeof emailNotifications) {
     setEmailNotifications((prev) => ({
@@ -254,6 +278,108 @@ export default function SettingsPage() {
         </CardFooter>
       </Card>
 
+      {/* Subscription Management */}
+      {subscription && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Subscription</CardTitle>
+            </div>
+            <CardDescription>Manage your active subscription.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Badge
+                variant={
+                  subscription.cancelAtPeriodEnd
+                    ? "secondary"
+                    : subscription.status === "active"
+                      ? "default"
+                      : "destructive"
+                }
+              >
+                {subscription.cancelAtPeriodEnd
+                  ? "Canceling"
+                  : subscription.status === "past_due"
+                    ? "Past Due"
+                    : "Active"}
+              </Badge>
+              <span className="text-sm font-medium capitalize">
+                {subscription.planCode} plan
+              </span>
+            </div>
+            {subscription.currentPeriodEnd && (
+              <p className="text-sm text-muted-foreground">
+                {subscription.cancelAtPeriodEnd
+                  ? "Access until "
+                  : "Next billing date: "}
+                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+              </p>
+            )}
+          </CardContent>
+          <CardFooter className="gap-2">
+            {!subscription.cancelAtPeriodEnd &&
+              subscription.status === "active" && (
+                <Dialog
+                  open={cancelDialogOpen}
+                  onOpenChange={setCancelDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Cancel Subscription
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cancel subscription?</DialogTitle>
+                      <DialogDescription>
+                        Your subscription will remain active until the end of
+                        the current billing period. You won&apos;t be charged
+                        again.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setCancelDialogOpen(false)}
+                      >
+                        Keep Subscription
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleCancelSubscription}
+                        disabled={canceling}
+                      >
+                        {canceling ? "Canceling..." : "Yes, cancel"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await withToken(async (token) => {
+                    const result = await api.billing.createPortalSession(
+                      token,
+                      window.location.href,
+                    );
+                    window.location.href = result.url;
+                  });
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              Manage Billing
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
       {/* Plan comparison */}
       <Card>
         <CardHeader>
@@ -311,6 +437,52 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment History */}
+      {payments && payments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Payment History</CardTitle>
+            </div>
+            <CardDescription>
+              Your recent payments and invoices.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {payments.map((payment: PaymentRecord) => (
+                <div
+                  key={payment.id}
+                  className="flex items-center justify-between py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">
+                      ${(payment.amountCents / 100).toFixed(2)}{" "}
+                      {payment.currency.toUpperCase()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(payment.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      payment.status === "succeeded"
+                        ? "default"
+                        : payment.status === "failed"
+                          ? "destructive"
+                          : "secondary"
+                    }
+                  >
+                    {payment.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notification Preferences */}
       <Card>
