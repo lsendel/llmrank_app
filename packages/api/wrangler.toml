@@ -8,7 +8,7 @@ bucket_name = "ai-seo-storage"
 
 [[kv_namespaces]]
 binding = "KV"
-id = "" # Fill after creating KV namespace
+id = "a1b4b94676c04ac997f69d2a5ca03dad"
 
 [vars]
 CRAWLER_URL = ""
