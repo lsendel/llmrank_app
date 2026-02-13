@@ -1,0 +1,50 @@
+# Multi-stage Dockerfile for the Rust Crawler
+
+# --- Builder Stage ---
+FROM rust:1.84-slim-bookworm AS builder
+
+WORKDIR /usr/src/crawler
+COPY apps/crawler/ .
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build the application
+RUN cargo build --release
+
+# --- Runtime Stage ---
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Install runtime dependencies including Chrome for Lighthouse
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    && curl -sSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y \
+    google-chrome-stable \
+    nodejs \
+    npm \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Lighthouse globally
+RUN npm install -g lighthouse
+
+# Copy the binary from builder
+COPY --from=builder /usr/src/crawler/target/release/crawler /app/crawler
+
+# Expose the service port
+EXPOSE 3000
+
+# Set default environment variables
+ENV RUST_LOG=info
+ENV PORT=3000
+
+CMD ["./crawler"]
