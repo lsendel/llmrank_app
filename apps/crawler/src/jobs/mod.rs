@@ -19,6 +19,7 @@ use crate::storage::{StorageClient, StorageConfig};
 type HmacSha256 = Hmac<Sha256>;
 
 /// Internal state for a running or completed job.
+#[derive(Debug)]
 struct JobEntry {
     status: JobStatusKind,
     stats: Option<CrawlStats>,
@@ -26,6 +27,7 @@ struct JobEntry {
 }
 
 /// Manages crawl job lifecycle: submission, status queries, and cancellation.
+#[derive(Debug)]
 pub struct JobManager {
     config: Arc<Config>,
     jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>>,
@@ -147,7 +149,7 @@ impl JobManager {
         }
 
         let job_start = Instant::now();
-        let crawl_config = &payload.config;
+        let crawl_config = payload.config.clone();
 
         // Set up components
         let rate_per_sec = if crawl_config.rate_limit_ms > 0 {
@@ -168,12 +170,12 @@ impl JobManager {
             None
         };
 
-        let storage = StorageClient::new(StorageConfig {
+        let storage = Arc::new(StorageClient::new(StorageConfig {
             endpoint: config.r2_endpoint.clone(),
             access_key: config.r2_access_key.clone(),
             secret_key: config.r2_secret_key.clone(),
             bucket: config.r2_bucket.clone(),
-        });
+        }));
 
         // Determine domain from first seed URL for robots check
         let domain = crawl_config
@@ -192,6 +194,15 @@ impl JobManager {
         } else {
             None
         };
+
+        // Initialize CrawlEngine
+        let engine = CrawlEngine::new(
+            fetcher,
+            lighthouse_runner,
+            storage,
+            robots,
+            crawl_config.clone(),
+        );
 
         // Initialize frontier
         let mut frontier = Frontier::new(&crawl_config.seed_urls, crawl_config.max_depth);
@@ -215,141 +226,26 @@ impl JobManager {
                 break;
             }
 
-            // Check robots.txt
-            if let Some(ref checker) = robots {
-                if !checker.is_allowed(&url, &crawl_config.user_agent) {
+            match engine.crawl_page(&url, &payload.job_id).await {
+                Ok(page_result) => {
+                    // Add discovered links to frontier
+                    if crawl_config.extract_links {
+                        frontier.add_discovered(&page_result.extracted.internal_links, depth + 1);
+                    }
+
+                    batch_pages.push(page_result);
+                    pages_crawled += 1;
+                }
+                Err(CrawlEngineError::BlockedByRobots(_)) => {
                     tracing::debug!(url = %url, "Blocked by robots.txt");
+                    // Do not count as error or crawled, just skip
                     continue;
                 }
-            }
-
-            let page_start = Instant::now();
-
-            // Fetch the page
-            let fetch_result = match fetcher.fetch(&url).await {
-                Ok(r) => r,
                 Err(e) => {
-                    tracing::warn!(url = %url, error = %e, "Fetch failed");
+                    tracing::warn!(url = %url, error = %e, "Crawl failed");
                     pages_errored += 1;
-                    continue;
                 }
-            };
-
-            let timing_ms = page_start.elapsed().as_millis() as u64;
-
-            // Parse the HTML
-            let parsed = Parser::parse(&fetch_result.body, &fetch_result.final_url);
-
-            // Compute content hash
-            let content_hash = {
-                use sha2::Digest;
-                let mut hasher = sha2::Sha256::new();
-                hasher.update(fetch_result.body.as_bytes());
-                hex::encode(hasher.finalize())
-            };
-
-            // Upload HTML to R2
-            let html_r2_key = format!(
-                "crawls/{}/html/{}.html.gz",
-                payload.job_id,
-                hex::encode(&content_hash.as_bytes()[..8])
-            );
-            if let Err(e) = storage.upload_html(&html_r2_key, &fetch_result.body).await {
-                tracing::warn!(url = %url, error = %e, "Failed to upload HTML to R2");
             }
-
-            // Run Lighthouse if configured
-            let lighthouse_result = if let Some(ref runner) = lighthouse_runner {
-                match runner.run_lighthouse(&url).await {
-                    Ok(mut result) => {
-                        // Upload lighthouse JSON
-                        let lh_key = format!(
-                            "crawls/{}/lighthouse/{}.json.gz",
-                            payload.job_id,
-                            hex::encode(&content_hash.as_bytes()[..8])
-                        );
-                        let lh_json = serde_json::to_string(&result).unwrap_or_default();
-                        if let Err(e) = storage.upload_json(&lh_key, &lh_json).await {
-                            tracing::warn!(url = %url, error = %e, "Failed to upload LH JSON");
-                        }
-                        result.lh_r2_key = Some(lh_key);
-                        Some(result)
-                    }
-                    Err(e) => {
-                        tracing::warn!(url = %url, error = %e, "Lighthouse audit failed");
-                        None
-                    }
-                }
-            } else {
-                None
-            };
-
-            // Build structured data from JSON-LD
-            let structured_data: Option<Vec<serde_json::Value>> = if crawl_config.extract_schema {
-                let values: Vec<serde_json::Value> = parsed
-                    .schema_json_ld
-                    .iter()
-                    .filter_map(|s| serde_json::from_str(s).ok())
-                    .collect();
-                if values.is_empty() {
-                    None
-                } else {
-                    Some(values)
-                }
-            } else {
-                None
-            };
-
-            // Extract schema types from JSON-LD
-            let schema_types: Vec<String> = parsed
-                .schema_json_ld
-                .iter()
-                .filter_map(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-                .filter_map(|v| v.get("@type").and_then(|t| t.as_str()).map(|s| s.to_string()))
-                .collect();
-
-            let og_tags = if parsed.og_tags.is_empty() {
-                None
-            } else {
-                Some(parsed.og_tags.clone())
-            };
-
-            // Add discovered links to frontier
-            if crawl_config.extract_links {
-                frontier.add_discovered(&parsed.internal_links, depth + 1);
-            }
-
-            let page_result = CrawlPageResult {
-                url: fetch_result.final_url,
-                status_code: fetch_result.status_code,
-                title: parsed.title,
-                meta_description: parsed.meta_description,
-                canonical_url: parsed.canonical_url,
-                word_count: parsed.word_count,
-                content_hash,
-                html_r2_key,
-                extracted: ExtractedData {
-                    h1: parsed.headings.h1,
-                    h2: parsed.headings.h2,
-                    h3: parsed.headings.h3,
-                    h4: parsed.headings.h4,
-                    h5: parsed.headings.h5,
-                    h6: parsed.headings.h6,
-                    schema_types,
-                    internal_links: parsed.internal_links,
-                    external_links: parsed.external_links,
-                    images_without_alt: parsed.images_without_alt,
-                    has_robots_meta: parsed.has_robots_meta,
-                    robots_directives: parsed.robots_directives,
-                    og_tags,
-                    structured_data,
-                },
-                lighthouse: lighthouse_result,
-                timing_ms,
-            };
-
-            batch_pages.push(page_result);
-            pages_crawled += 1;
 
             // Update stats in the entry
             {

@@ -6,7 +6,7 @@ use axum::{
 };
 use serde_json::json;
 
-use crate::models::{CrawlJobPayload, JobStatus, JobStatusKind};
+use crate::models::CrawlJobPayload;
 use crate::AppState;
 
 /// POST /api/v1/jobs

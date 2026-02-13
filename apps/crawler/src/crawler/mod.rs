@@ -3,10 +3,9 @@ pub mod frontier;
 pub mod parser;
 pub mod robots;
 
-pub use fetcher::{FetchResult, RateLimitedFetcher};
-pub use frontier::Frontier;
-pub use parser::{ParsedPage, Parser};
-pub use robots::{fetch_llms_txt, RobotsChecker};
+pub use fetcher::RateLimitedFetcher;
+pub use parser::Parser;
+pub use robots::RobotsChecker;
 
 use std::sync::Arc;
 use url::Url;
