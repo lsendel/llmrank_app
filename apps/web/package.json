@@ -1,0 +1,30 @@
+{
+  "name": "@llm-boost/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19",
+    "@clerk/nextjs": "^6",
+    "@llm-boost/shared": "workspace:*",
+    "recharts": "^2",
+    "lucide-react": "^0.469",
+    "clsx": "^2",
+    "tailwind-merge": "^3"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4",
+    "typescript": "^5.7"
+  }
+}
