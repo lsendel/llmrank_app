@@ -46,6 +46,7 @@ impl StorageClient {
             .region(Region::new("auto"))
             .credentials_provider(credentials)
             .force_path_style(true)
+            .behavior_version_latest()
             .build();
 
         let client = S3Client::from_conf(s3_config);
