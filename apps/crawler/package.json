@@ -1,0 +1,13 @@
+{
+  "name": "@llm-boost/crawler",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release",
+    "dev": "cargo run",
+    "test": "cargo test",
+    "lint": "cargo fmt --check && cargo clippy -- -D warnings",
+    "lint:fix": "cargo fmt && cargo clippy --fix --allow-dirty --allow-staged",
+    "format": "cargo fmt"
+  }
+}

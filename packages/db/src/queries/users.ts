@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { users, planEnum } from "../schema";
 
@@ -52,16 +52,22 @@ export function userQueries(db: Database) {
     },
 
     async decrementCrawlCredits(id: string) {
-      const user = await db.query.users.findFirst({ where: eq(users.id, id) });
-      if (!user || user.crawlCreditsRemaining <= 0) return false;
-      await db
+      const [updated] = await db
         .update(users)
         .set({
           crawlCreditsRemaining: sql`${users.crawlCreditsRemaining} - 1`,
           updatedAt: new Date(),
         })
-        .where(eq(users.id, id));
-      return true;
+        .where(and(eq(users.id, id), sql`${users.crawlCreditsRemaining} > 0`))
+        .returning({ remaining: users.crawlCreditsRemaining });
+      return !!updated;
+    },
+
+    async resetCrawlCreditsForPlan(plan: Plan, credits: number) {
+      await db
+        .update(users)
+        .set({ crawlCreditsRemaining: credits, updatedAt: new Date() })
+        .where(eq(users.plan, plan));
     },
   };
 }

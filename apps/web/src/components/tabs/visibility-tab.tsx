@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,15 @@ import {
 } from "@/components/ui/table";
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
+import { CompetitorComparison } from "@/components/visibility/competitor-comparison";
 import { useApi } from "@/lib/use-api";
-import { api, ApiError, type VisibilityCheck } from "@/lib/api";
+import { useApiSWR } from "@/lib/use-api-swr";
+import {
+  api,
+  ApiError,
+  type VisibilityCheck,
+  type StrategyCompetitor,
+} from "@/lib/api";
 
 const PROVIDERS = [
   { id: "chatgpt", label: "ChatGPT" },
@@ -37,7 +44,6 @@ export default function VisibilityTab({
 }) {
   const { withToken } = useApi();
   const [query, setQuery] = useState("");
-  const [competitors, setCompetitors] = useState("");
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
   );
@@ -46,6 +52,14 @@ export default function VisibilityTab({
   const [loading, setLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: competitors } = useApiSWR<StrategyCompetitor[]>(
+    `competitors-${projectId}`,
+    useCallback(
+      (token: string) => api.strategy.getCompetitors(token, projectId),
+      [projectId],
+    ),
+  );
 
   // Load history on mount
   useEffect(() => {
@@ -63,15 +77,10 @@ export default function VisibilityTab({
     setError(null);
     try {
       await withToken(async (token) => {
-        const competitorList = competitors
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
         const data = await api.visibility.run(token, {
           projectId,
           query: query.trim(),
           providers: selectedProviders,
-          competitors: competitorList.length > 0 ? competitorList : undefined,
         });
         setResults(data);
         const updated = await api.visibility.list(token, projectId);
@@ -102,6 +111,15 @@ export default function VisibilityTab({
       {/* Share of Voice Chart */}
       <ShareOfVoiceChart projectId={projectId} />
 
+      {/* Competitor Comparison */}
+      {history.length > 0 && competitors && (
+        <CompetitorComparison
+          projectId={projectId}
+          results={history}
+          competitorDomains={competitors.map((c) => c.domain)}
+        />
+      )}
+
       {/* Run Check Form */}
       <Card>
         <CardHeader>
@@ -115,17 +133,6 @@ export default function VisibilityTab({
               placeholder={`e.g. "best ${domain.split(".")[0]} alternatives"`}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="vis-competitors">
-              Competitor Domains (comma-separated, optional)
-            </Label>
-            <Input
-              id="vis-competitors"
-              placeholder="competitor1.com, competitor2.com"
-              value={competitors}
-              onChange={(e) => setCompetitors(e.target.value)}
             />
           </div>
           <div className="space-y-2">

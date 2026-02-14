@@ -38,7 +38,7 @@ interface ChartDataPoint {
 }
 
 export function ShareOfVoiceChart({ projectId }: { projectId: string }) {
-  const { data: trends, isLoading: loading } = useApiSWR(
+  const { data: trends, isLoading: loading } = useApiSWR<VisibilityTrend[]>(
     `sov-trends-${projectId}`,
     useCallback(
       (token: string) => api.visibility.getTrends(token, projectId),

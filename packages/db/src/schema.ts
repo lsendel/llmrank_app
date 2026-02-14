@@ -78,6 +78,13 @@ export const integrationProviderEnum = pgEnum("integration_provider", [
   "clarity",
 ]);
 
+export const eventStatusEnum = pgEnum("event_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+]);
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -118,6 +125,7 @@ export const projects = pgTable(
     name: text("name").notNull(),
     domain: text("domain").notNull(),
     settings: jsonb("settings").default({}),
+    branding: jsonb("branding").default({}),
     crawlSchedule: crawlScheduleEnum("crawl_schedule")
       .notNull()
       .default("manual"),
@@ -147,11 +155,15 @@ export const crawlJobs = pgTable(
     pagesScored: integer("pages_scored").default(0),
     errorMessage: text("error_message"),
     r2Prefix: text("r2_prefix"),
+    summary: text("summary"),
     shareToken: text("share_token").unique(),
     shareEnabled: boolean("share_enabled").default(false),
     sharedAt: timestamp("shared_at"),
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelledBy: uuid("cancelled_by").references(() => users.id),
+    cancelReason: text("cancel_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
@@ -197,23 +209,30 @@ export const pages = pgTable(
 // Page Scores
 // ---------------------------------------------------------------------------
 
-export const pageScores = pgTable("page_scores", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  pageId: uuid("page_id")
-    .notNull()
-    .references(() => pages.id, { onDelete: "cascade" }),
-  jobId: uuid("job_id")
-    .notNull()
-    .references(() => crawlJobs.id, { onDelete: "cascade" }),
-  overallScore: real("overall_score").notNull(),
-  technicalScore: real("technical_score"),
-  contentScore: real("content_score"),
-  aiReadinessScore: real("ai_readiness_score"),
-  lighthousePerf: real("lighthouse_perf"),
-  lighthouseSeo: real("lighthouse_seo"),
-  detail: jsonb("detail"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const pageScores = pgTable(
+  "page_scores",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    overallScore: real("overall_score").notNull(),
+    technicalScore: real("technical_score"),
+    contentScore: real("content_score"),
+    aiReadinessScore: real("ai_readiness_score"),
+    lighthousePerf: real("lighthouse_perf"),
+    lighthouseSeo: real("lighthouse_seo"),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_scores_job").on(t.jobId),
+    index("idx_scores_page").on(t.pageId),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // Issues
@@ -382,6 +401,23 @@ export const logUploads = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Competitors
+// ---------------------------------------------------------------------------
+
+export const competitors = pgTable(
+  "competitors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_competitors_project").on(t.projectId)],
+);
+
+// ---------------------------------------------------------------------------
 // Project Integrations (GSC, PSI, GA4, Clarity)
 // ---------------------------------------------------------------------------
 
@@ -430,4 +466,64 @@ export const pageEnrichments = pgTable(
     index("idx_enrichments_page").on(t.pageId),
     index("idx_enrichments_job_provider").on(t.jobId, t.provider),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Outbox Events
+// ---------------------------------------------------------------------------
+
+export const outboxEvents = pgTable(
+  "outbox_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: eventStatusEnum("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    availableAt: timestamp("available_at").notNull().defaultNow(),
+    processedAt: timestamp("processed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_outbox_status_available").on(t.status, t.availableAt)],
+);
+
+export const adminAuditLogs = pgTable(
+  "admin_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorId: uuid("actor_id").references(() => users.id),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_admin_audit_target").on(t.targetType, t.targetId)],
+);
+
+// ---------------------------------------------------------------------------
+// Page Facts (Semantic Analysis)
+// ---------------------------------------------------------------------------
+
+export const factTypeEnum = pgEnum("fact_type", [
+  "metric", // Prices, counts, specs
+  "definition", // "What is" explanations
+  "claim", // Unique value propositions
+  "quote", // Highly citable sentences
+]);
+
+export const pageFacts = pgTable(
+  "page_facts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    type: factTypeEnum("type").notNull(),
+    content: text("content").notNull(),
+    sourceSentence: text("source_sentence"),
+    citabilityScore: integer("citability_score").default(0), // 0-100
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_facts_page").on(t.pageId)],
 );

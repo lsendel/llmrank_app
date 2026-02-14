@@ -361,6 +361,48 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Increase visible text content relative to HTML markup. Remove unnecessary wrappers, inline styles, and bloated templates.",
     effortLevel: "medium",
   },
+  AI_ASSISTANT_SPEAK: {
+    code: "AI_ASSISTANT_SPEAK",
+    category: "content",
+    severity: "warning",
+    scoreImpact: -10,
+    message: "Content uses transition words common in AI-generated text",
+    recommendation:
+      "Remove common AI transition words like 'In conclusion', 'Moreover', and 'It is important to note'. Use more natural, varied language.",
+    effortLevel: "low",
+  },
+  UNIFORM_SENTENCE_LENGTH: {
+    code: "UNIFORM_SENTENCE_LENGTH",
+    category: "content",
+    severity: "info",
+    scoreImpact: -5,
+    message:
+      "Sentence lengths are too uniform, which can look machine-generated",
+    recommendation:
+      "Vary your sentence length to create natural 'burstiness' and rhythm. Mix short, impactful sentences with longer descriptive ones.",
+    effortLevel: "medium",
+  },
+  LOW_EEAT_SCORE: {
+    code: "LOW_EEAT_SCORE",
+    category: "content",
+    severity: "warning",
+    scoreImpact: -15,
+    message: "Content lacks personal experience markers (E-E-A-T)",
+    recommendation:
+      "Incorporate first-person anecdotes, unique data, or specific case studies. AI search engines prioritize content that demonstrates real-world experience over generic information.",
+    effortLevel: "high",
+  },
+  MISSING_AUTHORITATIVE_CITATIONS: {
+    code: "MISSING_AUTHORITATIVE_CITATIONS",
+    category: "ai_readiness",
+    severity: "info",
+    scoreImpact: -5,
+    message:
+      "Page lacks links to high-authority external sources (.gov, .edu, or major media)",
+    recommendation:
+      "Cite and link to authoritative external sources to verify your claims. This helps LLMs like Gemini and Perplexity validate your content's accuracy.",
+    effortLevel: "medium",
+  },
 
   // --- AI Readiness (10 + 3 = 13 factors) ---
   MISSING_LLMS_TXT: {

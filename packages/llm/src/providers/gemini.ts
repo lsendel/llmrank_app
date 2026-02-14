@@ -1,5 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { analyzeResponse, type VisibilityCheckResult } from "../visibility";
+import { withRetry, withTimeout } from "../retry";
+
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export async function checkGemini(
   query: string,
@@ -10,7 +13,10 @@ export async function checkGemini(
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const result = await model.generateContent(query);
+  const result = await withRetry(() =>
+    withTimeout(model.generateContent(query), REQUEST_TIMEOUT_MS),
+  );
+
   const responseText = result.response.text();
   const analysis = analyzeResponse(responseText, targetDomain, competitors);
 

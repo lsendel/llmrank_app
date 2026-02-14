@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Sparkles, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,14 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn, gradeColor } from "@/lib/utils";
 import type { CrawledPage } from "@/lib/api";
-
-function gradeColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
 
 type SortField = "url" | "statusCode" | "title" | "overallScore" | "issueCount";
 type SortDirection = "asc" | "desc";
@@ -59,11 +54,6 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
-  function SortIndicator({ field }: { field: SortField }) {
-    if (sortField !== field) return null;
-    return <span className="ml-1">{sortDir === "asc" ? "^" : "v"}</span>;
-  }
-
   return (
     <Card>
       <Table>
@@ -73,31 +63,56 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("url")}
             >
-              URL <SortIndicator field="url" />
+              URL{" "}
+              <SortIndicator
+                field="url"
+                currentField={sortField}
+                currentDir={sortDir}
+              />
             </TableHead>
             <TableHead
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("statusCode")}
             >
-              Status <SortIndicator field="statusCode" />
+              Status{" "}
+              <SortIndicator
+                field="statusCode"
+                currentField={sortField}
+                currentDir={sortDir}
+              />
             </TableHead>
             <TableHead
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("title")}
             >
-              Title <SortIndicator field="title" />
+              Title{" "}
+              <SortIndicator
+                field="title"
+                currentField={sortField}
+                currentDir={sortDir}
+              />
             </TableHead>
             <TableHead
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("overallScore")}
             >
-              Score <SortIndicator field="overallScore" />
+              Score{" "}
+              <SortIndicator
+                field="overallScore"
+                currentField={sortField}
+                currentDir={sortDir}
+              />
             </TableHead>
             <TableHead
               className="cursor-pointer hover:text-foreground"
               onClick={() => handleSort("issueCount")}
             >
-              Issues <SortIndicator field="issueCount" />
+              Issues{" "}
+              <SortIndicator
+                field="issueCount"
+                currentField={sortField}
+                currentDir={sortDir}
+              />
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -175,6 +190,24 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
                         </p>
                       </div>
                     </div>
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                      >
+                        <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                        Optimize Section
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                      >
+                        <FileText className="mr-1.5 h-3.5 w-3.5" />
+                        Generate Brief
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
@@ -184,4 +217,17 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
       </Table>
     </Card>
   );
+}
+
+function SortIndicator({
+  field,
+  currentField,
+  currentDir,
+}: {
+  field: SortField;
+  currentField: SortField;
+  currentDir: SortDirection;
+}) {
+  if (currentField !== field) return null;
+  return <span className="ml-1">{currentDir === "asc" ? "^" : "v"}</span>;
 }

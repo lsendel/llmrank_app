@@ -1,6 +1,6 @@
+use crawler::{build_app, config::Config, jobs::JobManager, AppState};
 use std::sync::Arc;
 use tracing_subscriber::{fmt, EnvFilter};
-use crawler::{config::Config, jobs::JobManager, AppState, build_app};
 
 #[tokio::main]
 async fn main() {
@@ -12,7 +12,8 @@ async fn main() {
         .init();
 
     // Load configuration from environment variables
-    let config = Arc::new(Config::from_env().expect("Failed to load configuration from environment"));
+    let config =
+        Arc::new(Config::from_env().expect("Failed to load configuration from environment"));
     let port = config.port;
 
     let job_manager = Arc::new(JobManager::new(config.clone()));
@@ -31,7 +32,5 @@ async fn main() {
         .await
         .expect("Failed to bind to address");
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
 }

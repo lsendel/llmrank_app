@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { analyzeResponse, type VisibilityCheckResult } from "../visibility";
+import { withRetry, withTimeout } from "../retry";
+
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export async function checkClaude(
   query: string,
@@ -9,11 +12,16 @@ export async function checkClaude(
 ): Promise<VisibilityCheckResult> {
   const client = new Anthropic({ apiKey });
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: query }],
-  });
+  const response = await withRetry(() =>
+    withTimeout(
+      client.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: query }],
+      }),
+      REQUEST_TIMEOUT_MS,
+    ),
+  );
 
   const responseText = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")

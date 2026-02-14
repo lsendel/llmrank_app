@@ -24,15 +24,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
-import { api, type DashboardStats, type DashboardActivity } from "@/lib/api";
-
-function gradeColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
+import { api } from "@/lib/api";
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);

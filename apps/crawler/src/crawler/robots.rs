@@ -11,12 +11,7 @@ pub enum RobotsError {
 }
 
 /// Known AI bot user agents to check in robots.txt.
-pub const AI_BOT_USER_AGENTS: &[&str] = &[
-    "GPTBot",
-    "ClaudeBot",
-    "PerplexityBot",
-    "GoogleOther",
-];
+pub const AI_BOT_USER_AGENTS: &[&str] = &["GPTBot", "ClaudeBot", "PerplexityBot", "GoogleOther"];
 
 /// Parsed robots.txt rules for a single domain.
 pub struct RobotsChecker {

@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum_test::TestServer;
-use crawler::{config::Config, jobs::JobManager, AppState, build_app};
+use crawler::{build_app, config::Config, jobs::JobManager, AppState};
 use hmac::{Hmac, Mac};
 use serde_json::json;
 use sha2::Sha256;
@@ -16,6 +16,7 @@ fn create_test_config() -> Config {
         r2_secret_key: "test_secret".to_string(),
         r2_endpoint: "http://localhost:9000".to_string(),
         r2_bucket: "test_bucket".to_string(),
+        api_base_url: "http://localhost:8787".to_string(),
         port: 8080,
         max_concurrent_jobs: 1,
         max_concurrent_fetches: 1,
@@ -24,7 +25,8 @@ fn create_test_config() -> Config {
 }
 
 fn compute_signature(body: &str, timestamp: &str, secret: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
     mac.update(timestamp.as_bytes());
     mac.update(body.as_bytes());
     hex::encode(mac.finalize().into_bytes())
@@ -92,10 +94,10 @@ async fn test_create_and_check_job() {
         .unwrap()
         .as_secs()
         .to_string();
-    // For GET request with no body, we sign empty string? 
+    // For GET request with no body, we sign empty string?
     // Let's assume verify_hmac handles empty body by reading bytes.
     // If body is empty, bytes are empty.
-    
+
     let signature_get = compute_signature("", &timestamp_get, &config.shared_secret);
 
     let status_response = server

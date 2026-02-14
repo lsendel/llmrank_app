@@ -98,9 +98,7 @@ fn count_words(text: &str) -> u32 {
 }
 
 fn count_syllables(text: &str) -> u32 {
-    text.split_whitespace()
-        .map(|word| count_word_syllables(word))
-        .sum()
+    text.split_whitespace().map(count_word_syllables).sum()
 }
 
 fn count_word_syllables(word: &str) -> u32 {
@@ -146,7 +144,9 @@ mod tests {
 
     #[test]
     fn test_flesch_simple_text() {
-        let html = Html::parse_document("<html><body><p>The cat sat on the mat. The dog ran fast.</p></body></html>");
+        let html = Html::parse_document(
+            "<html><body><p>The cat sat on the mat. The dog ran fast.</p></body></html>",
+        );
         let result = compute_flesch(&html).unwrap();
         assert!(result.score > 70.0, "Simple text should be easy to read");
         assert_eq!(result.sentence_count, 2);

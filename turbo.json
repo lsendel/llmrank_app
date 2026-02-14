@@ -13,7 +13,14 @@
     },
     "lint": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json"]
+      "inputs": ["src/**", "package.json", ".eslintrc.json"]
+    },
+    "lint:fix": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "format": {
+      "inputs": ["src/**", "package.json", ".prettierrc"]
     },
     "test": {
       "dependsOn": ["^build"],

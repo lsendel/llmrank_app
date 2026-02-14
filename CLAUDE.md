@@ -36,6 +36,12 @@ Cloudflare Edge                         Hetzner VPS (Docker)
 - Scoring engine (packages/scoring) runs in Workers after crawl data ingestion
 - LLM content scoring caches by content SHA256 hash
 
+## API-First Principle
+
+- The Hono Worker in `apps/api` owns all business capabilities; every UI (Next.js), CLI, or automation must call it via HTTP (or a generated SDK) rather than importing repositories directly.
+- ESLint enforces this contract: only `apps/api`, `packages/billing` (Stripe webhooks), and `packages/db` (schema/migrations) may import `@llm-boost/db`. All other workspaces must rely on `apps/web/src/lib/api.ts` or another HTTP client.
+- When shipping features, first expose/update the API route + domain service, then adapt the frontend to that endpoint. This keeps auth, validation, and plan enforcement centralized.
+
 ## Repository Structure
 
 ```

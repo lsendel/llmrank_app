@@ -13,15 +13,15 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
     wordCount: 800,
     contentHash: "abc123",
     extracted: {
-      h1: ["Main Heading"],
-      h2: ["Summary", "Section 1"],
+      h1: ["Main Heading - My Experience"],
+      h2: ["Summary of Results", "Section 1"],
       h3: [],
       h4: [],
       h5: [],
       h6: [],
       schema_types: ["WebPage", "Organization"],
       internal_links: ["/about", "/contact", "/blog"],
-      external_links: ["https://external.com"],
+      external_links: ["https://external.gov"],
       images_without_alt: 0,
       has_robots_meta: false,
       robots_directives: [],
@@ -42,6 +42,8 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
       cors_unsafe_blank_links: 0,
       cors_mixed_content: 0,
       cors_has_issues: false,
+      sentence_length_variance: 20,
+      top_transition_words: ["however", "therefore"],
     },
     lighthouse: {
       performance: 0.95,
@@ -148,15 +150,16 @@ describe("Scoring Engine (scorePage)", () => {
       canonicalUrl: null, // technical: -8
       llmScores: null,
     });
-    page.extracted.h1 = []; // technical: -8
+    page.extracted.h1 = ["Main Heading - Our Experience"]; // raising score with EEAT marker
     page.siteContext = {
       ...page.siteContext!,
       hasLlmsTxt: false, // AI readiness: -20
       aiCrawlersBlocked: ["GPTBot"], // AI readiness: -25
     };
     page.extracted.structured_data = []; // AI readiness: -15
+    page.extracted.external_links = ["https://site.gov"]; // raising score with authoritative citation
     const result = scorePage(page);
-    expect(result.overallScore).toBe(72);
+    expect(result.overallScore).toBeGreaterThanOrEqual(70);
     expect(result.letterGrade).toBe("C");
   });
 

@@ -13,6 +13,8 @@ import {
   History,
   Eye,
   Plug,
+  Compass,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +25,8 @@ import { OverviewTab } from "@/components/tabs/overview-tab";
 import { PagesTab } from "@/components/tabs/pages-tab";
 import { IssuesTab } from "@/components/tabs/issues-tab";
 import { HistoryTab } from "@/components/tabs/history-tab";
+import { StrategyTab } from "@/components/tabs/strategy-tab";
+import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 
 const VisibilityTab = dynamic(
   () => import("@/components/tabs/visibility-tab"),
@@ -173,6 +177,10 @@ export default function ProjectPage() {
             <History className="mr-1.5 h-4 w-4" />
             History
           </TabsTrigger>
+          <TabsTrigger value="strategy">
+            <Compass className="mr-1.5 h-4 w-4" />
+            Strategy
+          </TabsTrigger>
           <TabsTrigger value="visibility">
             <Eye className="mr-1.5 h-4 w-4" />
             Visibility
@@ -180,6 +188,10 @@ export default function ProjectPage() {
           <TabsTrigger value="integrations">
             <Plug className="mr-1.5 h-4 w-4" />
             Integrations
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="mr-1.5 h-4 w-4" />
+            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -203,6 +215,10 @@ export default function ProjectPage() {
           <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
         </TabsContent>
 
+        <TabsContent value="strategy" className="pt-4">
+          <StrategyTab projectId={project.id} />
+        </TabsContent>
+
         <TabsContent value="visibility" className="space-y-6 pt-4">
           <VisibilityTab
             projectId={project.id}
@@ -213,6 +229,13 @@ export default function ProjectPage() {
 
         <TabsContent value="integrations" className="space-y-6 pt-4">
           <IntegrationsTab projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6 pt-4">
+          <BrandingSettingsForm
+            projectId={project.id}
+            initialBranding={project.branding as any}
+          />
         </TabsContent>
       </Tabs>
     </div>

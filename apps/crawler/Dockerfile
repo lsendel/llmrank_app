@@ -21,15 +21,16 @@ COPY src/ src/
 RUN cargo build --release
 
 # --- Runtime Stage ---
-FROM node:20-slim
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
 # Install Chromium and runtime deps
-RUN apt-get update && apt-get install -y \
+# We need chromium for Lighthouse.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
-    openssl \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Lighthouse globally

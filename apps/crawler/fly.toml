@@ -2,22 +2,26 @@ app = "llmrank-crawler"
 primary_region = "iad"
 
 [build]
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["app"]
 
 [checks]
   [checks.health]
     type = "http"
     port = 8080
     path = "/api/v1/health"
-    interval = "30s"
-    timeout = "5s"
+    interval = "10s"
+    timeout = "2s"
+    method = "GET"
 
 [[vm]]
   size = "shared-cpu-2x"
-  memory = "4096mb"
+  memory = "2gb"
+  cpus = 2

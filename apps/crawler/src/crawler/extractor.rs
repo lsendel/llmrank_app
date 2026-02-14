@@ -60,7 +60,11 @@ fn extract_by_css(document: &Html, selector_str: &str, attribute: Option<&str>) 
             Some(attr) => el.value().attr(attr).map(|s| s.to_string()),
             None => {
                 let text = el.text().collect::<String>().trim().to_string();
-                if text.is_empty() { None } else { Some(text) }
+                if text.is_empty() {
+                    None
+                } else {
+                    Some(text)
+                }
             }
         })
         .collect()
@@ -70,7 +74,11 @@ fn extract_by_regex(html: &str, pattern: &str) -> Vec<String> {
     match Regex::new(pattern) {
         Ok(re) => re
             .captures_iter(html)
-            .filter_map(|cap| cap.get(1).or_else(|| cap.get(0)).map(|m| m.as_str().to_string()))
+            .filter_map(|cap| {
+                cap.get(1)
+                    .or_else(|| cap.get(0))
+                    .map(|m| m.as_str().to_string())
+            })
             .take(50) // Limit results to prevent abuse
             .collect(),
         Err(_) => vec![],
@@ -83,7 +91,8 @@ mod tests {
 
     #[test]
     fn test_css_text_extraction() {
-        let html = Html::parse_document(r#"<div class="price">$99</div><div class="price">$149</div>"#);
+        let html =
+            Html::parse_document(r#"<div class="price">$99</div><div class="price">$149</div>"#);
         let config = ExtractorConfig {
             name: "prices".to_string(),
             extractor_type: "css_selector".to_string(),

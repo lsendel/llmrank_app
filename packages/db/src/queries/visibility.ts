@@ -1,4 +1,4 @@
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { visibilityChecks, llmProviderEnum } from "../schema";
 

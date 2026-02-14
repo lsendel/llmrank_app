@@ -9,4 +9,6 @@ export * from "./constants/platform-requirements";
 export * from "./schemas/integration";
 export * from "./utils/env";
 export * from "./utils/quick-wins";
+export * from "./utils/scoring";
 export * from "./domain/log-analysis";
+export * from "./domain/plan-enforcer";

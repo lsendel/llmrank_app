@@ -1,98 +1,79 @@
-import { ISSUE_DEFINITIONS, type Issue } from "@llm-boost/shared";
 import type { PageData, FactorResult } from "../types";
+import { deduct, type ScoreState } from "./helpers";
+import { THRESHOLDS } from "../thresholds";
 
 export function scoreContentFactors(page: PageData): FactorResult {
-  let score = 100;
-  const issues: Issue[] = [];
-
-  function deduct(
-    code: string,
-    amount: number,
-    data?: Record<string, unknown>,
-  ) {
-    const def = ISSUE_DEFINITIONS[code];
-    if (!def) return;
-    score = Math.max(0, score + amount); // amount is negative
-    issues.push({
-      code: def.code,
-      category: def.category,
-      severity: def.severity,
-      message: def.message,
-      recommendation: def.recommendation,
-      data,
-    });
-  }
+  const s: ScoreState = { score: 100, issues: [] };
 
   // THIN_CONTENT: -15 if <200 words, -8 if 200-499
-  if (page.wordCount < 200) {
-    deduct("THIN_CONTENT", -15, { wordCount: page.wordCount });
-  } else if (page.wordCount < 500) {
-    deduct("THIN_CONTENT", -8, { wordCount: page.wordCount });
+  if (page.wordCount < THRESHOLDS.thinContentWords) {
+    deduct(s, "THIN_CONTENT", -15, { wordCount: page.wordCount });
+  } else if (page.wordCount < THRESHOLDS.moderateContentWords) {
+    deduct(s, "THIN_CONTENT", -8, { wordCount: page.wordCount });
   }
 
   // LLM-based content scores: CONTENT_DEPTH, CONTENT_CLARITY, CONTENT_AUTHORITY
-  // Map LLM scores (0-100) to 0-20 deduction range: deduction = -Math.round((100 - llmScore) * 0.2)
   if (page.llmScores) {
-    // CONTENT_DEPTH — uses comprehensiveness
     const depthDeduction = -Math.round(
-      (100 - page.llmScores.comprehensiveness) * 0.2,
+      (100 - page.llmScores.comprehensiveness) *
+        THRESHOLDS.llmScoreDeductionScale,
     );
     if (depthDeduction < 0) {
-      deduct("CONTENT_DEPTH", depthDeduction, {
+      deduct(s, "CONTENT_DEPTH", depthDeduction, {
         llmScore: page.llmScores.comprehensiveness,
       });
     }
 
-    // CONTENT_CLARITY — uses clarity
-    const clarityDeduction = -Math.round((100 - page.llmScores.clarity) * 0.2);
+    const clarityDeduction = -Math.round(
+      (100 - page.llmScores.clarity) * THRESHOLDS.llmScoreDeductionScale,
+    );
     if (clarityDeduction < 0) {
-      deduct("CONTENT_CLARITY", clarityDeduction, {
+      deduct(s, "CONTENT_CLARITY", clarityDeduction, {
         llmScore: page.llmScores.clarity,
       });
     }
 
-    // CONTENT_AUTHORITY — uses authority
     const authorityDeduction = -Math.round(
-      (100 - page.llmScores.authority) * 0.2,
+      (100 - page.llmScores.authority) * THRESHOLDS.llmScoreDeductionScale,
     );
     if (authorityDeduction < 0) {
-      deduct("CONTENT_AUTHORITY", authorityDeduction, {
+      deduct(s, "CONTENT_AUTHORITY", authorityDeduction, {
         llmScore: page.llmScores.authority,
       });
     }
   }
 
-  // DUPLICATE_CONTENT: -15 if contentHash matches another page in siteContext.contentHashes
+  // DUPLICATE_CONTENT
   if (page.siteContext?.contentHashes) {
     const otherUrl = page.siteContext.contentHashes.get(page.contentHash);
     if (otherUrl && otherUrl !== page.url) {
-      deduct("DUPLICATE_CONTENT", -15, { duplicateOf: otherUrl });
+      deduct(s, "DUPLICATE_CONTENT", -15, { duplicateOf: otherUrl });
     }
   }
 
-  // STALE_CONTENT: -5 (check via siteContext flag or other indicator)
-  // For now, stale content is detected if siteContext includes a staleContent flag
-  // This is a simplified check — in production it would compare last-modified dates
+  // STALE_CONTENT
   if ((page.siteContext as Record<string, unknown> | undefined)?.staleContent) {
-    deduct("STALE_CONTENT", -5);
+    deduct(s, "STALE_CONTENT", -5);
   }
 
-  // NO_INTERNAL_LINKS: -8 if fewer than 2 internal links
-  if (page.extracted.internal_links.length < 2) {
-    deduct("NO_INTERNAL_LINKS", -8, {
+  // NO_INTERNAL_LINKS
+  if (page.extracted.internal_links.length < THRESHOLDS.minInternalLinks) {
+    deduct(s, "NO_INTERNAL_LINKS", -8, {
       internalLinkCount: page.extracted.internal_links.length,
     });
   }
 
-  // EXCESSIVE_LINKS: -3 if external > internal * 3
+  // EXCESSIVE_LINKS
   const internalCount = page.extracted.internal_links.length;
   const externalCount = page.extracted.external_links.length;
-  if (internalCount > 0 && externalCount > internalCount * 3) {
-    deduct("EXCESSIVE_LINKS", -3, { internalCount, externalCount });
+  if (
+    internalCount > 0 &&
+    externalCount > internalCount * THRESHOLDS.excessiveLinkRatio
+  ) {
+    deduct(s, "EXCESSIVE_LINKS", -3, { internalCount, externalCount });
   }
 
-  // MISSING_FAQ_STRUCTURE: -5 if content has question patterns in headings but no Q&A format
-  // Check for question-like headings (contains "?", starts with "How", "What", "Why", "When", "Where", "Which", "Who")
+  // MISSING_FAQ_STRUCTURE
   const allHeadings = [
     ...page.extracted.h1,
     ...page.extracted.h2,
@@ -110,32 +91,78 @@ export function scoreContentFactors(page: PageData): FactorResult {
     (t) => t.toLowerCase() === "faqpage" || t.toLowerCase() === "qapage",
   );
   if (hasQuestionHeadings && !hasFaqSchema) {
-    deduct("MISSING_FAQ_STRUCTURE", -5);
+    deduct(s, "MISSING_FAQ_STRUCTURE", -5);
   }
 
-  // POOR_READABILITY: -10 if flesch < 50, -5 if flesch 50-59
+  // POOR_READABILITY
   const flesch = page.extracted.flesch_score;
   if (flesch != null) {
-    if (flesch < 50) {
-      deduct("POOR_READABILITY", -10, {
+    if (flesch < THRESHOLDS.fleschPoor) {
+      deduct(s, "POOR_READABILITY", -10, {
         fleschScore: flesch,
         classification: page.extracted.flesch_classification,
       });
-    } else if (flesch < 60) {
-      deduct("POOR_READABILITY", -5, {
+    } else if (flesch < THRESHOLDS.fleschModerate) {
+      deduct(s, "POOR_READABILITY", -5, {
         fleschScore: flesch,
         classification: page.extracted.flesch_classification,
       });
     }
   }
 
-  // LOW_TEXT_HTML_RATIO: -8 if ratio < 15%
+  // LOW_TEXT_HTML_RATIO
   const textRatio = page.extracted.text_html_ratio;
-  if (textRatio != null && textRatio < 15) {
-    deduct("LOW_TEXT_HTML_RATIO", -8, {
+  if (textRatio != null && textRatio < THRESHOLDS.textHtmlRatioMin) {
+    deduct(s, "LOW_TEXT_HTML_RATIO", -8, {
       textHtmlRatio: Math.round(textRatio * 100) / 100,
     });
   }
 
-  return { score: Math.max(0, score), issues };
+  // AI_ASSISTANT_SPEAK
+  const assistantWords = [
+    "in conclusion",
+    "moreover",
+    "furthermore",
+    "it is important to note",
+    "it's important to note",
+    "to summarize",
+    "essentially",
+    "ultimately",
+  ];
+  const detectedAssistantWords = (
+    page.extracted.top_transition_words ?? []
+  ).filter((w) => assistantWords.includes(w.toLowerCase()));
+  if (detectedAssistantWords.length >= THRESHOLDS.aiAssistantSpeakMinCount) {
+    deduct(s, "AI_ASSISTANT_SPEAK", -10, {
+      detectedWords: detectedAssistantWords,
+    });
+  }
+
+  // UNIFORM_SENTENCE_LENGTH
+  if (
+    page.wordCount >= THRESHOLDS.thinContentWords &&
+    page.extracted.sentence_length_variance != null &&
+    page.extracted.sentence_length_variance <
+      THRESHOLDS.sentenceLengthVarianceMin
+  ) {
+    deduct(s, "UNIFORM_SENTENCE_LENGTH", -5, {
+      variance: Math.round(page.extracted.sentence_length_variance * 100) / 100,
+    });
+  }
+
+  // LOW_EEAT_SCORE
+  const eeatMarkers = [
+    /\b(I|me|my|mine|we|us|our)\b/i,
+    /\b(experience|tested|verified|found|discovered)\b/i,
+    /\b(case study|data set|analysis|research)\b/i,
+  ];
+  const hasEEAT = [...page.extracted.h1, ...page.extracted.h2].some((h) =>
+    eeatMarkers.some((m) => m.test(h)),
+  );
+
+  if (!hasEEAT && page.wordCount >= THRESHOLDS.eeatMinWords) {
+    deduct(s, "LOW_EEAT_SCORE", -15);
+  }
+
+  return { score: Math.max(0, s.score), issues: s.issues };
 }

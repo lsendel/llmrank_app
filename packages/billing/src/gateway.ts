@@ -133,14 +133,6 @@ async function stripeRequest<T>(
 // Webhook signature verification (Web Crypto API for Cloudflare Workers)
 // ---------------------------------------------------------------------------
 
-function hexToUint8Array(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return bytes;
-}
-
 function uint8ArrayToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))

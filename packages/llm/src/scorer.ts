@@ -3,6 +3,7 @@ import type { LLMContentScores } from "@llm-boost/shared";
 import { buildContentScoringPrompt } from "./prompts";
 import { getCachedScore, setCachedScore } from "./cache";
 import type { KVNamespace } from "./cache";
+import { withRetry } from "./retry";
 
 export interface LLMScorerOptions {
   anthropicApiKey: string;
@@ -45,14 +46,19 @@ export class LLMScorer {
     if (wordCount < MIN_WORD_COUNT) return null;
 
     const prompt = buildContentScoringPrompt(pageText);
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const response = await withRetry(() =>
+      this.client.messages.create({
+        model: this.model,
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    );
 
-    const text =
+    let text =
       response.content[0].type === "text" ? response.content[0].text : "";
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+    if (fenceMatch) text = fenceMatch[1].trim();
     const scores = JSON.parse(text) as LLMContentScores;
 
     // Cache result

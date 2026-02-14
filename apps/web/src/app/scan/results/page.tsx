@@ -3,27 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
-import { cn } from "@/lib/utils";
+import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import type { PublicScanResult, QuickWin } from "@/lib/api";
-
-function scoreBarColor(score: number): string {
-  if (score >= 80) return "bg-success";
-  if (score >= 60) return "bg-warning";
-  if (score >= 40) return "bg-orange-500";
-  return "bg-destructive";
-}
-
-function gradeColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -41,7 +28,17 @@ export default function ScanResultsPage() {
       router.replace("/scan");
       return;
     }
-    setResult(JSON.parse(stored));
+
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        setResult(JSON.parse(stored));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!result) {

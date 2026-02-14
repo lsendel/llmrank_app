@@ -30,7 +30,7 @@ struct JobEntry {
 /// Manages crawl job lifecycle: submission, status queries, and cancellation.
 #[derive(Debug)]
 pub struct JobManager {
-    config: Arc<Config>,
+    _config: Arc<Config>,
     jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>>,
     tx: mpsc::Sender<CrawlJobPayload>,
 }
@@ -44,7 +44,7 @@ impl JobManager {
             Arc::new(RwLock::new(HashMap::new()));
 
         let manager = JobManager {
-            config: config.clone(),
+            _config: config.clone(),
             jobs: jobs.clone(),
             tx,
         };
@@ -166,7 +166,10 @@ impl JobManager {
         );
 
         let lighthouse_runner = if crawl_config.run_lighthouse {
-            Some(LighthouseRunner::new(config.max_concurrent_lighthouse))
+            Some(LighthouseRunner::new(
+                config.max_concurrent_lighthouse,
+                Some(config.api_base_url.clone()),
+            ))
         } else {
             None
         };
@@ -392,8 +395,8 @@ impl JobManager {
             .to_string();
 
         // Compute HMAC-SHA256(timestamp + body)
-        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-            .expect("HMAC can take key of any size");
+        let mut mac =
+            HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
         mac.update(timestamp.as_bytes());
         mac.update(body.as_bytes());
         let signature = format!("hmac-sha256={}", hex::encode(mac.finalize().into_bytes()));

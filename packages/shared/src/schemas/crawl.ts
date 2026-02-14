@@ -59,6 +59,9 @@ export const ExtractedDataSchema = z.object({
   cors_unsafe_blank_links: z.number().int().optional().default(0),
   cors_mixed_content: z.number().int().optional().default(0),
   cors_has_issues: z.boolean().optional().default(false),
+  // Human-Readiness (Tier 2)
+  sentence_length_variance: z.number().nullable().optional(),
+  top_transition_words: z.array(z.string()).optional().default([]),
 });
 
 // Lighthouse results for a page

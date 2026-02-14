@@ -138,14 +138,18 @@ mod tests {
 
     #[test]
     fn test_cors_unsafe_blank() {
-        let html = Html::parse_document(r#"<a href="x" target="_blank">bad</a><a href="y" target="_blank" rel="noopener">ok</a>"#);
+        let html = Html::parse_document(
+            r#"<a href="x" target="_blank">bad</a><a href="y" target="_blank" rel="noopener">ok</a>"#,
+        );
         let report = analyze_cors(&html, "https://example.com");
         assert_eq!(report.unsafe_blank_links, 1);
     }
 
     #[test]
     fn test_cors_mixed_content() {
-        let html = Html::parse_document(r#"<img src="http://evil.com/img.png"><img src="https://safe.com/img.png">"#);
+        let html = Html::parse_document(
+            r#"<img src="http://evil.com/img.png"><img src="https://safe.com/img.png">"#,
+        );
         let report = analyze_cors(&html, "https://example.com");
         assert_eq!(report.mixed_content_count, 1);
     }
@@ -159,7 +163,9 @@ mod tests {
 
     #[test]
     fn test_pdf_links() {
-        let html = Html::parse_document(r#"<a href="/docs/report.pdf">PDF</a><a href="https://other.com/file.PDF">Other</a><a href="/page">Not PDF</a>"#);
+        let html = Html::parse_document(
+            r#"<a href="/docs/report.pdf">PDF</a><a href="https://other.com/file.PDF">Other</a><a href="/page">Not PDF</a>"#,
+        );
         let pdfs = extract_pdf_links(&html, "https://example.com");
         assert_eq!(pdfs.urls.len(), 2);
         assert!(pdfs.urls[0].contains("report.pdf"));

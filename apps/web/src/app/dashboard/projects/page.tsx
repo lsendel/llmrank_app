@@ -6,14 +6,9 @@ import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
-import { api, type Project } from "@/lib/api";
-
-function gradeColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
+import { api } from "@/lib/api";
 
 function gradeBadgeVariant(
   score: number,

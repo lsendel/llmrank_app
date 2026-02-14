@@ -27,22 +27,9 @@ import {
 } from "@/components/ui/table";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
-import { cn } from "@/lib/utils";
+import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import { api, type PageScoreDetail, type PageEnrichment } from "@/lib/api";
-
-function gradeColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
-
-function scoreBarColor(score: number): string {
-  if (score >= 80) return "bg-success";
-  if (score >= 60) return "bg-warning";
-  if (score >= 40) return "bg-orange-500";
-  return "bg-destructive";
-}
 
 export default function PageDetailPage() {
   const params = useParams<{ id: string; pageId: string }>();

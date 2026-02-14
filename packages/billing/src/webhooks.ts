@@ -1,5 +1,5 @@
 import { billingQueries, userQueries } from "@llm-boost/db";
-import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
+import { type PlanTier } from "@llm-boost/shared";
 import type { Database } from "@llm-boost/db";
 import { StripeGateway, type StripeEvent } from "./gateway";
 import { planCodeFromPriceId } from "./plan-map";
@@ -101,7 +101,6 @@ async function handleCheckoutCompleted(
   });
 
   // Update user plan and crawl credits
-  const planLimits = PLAN_LIMITS[planCode as PlanTier];
   await usersQ.updatePlan(userId, planCode as PlanTier, stripeSubId);
 
   // Update Stripe customer ID on user if needed
@@ -122,7 +121,6 @@ async function handlePaymentSucceeded(
   const invoiceId = data.id as string;
   const amountPaid = data.amount_paid as number;
   const currency = (data.currency as string) ?? "usd";
-  const customerId = data.customer as string;
 
   // Extract subscription ID from invoice lines
   const lines = data.lines as {

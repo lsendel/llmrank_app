@@ -27,6 +27,8 @@ pub struct ParsedPage {
     pub cors_unsafe_blank_links: u32,
     pub cors_mixed_content: u32,
     pub cors_has_issues: bool,
+    pub sentence_length_variance: Option<f64>,
+    pub top_transition_words: Vec<String>,
     pub custom_extractions: Vec<super::extractor::ExtractorResult>,
 }
 
@@ -63,6 +65,10 @@ impl Parser {
         let cors = super::security::analyze_cors(&document, base_url);
         let pdfs = super::security::extract_pdf_links(&document, base_url);
 
+        // Human-Readiness metrics
+        let text_content = Self::get_all_text(&document);
+        let (variance, transitions) = Self::analyze_human_readiness(&text_content);
+
         ParsedPage {
             title,
             meta_description,
@@ -86,8 +92,69 @@ impl Parser {
             cors_unsafe_blank_links: cors.unsafe_blank_links,
             cors_mixed_content: cors.mixed_content_count,
             cors_has_issues: cors.has_issues,
+            sentence_length_variance: variance,
+            top_transition_words: transitions,
             custom_extractions: vec![],
         }
+    }
+
+    fn get_all_text(document: &Html) -> String {
+        let body_sel = Selector::parse("body").unwrap();
+        let mut text = String::new();
+        if let Some(body) = document.select(&body_sel).next() {
+            collect_text_excluding(&body, &mut text);
+        }
+        text
+    }
+
+    fn analyze_human_readiness(text: &str) -> (Option<f64>, Vec<String>) {
+        if text.is_empty() {
+            return (None, vec![]);
+        }
+
+        // Split into sentences (simple heuristic)
+        let sentences: Vec<&str> = text
+            .split(&['.', '!', '?'][..])
+            .map(|s| s.trim())
+            .filter(|s| s.split_whitespace().count() > 3)
+            .collect();
+
+        if sentences.is_empty() {
+            return (None, vec![]);
+        }
+
+        // Calculate variance of sentence lengths (in words)
+        let lengths: Vec<f64> = sentences
+            .iter()
+            .map(|s| s.split_whitespace().count() as f64)
+            .collect();
+
+        let mean = lengths.iter().sum::<f64>() / lengths.len() as f64;
+        let variance =
+            lengths.iter().map(|l| (l - mean).powi(2)).sum::<f64>() / lengths.len() as f64;
+
+        // Extract transition words
+        let assistant_words = [
+            "in conclusion",
+            "moreover",
+            "furthermore",
+            "however",
+            "therefore",
+            "additionally",
+            "consequently",
+            "it is important to note",
+            "it's important to note",
+        ];
+
+        let mut found_transitions = Vec::new();
+        let lower_text = text.to_lowercase();
+        for word in assistant_words {
+            if lower_text.contains(word) {
+                found_transitions.push(word.to_string());
+            }
+        }
+
+        (Some(variance), found_transitions)
     }
 
     fn extract_title(document: &Html) -> Option<String> {
@@ -145,7 +212,9 @@ impl Parser {
         let mut internal = Vec::new();
         let mut external = Vec::new();
 
-        let base_host = base.as_ref().and_then(|u| u.host_str().map(|h| h.to_lowercase()));
+        let base_host = base
+            .as_ref()
+            .and_then(|u| u.host_str().map(|h| h.to_lowercase()));
 
         for el in document.select(&sel) {
             if let Some(href) = el.value().attr("href") {
@@ -238,27 +307,12 @@ impl Parser {
     }
 
     fn compute_word_count(document: &Html) -> u32 {
-        // Get text from <body>, stripping script and style content
-        let body_sel = Selector::parse("body").unwrap();
-
-        let body = match document.select(&body_sel).next() {
-            Some(b) => b,
-            None => return 0,
-        };
-
-        // Walk the body text nodes, skipping those inside script/style
-        let mut text = String::new();
-        collect_text_excluding(&body, &mut text);
-
-        text.split_whitespace().count() as u32
+        Self::get_all_text(document).split_whitespace().count() as u32
     }
 }
 
 /// Recursively collect text, skipping elements whose tag name is "script" or "style".
-fn collect_text_excluding(
-    node: &scraper::ElementRef,
-    out: &mut String,
-) {
+fn collect_text_excluding(node: &scraper::ElementRef, out: &mut String) {
     for child in node.children() {
         if let Some(text) = child.value().as_text() {
             out.push(' ');
@@ -334,10 +388,7 @@ mod tests {
     fn test_headings() {
         let page = Parser::parse(TEST_HTML, "https://example.com/test");
         assert_eq!(page.headings.h1, vec!["Main Heading"]);
-        assert_eq!(
-            page.headings.h2,
-            vec!["Sub Heading One", "Sub Heading Two"]
-        );
+        assert_eq!(page.headings.h2, vec!["Sub Heading One", "Sub Heading Two"]);
         assert_eq!(page.headings.h3, vec!["Third Level"]);
         assert!(page.headings.h4.is_empty());
     }
@@ -346,7 +397,10 @@ mod tests {
     fn test_links() {
         let page = Parser::parse(TEST_HTML, "https://example.com/test");
         // /internal-page resolves to https://example.com/internal-page
-        assert!(page.internal_links.iter().any(|l| l.contains("internal-page")));
+        assert!(page
+            .internal_links
+            .iter()
+            .any(|l| l.contains("internal-page")));
         assert!(page.internal_links.iter().any(|l| l.contains("another")));
         assert_eq!(page.external_links.len(), 1);
         assert!(page.external_links[0].contains("other.com"));

@@ -4,7 +4,6 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Upload, Bot, Globe, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,

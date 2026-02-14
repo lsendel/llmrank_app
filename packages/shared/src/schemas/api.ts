@@ -27,9 +27,6 @@ export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(
   });
 
 // Phone: E.164 format (+1234567890) or common formats (123-456-7890, (123) 456-7890)
-const phoneRegex =
-  /^\+?[1-9]\d{6,14}$|^\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/;
-
 export const UpdateProfileSchema = z.object({
   name: z.string().min(1, "Name is required").max(100).optional(),
   phone: z

@@ -23,6 +23,16 @@ export const UpdateProjectSchema = z.object({
       schedule: z.enum(["manual", "daily", "weekly", "monthly"]).optional(),
     })
     .optional(),
+  branding: z
+    .object({
+      logoUrl: z.string().url().optional().or(z.literal("")),
+      companyName: z.string().optional(),
+      primaryColor: z
+        .string()
+        .regex(/^#([0-9a-f]{3}){1,2}$/i)
+        .optional(),
+    })
+    .optional(),
 });
 
 export type CreateProject = z.infer<typeof CreateProjectSchema>;

@@ -1,52 +1,38 @@
-import { ISSUE_DEFINITIONS, type Issue } from "@llm-boost/shared";
 import type { PageData, FactorResult } from "../types";
+import { deduct, type ScoreState } from "./helpers";
+import { THRESHOLDS } from "../thresholds";
 
 export function scoreTechnicalFactors(page: PageData): FactorResult {
-  let score = 100;
-  const issues: Issue[] = [];
-
-  function deduct(
-    code: string,
-    amount: number,
-    data?: Record<string, unknown>,
-  ) {
-    const def = ISSUE_DEFINITIONS[code];
-    if (!def) return;
-    score = Math.max(0, score + amount); // amount is negative
-    issues.push({
-      code: def.code,
-      category: def.category,
-      severity: def.severity,
-      message: def.message,
-      recommendation: def.recommendation,
-      data,
-    });
-  }
+  const s: ScoreState = { score: 100, issues: [] };
 
   // MISSING_TITLE
-  if (!page.title || page.title.length < 30 || page.title.length > 60) {
-    deduct("MISSING_TITLE", -15, { titleLength: page.title?.length ?? 0 });
+  if (
+    !page.title ||
+    page.title.length < THRESHOLDS.title.min ||
+    page.title.length > THRESHOLDS.title.max
+  ) {
+    deduct(s, "MISSING_TITLE", -15, { titleLength: page.title?.length ?? 0 });
   }
 
   // MISSING_META_DESC
   if (
     !page.metaDescription ||
-    page.metaDescription.length < 120 ||
-    page.metaDescription.length > 160
+    page.metaDescription.length < THRESHOLDS.metaDesc.min ||
+    page.metaDescription.length > THRESHOLDS.metaDesc.max
   ) {
-    deduct("MISSING_META_DESC", -10, {
+    deduct(s, "MISSING_META_DESC", -10, {
       descLength: page.metaDescription?.length ?? 0,
     });
   }
 
   // MISSING_H1
   if (page.extracted.h1.length === 0) {
-    deduct("MISSING_H1", -8);
+    deduct(s, "MISSING_H1", -8);
   }
 
   // MULTIPLE_H1
   if (page.extracted.h1.length > 1) {
-    deduct("MULTIPLE_H1", -5, { h1Count: page.extracted.h1.length });
+    deduct(s, "MULTIPLE_H1", -5, { h1Count: page.extracted.h1.length });
   }
 
   // HEADING_HIERARCHY - check for skipped levels
@@ -59,7 +45,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   if (page.extracted.h6.length > 0) headingLevels.push(6);
   for (let i = 1; i < headingLevels.length; i++) {
     if (headingLevels[i] - headingLevels[i - 1] > 1) {
-      deduct("HEADING_HIERARCHY", -3, {
+      deduct(s, "HEADING_HIERARCHY", -3, {
         skippedFrom: `H${headingLevels[i - 1]}`,
         skippedTo: `H${headingLevels[i]}`,
       });
@@ -68,8 +54,8 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   }
 
   // HTTP_STATUS
-  if (page.statusCode >= 400) {
-    deduct("HTTP_STATUS", -25, { statusCode: page.statusCode });
+  if (page.statusCode >= THRESHOLDS.httpErrorStatus) {
+    deduct(s, "HTTP_STATUS", -25, { statusCode: page.statusCode });
   }
 
   // NOINDEX_SET
@@ -77,18 +63,21 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.extracted.has_robots_meta &&
     page.extracted.robots_directives.includes("noindex")
   ) {
-    deduct("NOINDEX_SET", -20);
+    deduct(s, "NOINDEX_SET", -20);
   }
 
   // MISSING_CANONICAL
   if (!page.canonicalUrl) {
-    deduct("MISSING_CANONICAL", -8);
+    deduct(s, "MISSING_CANONICAL", -8);
   }
 
   // MISSING_ALT_TEXT
   if (page.extracted.images_without_alt > 0) {
-    const penalty = Math.min(page.extracted.images_without_alt * 3, 15);
-    deduct("MISSING_ALT_TEXT", -penalty, {
+    const penalty = Math.min(
+      page.extracted.images_without_alt * THRESHOLDS.altTextPenaltyPerImage,
+      THRESHOLDS.altTextMaxPenalty,
+    );
+    deduct(s, "MISSING_ALT_TEXT", -penalty, {
       imagesWithoutAlt: page.extracted.images_without_alt,
     });
   }
@@ -96,22 +85,22 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   // MISSING_OG_TAGS
   const ogTags = page.extracted.og_tags ?? {};
   if (!ogTags["og:title"] || !ogTags["og:description"] || !ogTags["og:image"]) {
-    deduct("MISSING_OG_TAGS", -5);
+    deduct(s, "MISSING_OG_TAGS", -5);
   }
 
   // SLOW_RESPONSE
   if (
     page.siteContext?.responseTimeMs &&
-    page.siteContext.responseTimeMs > 2000
+    page.siteContext.responseTimeMs > THRESHOLDS.slowResponseMs
   ) {
-    deduct("SLOW_RESPONSE", -10, {
+    deduct(s, "SLOW_RESPONSE", -10, {
       responseTimeMs: page.siteContext.responseTimeMs,
     });
   }
 
   // MISSING_SITEMAP
   if (page.siteContext && !page.siteContext.hasSitemap) {
-    deduct("MISSING_SITEMAP", -5);
+    deduct(s, "MISSING_SITEMAP", -5);
   }
 
   // SITEMAP_INVALID_FORMAT
@@ -120,7 +109,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.siteContext.sitemapAnalysis &&
     !page.siteContext.sitemapAnalysis.isValid
   ) {
-    deduct("SITEMAP_INVALID_FORMAT", -8);
+    deduct(s, "SITEMAP_INVALID_FORMAT", -8);
   }
 
   // SITEMAP_STALE_URLS
@@ -128,7 +117,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.siteContext?.sitemapAnalysis &&
     page.siteContext.sitemapAnalysis.staleUrlCount > 0
   ) {
-    deduct("SITEMAP_STALE_URLS", -3, {
+    deduct(s, "SITEMAP_STALE_URLS", -3, {
       staleUrlCount: page.siteContext.sitemapAnalysis.staleUrlCount,
       totalUrls: page.siteContext.sitemapAnalysis.urlCount,
     });
@@ -142,8 +131,8 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     const coverage =
       page.siteContext.sitemapAnalysis.urlCount /
       page.siteContext.sitemapAnalysis.discoveredPageCount;
-    if (coverage < 0.5) {
-      deduct("SITEMAP_LOW_COVERAGE", -5, {
+    if (coverage < THRESHOLDS.sitemapCoverageMin) {
+      deduct(s, "SITEMAP_LOW_COVERAGE", -5, {
         sitemapUrls: page.siteContext.sitemapAnalysis.urlCount,
         discoveredPages: page.siteContext.sitemapAnalysis.discoveredPageCount,
         coverage: Math.round(coverage * 100),
@@ -151,33 +140,36 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     }
   }
 
-  // REDIRECT_CHAIN: -8 if 3+ hops
-  if (page.redirectChain && page.redirectChain.length >= 3) {
-    deduct("REDIRECT_CHAIN", -8, {
+  // REDIRECT_CHAIN
+  if (
+    page.redirectChain &&
+    page.redirectChain.length >= THRESHOLDS.redirectChainMaxHops
+  ) {
+    deduct(s, "REDIRECT_CHAIN", -8, {
       hops: page.redirectChain.length,
       chain: page.redirectChain.map((h) => `${h.status_code} ${h.url}`),
     });
   }
 
-  // CORS_MIXED_CONTENT: -5 if any mixed content
+  // CORS_MIXED_CONTENT
   if (
     page.extracted.cors_mixed_content &&
     page.extracted.cors_mixed_content > 0
   ) {
-    deduct("CORS_MIXED_CONTENT", -5, {
+    deduct(s, "CORS_MIXED_CONTENT", -5, {
       mixedContentCount: page.extracted.cors_mixed_content,
     });
   }
 
-  // CORS_UNSAFE_LINKS: -3 if unsafe blank links
+  // CORS_UNSAFE_LINKS
   if (
     page.extracted.cors_unsafe_blank_links &&
     page.extracted.cors_unsafe_blank_links > 0
   ) {
-    deduct("CORS_UNSAFE_LINKS", -3, {
+    deduct(s, "CORS_UNSAFE_LINKS", -3, {
       unsafeBlankLinks: page.extracted.cors_unsafe_blank_links,
     });
   }
 
-  return { score: Math.max(0, score), issues };
+  return { score: Math.max(0, s.score), issues: s.issues };
 }

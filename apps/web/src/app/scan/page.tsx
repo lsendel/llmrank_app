@@ -6,7 +6,7 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { api, ApiError, type PublicScanResult } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 export default function ScanPage() {
   const router = useRouter();

@@ -56,6 +56,7 @@ impl Frontier {
     }
 
     /// Pop the next URL to crawl (shallowest depth first).
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<(String, u32)> {
         if let Some(entry) = self.queue.pop() {
             self.crawled += 1;

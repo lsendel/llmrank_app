@@ -5,21 +5,47 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
+    "format": "turbo format",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/eslint__js": "^9.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "@vitest/coverage-v8": "^3",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
     "turbo": "^2",
-    "typescript": "^5.7"
+    "typescript": "^5.7",
+    "typescript-eslint": "^8.55.0",
+    "vitest": "^3"
   },
   "lint-staged": {
-    "*.{js,ts,tsx,json,md,css}": [
+    "*.{js,ts,tsx}": [
+      "eslint --fix",
       "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ],
+    "*.rs": [
+      "rustfmt"
     ]
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.0.6",
+    "ioredis": "^5.9.3",
+    "resend": "^6.9.2"
+  }
 }

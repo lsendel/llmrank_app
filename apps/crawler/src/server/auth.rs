@@ -66,14 +66,14 @@ pub async fn verify_hmac(
         .unwrap()
         .as_secs();
 
-    let drift = if now > timestamp {
-        now - timestamp
-    } else {
-        timestamp - now
-    };
+    let drift = now.abs_diff(timestamp);
 
     if drift > MAX_TIMESTAMP_DRIFT_SECS {
-        return (StatusCode::UNAUTHORIZED, "Timestamp too far from current time").into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            "Timestamp too far from current time",
+        )
+            .into_response();
     }
 
     // Read the body for HMAC verification
@@ -89,7 +89,10 @@ pub async fn verify_hmac(
     let mut mac = match HmacSha256::new_from_slice(state.config.shared_secret.as_bytes()) {
         Ok(mac) => mac,
         Err(_) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "HMAC initialization failed")
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "HMAC initialization failed",
+            )
                 .into_response();
         }
     };
@@ -99,12 +102,14 @@ pub async fn verify_hmac(
     let expected = hex::encode(mac.finalize().into_bytes());
 
     // Strip "hmac-sha256=" prefix if present (API sends this format)
-    let provided_hex = signature
-        .strip_prefix("hmac-sha256=")
-        .unwrap_or(&signature);
+    let provided_hex = signature.strip_prefix("hmac-sha256=").unwrap_or(&signature);
 
     if expected != provided_hex {
-        return (StatusCode::UNAUTHORIZED, "HMAC signature verification failed").into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            "HMAC signature verification failed",
+        )
+            .into_response();
     }
 
     // Reconstruct the request with the body so downstream handlers can read it

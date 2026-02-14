@@ -1,8 +1,8 @@
 use aws_config::Region;
 use aws_credential_types::Credentials;
-use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::config::Builder as S3ConfigBuilder;
 use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Client as S3Client;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::io::Write;

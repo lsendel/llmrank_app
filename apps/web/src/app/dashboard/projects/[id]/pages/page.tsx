@@ -3,12 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -114,26 +109,6 @@ export default function PagesPage() {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
-  function SortHeader({
-    field,
-    children,
-  }: {
-    field: SortField;
-    children: React.ReactNode;
-  }) {
-    return (
-      <TableHead
-        className="cursor-pointer select-none hover:text-foreground"
-        onClick={() => handleSort(field)}
-      >
-        <span className="inline-flex items-center gap-1">
-          {children}
-          {sortField === field && <span>{sortDir === "asc" ? "^" : "v"}</span>}
-        </span>
-      </TableHead>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -200,11 +175,46 @@ export default function PagesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <SortHeader field="url">URL</SortHeader>
-                  <SortHeader field="statusCode">Status</SortHeader>
-                  <SortHeader field="title">Title</SortHeader>
-                  <SortHeader field="overallScore">Score</SortHeader>
-                  <SortHeader field="issueCount">Issues</SortHeader>
+                  <SortHeader
+                    field="url"
+                    currentField={sortField}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  >
+                    URL
+                  </SortHeader>
+                  <SortHeader
+                    field="statusCode"
+                    currentField={sortField}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  >
+                    Status
+                  </SortHeader>
+                  <SortHeader
+                    field="title"
+                    currentField={sortField}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  >
+                    Title
+                  </SortHeader>
+                  <SortHeader
+                    field="overallScore"
+                    currentField={sortField}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  >
+                    Score
+                  </SortHeader>
+                  <SortHeader
+                    field="issueCount"
+                    currentField={sortField}
+                    currentDir={sortDir}
+                    onSort={handleSort}
+                  >
+                    Issues
+                  </SortHeader>
                   <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -363,5 +373,33 @@ export default function PagesPage() {
         </>
       )}
     </div>
+  );
+}
+
+function SortHeader({
+  field,
+  children,
+  currentField,
+  currentDir,
+  onSort,
+}: {
+  field: SortField;
+  children: React.ReactNode;
+  currentField: SortField;
+  currentDir: SortDirection;
+  onSort: (field: SortField) => void;
+}) {
+  return (
+    <TableHead
+      className="cursor-pointer select-none hover:text-foreground"
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {currentField === field && (
+          <span>{currentDir === "asc" ? "^" : "v"}</span>
+        )}
+      </span>
+    </TableHead>
   );
 }

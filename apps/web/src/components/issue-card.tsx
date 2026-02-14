@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface IssueCardProps {
@@ -75,6 +76,12 @@ export function IssueCard({
                 Recommendation
               </h4>
               <p className="mt-1 text-sm text-foreground">{recommendation}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="h-7 text-[10px]">
+                <Sparkles className="mr-1.5 h-3 w-3 text-primary" />
+                Optimize with AI
+              </Button>
             </div>
             {data && Object.keys(data).length > 0 && (
               <div>

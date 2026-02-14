@@ -1,0 +1,37 @@
+name = "llm-boost-api"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+workers_dev = true
+
+routes = [
+  { pattern = "api.llmrank.app/*", zone_name = "llmrank.app" }
+]
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "ai-seo-storage"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "a1b4b94676c04ac997f69d2a5ca03dad"
+
+[[kv_namespaces]]
+binding = "SEEN_URLS"
+id = "b2c5d1e2f3a4b5c6d7e8f9a0b1c2d3e4" # Placeholder, user must create this
+
+[[queues.producers]]
+binding = "CRAWL_QUEUE"
+queue = "llm-boost-crawls"
+
+[browser]
+binding = "BROWSER"
+
+[vars]
+CRAWLER_URL = "https://llmrank-crawler.fly.dev"
+
+[triggers]
+crons = ["0 0 1 * *", "*/5 * * * *"] # Reset monthly + Run scheduled crawls every 5 min
+
+# Secrets (set via `wrangler secret put`):
+# DATABASE_URL, SHARED_SECRET, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, RESEND_API_KEY

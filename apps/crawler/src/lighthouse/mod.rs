@@ -17,24 +17,25 @@ pub enum LighthouseError {
     NotInstalled,
 }
 
-/// Lighthouse runner that limits concurrency via a semaphore.
+/// Lighthouse runner that either runs locally or offloads to Cloudflare.
 #[derive(Clone)]
 pub struct LighthouseRunner {
     semaphore: Arc<Semaphore>,
     timeout_secs: u64,
+    api_url: Option<String>, // Cloudflare API URL for offloading
 }
 
 impl LighthouseRunner {
-    /// Create a new runner with the given concurrency limit.
-    pub fn new(max_concurrent: usize) -> Self {
+    /// Create a new runner.
+    pub fn new(max_concurrent: usize, api_url: Option<String>) -> Self {
         LighthouseRunner {
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
             timeout_secs: 60,
+            api_url,
         }
     }
 
-    /// Run a Lighthouse audit on the given URL.
-    /// Acquires a semaphore permit (blocking if at max concurrency).
+    /// Run a Lighthouse audit. Offloads to Cloudflare if api_url is set.
     pub async fn run_lighthouse(&self, url: &str) -> Result<LighthouseResult, LighthouseError> {
         let _permit = self
             .semaphore
@@ -42,6 +43,46 @@ impl LighthouseRunner {
             .await
             .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
 
+        if let Some(ref api_base) = self.api_url {
+            return self.run_remote_audit(url, api_base).await;
+        }
+
+        self.run_local_audit(url).await
+    }
+
+    async fn run_remote_audit(
+        &self,
+        url: &str,
+        api_base: &str,
+    ) -> Result<LighthouseResult, LighthouseError> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(format!("{}/api/browser/audit", api_base))
+            .json(&serde_json::json!({ "url": url }))
+            .send()
+            .await
+            .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            return Err(LighthouseError::ProcessError(format!(
+                "API error: {}",
+                resp.status()
+            )));
+        }
+
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| LighthouseError::ParseError(e.to_string()))?;
+
+        let data = body
+            .get("data")
+            .ok_or_else(|| LighthouseError::ParseError("Missing data key".into()))?;
+
+        serde_json::from_value(data.clone()).map_err(|e| LighthouseError::ParseError(e.to_string()))
+    }
+
+    async fn run_local_audit(&self, url: &str) -> Result<LighthouseResult, LighthouseError> {
         let url_owned = url.to_string();
         let timeout = self.timeout_secs;
 
@@ -99,10 +140,7 @@ impl LighthouseRunner {
 }
 
 /// Extract a category score from Lighthouse JSON output.
-fn extract_score(
-    categories: &serde_json::Value,
-    category: &str,
-) -> Result<f64, LighthouseError> {
+fn extract_score(categories: &serde_json::Value, category: &str) -> Result<f64, LighthouseError> {
     categories
         .get(category)
         .and_then(|c| c.get("score"))

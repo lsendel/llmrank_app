@@ -91,6 +91,10 @@ pub struct ExtractedData {
     pub cors_mixed_content: u32,
     #[serde(default)]
     pub cors_has_issues: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sentence_length_variance: Option<f64>,
+    #[serde(default)]
+    pub top_transition_words: Vec<String>,
 }
 
 // --- Lighthouse Result ---

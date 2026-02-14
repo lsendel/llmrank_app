@@ -1,10 +1,10 @@
+pub mod extractor;
 pub mod fetcher;
 pub mod frontier;
 pub mod parser;
 pub mod readability;
 pub mod robots;
 pub mod security;
-pub mod extractor;
 
 pub use fetcher::RateLimitedFetcher;
 pub use parser::Parser;
@@ -79,11 +79,7 @@ impl CrawlEngine {
         };
 
         // Upload HTML + run Lighthouse concurrently
-        let html_r2_key = format!(
-            "crawls/{}/html/{}.html.gz",
-            job_id,
-            &content_hash[..16]
-        );
+        let html_r2_key = format!("crawls/{}/html/{}.html.gz", job_id, &content_hash[..16]);
 
         let html_upload_fut = self.storage.upload_html(&html_r2_key, &fetch_result.body);
         let lighthouse_fut = async {
@@ -126,7 +122,11 @@ impl CrawlEngine {
                 .iter()
                 .filter_map(|s| serde_json::from_str(s).ok())
                 .collect();
-            if values.is_empty() { None } else { Some(values) }
+            if values.is_empty() {
+                None
+            } else {
+                Some(values)
+            }
         } else {
             None
         };
@@ -135,7 +135,11 @@ impl CrawlEngine {
             .schema_json_ld
             .iter()
             .filter_map(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-            .filter_map(|v| v.get("@type").and_then(|t| t.as_str()).map(|s| s.to_string()))
+            .filter_map(|v| {
+                v.get("@type")
+                    .and_then(|t| t.as_str())
+                    .map(|s| s.to_string())
+            })
             .collect();
 
         let og_tags = if parsed.og_tags.is_empty() {
@@ -179,6 +183,8 @@ impl CrawlEngine {
                 cors_unsafe_blank_links: parsed.cors_unsafe_blank_links,
                 cors_mixed_content: parsed.cors_mixed_content,
                 cors_has_issues: parsed.cors_has_issues,
+                sentence_length_variance: parsed.sentence_length_variance,
+                top_transition_words: parsed.top_transition_words,
             },
             lighthouse: lighthouse_result,
             timing_ms,
@@ -188,7 +194,9 @@ impl CrawlEngine {
 
     /// Extract the domain from a URL string.
     pub fn domain_from_url(url: &str) -> Option<String> {
-        Url::parse(url).ok().and_then(|u| u.host_str().map(|h| h.to_string()))
+        Url::parse(url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_string()))
     }
 }
 

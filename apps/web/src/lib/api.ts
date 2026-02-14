@@ -26,6 +26,19 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export interface ExtractedFact {
+  type: string;
+  content: string;
+  sourceSentence: string;
+  citabilityScore: number;
+}
+
+export interface SemanticGapResponse {
+  userFacts: ExtractedFact[];
+  competitorFacts: ExtractedFact[];
+  densityGap: number;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -36,6 +49,11 @@ export interface Project {
     maxPages: number;
     maxDepth: number;
     schedule: "manual" | "daily" | "weekly" | "monthly";
+  };
+  branding?: {
+    logoUrl?: string;
+    companyName?: string;
+    primaryColor?: string;
   };
   latestCrawl?: CrawlJob | null;
 }
@@ -52,6 +70,33 @@ export interface UpdateProjectInput {
     maxDepth?: number;
     schedule?: "manual" | "daily" | "weekly" | "monthly";
   };
+  branding?: {
+    logoUrl?: string;
+    companyName?: string;
+    primaryColor?: string;
+  };
+}
+
+export interface StrategyPersona {
+  name: string;
+  role: string;
+  demographics: string;
+  goals: string[];
+  pains: string[];
+  keywords: string[];
+  typicalQueries: string[];
+}
+
+export interface StrategyCompetitor {
+  id: string;
+  projectId: string;
+  domain: string;
+  createdAt: string;
+}
+
+export interface GapAnalysisResult {
+  missingElements: string[];
+  recommendation: string;
 }
 
 export interface CrawlJob {
@@ -73,6 +118,8 @@ export interface CrawlJob {
     performance: number;
   } | null;
   errorMessage: string | null;
+  summary: string | null;
+  createdAt: string;
   projectName?: string;
   projectId2?: string;
 }
@@ -126,6 +173,7 @@ export interface PageIssue {
 export interface VisibilityCheck {
   id: string;
   projectId: string;
+  pageId?: string;
   llmProvider: "chatgpt" | "claude" | "perplexity" | "gemini" | "copilot";
   query: string;
   responseText: string | null;
@@ -218,6 +266,42 @@ export interface AdminStats {
   activeSubscribers: number;
   totalCustomers: number;
   churnRate: number;
+  ingestHealth: {
+    pendingJobs: number;
+    runningJobs: number;
+    failedLast24h: number;
+    avgCompletionMinutes: number;
+    outboxPending: number;
+  };
+}
+
+export interface CrawlJobSummary {
+  id: string;
+  projectId: string;
+  projectName: string | null;
+  status: string;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+  cancelledAt?: string | null;
+  cancelledBy?: string | null;
+  cancelReason?: string | null;
+}
+
+export interface OutboxEventSummary {
+  id: string;
+  type: string;
+  attempts: number;
+  availableAt: string;
+  createdAt: string;
+}
+
+export interface AdminIngestDetails {
+  pendingJobs: CrawlJobSummary[];
+  runningJobs: CrawlJobSummary[];
+  failedJobs: CrawlJobSummary[];
+  outboxEvents: OutboxEventSummary[];
 }
 
 export interface AdminCustomer {
@@ -278,11 +362,13 @@ export interface SharedReport {
   crawlId: string;
   completedAt: string | null;
   pagesScored: number;
+  summary: string | null;
   scores: {
     overall: number;
     technical: number;
     content: number;
     aiReadiness: number;
+    performance: number;
     letterGrade: string;
   };
   pages: {
@@ -420,16 +506,6 @@ async function request<T>(
 
 interface ApiEnvelope<T> {
   data: T;
-}
-
-interface PaginatedEnvelope<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 // ─── Base client ────────────────────────────────────────────────────
@@ -695,6 +771,17 @@ export const api = {
       return res.data;
     },
 
+    async getMetrics(token: string): Promise<{
+      activeCrawls: number;
+      errorsLast24h: number;
+      systemTime: string;
+    }> {
+      const res = await apiClient.get<ApiEnvelope<any>>("/api/admin/metrics", {
+        token,
+      });
+      return res.data;
+    },
+
     async getCustomers(
       token: string,
       params?: { page?: number; limit?: number; search?: string },
@@ -715,6 +802,36 @@ export const api = {
         { token },
       );
       return res.data;
+    },
+
+    async getIngestDetails(token: string): Promise<AdminIngestDetails> {
+      const res = await apiClient.get<ApiEnvelope<AdminIngestDetails>>(
+        "/api/admin/ingest",
+        { token },
+      );
+      return res.data;
+    },
+
+    async retryCrawlJob(token: string, jobId: string): Promise<void> {
+      await apiClient.post(`/api/admin/ingest/jobs/${jobId}/retry`, undefined, {
+        token,
+      });
+    },
+
+    async replayOutboxEvent(token: string, eventId: string): Promise<void> {
+      await apiClient.post(
+        `/api/admin/ingest/outbox/${eventId}/replay`,
+        undefined,
+        { token },
+      );
+    },
+
+    async cancelCrawlJob(token: string, jobId: string, reason?: string) {
+      await apiClient.post(
+        `/api/admin/ingest/jobs/${jobId}/cancel`,
+        reason ? { reason } : undefined,
+        { token },
+      );
     },
   },
 
@@ -770,6 +887,120 @@ export const api = {
     ): Promise<VisibilityTrend[]> {
       const res = await apiClient.get<ApiEnvelope<VisibilityTrend[]>>(
         `/api/visibility/${projectId}/trends`,
+        { token },
+      );
+      return res.data;
+    },
+  },
+
+  // ── Strategy ────────────────────────────────────────────────────
+  strategy: {
+    async generatePersonas(
+      token: string,
+      projectId: string,
+      data: { description?: string; niche?: string },
+    ): Promise<StrategyPersona[]> {
+      const res = await apiClient.post<ApiEnvelope<StrategyPersona[]>>(
+        `/api/strategy/${projectId}/personas`,
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getCompetitors(
+      token: string,
+      projectId: string,
+    ): Promise<StrategyCompetitor[]> {
+      const res = await apiClient.get<ApiEnvelope<StrategyCompetitor[]>>(
+        `/api/strategy/${projectId}/competitors`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async addCompetitor(
+      token: string,
+      projectId: string,
+      domain: string,
+    ): Promise<StrategyCompetitor> {
+      const res = await apiClient.post<ApiEnvelope<StrategyCompetitor>>(
+        `/api/strategy/${projectId}/competitors`,
+        { domain },
+        { token },
+      );
+      return res.data;
+    },
+
+    async removeCompetitor(token: string, id: string): Promise<void> {
+      await apiClient.delete(`/api/strategy/competitors/${id}`, { token });
+    },
+
+    async gapAnalysis(
+      token: string,
+      data: {
+        projectId: string;
+        competitorDomain: string;
+        query: string;
+        pageId?: string;
+      },
+    ): Promise<GapAnalysisResult> {
+      const res = await apiClient.post<ApiEnvelope<GapAnalysisResult>>(
+        "/api/strategy/gap-analysis",
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async semanticGap(
+      token: string,
+      data: {
+        projectId: string;
+        pageId: string;
+        competitorDomain: string;
+      },
+    ): Promise<SemanticGapResponse> {
+      const res = await apiClient.post<ApiEnvelope<SemanticGapResponse>>(
+        "/api/strategy/semantic-gap",
+        data,
+        { token },
+      );
+      return res.data;
+    },
+
+    async applyFix(
+      token: string,
+      data: {
+        pageId: string;
+        missingFact: string;
+        factType: string;
+      },
+    ): Promise<{
+      suggestedSnippet: string;
+      placementAdvice: string;
+      citabilityBoost: number;
+    }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          suggestedSnippet: string;
+          placementAdvice: string;
+          citabilityBoost: number;
+        }>
+      >("/api/strategy/apply-fix", data, { token });
+      return res.data;
+    },
+
+    async getTopicMap(
+      token: string,
+      projectId: string,
+    ): Promise<{
+      nodes: any[];
+      edges: any[];
+      clusters: any[];
+    }> {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/strategy/${projectId}/topic-map`,
         { token },
       );
       return res.data;

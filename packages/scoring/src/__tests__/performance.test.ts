@@ -35,6 +35,8 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
       cors_unsafe_blank_links: 0,
       cors_mixed_content: 0,
       cors_has_issues: false,
+      sentence_length_variance: 20,
+      top_transition_words: ["however", "therefore"],
     },
     lighthouse: {
       performance: 0.9,

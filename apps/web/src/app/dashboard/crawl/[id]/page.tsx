@@ -3,7 +3,15 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, Share2, Copy, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Share2,
+  Copy,
+  Check,
+  Brain,
+  Download,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +25,19 @@ import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+const PDFDownloadLink = dynamic(
+  () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
+  { ssr: false },
+);
+const AIReadinessReport = dynamic(
+  () =>
+    import("@/components/report/report-template").then(
+      (mod) => mod.AIReadinessReport,
+    ),
+  { ssr: false },
+);
 
 function scoreColor(score: number): string {
   if (score >= 80) return "text-success";
@@ -52,6 +73,32 @@ export default function CrawlDetailPage() {
       },
     },
   );
+
+  const projectId = crawl?.projectId;
+  const { data: project } = useApiSWR(
+    projectId ? `project-${projectId}` : null,
+    useCallback(
+      async (token: string) => {
+        if (!projectId) throw new Error("No project ID");
+        return api.projects.get(token, projectId);
+      },
+      [projectId],
+    ),
+  );
+
+  const { data: quickWins } = useApiSWR(
+    `quick-wins-${params.id}`,
+    useCallback(
+      (token: string) => api.quickWins.get(token, params.id),
+      [params.id],
+    ),
+  );
+
+  const branding = (project?.branding ?? {}) as {
+    logoUrl?: string;
+    companyName?: string;
+    primaryColor?: string;
+  };
 
   if (loading) {
     return (
@@ -110,6 +157,34 @@ export default function CrawlDetailPage() {
         </div>
       </div>
 
+      {/* Actions */}
+      {crawl.status === "complete" && (
+        <div className="flex items-center gap-3">
+          {quickWins && (
+            <PDFDownloadLink
+              document={
+                <AIReadinessReport
+                  crawl={crawl}
+                  quickWins={quickWins}
+                  companyName={branding.companyName || "LLM Boost"}
+                  logoUrl={branding.logoUrl}
+                  primaryColor={branding.primaryColor}
+                />
+              }
+              fileName={`llm-boost-report-${params.id}.pdf`}
+            >
+              {({ loading: pdfLoading }: { loading: boolean }) => (
+                <Button variant="outline" size="sm" disabled={pdfLoading}>
+                  <Download className="mr-1.5 h-4 w-4" />
+                  {pdfLoading ? "Preparing..." : "Export PDF"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          )}
+          <ShareButton crawlId={params.id} />
+        </div>
+      )}
+
       {/* Crawler unavailable message */}
       {isCrawlerUnavailable && (
         <Card className="border-warning/50">
@@ -132,6 +207,23 @@ export default function CrawlDetailPage() {
             </CardContent>
           </Card>
         )}
+
+      {/* AI Summary */}
+      {crawl.status === "complete" && crawl.summary && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Brain className="h-4 w-4 text-primary" />
+              Executive Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed text-foreground">
+              {crawl.summary}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Crawl Progress */}
       <CrawlProgress

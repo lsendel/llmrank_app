@@ -1,4 +1,4 @@
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { projects } from "../schema";
 
@@ -35,7 +35,10 @@ export function projectQueries(db: Database) {
       return project;
     },
 
-    async update(id: string, data: { name?: string; settings?: unknown }) {
+    async update(
+      id: string,
+      data: { name?: string; settings?: unknown; branding?: unknown },
+    ) {
       const [updated] = await db
         .update(projects)
         .set({ ...data, updatedAt: new Date() })
@@ -49,6 +52,27 @@ export function projectQueries(db: Database) {
       await db
         .update(projects)
         .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(projects.id, id));
+    },
+
+    async getDueForCrawl(limit = 10) {
+      return db.query.projects.findMany({
+        where: and(
+          isNull(projects.deletedAt),
+          sql`${projects.nextCrawlAt} <= now()`,
+          sql`${projects.crawlSchedule} != 'manual'`,
+        ),
+        limit,
+        with: {
+          user: true,
+        },
+      });
+    },
+
+    async updateNextCrawl(id: string, nextAt: Date) {
+      await db
+        .update(projects)
+        .set({ nextCrawlAt: nextAt })
         .where(eq(projects.id, id));
     },
   };

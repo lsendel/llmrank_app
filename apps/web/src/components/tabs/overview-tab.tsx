@@ -5,21 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
 import { QuickWinsCard } from "@/components/quick-wins-card";
-import { cn } from "@/lib/utils";
+import { Brain } from "lucide-react";
+import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import type { CrawlJob, PageIssue } from "@/lib/api";
-
-function scoreBarColor(score: number): string {
-  if (score >= 80) return "bg-success";
-  if (score >= 60) return "bg-warning";
-  if (score >= 40) return "bg-orange-500";
-  return "bg-destructive";
-}
-
-function gradeColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  return "text-destructive";
-}
 
 export function OverviewTab({
   latestCrawl,
@@ -103,6 +91,23 @@ export function OverviewTab({
           </CardContent>
         </Card>
       </div>
+
+      {/* AI Summary */}
+      {latestCrawl?.summary && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Brain className="h-4 w-4 text-primary" />
+              Executive Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed text-foreground">
+              {latestCrawl.summary}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Wins */}
       {latestCrawl?.id && <QuickWinsCard crawlId={latestCrawl.id} />}

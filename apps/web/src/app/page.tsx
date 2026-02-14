@@ -78,8 +78,17 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
-        <div className="mx-auto max-w-7xl px-6 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} LLM Boost. All rights reserved.
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
+          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <Link href="/pricing" className="hover:text-foreground">
+            Pricing
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
         </div>
       </footer>
     </div>
