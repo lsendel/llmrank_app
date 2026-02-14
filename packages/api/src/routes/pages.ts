@@ -91,16 +91,21 @@ pageRoutes.get("/job/:jobId", async (c) => {
   // 3 parallel queries instead of 2N (eliminates N+1)
   const scoresWithPages = await scoreQueries(db).listByJobWithPages(jobId);
 
-  const pagesWithScores = scoresWithPages.map((s) => ({
-    ...(s.page ?? {}),
-    id: s.page?.id ?? s.pageId,
-    overall_score: s.overallScore,
-    technical_score: s.technicalScore ?? null,
-    content_score: s.contentScore ?? null,
-    ai_readiness_score: s.aiReadinessScore ?? null,
-    letter_grade: letterGrade(s.overallScore),
-    issue_count: s.issueCount,
-  }));
+  const pagesWithScores = scoresWithPages.map((s) => {
+    const detail = (s.detail ?? {}) as Record<string, unknown>;
+    return {
+      ...(s.page ?? {}),
+      id: s.page?.id ?? s.pageId,
+      crawlId: s.jobId,
+      overallScore: s.overallScore,
+      technicalScore: s.technicalScore ?? null,
+      contentScore: s.contentScore ?? null,
+      aiReadinessScore: s.aiReadinessScore ?? null,
+      performanceScore: (detail.performanceScore as number) ?? null,
+      letterGrade: letterGrade(s.overallScore),
+      issueCount: s.issueCount,
+    };
+  });
 
   return c.json({
     data: pagesWithScores,
