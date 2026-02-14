@@ -6,6 +6,7 @@ import {
   scoreQueries,
   projectQueries,
   crawlQueries,
+  enrichmentQueries,
 } from "@llm-boost/db";
 import { ERROR_CODES } from "@llm-boost/shared";
 
@@ -136,4 +137,16 @@ pageRoutes.get("/issues/job/:jobId", async (c) => {
     data: allIssues,
     pagination: { page: 1, limit: 500, total: allIssues.length, totalPages: 1 },
   });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/enrichments — Get integration enrichment data for a page
+// ---------------------------------------------------------------------------
+
+pageRoutes.get("/:id/enrichments", async (c) => {
+  const db = c.get("db");
+  const pageId = c.req.param("id");
+
+  const enrichments = await enrichmentQueries(db).listByPage(pageId);
+  return c.json({ data: enrichments });
 });

@@ -597,6 +597,17 @@ export const api = {
       );
       return res.data;
     },
+
+    async getEnrichments(
+      token: string,
+      pageId: string,
+    ): Promise<PageEnrichment[]> {
+      const res = await apiClient.get<ApiEnvelope<PageEnrichment[]>>(
+        `/api/pages/${pageId}/enrichments`,
+        { token },
+      );
+      return res.data;
+    },
   },
 
   // ── Issues ──────────────────────────────────────────────────────

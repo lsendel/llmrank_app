@@ -73,6 +73,7 @@ const plans = [
       "30 crawls per month",
       "1-year history",
       "API access",
+      "GSC + PageSpeed Insights",
     ],
   },
   {
@@ -86,6 +87,7 @@ const plans = [
       "2-year history",
       "API access",
       "Custom LLM prompts",
+      "All 4 integrations",
     ],
   },
 ];
