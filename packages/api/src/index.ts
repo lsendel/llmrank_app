@@ -37,6 +37,9 @@ export type Bindings = {
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
   CRAWLER_URL: string;
+  INTEGRATION_ENCRYPTION_KEY: string;
+  GOOGLE_OAUTH_CLIENT_ID: string;
+  GOOGLE_OAUTH_CLIENT_SECRET: string;
 };
 
 export type Variables = {
