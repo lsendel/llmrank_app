@@ -8,6 +8,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -68,6 +69,13 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "succeeded",
   "pending",
   "failed",
+]);
+
+export const integrationProviderEnum = pgEnum("integration_provider", [
+  "gsc",
+  "psi",
+  "ga4",
+  "clarity",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -371,4 +379,55 @@ export const logUploads = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_log_uploads_project").on(t.projectId)],
+);
+
+// ---------------------------------------------------------------------------
+// Project Integrations (GSC, PSI, GA4, Clarity)
+// ---------------------------------------------------------------------------
+
+export const projectIntegrations = pgTable(
+  "project_integrations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    provider: integrationProviderEnum("provider").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    encryptedCredentials: text("encrypted_credentials"),
+    config: jsonb("config").default({}),
+    tokenExpiresAt: timestamp("token_expires_at"),
+    lastSyncAt: timestamp("last_sync_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_proj_integrations_project").on(t.projectId),
+    uniqueIndex("idx_proj_integrations_unique").on(t.projectId, t.provider),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Page Enrichments (data from integrations)
+// ---------------------------------------------------------------------------
+
+export const pageEnrichments = pgTable(
+  "page_enrichments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    provider: integrationProviderEnum("provider").notNull(),
+    data: jsonb("data").notNull(),
+    fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_enrichments_page").on(t.pageId),
+    index("idx_enrichments_job_provider").on(t.jobId, t.provider),
+  ],
 );

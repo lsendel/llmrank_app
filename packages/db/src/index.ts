@@ -10,3 +10,5 @@ export { billingQueries } from "./queries/billing";
 export { adminQueries } from "./queries/admin";
 export { logQueries } from "./queries/logs";
 export { extractorQueries } from "./queries/extractors";
+export { integrationQueries } from "./queries/integrations";
+export { enrichmentQueries } from "./queries/enrichments";
