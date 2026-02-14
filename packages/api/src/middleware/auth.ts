@@ -177,10 +177,24 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
 
   const token = authHeader.slice(7);
 
+  // Step 1: Verify JWT
+  let payload: JWTPayload;
   try {
-    const payload = await verifyJWT(token, c.env.CLERK_SECRET_KEY);
+    payload = await verifyJWT(token, c.env.CLERK_SECRET_KEY);
+  } catch (error) {
+    console.error(
+      "JWT verification failed:",
+      error instanceof Error ? error.message : error,
+    );
+    const err = ERROR_CODES.UNAUTHORIZED;
+    return c.json(
+      { error: { code: "UNAUTHORIZED", message: err.message } },
+      err.status,
+    );
+  }
 
-    // Resolve Clerk user to DB user (auto-provision on first call)
+  // Step 2: Resolve Clerk user to DB user (auto-provision on first call)
+  try {
     const db = c.get("db");
     const { userQueries } = await import("@llm-boost/db");
     let dbUser = await userQueries(db).getByClerkId(payload.sub);
@@ -192,11 +206,19 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     c.set("userId", dbUser.id);
     await next();
   } catch (error) {
-    console.error("Auth error:", error);
-    const err = ERROR_CODES.UNAUTHORIZED;
+    console.error(
+      "User provisioning failed for clerk_id:",
+      payload.sub,
+      error instanceof Error ? error.message : error,
+    );
     return c.json(
-      { error: { code: "UNAUTHORIZED", message: err.message } },
-      err.status,
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to resolve user account",
+        },
+      },
+      500,
     );
   }
 });

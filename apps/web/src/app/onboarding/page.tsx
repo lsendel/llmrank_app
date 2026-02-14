@@ -10,11 +10,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    router.push("/sign-in");
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +45,10 @@ export default function OnboardingPage() {
     setSubmitting(true);
     try {
       const token = await getToken();
+      if (!token) {
+        setError("Authentication session expired. Please sign in again.");
+        return;
+      }
       const apiBase =
         process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
       const res = await fetch(`${apiBase}/api/account`, {

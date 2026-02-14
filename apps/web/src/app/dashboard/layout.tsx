@@ -21,13 +21,23 @@ async function checkOnboarding(token: string): Promise<boolean> {
   try {
     const res = await fetch(`${apiBase}/api/account`, {
       headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      // Fail open: if the API call fails, don't trap user in onboarding loop
+      console.error(
+        "checkOnboarding: API returned",
+        res.status,
+        await res.text().catch(() => ""),
+      );
+      return true;
+    }
     const { data } = await res.json();
     return !!data?.phone;
-  } catch {
-    return false;
+  } catch (e) {
+    // Fail open: network errors shouldn't block dashboard access
+    console.error("checkOnboarding: fetch error", e);
+    return true;
   }
 }
 

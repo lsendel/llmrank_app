@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useApi } from "@/lib/use-api";
 import { api } from "@/lib/api";
 
-export default function GoogleOAuthCallbackPage() {
+function GoogleOAuthCallback() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { withToken } = useApi();
@@ -69,5 +69,19 @@ export default function GoogleOAuthCallbackPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function GoogleOAuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      }
+    >
+      <GoogleOAuthCallback />
+    </Suspense>
   );
 }
