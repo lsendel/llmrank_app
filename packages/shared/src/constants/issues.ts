@@ -34,7 +34,7 @@ export interface IssueDefinition {
   implementationSnippet?: string;
 }
 
-// All issue codes (37 original + 3 sitemap quality)
+// All issue codes (37 original + 3 sitemap + 8 RustySEO = 48 factors)
 export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
   // --- Technical SEO (13 + 3 sitemap = 16 factors) ---
   MISSING_TITLE: {
@@ -211,8 +211,40 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Ensure your sitemap includes all indexable pages. Use a sitemap generator or CMS plugin to auto-generate.",
     effortLevel: "medium",
   },
+  REDIRECT_CHAIN: {
+    code: "REDIRECT_CHAIN",
+    category: "technical",
+    severity: "warning",
+    scoreImpact: -8,
+    message: "Page has a redirect chain with 3+ hops",
+    recommendation:
+      "Reduce redirect chains to a single hop. Each intermediate redirect adds latency and confuses AI crawlers.",
+    effortLevel: "medium",
+  },
+  CORS_MIXED_CONTENT: {
+    code: "CORS_MIXED_CONTENT",
+    category: "technical",
+    severity: "warning",
+    scoreImpact: -5,
+    message: "HTTPS page loads resources over insecure HTTP",
+    recommendation:
+      "Update all resource URLs to use HTTPS. Mixed content is blocked by browsers and penalized by crawlers.",
+    effortLevel: "low",
+    implementationSnippet: `<!-- Change http:// to https:// -->\n<img src="https://cdn.example.com/image.png" />`,
+  },
+  CORS_UNSAFE_LINKS: {
+    code: "CORS_UNSAFE_LINKS",
+    category: "technical",
+    severity: "info",
+    scoreImpact: -3,
+    message: 'External links with target="_blank" are missing rel="noopener"',
+    recommendation:
+      'Add rel="noopener noreferrer" to all external links that open in a new tab.',
+    effortLevel: "low",
+    implementationSnippet: `<a href="https://external.com" target="_blank" rel="noopener noreferrer">Link</a>`,
+  },
 
-  // --- Content Quality (9 factors) ---
+  // --- Content Quality (9 + 2 = 11 factors) ---
   THIN_CONTENT: {
     code: "THIN_CONTENT",
     category: "content",
@@ -307,8 +339,30 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     effortLevel: "medium",
     implementationSnippet: `<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "FAQPage",\n  "mainEntity": [{\n    "@type": "Question",\n    "name": "What is...?",\n    "acceptedAnswer": { "@type": "Answer", "text": "..." }\n  }]\n}\n</script>`,
   },
+  POOR_READABILITY: {
+    code: "POOR_READABILITY",
+    category: "content",
+    severity: "warning",
+    scoreImpact: -10,
+    message:
+      "Content readability is below recommended level (Flesch score < 50)",
+    recommendation:
+      "Simplify language: use shorter sentences, common words, and active voice. Target Flesch score of 60+.",
+    effortLevel: "medium",
+  },
+  LOW_TEXT_HTML_RATIO: {
+    code: "LOW_TEXT_HTML_RATIO",
+    category: "content",
+    severity: "warning",
+    scoreImpact: -8,
+    message:
+      "Text-to-HTML ratio is below 15% — page is code-heavy with little visible content",
+    recommendation:
+      "Increase visible text content relative to HTML markup. Remove unnecessary wrappers, inline styles, and bloated templates.",
+    effortLevel: "medium",
+  },
 
-  // --- AI Readiness (10 factors) ---
+  // --- AI Readiness (10 + 3 = 13 factors) ---
   MISSING_LLMS_TXT: {
     code: "MISSING_LLMS_TXT",
     category: "ai_readiness",
@@ -415,6 +469,38 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Fix JSON-LD syntax errors. Validate at schema.org or Google Rich Results Test.",
     effortLevel: "medium",
+  },
+  HAS_PDF_CONTENT: {
+    code: "HAS_PDF_CONTENT",
+    category: "ai_readiness",
+    severity: "info",
+    scoreImpact: 0,
+    message: "Page links to PDF documents that AI models can index",
+    recommendation:
+      "Ensure PDF content is also available as HTML for better AI discoverability. Add summaries of PDF content on the linking page.",
+    effortLevel: "medium",
+  },
+  PDF_ONLY_CONTENT: {
+    code: "PDF_ONLY_CONTENT",
+    category: "ai_readiness",
+    severity: "warning",
+    scoreImpact: -5,
+    message:
+      "Page appears to primarily link to PDF content without HTML alternatives",
+    recommendation:
+      "Create HTML versions of important PDF content. AI models struggle to extract and cite PDF content compared to well-structured HTML.",
+    effortLevel: "high",
+  },
+  AI_CONTENT_EXTRACTABLE: {
+    code: "AI_CONTENT_EXTRACTABLE",
+    category: "ai_readiness",
+    severity: "info",
+    scoreImpact: 0,
+    message:
+      "Content is well-structured for AI extraction (high text ratio, good readability)",
+    recommendation:
+      "No action needed — content structure is optimized for AI crawlers.",
+    effortLevel: "low",
   },
 
   // --- Performance (5 factors) ---

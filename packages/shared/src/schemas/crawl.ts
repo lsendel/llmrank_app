@@ -35,6 +35,19 @@ export const ExtractedDataSchema = z.object({
   robots_directives: z.array(z.string()),
   og_tags: z.record(z.string()).optional(),
   structured_data: z.array(z.unknown()).optional(),
+  // Readability (Tier 1)
+  flesch_score: z.number().nullable().optional(),
+  flesch_classification: z.string().nullable().optional(),
+  // Text-to-HTML ratio (Tier 2)
+  text_html_ratio: z.number().nullable().optional(),
+  text_length: z.number().int().nullable().optional(),
+  html_length: z.number().int().nullable().optional(),
+  // PDF links (Tier 2)
+  pdf_links: z.array(z.string()).optional().default([]),
+  // CORS (Tier 2)
+  cors_unsafe_blank_links: z.number().int().optional().default(0),
+  cors_mixed_content: z.number().int().optional().default(0),
+  cors_has_issues: z.boolean().optional().default(false),
 });
 
 // Lighthouse results for a page
@@ -59,6 +72,15 @@ export const CrawlPageResultSchema = z.object({
   extracted: ExtractedDataSchema,
   lighthouse: LighthouseResultSchema.nullable().optional(),
   timing_ms: z.number(),
+  redirect_chain: z
+    .array(
+      z.object({
+        url: z.string(),
+        status_code: z.number().int(),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 // Hetzner -> Cloudflare: Batch result callback
