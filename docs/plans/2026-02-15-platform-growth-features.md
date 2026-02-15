@@ -12,6 +12,41 @@
 
 ---
 
+## DDD & Clean Code Principles
+
+Every task in this plan MUST follow these principles. The implementing engineer should treat these as hard constraints, not suggestions.
+
+### Domain-Driven Design
+
+1. **Rich domain types over primitives.** Don't pass raw strings for IDs, tokens, or scopes. Define branded types or value objects (e.g., `TokenHash`, `ChannelType`, `Scope`) so the type system prevents misuse.
+2. **Service layer = domain logic only.** Services orchestrate domain rules (plan enforcement, delta detection, token lifecycle). No HTTP concerns, no DB imports — services receive repository interfaces via dependency injection.
+3. **Repository pattern enforced.** All DB access goes through typed repository interfaces in `apps/api/src/repositories/`. Query modules in `packages/db/src/queries/` implement these interfaces. Services never import `drizzle-orm` directly.
+4. **Aggregate boundaries.** Each feature has a clear aggregate root:
+   - Notification channels: `NotificationChannel` (owned by User)
+   - Scheduled queries: `ScheduledVisibilityQuery` (owned by Project)
+   - Scan results: `ScanResult` (standalone, linked to Lead)
+   - API tokens: `ApiToken` (owned by User, scoped to Project)
+5. **Domain events over direct coupling.** When a visibility check detects a position change, it emits a domain event (`mention_lost`, `position_changed`) to the outbox — NOT directly call the notification service. The notification service subscribes to events.
+
+### Clean Code
+
+1. **Single Responsibility.** Each file does one thing. A service file contains one service. A route file handles routes for one resource. No god files.
+2. **Explicit over implicit.** Function parameters and return types are always typed. No `any` in service or domain code. Use `unknown` + type narrowing when handling external data (webhook payloads, LLM responses).
+3. **Error handling at boundaries.** Services throw typed `ServiceError` with error codes. Routes catch and format. Don't suppress errors — let them propagate.
+4. **Test-first for domain logic.** Every service method gets a failing test before implementation. Tests verify behavior, not implementation details.
+5. **No dead code.** If you replace `webhookUrl` with notification channels, remove the old field. Don't leave commented-out code or unused imports.
+6. **Small functions.** If a function exceeds ~20 lines, extract a well-named helper. The cron handler should read like a high-level description of what it does.
+
+### Naming Conventions
+
+- Services: `createXxxService(deps)` — factory function returning service object
+- Queries: `xxxQueries(db)` — factory function returning query object
+- Routes: `xxxRoutes` — Hono router instance
+- Types: PascalCase for interfaces/types, camelCase for values
+- Events: `noun.verb.past_tense` (e.g., `visibility.check.completed`, `mention.lost`)
+
+---
+
 ## Implementation Order
 
 1. Schema + plan limits (foundation for everything)
@@ -1005,32 +1040,63 @@ Expected: FAIL — module not found
 **Step 3: Write service implementation**
 
 ```typescript
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 import { ServiceError } from "../lib/errors";
 
-interface Deps {
-  channels: {
-    create: (data: any) => Promise<any>;
-    listByUser: (userId: string) => Promise<any[]>;
-    getById: (id: string) => Promise<any>;
-    update: (id: string, data: any) => Promise<any>;
-    delete: (id: string) => Promise<void>;
-    countByUser: (userId: string) => Promise<number>;
-  };
-  users: {
-    getById: (id: string) => Promise<any>;
-  };
+// Domain types — co-locate with service or in a shared types file
+type ChannelType = "email" | "webhook" | "slack_incoming" | "slack_app";
+
+interface NotificationChannel {
+  id: string;
+  userId: string;
+  projectId: string | null;
+  channelType: ChannelType;
+  config: Record<string, unknown>;
+  eventTypes: string[];
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export function createNotificationChannelService(deps: Deps) {
+interface CreateChannelInput {
+  userId: string;
+  projectId?: string;
+  channelType: ChannelType;
+  config: Record<string, unknown>;
+  eventTypes: string[];
+}
+
+// Repository interfaces — defines the contract, NOT the implementation
+interface NotificationChannelRepository {
+  create(data: CreateChannelInput): Promise<NotificationChannel>;
+  listByUser(userId: string): Promise<NotificationChannel[]>;
+  getById(id: string): Promise<NotificationChannel | null>;
+  update(
+    id: string,
+    data: Partial<
+      Pick<NotificationChannel, "config" | "eventTypes" | "enabled">
+    >,
+  ): Promise<NotificationChannel | null>;
+  delete(id: string): Promise<void>;
+  countByUser(userId: string): Promise<number>;
+}
+
+interface UserRepository {
+  getById(
+    id: string,
+  ): Promise<{ id: string; plan: PlanTier; email: string } | null>;
+}
+
+interface NotificationChannelServiceDeps {
+  channels: NotificationChannelRepository;
+  users: UserRepository;
+}
+
+export function createNotificationChannelService(
+  deps: NotificationChannelServiceDeps,
+) {
   return {
-    async create(args: {
-      userId: string;
-      projectId?: string;
-      channelType: "email" | "webhook" | "slack_incoming" | "slack_app";
-      config: Record<string, unknown>;
-      eventTypes: string[];
-    }) {
+    async create(args: CreateChannelInput) {
       const user = await deps.users.getById(args.userId);
       if (!user) throw new ServiceError("NOT_FOUND", 404, "User not found");
 
@@ -1067,7 +1133,13 @@ export function createNotificationChannelService(deps: Deps) {
       return deps.channels.listByUser(userId);
     },
 
-    async update(userId: string, channelId: string, data: any) {
+    async update(
+      userId: string,
+      channelId: string,
+      data: Partial<
+        Pick<NotificationChannel, "config" | "eventTypes" | "enabled">
+      >,
+    ) {
       const channel = await deps.channels.getById(channelId);
       if (!channel || channel.userId !== userId) {
         throw new ServiceError("NOT_FOUND", 404, "Channel not found");
@@ -1771,16 +1843,67 @@ describe("ScheduledVisibilityService", () => {
 **Step 3: Write service**
 
 ```typescript
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 import { ServiceError } from "../lib/errors";
 
-interface Deps {
-  schedules: any;
-  projects: any;
-  users: any;
+// Domain types
+type Frequency = "hourly" | "daily" | "weekly";
+
+interface ScheduledVisibilityQuery {
+  id: string;
+  projectId: string;
+  query: string;
+  providers: string[];
+  frequency: Frequency;
+  lastRunAt: Date | null;
+  nextRunAt: Date;
+  enabled: boolean;
+  createdAt: Date;
 }
 
-export function createScheduledVisibilityService(deps: Deps) {
+interface CreateScheduleInput {
+  projectId: string;
+  query: string;
+  providers: string[];
+  frequency: Frequency;
+}
+
+// Repository interfaces
+interface ScheduledVisibilityRepository {
+  create(data: CreateScheduleInput): Promise<ScheduledVisibilityQuery>;
+  listByProject(projectId: string): Promise<ScheduledVisibilityQuery[]>;
+  getById(id: string): Promise<ScheduledVisibilityQuery | null>;
+  update(
+    id: string,
+    data: Partial<
+      Pick<
+        ScheduledVisibilityQuery,
+        "query" | "providers" | "frequency" | "enabled"
+      >
+    >,
+  ): Promise<ScheduledVisibilityQuery | null>;
+  delete(id: string): Promise<void>;
+  countByProject(projectId: string): Promise<number>;
+  getDueQueries(now: Date): Promise<ScheduledVisibilityQuery[]>;
+  markRun(
+    id: string,
+    frequency: Frequency,
+  ): Promise<ScheduledVisibilityQuery | null>;
+}
+
+interface ScheduledVisibilityServiceDeps {
+  schedules: ScheduledVisibilityRepository;
+  projects: {
+    getById(id: string): Promise<{ id: string; userId: string } | null>;
+  };
+  users: {
+    getById(id: string): Promise<{ id: string; plan: PlanTier } | null>;
+  };
+}
+
+export function createScheduledVisibilityService(
+  deps: ScheduledVisibilityServiceDeps,
+) {
   return {
     async create(args: {
       userId: string;
@@ -1835,7 +1958,16 @@ export function createScheduledVisibilityService(deps: Deps) {
       return deps.schedules.listByProject(projectId);
     },
 
-    async update(userId: string, scheduleId: string, data: any) {
+    async update(
+      userId: string,
+      scheduleId: string,
+      data: Partial<
+        Pick<
+          ScheduledVisibilityQuery,
+          "query" | "providers" | "frequency" | "enabled"
+        >
+      >,
+    ) {
       const schedule = await deps.schedules.getById(scheduleId);
       if (!schedule) throw new ServiceError("NOT_FOUND", 404, "Not found");
 
@@ -2197,24 +2329,66 @@ describe("ApiTokenService", () => {
 **Step 3: Write service**
 
 ```typescript
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 import { ServiceError } from "../lib/errors";
 
-interface Deps {
-  tokens: any;
-  users: any;
-  projects: any;
+// Domain types
+type TokenScope = "metrics:read" | "scores:read" | "visibility:read";
+
+interface ApiToken {
+  id: string;
+  userId: string;
+  projectId: string;
+  name: string;
+  tokenHash: string;
+  tokenPrefix: string;
+  scopes: TokenScope[];
+  lastUsedAt: Date | null;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Date;
 }
 
-export function createApiTokenService(deps: Deps) {
+interface TokenContext {
+  tokenId: string;
+  userId: string;
+  projectId: string;
+  scopes: TokenScope[];
+}
+
+interface CreateTokenInput {
+  userId: string;
+  projectId: string;
+  name: string;
+  scopes: TokenScope[];
+  expiresAt?: Date;
+}
+
+// Repository interfaces
+interface ApiTokenRepository {
+  create(
+    data: Omit<ApiToken, "id" | "lastUsedAt" | "revokedAt" | "createdAt">,
+  ): Promise<ApiToken>;
+  findByHash(tokenHash: string): Promise<ApiToken | null>;
+  listByUser(userId: string): Promise<Omit<ApiToken, "tokenHash">[]>;
+  revoke(id: string): Promise<ApiToken | null>;
+  updateLastUsed(id: string): Promise<void>;
+  countByUser(userId: string): Promise<number>;
+}
+
+interface ApiTokenServiceDeps {
+  tokens: ApiTokenRepository;
+  users: {
+    getById(id: string): Promise<{ id: string; plan: PlanTier } | null>;
+  };
+  projects: {
+    getById(id: string): Promise<{ id: string; userId: string } | null>;
+  };
+}
+
+export function createApiTokenService(deps: ApiTokenServiceDeps) {
   return {
-    async create(args: {
-      userId: string;
-      projectId: string;
-      name: string;
-      scopes: string[];
-      expiresAt?: Date;
-    }) {
+    async create(args: CreateTokenInput) {
       const user = await deps.users.getById(args.userId);
       if (!user) throw new ServiceError("NOT_FOUND", 404, "User not found");
 
