@@ -32,6 +32,7 @@
     "d3-force": "^3.0.0",
     "lucide-react": "^0.469",
     "next": "^15",
+    "posthog-js": "^1.347.2",
     "react": "^19",
     "react-dom": "^19",
     "react-force-graph-2d": "^1.29.1",
