@@ -1,5 +1,5 @@
 import React from "react";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 import type { ReportData } from "../types";
 import { SummaryReportPdf } from "./templates/summary";
 import { DetailedReportPdf } from "./templates/detailed";
@@ -7,13 +7,16 @@ import { DetailedReportPdf } from "./templates/detailed";
 export async function renderPdf(
   data: ReportData,
   type: "summary" | "detailed",
-): Promise<Buffer> {
+): Promise<Uint8Array> {
   const element =
     type === "summary"
       ? React.createElement(SummaryReportPdf, { data })
       : React.createElement(DetailedReportPdf, { data });
-  // renderToBuffer expects ReactElement<DocumentProps> but createElement returns a generic type.
-  // The SummaryReportPdf/DetailedReportPdf components return <Document> so the cast is safe.
+
+  // Use pdf().toBlob() which works in both Node.js and edge/Worker environments
+  // (renderToBuffer is Node-only and fails in Cloudflare Workers)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return renderToBuffer(element as any);
+  const blob = await pdf(element as any).toBlob();
+  const arrayBuffer = await blob.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
 }

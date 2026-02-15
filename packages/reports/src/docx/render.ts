@@ -6,9 +6,12 @@ import { buildDetailedDocx } from "./templates/detailed";
 export async function renderDocx(
   data: ReportData,
   type: "summary" | "detailed",
-): Promise<Buffer> {
+): Promise<Uint8Array> {
   const doc =
     type === "summary" ? buildSummaryDocx(data) : buildDetailedDocx(data);
-  const buffer = await Packer.toBuffer(doc);
-  return Buffer.from(buffer);
+  // Use toBlob() which works in both Node.js and edge/Worker environments
+  // (toBuffer() is Node-only and may fail in Cloudflare Workers)
+  const blob = await Packer.toBlob(doc);
+  const arrayBuffer = await blob.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
 }
