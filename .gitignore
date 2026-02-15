@@ -13,3 +13,5 @@ target/
 .claude/
 .worktrees/
 .playwright-mcp/
+coverage/
+.dev.vars

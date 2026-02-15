@@ -7,7 +7,14 @@ export default defineConfig({
     include: ["src/**/__tests__/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/services/**", "src/middleware/**"],
+      include: [
+        "src/routes/**",
+        "src/services/**",
+        "src/middleware/**",
+        "src/lib/**",
+        "src/repositories/**",
+      ],
+      thresholds: { lines: 85 },
     },
   },
 });

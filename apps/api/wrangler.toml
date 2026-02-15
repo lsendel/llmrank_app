@@ -1,6 +1,7 @@
 name = "llm-boost-api"
 main = "src/index.ts"
 compatibility_date = "2025-12-01"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 routes = [
@@ -17,7 +18,7 @@ id = "a1b4b94676c04ac997f69d2a5ca03dad"
 
 [[kv_namespaces]]
 binding = "SEEN_URLS"
-id = "b2c5d1e2f3a4b5c6d7e8f9a0b1c2d3e4" # Placeholder, user must create this
+id = "890e3a5ce54f4c3883556dce292ceb20"
 
 [[queues.producers]]
 binding = "CRAWL_QUEUE"

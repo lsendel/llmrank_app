@@ -9,3 +9,4 @@ export {
   type PageTopicInput,
   type TopicCluster,
 } from "./domain/topic-cluster";
+export { computeCitationReadiness } from "./citation-readiness";

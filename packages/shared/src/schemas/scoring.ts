@@ -32,3 +32,113 @@ export const LLMContentScoresSchema = z.object({
 export type PageScore = z.infer<typeof PageScoreSchema>;
 export type Issue = z.infer<typeof IssueSchema>;
 export type LLMContentScores = z.infer<typeof LLMContentScoresSchema>;
+
+// --- Progress tracking schemas ---
+
+export const CategoryDeltaSchema = z.object({
+  current: z.number(),
+  previous: z.number(),
+  delta: z.number(),
+});
+
+export const PageProgressSchema = z.object({
+  url: z.string(),
+  currentScore: z.number(),
+  previousScore: z.number(),
+  delta: z.number(),
+  issuesFixed: z.array(z.string()),
+  issuesNew: z.array(z.string()),
+  categoryDeltas: z.object({
+    technical: CategoryDeltaSchema,
+    content: CategoryDeltaSchema,
+    aiReadiness: CategoryDeltaSchema,
+    performance: CategoryDeltaSchema,
+  }),
+});
+
+export const ProjectProgressSchema = z.object({
+  currentCrawlId: z.string(),
+  previousCrawlId: z.string(),
+  scoreDelta: z.number(),
+  currentScore: z.number(),
+  previousScore: z.number(),
+  categoryDeltas: z.object({
+    technical: CategoryDeltaSchema,
+    content: CategoryDeltaSchema,
+    aiReadiness: CategoryDeltaSchema,
+    performance: CategoryDeltaSchema,
+  }),
+  issuesFixed: z.number(),
+  issuesNew: z.number(),
+  issuesPersisting: z.number(),
+  gradeChanges: z.object({
+    improved: z.number(),
+    regressed: z.number(),
+    unchanged: z.number(),
+  }),
+  velocity: z.number(),
+  topImprovedPages: z.array(
+    z.object({ url: z.string(), delta: z.number(), current: z.number() }),
+  ),
+  topRegressedPages: z.array(
+    z.object({ url: z.string(), delta: z.number(), current: z.number() }),
+  ),
+});
+
+export type CategoryDelta = z.infer<typeof CategoryDeltaSchema>;
+export type PageProgress = z.infer<typeof PageProgressSchema>;
+export type ProjectProgress = z.infer<typeof ProjectProgressSchema>;
+
+// --- Intelligence fusion schemas ---
+
+export const PlatformOpportunitySchema = z.object({
+  platform: z.string(),
+  currentScore: z.number(),
+  opportunityScore: z.number(), // 100 - currentScore
+  topTips: z.array(z.string()),
+  visibilityRate: z.number().nullable(), // null if no visibility data
+});
+
+export const CitationReadinessSchema = z.object({
+  score: z.number(),
+  components: z.object({
+    factCitability: z.number(),
+    llmCitationWorthiness: z.number(),
+    schemaQuality: z.number(),
+    structuredDataCount: z.number(),
+  }),
+  topCitableFacts: z.array(
+    z.object({
+      content: z.string(),
+      citabilityScore: z.number(),
+    }),
+  ),
+});
+
+export const ROIQuickWinSchema = z.object({
+  issueCode: z.string(),
+  scoreImpact: z.number(),
+  estimatedTrafficImpact: z.number().nullable(), // null if no GSC data
+  effort: z.enum(["low", "medium", "high"]),
+  affectedPages: z.number(),
+});
+
+export const ContentHealthMatrixSchema = z.object({
+  scoring: z.number(),
+  llmQuality: z.number().nullable(),
+  engagement: z.number().nullable(), // from GA4
+  uxQuality: z.number().nullable(), // from Clarity
+});
+
+export const FusedInsightsSchema = z.object({
+  aiVisibilityReadiness: z.number(),
+  platformOpportunities: z.array(PlatformOpportunitySchema),
+  contentHealthMatrix: ContentHealthMatrixSchema,
+  roiQuickWins: z.array(ROIQuickWinSchema),
+});
+
+export type PlatformOpportunity = z.infer<typeof PlatformOpportunitySchema>;
+export type CitationReadiness = z.infer<typeof CitationReadinessSchema>;
+export type ROIQuickWin = z.infer<typeof ROIQuickWinSchema>;
+export type ContentHealthMatrix = z.infer<typeof ContentHealthMatrixSchema>;
+export type FusedInsights = z.infer<typeof FusedInsightsSchema>;

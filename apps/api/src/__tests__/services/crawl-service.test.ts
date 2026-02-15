@@ -239,6 +239,332 @@ describe("CrawlService", () => {
         "Crawl not found",
       );
     });
+
+    it("returns null scores for non-complete crawl", async () => {
+      crawls.getById.mockResolvedValue(buildCrawlJob({ status: "crawling" }));
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.getCrawl("user-1", "crawl-1");
+      expect((result as any)?.overallScore).toBeNull();
+      expect((result as any)?.letterGrade).toBeNull();
+      expect((result as any)?.scores).toBeNull();
+    });
+
+    it("returns null scores for complete crawl with no score rows", async () => {
+      crawls.getById.mockResolvedValue(buildCrawlJob({ status: "complete" }));
+      scores.listByJob.mockResolvedValue([]);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.getCrawl("user-1", "crawl-1");
+      expect((result as any)?.overallScore).toBeNull();
+    });
+  });
+
+  describe("listProjectCrawls", () => {
+    it("returns crawl list for owned project", async () => {
+      const crawlList = [
+        buildCrawlJob({ id: "c-1", status: "complete" }),
+        buildCrawlJob({ id: "c-2", status: "crawling" }),
+      ];
+      crawls.listByProject.mockResolvedValue(crawlList);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.listProjectCrawls("user-1", "proj-1");
+      expect(result).toEqual(crawlList);
+    });
+
+    it("throws NOT_FOUND when project not owned by user", async () => {
+      projects.getById.mockResolvedValue(
+        buildProject({ userId: "other-user" }),
+      );
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(
+        service.listProjectCrawls("user-1", "proj-1"),
+      ).rejects.toThrow("Resource does not exist");
+    });
+  });
+
+  describe("getQuickWins", () => {
+    it("returns quick wins for a crawl", async () => {
+      crawls.getById.mockResolvedValue(buildCrawlJob({ status: "complete" }));
+      scores.getIssuesByJob.mockResolvedValue([
+        {
+          id: "i-1",
+          jobId: "crawl-1",
+          pageId: "p-1",
+          code: "MISSING_TITLE",
+          severity: "critical",
+          message: "m",
+          category: "content",
+          data: {},
+          createdAt: new Date(),
+          recommendation: null,
+        },
+        {
+          id: "i-2",
+          jobId: "crawl-1",
+          pageId: "p-1",
+          code: "MISSING_ALT",
+          severity: "warning",
+          message: "m",
+          category: "content",
+          data: {},
+          createdAt: new Date(),
+          recommendation: null,
+        },
+      ]);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.getQuickWins("user-1", "crawl-1");
+      expect(result).toBeDefined();
+    });
+
+    it("throws NOT_FOUND when crawl does not exist", async () => {
+      crawls.getById.mockResolvedValue(undefined);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(service.getQuickWins("user-1", "crawl-999")).rejects.toThrow(
+        "Crawl not found",
+      );
+    });
+  });
+
+  describe("getPlatformReadiness", () => {
+    it("returns platform checks for a crawl", async () => {
+      crawls.getById.mockResolvedValue(buildCrawlJob({ status: "complete" }));
+      scores.getIssuesByJob.mockResolvedValue([]);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.getPlatformReadiness("user-1", "crawl-1");
+      expect(Array.isArray(result)).toBe(true);
+      for (const entry of result) {
+        expect(entry).toHaveProperty("platform");
+        expect(entry).toHaveProperty("checks");
+        expect(Array.isArray(entry.checks)).toBe(true);
+      }
+    });
+
+    it("marks checks as failing when matching issue codes exist", async () => {
+      crawls.getById.mockResolvedValue(buildCrawlJob({ status: "complete" }));
+      scores.getIssuesByJob.mockResolvedValue([
+        {
+          id: "i-1",
+          jobId: "crawl-1",
+          pageId: "p-1",
+          code: "AI_CRAWLER_BLOCKED",
+          severity: "critical",
+          message: "m",
+          category: "llm_visibility",
+          data: {},
+          createdAt: new Date(),
+          recommendation: null,
+        },
+        {
+          id: "i-2",
+          jobId: "crawl-1",
+          pageId: "p-1",
+          code: "MISSING_LLMS_TXT",
+          severity: "warning",
+          message: "m",
+          category: "llm_visibility",
+          data: {},
+          createdAt: new Date(),
+          recommendation: null,
+        },
+      ]);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.getPlatformReadiness("user-1", "crawl-1");
+      const allChecks = result.flatMap((p: any) => p.checks);
+      const failedChecks = allChecks.filter((c: any) => !c.pass);
+      expect(failedChecks.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it("throws NOT_FOUND when crawl does not exist", async () => {
+      crawls.getById.mockResolvedValue(undefined);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(
+        service.getPlatformReadiness("user-1", "crawl-999"),
+      ).rejects.toThrow("Crawl not found");
+    });
+  });
+
+  describe("enableSharing", () => {
+    it("generates a new share token", async () => {
+      crawls.getById.mockResolvedValue(
+        buildCrawlJob({ shareToken: null, shareEnabled: false }),
+      );
+      (crawls.generateShareToken as any).mockResolvedValue({
+        shareToken: "token-abc",
+        shareEnabled: true,
+      });
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.enableSharing("user-1", "crawl-1");
+      expect(result.shareToken).toBe("token-abc");
+      expect(result.shareUrl).toBe("/report/token-abc");
+    });
+
+    it("returns existing token when sharing is already enabled", async () => {
+      crawls.getById.mockResolvedValue(
+        buildCrawlJob({ shareToken: "existing-token", shareEnabled: true }),
+      );
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.enableSharing("user-1", "crawl-1");
+      expect(result.shareToken).toBe("existing-token");
+      expect(crawls.generateShareToken).not.toHaveBeenCalled();
+    });
+
+    it("throws NOT_FOUND when crawl does not exist", async () => {
+      crawls.getById.mockResolvedValue(undefined);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(
+        service.enableSharing("user-1", "crawl-999"),
+      ).rejects.toThrow("Crawl not found");
+    });
+  });
+
+  describe("disableSharing", () => {
+    it("disables sharing for a crawl", async () => {
+      crawls.getById.mockResolvedValue(
+        buildCrawlJob({ shareToken: "token", shareEnabled: true }),
+      );
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      const result = await service.disableSharing("user-1", "crawl-1");
+      expect(result).toEqual({ disabled: true });
+      expect(crawls.disableSharing).toHaveBeenCalledWith("crawl-1");
+    });
+
+    it("throws NOT_FOUND when crawl does not exist", async () => {
+      crawls.getById.mockResolvedValue(undefined);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(
+        service.disableSharing("user-1", "crawl-999"),
+      ).rejects.toThrow("Crawl not found");
+    });
+  });
+
+  describe("dispatchScheduledJobs", () => {
+    it("dispatches via queue when available", async () => {
+      const mockQueue = { send: vi.fn().mockResolvedValue(undefined) };
+      (projects.getDueForCrawl as any).mockResolvedValue([
+        {
+          ...buildProject(),
+          crawlSchedule: "weekly",
+          user: buildUser(),
+        },
+      ]);
+      crawls.create.mockResolvedValue(buildCrawlJob());
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await service.dispatchScheduledJobs({
+        ...env,
+        queue: mockQueue,
+      });
+
+      expect(mockQueue.send).toHaveBeenCalled();
+      expect(crawls.updateStatus).toHaveBeenCalledWith(
+        "crawl-1",
+        expect.objectContaining({ status: "queued" }),
+      );
+      expect(projects.updateNextCrawl).toHaveBeenCalled();
+    });
+
+    it("skips projects without user", async () => {
+      (projects.getDueForCrawl as any).mockResolvedValue([
+        {
+          ...buildProject(),
+          crawlSchedule: "weekly",
+          user: null,
+        },
+      ]);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await service.dispatchScheduledJobs(env);
+
+      expect(crawls.create).not.toHaveBeenCalled();
+    });
+
+    it("skips users with no crawl credits", async () => {
+      (projects.getDueForCrawl as any).mockResolvedValue([
+        {
+          ...buildProject(),
+          crawlSchedule: "daily",
+          user: buildUser({ crawlCreditsRemaining: 0 }),
+        },
+      ]);
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await service.dispatchScheduledJobs(env);
+
+      expect(crawls.create).not.toHaveBeenCalled();
+    });
+
+    it("marks job failed when direct fetch throws", async () => {
+      (projects.getDueForCrawl as any).mockResolvedValue([
+        {
+          ...buildProject(),
+          crawlSchedule: "monthly",
+          user: buildUser(),
+        },
+      ]);
+      crawls.create.mockResolvedValue(buildCrawlJob());
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await service.dispatchScheduledJobs(env);
+
+      expect(crawls.updateStatus).toHaveBeenCalledWith(
+        "crawl-1",
+        expect.objectContaining({
+          status: "failed",
+          errorMessage: expect.stringContaining("Network error"),
+        }),
+      );
+    });
+
+    it("sets correct next crawl date for daily schedule", async () => {
+      (projects.getDueForCrawl as any).mockResolvedValue([
+        {
+          ...buildProject(),
+          crawlSchedule: "daily",
+          user: buildUser(),
+        },
+      ]);
+      crawls.create.mockResolvedValue(buildCrawlJob());
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await service.dispatchScheduledJobs(env);
+
+      const nextDateCall = projects.updateNextCrawl.mock.calls[0];
+      expect(nextDateCall[1]).toBeInstanceOf(Date);
+    });
+
+    it("handles projects with no queue and no crawlerUrl", async () => {
+      (projects.getDueForCrawl as any).mockResolvedValue([
+        {
+          ...buildProject(),
+          crawlSchedule: "weekly",
+          user: buildUser(),
+        },
+      ]);
+      crawls.create.mockResolvedValue(buildCrawlJob());
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await service.dispatchScheduledJobs({
+        sharedSecret: "secret",
+        crawlerUrl: undefined,
+      });
+
+      expect(crawls.create).toHaveBeenCalled();
+      expect(projects.updateNextCrawl).toHaveBeenCalled();
+    });
   });
 });
 

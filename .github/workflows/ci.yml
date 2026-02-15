@@ -21,7 +21,18 @@ jobs:
 
       - run: pnpm typecheck
 
-      - run: pnpm test
+      - name: Run tests
+        run: pnpm test
+
+      - name: Check coverage thresholds
+        run: |
+          pnpm --filter @llm-boost/api test -- --coverage
+          pnpm --filter @llm-boost/db test -- --coverage
+          pnpm --filter @llm-boost/scoring test -- --coverage
+          pnpm --filter @llm-boost/llm test -- --coverage
+          pnpm --filter @llm-boost/shared test -- --coverage
+          pnpm --filter @llm-boost/integrations test -- --coverage
+          pnpm --filter @llm-boost/billing test -- --coverage
 
   rust:
     runs-on: ubuntu-latest

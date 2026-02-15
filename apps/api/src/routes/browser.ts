@@ -1,13 +1,14 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck — page.evaluate() runs in browser context with DOM APIs
 import { Hono } from "hono";
 import puppeteer from "@cloudflare/puppeteer";
 import type { AppEnv } from "../index";
-import { signPayload } from "../middleware/hmac";
+import { hmacMiddleware } from "../middleware/hmac";
 
 export const browserRoutes = new Hono<AppEnv>();
 
-// Note: In production, this should be gated by HMAC or internal auth
-// so random people can't spin up browsers on your account.
+// Gate browser audit behind HMAC so only the crawler can invoke it
+browserRoutes.use("/audit", hmacMiddleware);
 
 browserRoutes.post("/audit", async (c) => {
   const { url } = await c.req.json<{ url: string }>();

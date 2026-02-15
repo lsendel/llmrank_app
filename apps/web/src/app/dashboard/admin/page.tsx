@@ -299,7 +299,9 @@ export default function AdminPage() {
           </Card>
           <Card
             className={
-              metrics.errorsLast24h > 0 ? "border-destructive/20 bg-destructive/5" : ""
+              metrics.errorsLast24h > 0
+                ? "border-destructive/20 bg-destructive/5"
+                : ""
             }
           >
             <CardHeader className="pb-2">

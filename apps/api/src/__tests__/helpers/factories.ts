@@ -4,6 +4,7 @@ import type {
   ScoreRepository,
   UserRepository,
   VisibilityRepository,
+  PageRepository,
 } from "../../repositories";
 
 export type ProjectEntity = NonNullable<
@@ -30,6 +31,9 @@ type VisibilityTrendRows = Awaited<
 >;
 export type VisibilityTrendEntity =
   VisibilityTrendRows extends Array<infer Item> ? Item : never;
+export type PageEntity = NonNullable<
+  Awaited<ReturnType<PageRepository["getById"]>>
+>;
 
 const STATIC_DATE = new Date("2024-01-01T00:00:00.000Z");
 
@@ -147,4 +151,23 @@ export function buildVisibilityTrend(
     totalChecks: 5,
     ...overrides,
   };
+}
+
+export function buildPage(overrides: Partial<PageEntity> = {}): PageEntity {
+  return {
+    id: "page-1",
+    projectId: "proj-1",
+    jobId: "crawl-1",
+    url: "https://example.com/page1",
+    canonicalUrl: null,
+    statusCode: 200,
+    title: "Test Page",
+    metaDesc: null,
+    h1: null,
+    wordCount: 500,
+    crawledAt: STATIC_DATE,
+    createdAt: STATIC_DATE,
+    updatedAt: STATIC_DATE,
+    ...overrides,
+  } as PageEntity;
 }

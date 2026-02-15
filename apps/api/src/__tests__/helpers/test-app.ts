@@ -1,0 +1,137 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import type { AppEnv, Bindings } from "../../index";
+import { createKVStub } from "./kv-stub";
+import { createR2Stub } from "./r2-stub";
+import { createDb, type Database } from "@llm-boost/db";
+
+import { healthRoutes } from "../../routes/health";
+import { projectRoutes } from "../../routes/projects";
+import { crawlRoutes } from "../../routes/crawls";
+import { pageRoutes } from "../../routes/pages";
+import { billingRoutes } from "../../routes/billing";
+import { ingestRoutes } from "../../routes/ingest";
+import { visibilityRoutes } from "../../routes/visibility";
+import { scoreRoutes } from "../../routes/scores";
+import { dashboardRoutes } from "../../routes/dashboard";
+import { accountRoutes } from "../../routes/account";
+import { publicRoutes } from "../../routes/public";
+import { adminRoutes } from "../../routes/admin";
+import { logRoutes } from "../../routes/logs";
+import { extractorRoutes } from "../../routes/extractors";
+import { integrationRoutes } from "../../routes/integrations";
+import { strategyRoutes } from "../../routes/strategy";
+import { browserRoutes } from "../../routes/browser";
+
+interface TestAppOptions {
+  db?: Database;
+  userId?: string;
+  envOverrides?: Partial<Bindings>;
+}
+
+export function createTestApp(options: TestAppOptions = {}) {
+  const userId = options.userId ?? "test-user-id";
+  const kv = createKVStub();
+  const r2 = createR2Stub();
+  // Use a dummy connection string when no real DB is configured.
+  // Integration tests mock at the repository layer so the DB is never queried.
+  const dbUrl =
+    process.env.TEST_DATABASE_URL ??
+    process.env.DATABASE_URL ??
+    "postgresql://test:test@localhost:5432/test";
+  const db = options.db ?? createDb(dbUrl);
+
+  const app = new Hono<AppEnv>();
+
+  app.use("*", cors({ origin: "*" }));
+
+  // Inject DB + fake auth (bypasses Clerk JWT verification)
+  app.use("*", async (c, next) => {
+    c.set("db", db);
+    c.set("userId", userId);
+    c.set("requestId", "test-req-id");
+    c.set("logger", {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+      child: () => ({
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      }),
+    } as any);
+    await next();
+  });
+
+  app.route("/api/health", healthRoutes);
+  app.route("/api/projects", projectRoutes);
+  app.route("/api/crawls", crawlRoutes);
+  app.route("/api/pages", pageRoutes);
+  app.route("/api/billing", billingRoutes);
+  app.route("/ingest", ingestRoutes);
+  app.route("/api/visibility", visibilityRoutes);
+  app.route("/api/scores", scoreRoutes);
+  app.route("/api/dashboard", dashboardRoutes);
+  app.route("/api/account", accountRoutes);
+  app.route("/api/public", publicRoutes);
+  app.route("/api/admin", adminRoutes);
+  app.route("/api/logs", logRoutes);
+  app.route("/api/extractors", extractorRoutes);
+  app.route("/api/integrations", integrationRoutes);
+  app.route("/api/strategy", strategyRoutes);
+  app.route("/api/browser", browserRoutes);
+
+  app.notFound((c) =>
+    c.json({ error: { code: "NOT_FOUND", message: "Route not found" } }, 404),
+  );
+
+  const env: Bindings = {
+    R2: r2 as any,
+    KV: kv as any,
+    SEEN_URLS: createKVStub() as any,
+    CRAWL_QUEUE: { send: async () => {} } as any,
+    BROWSER: null as any,
+    DATABASE_URL:
+      process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
+    SHARED_SECRET: "test-secret",
+    ANTHROPIC_API_KEY: "test-key",
+    OPENAI_API_KEY: "test-key",
+    GOOGLE_API_KEY: "test-key",
+    PERPLEXITY_API_KEY: "test-key",
+    STRIPE_SECRET_KEY: "test-key",
+    STRIPE_WEBHOOK_SECRET: "test-key",
+    CLERK_SECRET_KEY: "test-key",
+    CLERK_PUBLISHABLE_KEY: "test-key",
+    CRAWLER_URL: "http://localhost:3000",
+    INTEGRATION_ENCRYPTION_KEY: "0".repeat(64),
+    GOOGLE_OAUTH_CLIENT_ID: "test-id",
+    GOOGLE_OAUTH_CLIENT_SECRET: "test-secret",
+    RESEND_API_KEY: "test-key",
+    SENTRY_DSN: "",
+    ...options.envOverrides,
+  };
+
+  function request(
+    path: string,
+    init?: RequestInit & { json?: unknown },
+  ): Promise<Response> {
+    const url = `http://localhost${path}`;
+    const headers = new Headers(init?.headers);
+    if (!headers.has("Authorization")) {
+      headers.set("Authorization", "Bearer test-token");
+    }
+    let body = init?.body;
+    if (init?.json) {
+      headers.set("Content-Type", "application/json");
+      body = JSON.stringify(init.json);
+    }
+    return app.fetch(
+      new Request(url, { ...init, headers, body }),
+      env,
+    ) as Promise<Response>;
+  }
+
+  return { app, env, db, kv, r2, request };
+}
