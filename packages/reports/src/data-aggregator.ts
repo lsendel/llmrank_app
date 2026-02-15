@@ -10,6 +10,7 @@ import type {
 import type { ReportConfig } from "@llm-boost/shared";
 import { estimateIssueROI } from "./roi";
 import { aggregateCompetitors } from "./competitors";
+import { aggregateIntegrations, type RawEnrichment } from "./integrations";
 
 // ---------------------------------------------------------------------------
 // Input types (raw DB results)
@@ -82,6 +83,7 @@ export interface RawDbResults {
     avgPerformance: number;
   }[];
   visibilityChecks: RawVisibilityCheck[];
+  enrichments?: RawEnrichment[];
 }
 
 // ---------------------------------------------------------------------------
@@ -370,7 +372,9 @@ export function aggregateReportData(
     gapQueries,
     contentHealth,
     platformOpportunities: null, // Computed from visibility data in a later step
-    integrations: null, // Computed from enrichments in a later step
+    integrations: raw.enrichments
+      ? aggregateIntegrations(raw.enrichments)
+      : null,
     config: options.config ?? {},
   };
 }

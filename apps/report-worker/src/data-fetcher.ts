@@ -6,6 +6,7 @@ import {
   pageScores,
   issues,
   visibilityChecks,
+  pageEnrichments,
   eq,
   and,
   sql,
@@ -130,6 +131,15 @@ export async function fetchReportData(
     .from(visibilityChecks)
     .where(eq(visibilityChecks.projectId, job.projectId));
 
+  // Fetch page enrichments (GSC, GA4, Clarity data)
+  const enrichmentRows = await db
+    .select({
+      provider: pageEnrichments.provider,
+      data: pageEnrichments.data,
+    })
+    .from(pageEnrichments)
+    .where(eq(pageEnrichments.jobId, job.crawlJobId));
+
   return {
     project: {
       name: project.name,
@@ -158,6 +168,10 @@ export async function fetchReportData(
       competitorMentions: v.competitorMentions as
         | { domain: string; mentioned: boolean }[]
         | null,
+    })),
+    enrichments: enrichmentRows.map((e) => ({
+      provider: e.provider,
+      data: e.data as Record<string, unknown>,
     })),
   };
 }
