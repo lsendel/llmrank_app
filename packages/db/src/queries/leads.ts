@@ -22,6 +22,11 @@ export function leadQueries(db: Database) {
       return lead;
     },
 
+    async getById(id: string) {
+      const [lead] = await db.select().from(leads).where(eq(leads.id, id));
+      return lead ?? null;
+    },
+
     async findByEmail(email: string) {
       const [lead] = await db
         .select()
