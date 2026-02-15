@@ -14,3 +14,10 @@ export type {
   ReportType,
   ReportFormat,
 } from "./types";
+
+export {
+  aggregateReportData,
+  type RawDbResults,
+  type AggregateOptions,
+} from "./data-aggregator";
+export { estimateIssueROI } from "./roi";
