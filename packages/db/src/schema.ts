@@ -719,17 +719,21 @@ export const scheduledVisibilityQueries = pgTable(
 // Scan Results (public scanner, no auth required)
 // ---------------------------------------------------------------------------
 
-export const scanResults = pgTable("scan_results", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  domain: text("domain").notNull(),
-  url: text("url").notNull(),
-  scores: jsonb("scores").notNull(),
-  issues: jsonb("issues").notNull(),
-  quickWins: jsonb("quick_wins").notNull(),
-  ipHash: text("ip_hash"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  expiresAt: timestamp("expires_at").notNull(),
-});
+export const scanResults = pgTable(
+  "scan_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    domain: text("domain").notNull(),
+    url: text("url").notNull(),
+    scores: jsonb("scores").notNull(),
+    issues: jsonb("issues").notNull(),
+    quickWins: jsonb("quick_wins").notNull(),
+    ipHash: text("ip_hash"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [index("idx_scan_results_expires").on(t.expiresAt)],
+);
 
 // ---------------------------------------------------------------------------
 // API Tokens
@@ -756,6 +760,6 @@ export const apiTokens = pgTable(
   },
   (t) => [
     index("idx_api_tokens_user").on(t.userId),
-    index("idx_api_tokens_hash").on(t.tokenHash),
+    uniqueIndex("idx_api_tokens_hash").on(t.tokenHash),
   ],
 );
