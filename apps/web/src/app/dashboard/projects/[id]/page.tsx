@@ -208,7 +208,11 @@ export default function ProjectPage() {
         </TabsContent>
 
         <TabsContent value="issues" className="pt-4">
-          <IssuesTab issues={issuesData?.data ?? []} />
+          <IssuesTab
+            issues={issuesData?.data ?? []}
+            crawlId={latestCrawlId}
+            projectId={project?.id}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="pt-4">

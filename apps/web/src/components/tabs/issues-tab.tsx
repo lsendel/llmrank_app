@@ -4,9 +4,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IssueCard } from "@/components/issue-card";
+import { IssueHeatmap } from "@/components/charts/issue-heatmap";
 import type { PageIssue } from "@/lib/api";
 
-export function IssuesTab({ issues }: { issues: PageIssue[] }) {
+export function IssuesTab({
+  issues,
+  crawlId,
+  projectId,
+}: {
+  issues: PageIssue[];
+  crawlId?: string;
+  projectId?: string;
+}) {
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
@@ -20,6 +29,11 @@ export function IssuesTab({ issues }: { issues: PageIssue[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Issue Heatmap */}
+      {crawlId && projectId && (
+        <IssueHeatmap crawlId={crawlId} projectId={projectId} />
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2">

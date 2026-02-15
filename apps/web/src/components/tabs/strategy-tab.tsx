@@ -16,6 +16,7 @@ import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, type StrategyPersona, type StrategyCompetitor } from "@/lib/api";
 import { TopicClusterGraph } from "../strategy/topic-cluster-graph";
+import { CrawlerTimelineChart } from "@/components/charts/crawler-timeline-chart";
 
 export function StrategyTab({ projectId }: { projectId: string }) {
   const { withToken } = useApi();
@@ -27,7 +28,10 @@ export function StrategyTab({ projectId }: { projectId: string }) {
 
   const { data: topicMap } = useApiSWR(
     `topic-map-${projectId}`,
-    useCallback((token: string) => api.strategy.getTopicMap(token, projectId), [projectId])
+    useCallback(
+      (token: string) => api.strategy.getTopicMap(token, projectId),
+      [projectId],
+    ),
   );
 
   const { data: competitors, mutate: mutateComps } = useApiSWR<
@@ -83,6 +87,9 @@ export function StrategyTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-8">
+      {/* AI Crawler Timeline */}
+      <CrawlerTimelineChart projectId={projectId} />
+
       {/* Topic Cluster Map */}
       {topicMap && <TopicClusterGraph data={topicMap} />}
 

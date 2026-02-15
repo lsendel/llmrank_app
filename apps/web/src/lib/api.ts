@@ -422,6 +422,57 @@ export interface LogAnalysisSummary {
   topPaths: Array<{ path: string; count: number }>;
 }
 
+export interface CrawlInsights {
+  issueDistribution: {
+    bySeverity: { severity: string; count: number }[];
+    byCategory: { category: string; count: number }[];
+    total: number;
+  };
+  scoreRadar: {
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+  };
+  gradeDistribution: {
+    grade: string;
+    count: number;
+    percentage: number;
+  }[];
+  contentRatio: {
+    avgWordCount: number;
+    avgHtmlToTextRatio: number;
+    pagesAboveThreshold: number;
+    totalPages: number;
+  };
+  crawlProgress: {
+    found: number;
+    crawled: number;
+    scored: number;
+    errored: number;
+    status: string;
+  };
+}
+
+export interface IssueHeatmapData {
+  categories: string[];
+  pages: {
+    url: string;
+    pageId: string;
+    issues: Record<string, string>;
+  }[];
+}
+
+export interface CrawlerTimelinePoint {
+  timestamp: string;
+  gptbot: number;
+  claudebot: number;
+  perplexitybot: number;
+  googlebot: number;
+  bingbot: number;
+  other: number;
+}
+
 export interface ProjectIntegration {
   id: string;
   projectId: string;
@@ -641,6 +692,25 @@ export const api = {
     async get(token: string, crawlId: string): Promise<CrawlJob> {
       const res = await apiClient.get<ApiEnvelope<CrawlJob>>(
         `/api/crawls/${crawlId}`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getInsights(token: string, crawlId: string): Promise<CrawlInsights> {
+      const res = await apiClient.get<ApiEnvelope<CrawlInsights>>(
+        `/api/crawls/${crawlId}/insights`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getIssueHeatmap(
+      token: string,
+      crawlId: string,
+    ): Promise<IssueHeatmapData> {
+      const res = await apiClient.get<ApiEnvelope<IssueHeatmapData>>(
+        `/api/crawls/${crawlId}/issue-heatmap`,
         { token },
       );
       return res.data;
@@ -1073,6 +1143,17 @@ export const api = {
     async list(token: string, projectId: string): Promise<LogUpload[]> {
       const res = await apiClient.get<ApiEnvelope<LogUpload[]>>(
         `/api/logs/${projectId}`,
+        { token },
+      );
+      return res.data;
+    },
+
+    async getCrawlerTimeline(
+      token: string,
+      projectId: string,
+    ): Promise<CrawlerTimelinePoint[]> {
+      const res = await apiClient.get<ApiEnvelope<CrawlerTimelinePoint[]>>(
+        `/api/logs/${projectId}/crawler-timeline`,
         { token },
       );
       return res.data;

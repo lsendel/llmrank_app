@@ -27,9 +27,17 @@ import {
 } from "@/components/ui/table";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
+import { ScoreRadarChart } from "@/components/charts/score-radar-chart";
+import { ContentRatioGauge } from "@/components/charts/content-ratio-gauge";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
+import { useLocalAI } from "@/lib/use-local-ai";
 import { api, type PageScoreDetail, type PageEnrichment } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
+  ssr: false,
+});
 
 export default function PageDetailPage() {
   const params = useParams<{ id: string; pageId: string }>();
@@ -38,6 +46,13 @@ export default function PageDetailPage() {
   const [page, setPage] = useState<PageScoreDetail | null>(null);
   const [enrichments, setEnrichments] = useState<PageEnrichment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isAvailable, generateText } = useLocalAI();
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, string>>(
+    {},
+  );
+  const [analyzingField, setAnalyzingField] = useState<string | null>(null);
+  const [extractedTopics, setExtractedTopics] = useState<string[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +66,41 @@ export default function PageDetailPage() {
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, [withToken, params.pageId]);
+
+  const handleAiSuggestion = async (
+    field: "title" | "metaDesc",
+    content: string,
+  ) => {
+    if (!content) return;
+    setAnalyzingField(field);
+    try {
+      const prompt =
+        field === "title"
+          ? `Generate 3 better SEO titles for a page with this content: "${content.substring(0, 500)}...". Return only the titles, one per line.`
+          : `Generate a better meta description (max 160 chars) for a page with this content: "${content.substring(0, 500)}...". Return only the description.`;
+
+      const suggestion = await generateText(prompt);
+      setAiSuggestions((prev) => ({ ...prev, [field]: suggestion }));
+    } catch (e) {
+      console.error("AI Generation failed", e);
+    } finally {
+      setAnalyzingField(null);
+    }
+  };
+
+  const handleTopicExtraction = async () => {
+    if (!page?.title) return;
+    setTopicsLoading(true);
+    try {
+      const prompt = `Extract the top 5 key entities or topics from this page title and description: Title: "${page.title}", Desc: "${page.metaDesc}". Return as a comma-separated list.`;
+      const result = await generateText(prompt);
+      setExtractedTopics(result.split(",").map((t) => t.trim()));
+    } catch (e) {
+      console.error("Topic extraction failed", e);
+    } finally {
+      setTopicsLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -136,7 +186,7 @@ export default function PageDetailPage() {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 pt-4">
           {page.score ? (
-            <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+            <div className="grid gap-6 lg:grid-cols-[auto_auto_1fr]">
               <Card className="flex items-center justify-center p-8">
                 <ScoreCircle
                   score={page.score.overallScore}
@@ -144,6 +194,12 @@ export default function PageDetailPage() {
                   label="Overall Score"
                 />
               </Card>
+              <ScoreRadarChart
+                technical={page.score.technicalScore ?? 0}
+                content={page.score.contentScore ?? 0}
+                aiReadiness={page.score.aiReadinessScore ?? 0}
+                performance={(detail.performanceScore as number) ?? 0}
+              />
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
@@ -259,7 +315,32 @@ export default function PageDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <DetailRow label="Canonical URL" value={page.canonicalUrl} />
-              <DetailRow label="Meta Description" value={page.metaDesc} />
+              <div className="space-y-2">
+                <DetailRow label="Meta Description" value={page.metaDesc} />
+                {isAvailable && page.metaDesc && (
+                  <div className="pl-40">
+                    <button
+                      onClick={() =>
+                        handleAiSuggestion("metaDesc", page.metaDesc!)
+                      }
+                      disabled={analyzingField === "metaDesc"}
+                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                    >
+                      {analyzingField === "metaDesc"
+                        ? "Generating..."
+                        : "✨ Suggest Improvement with AI"}
+                    </button>
+                    {aiSuggestions.metaDesc && (
+                      <div className="mt-2 text-sm bg-muted/50 p-2 rounded border border-border">
+                        <p className="font-medium text-xs text-muted-foreground mb-1">
+                          AI Suggestion:
+                        </p>
+                        {aiSuggestions.metaDesc}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <DetailRow
                 label="HTTP Status"
                 value={page.statusCode?.toString()}
@@ -296,6 +377,15 @@ export default function PageDetailPage() {
 
         {/* Content Tab */}
         <TabsContent value="content" className="space-y-4 pt-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ContentRatioGauge
+              avgWordCount={page.wordCount ?? 0}
+              pagesAboveThreshold={
+                page.wordCount != null && page.wordCount >= 300 ? 1 : 0
+              }
+              totalPages={1}
+            />
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Heading Hierarchy</CardTitle>
@@ -342,6 +432,49 @@ export default function PageDetailPage() {
               <DetailRow label="Content Hash" value={page.contentHash} />
             </CardContent>
           </Card>
+
+          {isAvailable && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    Key Topics (AI Extracted)
+                  </CardTitle>
+                  <button
+                    onClick={handleTopicExtraction}
+                    disabled={topicsLoading || extractedTopics.length > 0}
+                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    {topicsLoading
+                      ? "Analyzing..."
+                      : extractedTopics.length > 0
+                        ? "Analyzed"
+                        : "✨ Analyze Topics"}
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {extractedTopics.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {extractedTopics.map((topic, i) => (
+                      <Badge
+                        key={i}
+                        variant="outline"
+                        className="bg-primary/10 hover:bg-primary/20 transition-colors"
+                      >
+                        {topic}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Click analyze to extract core entities and topics from this
+                    page.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Structure Tab */}
@@ -445,6 +578,88 @@ export default function PageDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Link Graph Visualization
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-[400px] border rounded-md overflow-hidden bg-slate-50 relative">
+              <div className="absolute inset-0">
+                <ForceGraph2D
+                  width={800} // Dynamic width would be better but fixed for MVP stability
+                  height={400}
+                  graphData={{
+                    nodes: [
+                      {
+                        id: "current",
+                        name: "Current Page",
+                        val: 10,
+                        color: "#2563eb",
+                      },
+                      ...(Array.isArray(extracted.internal_links)
+                        ? (extracted.internal_links as string[])
+                            .slice(0, 20)
+                            .map((l, i) => ({
+                              id: `int-${i}`,
+                              name: l,
+                              val: 3,
+                              color: "#16a34a",
+                            }))
+                        : []),
+                      ...(Array.isArray(extracted.external_links)
+                        ? (extracted.external_links as string[])
+                            .slice(0, 10)
+                            .map((l, i) => ({
+                              id: `ext-${i}`,
+                              name: l,
+                              val: 3,
+                              color: "#dc2626",
+                            }))
+                        : []),
+                    ],
+                    links: [
+                      ...(Array.isArray(extracted.internal_links)
+                        ? (extracted.internal_links as string[])
+                            .slice(0, 20)
+                            .map((_, i) => ({
+                              source: "current",
+                              target: `int-${i}`,
+                            }))
+                        : []),
+                      ...(Array.isArray(extracted.external_links)
+                        ? (extracted.external_links as string[])
+                            .slice(0, 10)
+                            .map((_, i) => ({
+                              source: "current",
+                              target: `ext-${i}`,
+                            }))
+                        : []),
+                    ],
+                  }}
+                  nodeLabel="name"
+                  nodeRelSize={6}
+                  linkDirectionalParticles={2}
+                  linkDirectionalParticleSpeed={(_d) => 0.005}
+                />
+              </div>
+              <div className="absolute bottom-2 right-2 flex gap-4 text-xs bg-white/80 p-2 rounded">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-600"></div>{" "}
+                  Current
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-600"></div>{" "}
+                  Internal
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-600"></div>{" "}
+                  External
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Performance Tab */}
@@ -824,6 +1039,31 @@ function LLMQualityTab({ scores }: { scores: Record<string, number> }) {
           <CardContent className="space-y-4">
             {dimensions.map((dim) => {
               const score = scores[dim.key] ?? 0;
+              let tip = "";
+              if (score < 50) {
+                switch (dim.key) {
+                  case "authority":
+                    tip =
+                      "Try citing more reputable external sources or adding author credentials.";
+                    break;
+                  case "clarity":
+                    tip =
+                      "Simplify sentence structures and use more bullet points.";
+                    break;
+                  case "comprehensiveness":
+                    tip =
+                      "Cover more sub-topics or answer related user questions.";
+                    break;
+                  case "structure":
+                    tip = "Use proper H2/H3 hierarchy and schema markup.";
+                    break;
+                  case "citation_worthiness":
+                    tip =
+                      "Include unique data points or original research to be cited.";
+                    break;
+                }
+              }
+
               return (
                 <div key={dim.key} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
@@ -841,6 +1081,12 @@ function LLMQualityTab({ scores }: { scores: Record<string, number> }) {
                       style={{ width: `${score}%` }}
                     />
                   </div>
+                  {tip && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                      <span className="inline-block w-1 h-1 rounded-full bg-amber-600"></span>
+                      {tip}
+                    </p>
+                  )}
                 </div>
               );
             })}

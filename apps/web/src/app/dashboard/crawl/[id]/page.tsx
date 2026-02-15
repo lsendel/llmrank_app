@@ -20,6 +20,7 @@ import {
   type CrawlStatus,
 } from "@/components/crawl-progress";
 import { ScoreCircle } from "@/components/score-circle";
+import { CrawlProgressChart } from "@/components/charts/crawl-progress-chart";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -86,7 +87,7 @@ export default function CrawlDetailPage() {
     ),
   );
 
-  const { data: quickWins } = useApiSWR(
+  const { data: quickWins, isLoading: quickWinsLoading } = useApiSWR(
     `quick-wins-${params.id}`,
     useCallback(
       (token: string) => api.quickWins.get(token, params.id),
@@ -160,27 +161,29 @@ export default function CrawlDetailPage() {
       {/* Actions */}
       {crawl.status === "complete" && (
         <div className="flex items-center gap-3">
-          {quickWins && (
-            <PDFDownloadLink
-              document={
-                <AIReadinessReport
-                  crawl={crawl}
-                  quickWins={quickWins}
-                  companyName={branding.companyName || "LLM Boost"}
-                  logoUrl={branding.logoUrl}
-                  primaryColor={branding.primaryColor}
-                />
-              }
-              fileName={`llm-boost-report-${params.id}.pdf`}
-            >
-              {({ loading: pdfLoading }: { loading: boolean }) => (
-                <Button variant="outline" size="sm" disabled={pdfLoading}>
-                  <Download className="mr-1.5 h-4 w-4" />
-                  {pdfLoading ? "Preparing..." : "Export PDF"}
-                </Button>
-              )}
-            </PDFDownloadLink>
-          )}
+          <PDFDownloadLink
+            document={
+              <AIReadinessReport
+                crawl={crawl}
+                quickWins={quickWins || []}
+                companyName={branding.companyName || "LLM Boost"}
+                logoUrl={branding.logoUrl}
+                primaryColor={branding.primaryColor}
+              />
+            }
+            fileName={`llm-boost-report-${params.id}.pdf`}
+          >
+            {({ loading: pdfLoading }: { loading: boolean }) => (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pdfLoading || quickWinsLoading}
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                {pdfLoading || quickWinsLoading ? "Preparing..." : "Export PDF"}
+              </Button>
+            )}
+          </PDFDownloadLink>
           <ShareButton crawlId={params.id} />
         </div>
       )}
@@ -226,13 +229,22 @@ export default function CrawlDetailPage() {
       )}
 
       {/* Crawl Progress */}
-      <CrawlProgress
-        status={crawl.status as CrawlStatus}
-        pagesFound={crawl.pagesFound}
-        pagesCrawled={crawl.pagesCrawled}
-        pagesScored={crawl.pagesScored}
-        startedAt={crawl.startedAt}
-      />
+      <div className="grid gap-6 md:grid-cols-2">
+        <CrawlProgress
+          status={crawl.status as CrawlStatus}
+          pagesFound={crawl.pagesFound}
+          pagesCrawled={crawl.pagesCrawled}
+          pagesScored={crawl.pagesScored}
+          startedAt={crawl.startedAt}
+        />
+        <CrawlProgressChart
+          found={crawl.pagesFound}
+          crawled={crawl.pagesCrawled}
+          scored={crawl.pagesScored}
+          errored={crawl.pagesErrored ?? 0}
+          status={crawl.status}
+        />
+      </div>
 
       {/* Score summary (when complete) */}
       {crawl.status === "complete" && crawl.scores && (

@@ -46,6 +46,25 @@ logRoutes.get("/:projectId", authMiddleware, async (c) => {
   }
 });
 
+// ─── GET /:projectId/crawler-timeline — AI crawler activity timeline ─
+
+logRoutes.get("/:projectId/crawler-timeline", authMiddleware, async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const service = createLogService({
+    logs: createLogRepository(db),
+    projects: createProjectRepository(db),
+  });
+
+  try {
+    const data = await service.getCrawlerTimeline(userId, projectId);
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
 // ─── GET /detail/:id — Get a specific log upload with summary ──────
 
 logRoutes.get("/detail/:id", authMiddleware, async (c) => {

@@ -1,21 +1,11 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import puppeteer from "@cloudflare/puppeteer";
-import {
-  createDb,
-  type Database,
-  users,
-  projectQueries,
-  crawlQueries,
-  userQueries,
-} from "@llm-boost/db";
-import { PLAN_LIMITS, type CrawlJobPayload } from "@llm-boost/shared";
-import { signPayload } from "./middleware/hmac";
+import { createDb, type Database, users, userQueries } from "@llm-boost/db";
+import { PLAN_LIMITS } from "@llm-boost/shared";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
-import { buildCrawlConfig } from "./services/crawl-service";
 import { healthRoutes } from "./routes/health";
 import { projectRoutes } from "./routes/projects";
 import { crawlRoutes } from "./routes/crawls";
@@ -33,6 +23,7 @@ import { extractorRoutes } from "./routes/extractors";
 import { integrationRoutes } from "./routes/integrations";
 import { strategyRoutes } from "./routes/strategy";
 import { browserRoutes } from "./routes/browser";
+import { insightsRoutes } from "./routes/insights";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -102,6 +93,21 @@ app.use(
 // Sentry + Database + logger middleware
 app.use("*", async (c, next) => {
   initSentry(c.env);
+
+  if (!c.env.DATABASE_URL) {
+    const log = createLogger({ requestId: c.get("requestId") });
+    log.error("DATABASE_URL binding is missing");
+    return c.json(
+      {
+        error: {
+          code: "CONFIG_ERROR",
+          message: "Database configuration is missing",
+        },
+      },
+      500,
+    );
+  }
+
   const db = createDb(c.env.DATABASE_URL);
   c.set("db", db);
   c.set("logger", createLogger({ requestId: c.get("requestId") }));
@@ -126,6 +132,7 @@ app.route("/api/extractors", extractorRoutes);
 app.route("/api/integrations", integrationRoutes);
 app.route("/api/strategy", strategyRoutes);
 app.route("/api/browser", browserRoutes);
+app.route("/api/crawls", insightsRoutes);
 
 // Fallback
 app.notFound((c) => {
@@ -162,7 +169,6 @@ app.onError((err, c) => {
 });
 
 import {
-  createBillingRepository,
   createCrawlRepository,
   createProjectRepository,
   createScoreRepository,

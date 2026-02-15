@@ -57,6 +57,43 @@ export function createLogService(deps: LogServiceDeps) {
       return deps.logs.listByProject(projectId);
     },
 
+    async getCrawlerTimeline(userId: string, projectId: string) {
+      await assertOwnership(userId, projectId);
+      const uploads = await deps.logs.listByProject(projectId);
+
+      return uploads.map((upload) => {
+        const summary = upload.summary as {
+          botBreakdown?: { bot: string; count: number }[];
+        } | null;
+        const bots = summary?.botBreakdown ?? [];
+        const botMap: Record<string, number> = {};
+        for (const b of bots) {
+          const key = b.bot.toLowerCase().replace(/[^a-z]/g, "");
+          botMap[key] = (botMap[key] ?? 0) + b.count;
+        }
+        return {
+          timestamp: upload.createdAt,
+          gptbot: botMap.gptbot ?? 0,
+          claudebot: botMap.claudebot ?? 0,
+          perplexitybot: botMap.perplexitybot ?? 0,
+          googlebot: botMap.googlebot ?? 0,
+          bingbot: botMap.bingbot ?? 0,
+          other: Object.entries(botMap)
+            .filter(
+              ([k]) =>
+                ![
+                  "gptbot",
+                  "claudebot",
+                  "perplexitybot",
+                  "googlebot",
+                  "bingbot",
+                ].includes(k),
+            )
+            .reduce((sum, [, v]) => sum + v, 0),
+        };
+      });
+    },
+
     async get(userId: string, logId: string) {
       const upload = await deps.logs.getById(logId);
       if (!upload) {

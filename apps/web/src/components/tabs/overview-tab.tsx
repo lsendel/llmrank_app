@@ -1,13 +1,22 @@
 "use client";
 
+import { useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
 import { QuickWinsCard } from "@/components/quick-wins-card";
+import { IssueDistributionChart } from "@/components/charts/issue-distribution-chart";
+import { GradeDistributionChart } from "@/components/charts/grade-distribution-chart";
 import { Brain } from "lucide-react";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
-import type { CrawlJob, PageIssue } from "@/lib/api";
+import { useApiSWR } from "@/lib/use-api-swr";
+import {
+  api,
+  type CrawlJob,
+  type CrawlInsights,
+  type PageIssue,
+} from "@/lib/api";
 
 export function OverviewTab({
   latestCrawl,
@@ -18,6 +27,15 @@ export function OverviewTab({
   issues: PageIssue[];
   projectId: string;
 }) {
+  const crawlId = latestCrawl?.id;
+  const { data: insights } = useApiSWR<CrawlInsights>(
+    crawlId ? `insights-${crawlId}` : null,
+    useCallback(
+      (token: string) => api.crawls.getInsights(token, crawlId!),
+      [crawlId],
+    ),
+  );
+
   const hasScores = latestCrawl?.scores != null;
 
   if (!hasScores) {
@@ -107,6 +125,18 @@ export function OverviewTab({
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Insights Charts */}
+      {insights && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <IssueDistributionChart
+            bySeverity={insights.issueDistribution.bySeverity}
+            byCategory={insights.issueDistribution.byCategory}
+            total={insights.issueDistribution.total}
+          />
+          <GradeDistributionChart grades={insights.gradeDistribution} />
+        </div>
       )}
 
       {/* Quick Wins */}
