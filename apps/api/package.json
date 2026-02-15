@@ -25,7 +25,8 @@
     "@sentry/cloudflare": "^10.38.0",
     "better-auth": "^1.4.18",
     "drizzle-orm": "^0.45.1",
-    "hono": "^4"
+    "hono": "^4",
+    "posthog-node": "^5.24.15"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",

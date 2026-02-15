@@ -26,6 +26,7 @@ import { strategyRoutes } from "./routes/strategy";
 import { browserRoutes } from "./routes/browser";
 import { insightsRoutes } from "./routes/insights";
 import { reportRoutes } from "./routes/reports";
+import { reportUploadRoutes } from "./routes/report-upload";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -56,6 +57,7 @@ export type Bindings = {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   APP_BASE_URL: string;
+  POSTHOG_API_KEY: string;
 };
 
 export type Variables = {
@@ -146,6 +148,7 @@ app.route("/api/strategy", strategyRoutes);
 app.route("/api/browser", browserRoutes);
 app.route("/api/crawls", insightsRoutes);
 app.route("/api/reports", reportRoutes);
+app.route("/internal", reportUploadRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
