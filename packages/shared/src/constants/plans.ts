@@ -14,6 +14,10 @@ export interface PlanLimits {
   projects: number;
   lighthousePages: number | "all";
   llmScoringTier: "basic" | "full" | "full_custom";
+  scheduledQueries: number;
+  notificationChannels: number;
+  apiTokens: number;
+  apiRateLimit: number; // requests per minute
   visibilityChecks: number;
   historyDays: number;
   apiAccess: boolean;
@@ -34,6 +38,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     projects: 1,
     lighthousePages: 5,
     llmScoringTier: "basic",
+    scheduledQueries: 0,
+    notificationChannels: 1, // email only
+    apiTokens: 0,
+    apiRateLimit: 0,
     visibilityChecks: 3,
     historyDays: 30,
     apiAccess: false,
@@ -52,6 +60,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     projects: 5,
     lighthousePages: "all",
     llmScoringTier: "full",
+    scheduledQueries: 5,
+    notificationChannels: 2, // email + 1 webhook
+    apiTokens: 0,
+    apiRateLimit: 100,
     visibilityChecks: 25,
     historyDays: 90,
     apiAccess: false,
@@ -70,6 +82,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     projects: 20,
     lighthousePages: "all",
     llmScoringTier: "full",
+    scheduledQueries: 25,
+    notificationChannels: 999, // unlimited
+    apiTokens: 3,
+    apiRateLimit: 500,
     visibilityChecks: 100,
     historyDays: 365,
     apiAccess: true,
@@ -88,6 +104,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     projects: 50,
     lighthousePages: "all",
     llmScoringTier: "full_custom",
+    scheduledQueries: 100,
+    notificationChannels: 999, // unlimited
+    apiTokens: 10,
+    apiRateLimit: 2000,
     visibilityChecks: 500,
     historyDays: 730,
     apiAccess: true,
