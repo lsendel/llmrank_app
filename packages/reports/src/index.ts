@@ -21,3 +21,5 @@ export {
   type AggregateOptions,
 } from "./data-aggregator";
 export { estimateIssueROI } from "./roi";
+export { renderPdf } from "./pdf/render";
+export { renderDocx } from "./docx/render";
