@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
+import { AiFixButton } from "@/components/ai-fix-button";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -14,7 +15,13 @@ const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   high: { label: "Significant", color: "bg-destructive/10 text-destructive" },
 };
 
-export function QuickWinsCard({ crawlId }: { crawlId: string }) {
+export function QuickWinsCard({
+  crawlId,
+  projectId,
+}: {
+  crawlId: string;
+  projectId?: string;
+}) {
   const { data: wins, isLoading: loading } = useApiSWR(
     `quick-wins-${crawlId}`,
     useCallback(() => api.quickWins.get(crawlId), [crawlId]),
@@ -78,6 +85,15 @@ export function QuickWinsCard({ crawlId }: { crawlId: string }) {
                       <Badge variant="outline" className="text-xs">
                         {win.affectedPages} pages
                       </Badge>
+                    )}
+                    {projectId && (
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <AiFixButton
+                          projectId={projectId}
+                          issueCode={win.code}
+                          issueTitle={win.message}
+                        />
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">

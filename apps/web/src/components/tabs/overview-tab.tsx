@@ -149,7 +149,9 @@ export function OverviewTab({
       )}
 
       {/* Quick Wins */}
-      {latestCrawl?.id && <QuickWinsCard crawlId={latestCrawl.id} />}
+      {latestCrawl?.id && (
+        <QuickWinsCard crawlId={latestCrawl.id} projectId={projectId} />
+      )}
 
       {/* View All Pages link */}
       {latestCrawl?.status === "complete" && (
