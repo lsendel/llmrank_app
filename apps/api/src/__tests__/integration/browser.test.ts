@@ -50,7 +50,7 @@ const { mockEvaluate, mockPage, mockBrowser } = vi.hoisted(() => {
 
 vi.mock("@cloudflare/puppeteer", () => ({
   default: {
-    launch: vi.fn().mockResolvedValue(mockBrowser),
+    launch: vi.fn().mockImplementation(() => Promise.resolve(mockBrowser)),
   },
 }));
 

@@ -164,9 +164,15 @@ export function createTestApp(options: TestAppOptions = {}) {
       headers.set("Content-Type", "application/json");
       body = JSON.stringify(init.json);
     }
+    const executionCtx = {
+      waitUntil: (promise: Promise<any>) => Promise.resolve(promise),
+      passThroughOnException: () => {},
+      props: {},
+    };
     return app.fetch(
       new Request(url, { ...init, headers, body }),
       env,
+      executionCtx,
     ) as Promise<Response>;
   }
 
