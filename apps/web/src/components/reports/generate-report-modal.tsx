@@ -58,9 +58,19 @@ export function GenerateReportModal({
       onClose();
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        const messages: Record<string, string> = {
+          REPORT_SERVICE_UNAVAILABLE:
+            "The report service is temporarily unavailable. Please try again in a few minutes.",
+          REPORT_SERVICE_TIMEOUT:
+            "The report service took too long to respond. Please try again.",
+          REPORT_SERVICE_REJECTED:
+            "The report service could not process this request. Please contact support if this persists.",
+          PLAN_LIMIT_REACHED:
+            "You've reached the report generation limit for your plan.",
+        };
+        setError(messages[err.code] ?? err.message);
       } else {
-        setError("Failed to generate report");
+        setError("Failed to generate report. Please try again.");
       }
     } finally {
       setGenerating(false);

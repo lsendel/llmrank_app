@@ -7,11 +7,27 @@ primary_region = "iad"
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = true
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
+  processes = ["app"]
 
-[vm]
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 5
+    hard_limit = 10
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8080
+    path = "/health"
+    interval = "15s"
+    timeout = "2s"
+    method = "GET"
+    grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
   memory = "512mb"
-  cpu_kind = "shared"
   cpus = 1

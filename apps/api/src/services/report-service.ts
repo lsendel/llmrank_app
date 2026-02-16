@@ -22,6 +22,10 @@ interface DispatchEnv {
   sharedSecret: string;
 }
 
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1_000;
+const TIMEOUT_MS = 15_000;
+
 export function createReportService(deps: Deps) {
   return {
     async generate(
@@ -90,7 +94,7 @@ export function createReportService(deps: Deps) {
         config: mergedConfig,
       });
 
-      // 6. Dispatch to report service via HTTP (HMAC-authenticated)
+      // 6. Dispatch to report service via HTTP (HMAC-authenticated, with retry)
       const job: GenerateReportJob = {
         reportId: report.id,
         projectId: input.projectId,
@@ -104,31 +108,69 @@ export function createReportService(deps: Deps) {
       };
 
       const body = JSON.stringify(job);
-      const { signature, timestamp } = await signPayload(
-        env.sharedSecret,
-        body,
-      );
+      let lastError: unknown;
 
-      const res = await fetch(`${env.reportServiceUrl}/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Signature": signature,
-          "X-Timestamp": timestamp,
-        },
-        body,
-      });
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          // Re-sign on each attempt so timestamp stays fresh
+          const { signature, timestamp } = await signPayload(
+            env.sharedSecret,
+            body,
+          );
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "Unknown error");
-        throw new ServiceError(
-          "INTERNAL_ERROR",
-          500,
-          `Report service dispatch failed: ${text}`,
-        );
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+          const res = await fetch(`${env.reportServiceUrl}/generate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Signature": signature,
+              "X-Timestamp": timestamp,
+            },
+            body,
+            signal: controller.signal,
+          });
+
+          clearTimeout(timer);
+
+          if (res.ok) return report;
+
+          // 4xx = don't retry (auth or validation issue)
+          if (res.status >= 400 && res.status < 500) {
+            const text = await res.text().catch(() => "Unknown error");
+            throw new ServiceError(
+              "REPORT_SERVICE_REJECTED",
+              502,
+              `Report service rejected the request: ${text}`,
+            );
+          }
+
+          // 5xx = retryable
+          lastError = new Error(`HTTP ${res.status}`);
+        } catch (error) {
+          if (error instanceof ServiceError) throw error;
+          lastError = error;
+        }
+
+        // Exponential backoff before retry
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise((r) =>
+            setTimeout(r, BASE_DELAY_MS * Math.pow(3, attempt)),
+          );
+        }
       }
 
-      return report;
+      // All retries exhausted
+      const isTimeout =
+        lastError instanceof Error && lastError.name === "AbortError";
+      throw new ServiceError(
+        isTimeout ? "REPORT_SERVICE_TIMEOUT" : "REPORT_SERVICE_UNAVAILABLE",
+        isTimeout ? 504 : 503,
+        isTimeout
+          ? "Report service timed out. Please try again in a few minutes."
+          : "Report service is temporarily unavailable. Please try again in a few minutes.",
+      );
     },
 
     async list(userId: string, projectId: string) {
