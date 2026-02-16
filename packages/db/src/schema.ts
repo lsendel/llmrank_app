@@ -118,6 +118,12 @@ export const fixStatusEnum = pgEnum("fix_status", [
   "dismissed",
 ]);
 
+export const shareLevelEnum = pgEnum("share_level", [
+  "summary",
+  "issues",
+  "full",
+]);
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -254,6 +260,8 @@ export const crawlJobs = pgTable(
     shareToken: text("share_token").unique(),
     shareEnabled: boolean("share_enabled").default(false),
     sharedAt: timestamp("shared_at"),
+    shareLevel: shareLevelEnum("share_level").default("summary"),
+    shareExpiresAt: timestamp("share_expires_at"),
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
     cancelledAt: timestamp("cancelled_at"),
@@ -632,17 +640,6 @@ export const adminAuditLogs = pgTable(
   (t) => [index("idx_admin_audit_target").on(t.targetType, t.targetId)],
 );
 
-// ---------------------------------------------------------------------------
-// Page Facts (Semantic Analysis)
-// ---------------------------------------------------------------------------
-
-export const factTypeEnum = pgEnum("fact_type", [
-  "metric", // Prices, counts, specs
-  "definition", // "What is" explanations
-  "claim", // Unique value propositions
-  "quote", // Highly citable sentences
-]);
-
 export const reportTypeEnum = pgEnum("report_type", ["summary", "detailed"]);
 export const reportFormatEnum = pgEnum("report_format", ["pdf", "docx"]);
 export const reportStatusEnum = pgEnum("report_status", [
@@ -651,22 +648,6 @@ export const reportStatusEnum = pgEnum("report_status", [
   "complete",
   "failed",
 ]);
-
-export const pageFacts = pgTable(
-  "page_facts",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    pageId: uuid("page_id")
-      .notNull()
-      .references(() => pages.id, { onDelete: "cascade" }),
-    type: factTypeEnum("type").notNull(),
-    content: text("content").notNull(),
-    sourceSentence: text("source_sentence"),
-    citabilityScore: integer("citability_score").default(0), // 0-100
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [index("idx_facts_page").on(t.pageId)],
-);
 
 // ---------------------------------------------------------------------------
 // Reports

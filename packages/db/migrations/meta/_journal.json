@@ -50,6 +50,13 @@
       "when": 1771237515675,
       "tag": "0006_fearless_boom_boom",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771252826110,
+      "tag": "0007_new_prism",
+      "breakpoints": true
     }
   ]
 }

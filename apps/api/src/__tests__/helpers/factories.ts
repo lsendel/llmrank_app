@@ -107,6 +107,8 @@ export function buildCrawlJob(
     shareToken: null,
     shareEnabled: false,
     sharedAt: null,
+    shareLevel: "summary",
+    shareExpiresAt: null,
     startedAt: null,
     completedAt: null,
     cancelledAt: null,
