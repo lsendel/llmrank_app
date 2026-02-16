@@ -1728,6 +1728,16 @@ export const api = {
     },
   },
 
+  // ── Trends ─────────────────────────────────────────────────────
+  trends: {
+    async get(projectId: string, period = "90d") {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/trends/${projectId}?period=${period}`,
+      );
+      return res.data;
+    },
+  },
+
   // ── API Tokens ───────────────────────────────────────────────
   tokens: {
     async list(): Promise<ApiTokenInfo[]> {

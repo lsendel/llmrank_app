@@ -68,6 +68,8 @@ export type Bindings = {
   BETTER_AUTH_URL: string;
   APP_BASE_URL: string;
   POSTHOG_API_KEY: string;
+  ADMIN_ALERT_EMAIL: string;
+  SLACK_ALERT_WEBHOOK_URL: string;
 };
 
 export type Variables = {
@@ -274,7 +276,11 @@ async function runScheduledTasks(env: Bindings) {
   await monitor.checkSystemHealth();
 
   // 2b. Crawler health check
-  await monitor.checkCrawlerHealth(env.CRAWLER_URL, env.KV);
+  await monitor.checkCrawlerHealth(env.CRAWLER_URL, env.KV, {
+    adminEmail: env.ADMIN_ALERT_EMAIL,
+    slackWebhookUrl: env.SLACK_ALERT_WEBHOOK_URL,
+    resendApiKey: env.RESEND_API_KEY,
+  });
 
   // 3. Dispatch scheduled crawls
   const crawlService = createCrawlService({

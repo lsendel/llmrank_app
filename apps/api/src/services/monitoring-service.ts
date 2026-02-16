@@ -12,9 +12,19 @@ interface KVLike {
   ): Promise<void>;
 }
 
+export interface AlertConfig {
+  adminEmail?: string;
+  slackWebhookUrl?: string;
+  resendApiKey?: string;
+}
+
 export interface MonitoringService {
   checkSystemHealth(): Promise<void>;
-  checkCrawlerHealth(crawlerUrl: string, kv: KVLike): Promise<void>;
+  checkCrawlerHealth(
+    crawlerUrl: string,
+    kv: KVLike,
+    alertConfig?: AlertConfig,
+  ): Promise<void>;
   getSystemMetrics(): Promise<Record<string, unknown>>;
 }
 
@@ -61,7 +71,11 @@ export function createMonitoringService(
       }
     },
 
-    async checkCrawlerHealth(crawlerUrl: string, kv: KVLike) {
+    async checkCrawlerHealth(
+      crawlerUrl: string,
+      kv: KVLike,
+      alertConfig?: AlertConfig,
+    ) {
       const start = Date.now();
       let status: "up" | "down";
       let error: string | undefined;
@@ -108,7 +122,7 @@ export function createMonitoringService(
         expirationTtl: 86400,
       });
 
-      // Log warnings
+      // Log warnings and send alerts
       if (status === "down") {
         const recentDownCount = history
           .slice(-3)
@@ -118,6 +132,15 @@ export function createMonitoringService(
             crawlerUrl,
             error,
           });
+
+          // Send alert only once per outage (dedup via KV)
+          const alreadySent = await kv.get("crawler:alert:sent");
+          if (!alreadySent && alertConfig) {
+            await sendCrawlerDownAlerts(alertConfig, crawlerUrl, error, log);
+            await kv.put("crawler:alert:sent", "true", {
+              expirationTtl: 3600,
+            });
+          }
         } else {
           log.warn("Crawler health check failed", {
             crawlerUrl,
@@ -127,6 +150,16 @@ export function createMonitoringService(
         }
       } else {
         log.info("Crawler health check passed", { crawlerUrl, latencyMs });
+
+        // Clear alert dedup flag when crawler recovers
+        const alertWasSent = await kv.get("crawler:alert:sent");
+        if (alertWasSent) {
+          await kv.put("crawler:alert:sent", "", { expirationTtl: 1 });
+          // Send recovery notification
+          if (alertConfig) {
+            await sendCrawlerRecoveryAlerts(alertConfig, crawlerUrl, log);
+          }
+        }
       }
     },
 
@@ -153,4 +186,131 @@ export function createMonitoringService(
       };
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Alert Helpers
+// ---------------------------------------------------------------------------
+
+async function sendCrawlerDownAlerts(
+  config: AlertConfig,
+  crawlerUrl: string,
+  error: string | undefined,
+  log: ReturnType<typeof createLogger>,
+) {
+  const timestamp = new Date().toISOString();
+
+  // Email via Resend
+  if (config.adminEmail && config.resendApiKey) {
+    try {
+      const { Resend } = await import("resend");
+      const resend = new Resend(config.resendApiKey);
+      await resend.emails.send({
+        from: "LLM Boost Alerts <alerts@llmboost.io>",
+        to: [config.adminEmail],
+        subject: "🚨 Crawler Service DOWN",
+        html: `<h2>Crawler Service Alert</h2>
+          <p><strong>Status:</strong> DOWN (3+ consecutive health check failures)</p>
+          <p><strong>URL:</strong> ${crawlerUrl}</p>
+          <p><strong>Error:</strong> ${error ?? "Unknown"}</p>
+          <p><strong>Time:</strong> ${timestamp}</p>
+          <p>Check Fly.io dashboard: <a href="https://fly.io/apps/llmrank-crawler/monitoring">Monitoring</a></p>`,
+      });
+    } catch (err) {
+      log.error("Failed to send crawler down email alert", {
+        error: String(err),
+      });
+    }
+  }
+
+  // Slack webhook
+  if (config.slackWebhookUrl) {
+    try {
+      await fetch(config.slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          blocks: [
+            {
+              type: "header",
+              text: {
+                type: "plain_text",
+                text: "🚨 Crawler Service DOWN",
+              },
+            },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Status:* DOWN (3+ consecutive failures)\n*URL:* ${crawlerUrl}\n*Error:* ${error ?? "Unknown"}\n*Time:* ${timestamp}\n\n<https://fly.io/apps/llmrank-crawler/monitoring|View Fly.io Dashboard>`,
+              },
+            },
+          ],
+        }),
+      });
+    } catch (err) {
+      log.error("Failed to send crawler down Slack alert", {
+        error: String(err),
+      });
+    }
+  }
+}
+
+async function sendCrawlerRecoveryAlerts(
+  config: AlertConfig,
+  crawlerUrl: string,
+  log: ReturnType<typeof createLogger>,
+) {
+  const timestamp = new Date().toISOString();
+
+  if (config.adminEmail && config.resendApiKey) {
+    try {
+      const { Resend } = await import("resend");
+      const resend = new Resend(config.resendApiKey);
+      await resend.emails.send({
+        from: "LLM Boost Alerts <alerts@llmboost.io>",
+        to: [config.adminEmail],
+        subject: "✅ Crawler Service RECOVERED",
+        html: `<h2>Crawler Service Recovered</h2>
+          <p><strong>Status:</strong> UP</p>
+          <p><strong>URL:</strong> ${crawlerUrl}</p>
+          <p><strong>Time:</strong> ${timestamp}</p>`,
+      });
+    } catch (err) {
+      log.error("Failed to send crawler recovery email", {
+        error: String(err),
+      });
+    }
+  }
+
+  if (config.slackWebhookUrl) {
+    try {
+      await fetch(config.slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          blocks: [
+            {
+              type: "header",
+              text: {
+                type: "plain_text",
+                text: "✅ Crawler Service RECOVERED",
+              },
+            },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Status:* UP\n*URL:* ${crawlerUrl}\n*Time:* ${timestamp}`,
+              },
+            },
+          ],
+        }),
+      });
+    } catch (err) {
+      log.error("Failed to send crawler recovery Slack alert", {
+        error: String(err),
+      });
+    }
+  }
 }
