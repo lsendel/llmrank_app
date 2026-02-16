@@ -21,6 +21,7 @@ export function scoreBarColor(score: number): string {
 export function scoreColor(score: number): string {
   if (score >= 80) return "text-success";
   if (score >= 60) return "text-warning";
+  if (score >= 40) return "text-orange-500";
   return "text-destructive";
 }
 

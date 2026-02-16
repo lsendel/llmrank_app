@@ -1,30 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-
-function getLetterGrade(score: number): string {
-  if (score >= 93) return "A+";
-  if (score >= 85) return "A";
-  if (score >= 80) return "A-";
-  if (score >= 77) return "B+";
-  if (score >= 73) return "B";
-  if (score >= 70) return "B-";
-  if (score >= 67) return "C+";
-  if (score >= 63) return "C";
-  if (score >= 60) return "C-";
-  if (score >= 57) return "D+";
-  if (score >= 53) return "D";
-  if (score >= 50) return "D-";
-  return "F";
-}
-
-function getScoreColor(score: number): string {
-  if (score >= 80) return "text-success";
-  if (score >= 60) return "text-warning";
-  if (score >= 40) return "text-orange-500";
-  return "text-destructive";
-}
+import { cn, scoreColor } from "@/lib/utils";
+import { letterGrade } from "@llm-boost/shared";
 
 function getStrokeColor(score: number): string {
   if (score >= 80) return "stroke-success";
@@ -60,8 +38,8 @@ export function ScoreCircle({
     return () => clearTimeout(timer);
   }, [score]);
 
-  const grade = getLetterGrade(score);
-  const colorClass = getScoreColor(score);
+  const grade = letterGrade(score);
+  const colorClass = scoreColor(score);
   const strokeClass = getStrokeColor(score);
 
   return (

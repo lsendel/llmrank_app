@@ -39,30 +39,9 @@ import { Progress } from "@/components/ui/progress";
 import { NextStepsCard } from "@/components/cards/next-steps-card";
 import { usePersonaLayout } from "@/hooks/use-persona-layout";
 import { track } from "@/lib/telemetry";
+import { formatRelativeTime } from "@/lib/format";
+import { getStatusBadgeVariant } from "@/lib/status";
 import type { DashboardWidgetId } from "@llm-boost/shared";
-
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
-function getStatusBadgeVariant(
-  status: string,
-): "success" | "destructive" | "warning" | "secondary" {
-  if (status === "complete") return "success";
-  if (status === "failed") return "destructive";
-  if (status === "crawling" || status === "scoring") return "warning";
-  return "secondary";
-}
 
 function formatDashboardDelta(delta: number) {
   if (delta > 0)
