@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { api, type Report } from "@/lib/api";
+import { track } from "@/lib/telemetry";
 
 function formatFileSize(bytes: number | null): string {
   if (!bytes) return "-";
@@ -60,13 +61,19 @@ export function ReportList({ reports, onDelete }: Props) {
     setDownloading(report.id);
     try {
       const blob = await api.reports.download(report.id);
+      track("report.downloaded", {
+        format: report.format,
+        projectId: report.projectId,
+      });
       const ext = report.format === "pdf" ? "pdf" : "docx";
       const filename = `ai-readiness-report-${report.type}.${ext}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
       // Error handling via toast or similar

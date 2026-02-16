@@ -85,6 +85,19 @@ export const eventStatusEnum = pgEnum("event_status", [
   "failed",
 ]);
 
+export const channelTypeEnum = pgEnum("channel_type", [
+  "email",
+  "webhook",
+  "slack_incoming",
+  "slack_app",
+]);
+
+export const scheduleFrequencyEnum = pgEnum("schedule_frequency", [
+  "hourly",
+  "daily",
+  "weekly",
+]);
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -108,6 +121,7 @@ export const users = pgTable("users", {
     .notNull()
     .default(true),
   notifyOnScoreDrop: boolean("notify_on_score_drop").notNull().default(true),
+  webhookUrl: text("webhook_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
   lastSignedIn: timestamp("last_signed_in"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -540,9 +554,12 @@ export const outboxEvents = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     type: text("type").notNull(),
+    eventType: text("event_type"),
     payload: jsonb("payload").notNull(),
     status: eventStatusEnum("status").notNull().default("pending"),
     attempts: integer("attempts").notNull().default(0),
+    projectId: uuid("project_id"),
+    userId: text("user_id"),
     availableAt: timestamp("available_at").notNull().defaultNow(),
     processedAt: timestamp("processed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -631,5 +648,118 @@ export const reports = pgTable(
   (t) => [
     index("idx_reports_project").on(t.projectId),
     index("idx_reports_user").on(t.userId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Leads (captured from public report pages)
+// ---------------------------------------------------------------------------
+
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  reportToken: text("report_token"),
+  source: text("source").notNull().default("shared_report"),
+  scanResultId: uuid("scan_result_id"),
+  convertedAt: timestamp("converted_at"),
+  projectId: uuid("project_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Notification Channels
+// ---------------------------------------------------------------------------
+
+export const notificationChannels = pgTable(
+  "notification_channels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    channelType: channelTypeEnum("channel_type").notNull(),
+    config: jsonb("config").notNull().default({}),
+    eventTypes: text("event_types").array().notNull().default([]),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_notif_channels_user").on(t.userId)],
+);
+
+// ---------------------------------------------------------------------------
+// Scheduled Visibility Queries
+// ---------------------------------------------------------------------------
+
+export const scheduledVisibilityQueries = pgTable(
+  "scheduled_visibility_queries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    query: text("query").notNull(),
+    providers: text("providers").array().notNull(),
+    frequency: scheduleFrequencyEnum("frequency").notNull(),
+    lastRunAt: timestamp("last_run_at"),
+    nextRunAt: timestamp("next_run_at").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_sched_vis_project").on(t.projectId),
+    index("idx_sched_vis_next_run").on(t.nextRunAt, t.enabled),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Scan Results (public scanner, no auth required)
+// ---------------------------------------------------------------------------
+
+export const scanResults = pgTable(
+  "scan_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    domain: text("domain").notNull(),
+    url: text("url").notNull(),
+    scores: jsonb("scores").notNull(),
+    issues: jsonb("issues").notNull(),
+    quickWins: jsonb("quick_wins").notNull(),
+    ipHash: text("ip_hash"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [index("idx_scan_results_expires").on(t.expiresAt)],
+);
+
+// ---------------------------------------------------------------------------
+// API Tokens
+// ---------------------------------------------------------------------------
+
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenPrefix: text("token_prefix").notNull(),
+    scopes: text("scopes").array().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_api_tokens_user").on(t.userId),
+    uniqueIndex("idx_api_tokens_hash").on(t.tokenHash),
   ],
 );

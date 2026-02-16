@@ -115,6 +115,7 @@ export function createTestApp(options: TestAppOptions = {}) {
     RESEND_API_KEY: "test-key",
     SENTRY_DSN: "",
     APP_BASE_URL: "http://localhost:3000",
+    POSTHOG_API_KEY: "",
     ...options.envOverrides,
   };
 

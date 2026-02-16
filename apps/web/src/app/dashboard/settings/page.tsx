@@ -13,6 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -34,17 +36,39 @@ import {
   Star,
   ArrowDown,
   X,
+  Plus,
+  Trash2,
+  Copy,
+  Key,
+  Mail,
+  Globe,
+  Hash,
+  Loader2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   api,
   type BillingInfo,
   type SubscriptionInfo,
   type PaymentRecord,
   type NotificationPreferences,
+  type NotificationChannel,
+  type NotificationChannelType,
+  type NotificationEventType,
+  type ApiTokenInfo,
+  type ApiTokenWithPlaintext,
+  type Project,
+  type PaginatedResponse,
 } from "@/lib/api";
 
 const plans = [
@@ -138,6 +162,20 @@ export default function SettingsPage() {
       "account-notifications",
       useCallback(() => api.account.getNotifications(), []),
     );
+  const { data: channels, mutate: mutateChannels } = useApiSWR<
+    NotificationChannel[]
+  >(
+    "notification-channels",
+    useCallback(() => api.channels.list(), []),
+  );
+  const { data: tokens, mutate: mutateTokens } = useApiSWR<ApiTokenInfo[]>(
+    "api-tokens",
+    useCallback(() => api.tokens.list(), []),
+  );
+  const { data: projectsData } = useApiSWR<PaginatedResponse<Project>>(
+    "projects-for-tokens",
+    useCallback(() => api.projects.list({ limit: 100 }), []),
+  );
 
   const [savingNotification, setSavingNotification] = useState<string | null>(
     null,
@@ -149,6 +187,47 @@ export default function SettingsPage() {
   const [downgradeDialogOpen, setDowngradeDialogOpen] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [webhookInput, setWebhookInput] = useState("");
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [webhookError, setWebhookError] = useState<string | null>(null);
+  const [webhookSuccess, setWebhookSuccess] = useState(false);
+
+  // Notification channels state
+  const [addChannelOpen, setAddChannelOpen] = useState(false);
+  const [channelType, setChannelType] =
+    useState<NotificationChannelType>("email");
+  const [channelConfigValue, setChannelConfigValue] = useState("");
+  const [channelEventTypes, setChannelEventTypes] = useState<
+    NotificationEventType[]
+  >(["crawl_completed"]);
+  const [savingChannel, setSavingChannel] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
+  const [deletingChannelId, setDeletingChannelId] = useState<string | null>(
+    null,
+  );
+  const [togglingChannelId, setTogglingChannelId] = useState<string | null>(
+    null,
+  );
+
+  // API tokens state
+  const [createTokenOpen, setCreateTokenOpen] = useState(false);
+  const [tokenName, setTokenName] = useState("");
+  const [tokenProjectId, setTokenProjectId] = useState<string>("");
+  const [tokenScopes, setTokenScopes] = useState<string[]>(["metrics:read"]);
+  const [savingToken, setSavingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [createdToken, setCreatedToken] =
+    useState<ApiTokenWithPlaintext | null>(null);
+  const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
+  const [revokingToken, setRevokingToken] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  // Sync webhook input from loaded notifications
+  useEffect(() => {
+    if (notifications?.webhookUrl) {
+      setWebhookInput(notifications.webhookUrl);
+    }
+  }, [notifications?.webhookUrl]);
 
   // Show success banner after Stripe checkout redirect
   useEffect(() => {
@@ -237,6 +316,183 @@ export default function SettingsPage() {
     }
   }
 
+  // ── Channel helpers ───────────────────────────────────────────────
+  const channelLimits: Record<string, number> = {
+    free: 1,
+    starter: 3,
+    pro: 10,
+    agency: 25,
+  };
+  const maxChannels = channelLimits[billing?.plan ?? "free"] ?? 1;
+
+  const allEventTypes: { value: NotificationEventType; label: string }[] = [
+    { value: "crawl_completed", label: "Crawl Completed" },
+    { value: "score_drop", label: "Score Drop" },
+    { value: "mention_gained", label: "Mention Gained" },
+    { value: "mention_lost", label: "Mention Lost" },
+    { value: "position_changed", label: "Position Changed" },
+  ];
+
+  function toggleEventType(et: NotificationEventType) {
+    setChannelEventTypes((prev) =>
+      prev.includes(et) ? prev.filter((e) => e !== et) : [...prev, et],
+    );
+  }
+
+  async function handleCreateChannel() {
+    setChannelError(null);
+    const val = channelConfigValue.trim();
+    if (!val) {
+      setChannelError("Please provide a value.");
+      return;
+    }
+    if (channelType === "email" && !val.includes("@")) {
+      setChannelError("Please enter a valid email address.");
+      return;
+    }
+    if (
+      (channelType === "webhook" || channelType === "slack_incoming") &&
+      !val.startsWith("https://")
+    ) {
+      setChannelError("URL must start with https://");
+      return;
+    }
+    if (channelEventTypes.length === 0) {
+      setChannelError("Select at least one event type.");
+      return;
+    }
+    setSavingChannel(true);
+    try {
+      const configKey = channelType === "email" ? "email" : "url";
+      await api.channels.create({
+        type: channelType,
+        config: { [configKey]: val },
+        eventTypes: channelEventTypes,
+      });
+      await mutateChannels();
+      setAddChannelOpen(false);
+      setChannelConfigValue("");
+      setChannelType("email");
+      setChannelEventTypes(["crawl_completed"]);
+    } catch (err) {
+      setChannelError(
+        err instanceof Error ? err.message : "Failed to create channel",
+      );
+    } finally {
+      setSavingChannel(false);
+    }
+  }
+
+  async function handleToggleChannel(channel: NotificationChannel) {
+    setTogglingChannelId(channel.id);
+    try {
+      await api.channels.update(channel.id, { enabled: !channel.enabled });
+      await mutateChannels();
+    } catch (err) {
+      console.error("Failed to toggle channel:", err);
+    } finally {
+      setTogglingChannelId(null);
+    }
+  }
+
+  async function handleDeleteChannel(id: string) {
+    setDeletingChannelId(id);
+    try {
+      await api.channels.delete(id);
+      await mutateChannels();
+    } catch (err) {
+      console.error("Failed to delete channel:", err);
+    } finally {
+      setDeletingChannelId(null);
+    }
+  }
+
+  // ── Token helpers ──────────────────────────────────────────────────
+  const tokenLimits: Record<string, number> = {
+    free: 0,
+    starter: 0,
+    pro: 5,
+    agency: 20,
+  };
+  const maxTokens = tokenLimits[billing?.plan ?? "free"] ?? 0;
+  const canUseTokens = billing?.plan === "pro" || billing?.plan === "agency";
+
+  const allScopes = [
+    { value: "metrics:read", label: "Metrics (read)" },
+    { value: "scores:read", label: "Scores (read)" },
+    { value: "visibility:read", label: "Visibility (read)" },
+  ];
+
+  function toggleScope(scope: string) {
+    setTokenScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
+    );
+  }
+
+  async function handleCreateToken() {
+    setTokenError(null);
+    if (!tokenName.trim()) {
+      setTokenError("Token name is required.");
+      return;
+    }
+    if (tokenScopes.length === 0) {
+      setTokenError("Select at least one scope.");
+      return;
+    }
+    setSavingToken(true);
+    try {
+      const result = await api.tokens.create({
+        name: tokenName.trim(),
+        projectId:
+          tokenProjectId && tokenProjectId !== "all"
+            ? tokenProjectId
+            : undefined,
+        scopes: tokenScopes,
+      });
+      setCreatedToken(result);
+      await mutateTokens();
+    } catch (err) {
+      setTokenError(
+        err instanceof Error ? err.message : "Failed to create token",
+      );
+    } finally {
+      setSavingToken(false);
+    }
+  }
+
+  async function handleRevokeToken(id: string) {
+    setRevokingToken(true);
+    try {
+      await api.tokens.revoke(id);
+      await mutateTokens();
+      setRevokeTokenId(null);
+    } catch (err) {
+      console.error("Failed to revoke token:", err);
+    } finally {
+      setRevokingToken(false);
+    }
+  }
+
+  function resetTokenDialog() {
+    setCreateTokenOpen(false);
+    setCreatedToken(null);
+    setTokenName("");
+    setTokenProjectId("");
+    setTokenScopes(["metrics:read"]);
+    setTokenError(null);
+    setTokenCopied(false);
+  }
+
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch {
+      // Fallback: select the text
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -289,6 +545,8 @@ export default function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="api-tokens">API Tokens</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-8 pt-4">
@@ -336,9 +594,13 @@ export default function SettingsPage() {
                 },
               ].map((notification, index) => {
                 const isOn = notification.persisted
-                  ? (notifications?.[
-                      notification.key as keyof NotificationPreferences
-                    ] ?? true)
+                  ? !!(
+                      notifications?.[
+                        notification.key as
+                          | "notifyOnCrawlComplete"
+                          | "notifyOnScoreDrop"
+                      ] ?? true
+                    )
                   : false;
                 return (
                   <div key={notification.key}>
@@ -368,7 +630,9 @@ export default function SettingsPage() {
                         onClick={() =>
                           notification.persisted &&
                           handleToggleNotification(
-                            notification.key as keyof NotificationPreferences,
+                            notification.key as
+                              | "notifyOnCrawlComplete"
+                              | "notifyOnScoreDrop",
                           )
                         }
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -389,6 +653,98 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
+            </CardContent>
+          </Card>
+
+          {/* Webhook URL */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Webhook URL</CardTitle>
+              <CardDescription>
+                Receive JSON alerts at this URL. Works with Slack incoming
+                webhooks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="webhook-url">HTTPS URL</Label>
+                <Input
+                  id="webhook-url"
+                  placeholder="https://hooks.slack.com/services/..."
+                  value={webhookInput}
+                  onChange={(e) => {
+                    setWebhookInput(e.target.value);
+                    setWebhookError(null);
+                    setWebhookSuccess(false);
+                  }}
+                />
+              </div>
+              {webhookError && (
+                <p className="text-sm text-destructive">{webhookError}</p>
+              )}
+              {webhookSuccess && (
+                <p className="text-sm text-green-600">
+                  Webhook URL saved successfully.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={savingWebhook}
+                  onClick={async () => {
+                    setWebhookError(null);
+                    setWebhookSuccess(false);
+                    const url = webhookInput.trim();
+                    if (url && !url.startsWith("https://")) {
+                      setWebhookError("URL must start with https://");
+                      return;
+                    }
+                    setSavingWebhook(true);
+                    try {
+                      await api.account.updateNotifications({
+                        webhookUrl: url || null,
+                      });
+                      await mutateNotifications();
+                      setWebhookSuccess(true);
+                    } catch (err) {
+                      setWebhookError(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to save webhook URL",
+                      );
+                    } finally {
+                      setSavingWebhook(false);
+                    }
+                  }}
+                >
+                  {savingWebhook ? "Saving..." : "Save"}
+                </Button>
+                {notifications?.webhookUrl && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={savingWebhook}
+                    onClick={async () => {
+                      setSavingWebhook(true);
+                      setWebhookError(null);
+                      try {
+                        await api.account.updateNotifications({
+                          webhookUrl: null,
+                        });
+                        setWebhookInput("");
+                        await mutateNotifications();
+                        setWebhookSuccess(true);
+                      } catch {
+                        setWebhookError("Failed to remove webhook URL");
+                      } finally {
+                        setSavingWebhook(false);
+                      }
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -840,6 +1196,548 @@ export default function SettingsPage() {
             Note: Branding settings are currently configured per-project in the
             Project Settings tab.
           </p>
+        </TabsContent>
+
+        {/* ── Notifications Tab ──────────────────────────────────────── */}
+        <TabsContent value="notifications" className="space-y-6 pt-4">
+          {/* Channel usage */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Notification Channels</h2>
+              <p className="text-sm text-muted-foreground">
+                Configure where you receive alerts about crawls, score changes,
+                and visibility events.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary">
+                {channels?.length ?? 0} / {maxChannels} channels
+              </Badge>
+              <Dialog open={addChannelOpen} onOpenChange={setAddChannelOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    disabled={(channels?.length ?? 0) >= maxChannels}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Channel
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Notification Channel</DialogTitle>
+                    <DialogDescription>
+                      Choose a channel type and configure where to send alerts.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {/* Channel type */}
+                    <div className="space-y-2">
+                      <Label>Channel Type</Label>
+                      <Select
+                        value={channelType}
+                        onValueChange={(v) =>
+                          setChannelType(v as NotificationChannelType)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="webhook">Webhook</SelectItem>
+                          <SelectItem value="slack_incoming">
+                            Slack Incoming Webhook
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Config input */}
+                    <div className="space-y-2">
+                      <Label>
+                        {channelType === "email"
+                          ? "Email Address"
+                          : channelType === "slack_incoming"
+                            ? "Slack Webhook URL"
+                            : "Webhook URL"}
+                      </Label>
+                      <Input
+                        placeholder={
+                          channelType === "email"
+                            ? "alerts@example.com"
+                            : channelType === "slack_incoming"
+                              ? "https://hooks.slack.com/services/..."
+                              : "https://api.example.com/webhook"
+                        }
+                        value={channelConfigValue}
+                        onChange={(e) => {
+                          setChannelConfigValue(e.target.value);
+                          setChannelError(null);
+                        }}
+                      />
+                    </div>
+
+                    {/* Event types */}
+                    <div className="space-y-2">
+                      <Label>Event Types</Label>
+                      <div className="space-y-2">
+                        {allEventTypes.map((et) => (
+                          <label
+                            key={et.value}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={channelEventTypes.includes(et.value)}
+                              onChange={() => toggleEventType(et.value)}
+                              className="rounded border-input"
+                            />
+                            {et.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {channelError && (
+                      <p className="text-sm text-destructive">{channelError}</p>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setAddChannelOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCreateChannel}
+                      disabled={savingChannel}
+                    >
+                      {savingChannel ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Channel"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Channel list */}
+          {!channels || channels.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Bell className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  No notification channels configured yet. Add one to start
+                  receiving alerts.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {channels.map((channel) => {
+                const configDisplay =
+                  channel.type === "email"
+                    ? channel.config.email
+                    : channel.config.url;
+                const typeLabel =
+                  channel.type === "email"
+                    ? "Email"
+                    : channel.type === "slack_incoming"
+                      ? "Slack"
+                      : "Webhook";
+                const TypeIcon =
+                  channel.type === "email"
+                    ? Mail
+                    : channel.type === "slack_incoming"
+                      ? Hash
+                      : Globe;
+
+                return (
+                  <Card key={channel.id}>
+                    <CardContent className="flex items-center justify-between py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                          <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {typeLabel}
+                            </Badge>
+                            {!channel.enabled && (
+                              <Badge variant="secondary" className="text-xs">
+                                Disabled
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                            {configDisplay}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {channel.eventTypes.map((et) => (
+                              <Badge
+                                key={et}
+                                variant="secondary"
+                                className="text-xs font-normal"
+                              >
+                                {et.replace(/_/g, " ")}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                        {/* Toggle */}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={channel.enabled}
+                          disabled={togglingChannelId === channel.id}
+                          onClick={() => handleToggleChannel(channel)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            channel.enabled ? "bg-primary" : "bg-muted"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              channel.enabled
+                                ? "translate-x-6"
+                                : "translate-x-1"
+                            }`}
+                          />
+                        </button>
+                        {/* Delete */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={deletingChannelId === channel.id}
+                          onClick={() => handleDeleteChannel(channel.id)}
+                        >
+                          {deletingChannelId === channel.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── API Tokens Tab ─────────────────────────────────────────── */}
+        <TabsContent value="api-tokens" className="space-y-6 pt-4">
+          {!canUseTokens ? (
+            /* Plan gate for Free / Starter */
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Key className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                <h3 className="mt-4 text-lg font-semibold">
+                  API Access requires Pro or Agency
+                </h3>
+                <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                  Upgrade to Pro or Agency to create API tokens and integrate
+                  LLM Boost data into your own tools and dashboards.
+                </p>
+                <Button
+                  className="mt-6"
+                  onClick={() => handlePlanAction("pro")}
+                >
+                  <Zap className="h-4 w-4" />
+                  Upgrade to Pro
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Token header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">API Tokens</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Create tokens to access the LLM Boost API programmatically.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary">
+                    {tokens?.length ?? 0} / {maxTokens} tokens
+                  </Badge>
+                  <Dialog
+                    open={createTokenOpen}
+                    onOpenChange={(open) => {
+                      if (!open) resetTokenDialog();
+                      else setCreateTokenOpen(true);
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        disabled={(tokens?.length ?? 0) >= maxTokens}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Create Token
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      {createdToken ? (
+                        /* Token created — show plaintext */
+                        <>
+                          <DialogHeader>
+                            <DialogTitle>Token Created</DialogTitle>
+                            <DialogDescription>
+                              Copy this token now. It will not be shown again.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/50">
+                              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                              <p className="text-sm text-amber-800 dark:text-amber-200">
+                                This token will not be shown again. Store it
+                                securely.
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>API Token</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  readOnly
+                                  value={createdToken.plaintext}
+                                  className="font-mono text-sm"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    copyToClipboard(createdToken.plaintext)
+                                  }
+                                >
+                                  {tokenCopied ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button onClick={resetTokenDialog}>Done</Button>
+                          </DialogFooter>
+                        </>
+                      ) : (
+                        /* Token creation form */
+                        <>
+                          <DialogHeader>
+                            <DialogTitle>Create API Token</DialogTitle>
+                            <DialogDescription>
+                              Generate a token to access the API. Choose scopes
+                              carefully.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            {/* Token name */}
+                            <div className="space-y-2">
+                              <Label>Name</Label>
+                              <Input
+                                placeholder="e.g. CI pipeline, Dashboard integration"
+                                value={tokenName}
+                                onChange={(e) => {
+                                  setTokenName(e.target.value);
+                                  setTokenError(null);
+                                }}
+                              />
+                            </div>
+
+                            {/* Project selector */}
+                            <div className="space-y-2">
+                              <Label>Project (optional)</Label>
+                              <Select
+                                value={tokenProjectId}
+                                onValueChange={setTokenProjectId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="All projects" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">
+                                    All projects
+                                  </SelectItem>
+                                  {projectsData?.data.map((project) => (
+                                    <SelectItem
+                                      key={project.id}
+                                      value={project.id}
+                                    >
+                                      {project.name} ({project.domain})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Scopes */}
+                            <div className="space-y-2">
+                              <Label>Scopes</Label>
+                              <div className="space-y-2">
+                                {allScopes.map((scope) => (
+                                  <label
+                                    key={scope.value}
+                                    className="flex items-center gap-2 text-sm"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={tokenScopes.includes(
+                                        scope.value,
+                                      )}
+                                      onChange={() => toggleScope(scope.value)}
+                                      className="rounded border-input"
+                                    />
+                                    {scope.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            {tokenError && (
+                              <p className="text-sm text-destructive">
+                                {tokenError}
+                              </p>
+                            )}
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              variant="outline"
+                              onClick={resetTokenDialog}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleCreateToken}
+                              disabled={savingToken}
+                            >
+                              {savingToken ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Creating...
+                                </>
+                              ) : (
+                                "Create Token"
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+
+              {/* Token list */}
+              {!tokens || tokens.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Key className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      No API tokens created yet. Create one to get started.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="divide-y">
+                      {tokens.map((token) => (
+                        <div
+                          key={token.id}
+                          className="flex items-center justify-between px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">
+                                {token.name}
+                              </p>
+                              <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
+                                {token.prefix}...
+                              </code>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              {token.scopes.map((scope) => (
+                                <Badge
+                                  key={scope}
+                                  variant="secondary"
+                                  className="text-xs font-normal"
+                                >
+                                  {scope}
+                                </Badge>
+                              ))}
+                              <span className="text-xs text-muted-foreground">
+                                Created{" "}
+                                {new Date(token.createdAt).toLocaleDateString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {token.lastUsedAt
+                                  ? `Last used ${new Date(token.lastUsedAt).toLocaleDateString()}`
+                                  : "Never used"}
+                              </span>
+                            </div>
+                          </div>
+                          <Dialog
+                            open={revokeTokenId === token.id}
+                            onOpenChange={(open) =>
+                              setRevokeTokenId(open ? token.id : null)
+                            }
+                          >
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Revoke token?</DialogTitle>
+                                <DialogDescription>
+                                  Revoking &ldquo;{token.name}&rdquo; will
+                                  immediately invalidate it. Any integrations
+                                  using this token will stop working.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setRevokeTokenId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => handleRevokeToken(token.id)}
+                                  disabled={revokingToken}
+                                >
+                                  {revokingToken
+                                    ? "Revoking..."
+                                    : "Yes, revoke token"}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

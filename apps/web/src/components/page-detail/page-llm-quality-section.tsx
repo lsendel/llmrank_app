@@ -1,6 +1,12 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreCircle } from "@/components/score-circle";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
+import { track } from "@/lib/telemetry";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { ContentRepairEditor } from "./content-repair-editor";
+import { useParams } from "next/navigation";
 
 interface PageLlmQualitySectionProps {
   scores: Record<string, number>;
@@ -34,10 +40,31 @@ function getTipForDimension(key: string, score: number): string {
 }
 
 export function PageLlmQualitySection({ scores }: PageLlmQualitySectionProps) {
+  const params = useParams<{ pageId: string }>();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [selectedDim, setSelectedDim] = useState<string>("clarity");
+
   const avg = Math.round(
     DIMENSIONS.reduce((sum, d) => sum + (scores[d.key] ?? 0), 0) /
       DIMENSIONS.length,
   );
+
+  const handleRepair = (dim: string) => {
+    const dimScore = scores[dim] ?? 0;
+    track("quickwin.clicked", {
+      issueCode: dim,
+      severity:
+        dimScore < 30
+          ? "critical"
+          : dimScore < 50
+            ? "high"
+            : dimScore < 70
+              ? "medium"
+              : "low",
+    });
+    setSelectedDim(dim);
+    setEditorOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -57,12 +84,23 @@ export function PageLlmQualitySection({ scores }: PageLlmQualitySectionProps) {
               const tip = getTipForDimension(dim.key, score);
 
               return (
-                <div key={dim.key} className="space-y-1.5">
+                <div key={dim.key} className="space-y-1.5 group">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">{dim.label}</span>
-                    <span className={cn("font-semibold", gradeColor(score))}>
-                      {score} / 100
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleRepair(dim.key)}
+                      >
+                        <Sparkles className="mr-1 h-3 w-3 text-primary" />
+                        Repair
+                      </Button>
+                      <span className={cn("font-semibold", gradeColor(score))}>
+                        {score} / 100
+                      </span>
+                    </div>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
@@ -85,6 +123,13 @@ export function PageLlmQualitySection({ scores }: PageLlmQualitySectionProps) {
           </CardContent>
         </Card>
       </div>
+
+      <ContentRepairEditor
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        pageId={params.pageId}
+        initialDimension={selectedDim}
+      />
     </div>
   );
 }

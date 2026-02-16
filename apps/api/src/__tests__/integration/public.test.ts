@@ -10,6 +10,22 @@ import { buildCrawlJob, buildScore } from "../helpers/factories";
 const mockGetByShareToken = vi.fn().mockResolvedValue(null);
 const mockListByJobWithPages = vi.fn().mockResolvedValue([]);
 const mockGetIssuesByJob = vi.fn().mockResolvedValue([]);
+const mockScanResultCreate = vi.fn().mockResolvedValue({
+  id: "scan-result-1",
+  domain: "example.com",
+  url: "https://example.com",
+  scores: {},
+  issues: [],
+  quickWins: [],
+  createdAt: new Date(),
+});
+const mockScanResultGetById = vi.fn().mockResolvedValue(null);
+const mockLeadCreate = vi.fn().mockResolvedValue({
+  id: "lead-1",
+  email: "test@example.com",
+  createdAt: new Date(),
+});
+const mockLeadGetById = vi.fn().mockResolvedValue(null);
 
 vi.mock("@llm-boost/db", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@llm-boost/db")>();
@@ -21,6 +37,22 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
     scoreQueries: () => ({
       listByJobWithPages: mockListByJobWithPages,
       getIssuesByJob: mockGetIssuesByJob,
+    }),
+    projectQueries: () => ({
+      getById: vi.fn().mockResolvedValue({
+        id: "proj-1",
+        name: "Test Project",
+        domain: "test.com",
+        branding: { primaryColor: "#000" },
+      }),
+    }),
+    scanResultQueries: () => ({
+      create: mockScanResultCreate,
+      getById: mockScanResultGetById,
+    }),
+    leadQueries: () => ({
+      create: mockLeadCreate,
+      getById: mockLeadGetById,
     }),
     createDb: orig.createDb,
   };
@@ -88,6 +120,22 @@ describe("Public Routes", () => {
     mockGetByShareToken.mockResolvedValue(null);
     mockListByJobWithPages.mockResolvedValue([]);
     mockGetIssuesByJob.mockResolvedValue([]);
+    mockScanResultCreate.mockResolvedValue({
+      id: "scan-result-1",
+      domain: "example.com",
+      url: "https://example.com",
+      scores: {},
+      issues: [],
+      quickWins: [],
+      createdAt: new Date(),
+    });
+    mockScanResultGetById.mockResolvedValue(null);
+    mockLeadGetById.mockResolvedValue(null);
+    mockLeadCreate.mockResolvedValue({
+      id: "lead-1",
+      email: "test@example.com",
+      createdAt: new Date(),
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -232,6 +280,7 @@ describe("Public Routes", () => {
       expect(res.status).toBe(200);
 
       const body: any = await res.json();
+      expect(body.data).toHaveProperty("scanResultId", "scan-result-1");
       expect(body.data).toHaveProperty("url");
       expect(body.data).toHaveProperty("domain");
       expect(body.data).toHaveProperty("scores");
@@ -241,8 +290,22 @@ describe("Public Routes", () => {
       expect(body.data.scores).toHaveProperty("aiReadiness");
       expect(body.data.scores).toHaveProperty("letterGrade");
       expect(body.data).toHaveProperty("issues");
+      expect(body.data.issues.length).toBeLessThanOrEqual(3);
       expect(body.data).toHaveProperty("quickWins");
       expect(body.data).toHaveProperty("meta");
+
+      // Verify persistence was called
+      expect(mockScanResultCreate).toHaveBeenCalledTimes(1);
+      expect(mockScanResultCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: "example.com",
+          url: "https://example.com/",
+          scores: expect.objectContaining({ overall: expect.any(Number) }),
+          issues: expect.any(Array),
+          quickWins: expect.any(Array),
+          ipHash: expect.any(String),
+        }),
+      );
     });
 
     it("auto-prepends https:// when missing", async () => {
@@ -300,6 +363,18 @@ describe("Public Routes", () => {
       expect(body.error.code).toBe("RATE_LIMIT");
     });
 
+    it("persists scan result to database", async () => {
+      const res = await request("/api/public/scan", {
+        method: "POST",
+        json: { url: "https://example.com" },
+      });
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data.scanResultId).toBe("scan-result-1");
+      expect(mockScanResultCreate).toHaveBeenCalledTimes(1);
+    });
+
     it("detects AI crawler blocks in robots.txt", async () => {
       mockFetch.mockImplementation(async (url: string) => {
         if (typeof url === "string" && url.includes("robots.txt")) {
@@ -331,6 +406,166 @@ describe("Public Routes", () => {
       expect(body.data.meta.aiCrawlersBlocked).toContain("GPTBot");
       expect(body.data.meta.aiCrawlersBlocked).toContain("ClaudeBot");
       expect(body.data.meta.hasLlmsTxt).toBe(true);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /api/public/scan-results/:id
+  // -----------------------------------------------------------------------
+
+  describe("GET /api/public/scan-results/:id", () => {
+    it("returns 404 when scan result does not exist", async () => {
+      mockScanResultGetById.mockResolvedValue(null);
+
+      const res = await request("/api/public/scan-results/nonexistent-id");
+      expect(res.status).toBe(404);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("NOT_FOUND");
+    });
+
+    it("returns partial (gated) results without unlock token", async () => {
+      const mockResult = {
+        id: "scan-result-1",
+        domain: "example.com",
+        url: "https://example.com",
+        scores: { overall: 85, letterGrade: "B" },
+        issues: [
+          { code: "ISSUE_1" },
+          { code: "ISSUE_2" },
+          { code: "ISSUE_3" },
+          { code: "ISSUE_4" },
+          { code: "ISSUE_5" },
+        ],
+        quickWins: [{ code: "QW_1" }],
+        createdAt: new Date("2026-02-15"),
+      };
+      mockScanResultGetById.mockResolvedValue(mockResult);
+
+      const res = await request("/api/public/scan-results/scan-result-1");
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data.id).toBe("scan-result-1");
+      expect(body.data.scores).toEqual({ overall: 85, letterGrade: "B" });
+      expect(body.data.issues).toHaveLength(3); // Only top 3
+      expect(body.data).not.toHaveProperty("quickWins"); // Gated
+    });
+
+    it("returns full results when valid unlock token is provided", async () => {
+      const mockResult = {
+        id: "scan-result-1",
+        domain: "example.com",
+        url: "https://example.com",
+        scores: { overall: 85, letterGrade: "B" },
+        issues: [
+          { code: "ISSUE_1" },
+          { code: "ISSUE_2" },
+          { code: "ISSUE_3" },
+          { code: "ISSUE_4" },
+          { code: "ISSUE_5" },
+        ],
+        quickWins: [{ code: "QW_1" }],
+        createdAt: new Date("2026-02-15"),
+      };
+      mockScanResultGetById.mockResolvedValue(mockResult);
+      mockLeadGetById.mockResolvedValue({
+        id: "lead-1",
+        email: "test@example.com",
+      });
+
+      const res = await request(
+        "/api/public/scan-results/scan-result-1?token=lead-1",
+      );
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data.issues).toHaveLength(5); // Full results
+      expect(body.data.quickWins).toHaveLength(1); // Included
+    });
+
+    it("returns partial results when invalid unlock token is provided", async () => {
+      const mockResult = {
+        id: "scan-result-1",
+        domain: "example.com",
+        url: "https://example.com",
+        scores: { overall: 85 },
+        issues: [{ code: "ISSUE_1" }, { code: "ISSUE_2" }],
+        quickWins: [{ code: "QW_1" }],
+        createdAt: new Date("2026-02-15"),
+      };
+      mockScanResultGetById.mockResolvedValue(mockResult);
+      mockLeadGetById.mockResolvedValue(null); // Invalid token
+
+      const res = await request(
+        "/api/public/scan-results/scan-result-1?token=invalid-token",
+      );
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data).not.toHaveProperty("quickWins");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /api/public/leads
+  // -----------------------------------------------------------------------
+
+  describe("POST /api/public/leads", () => {
+    it("returns 422 when email is missing", async () => {
+      const res = await request("/api/public/leads", {
+        method: "POST",
+        json: {},
+      });
+      expect(res.status).toBe(422);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("returns 422 when email is invalid", async () => {
+      const res = await request("/api/public/leads", {
+        method: "POST",
+        json: { email: "not-an-email" },
+      });
+      expect(res.status).toBe(422);
+    });
+
+    it("creates a lead with scanResultId", async () => {
+      const res = await request("/api/public/leads", {
+        method: "POST",
+        json: {
+          email: "user@example.com",
+          source: "public_scan",
+          scanResultId: "scan-result-1",
+        },
+      });
+      expect(res.status).toBe(201);
+
+      const body: any = await res.json();
+      expect(body.data).toHaveProperty("id", "lead-1");
+
+      expect(mockLeadCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "user@example.com",
+          source: "public_scan",
+          scanResultId: "scan-result-1",
+        }),
+      );
+    });
+
+    it("creates a lead with default source when not provided", async () => {
+      const res = await request("/api/public/leads", {
+        method: "POST",
+        json: { email: "user@example.com" },
+      });
+      expect(res.status).toBe(201);
+
+      expect(mockLeadCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: "shared_report",
+        }),
+      );
     });
   });
 });

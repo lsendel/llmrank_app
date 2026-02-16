@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
+import { track } from "@/lib/telemetry";
 import type { PublicScanResult, QuickWin } from "@/lib/api";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
@@ -32,7 +33,22 @@ export default function ScanResultsPage() {
     let cancelled = false;
     Promise.resolve().then(() => {
       if (!cancelled) {
-        setResult(JSON.parse(stored));
+        const parsed: PublicScanResult = JSON.parse(stored);
+        setResult(parsed);
+        track("scan.completed", {
+          domain: parsed.url,
+          grade:
+            parsed.scores.overall >= 90
+              ? "A"
+              : parsed.scores.overall >= 80
+                ? "B"
+                : parsed.scores.overall >= 70
+                  ? "C"
+                  : parsed.scores.overall >= 60
+                    ? "D"
+                    : "F",
+          score: parsed.scores.overall,
+        });
       }
     });
 
@@ -187,6 +203,10 @@ export default function ScanResultsPage() {
             </Button>
           </Link>
         </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Create a free account to download PDF reports and get AI-generated
+          executive summaries.
+        </p>
       </Card>
     </div>
   );

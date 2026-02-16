@@ -48,7 +48,7 @@ APP_BASE_URL = "https://llmrank.app"
 BETTER_AUTH_URL = "https://api.llmrank.app"
 
 [triggers]
-crons = ["0 0 1 * *", "*/5 * * * *"] # Reset monthly + Run scheduled crawls every 5 min
+crons = ["0 0 1 * *", "*/5 * * * *", "*/15 * * * *", "0 3 * * *"] # Reset monthly + Scheduled crawls every 5 min + Visibility checks every 15 min + Daily cleanup at 3 AM UTC
 
 # Secrets (set via `wrangler secret put`):
 # DATABASE_URL, SHARED_SECRET, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,

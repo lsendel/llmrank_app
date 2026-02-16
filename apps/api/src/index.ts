@@ -26,6 +26,12 @@ import { strategyRoutes } from "./routes/strategy";
 import { browserRoutes } from "./routes/browser";
 import { insightsRoutes } from "./routes/insights";
 import { reportRoutes } from "./routes/reports";
+import { reportUploadRoutes } from "./routes/report-upload";
+import { notificationChannelRoutes } from "./routes/notification-channels";
+import { visibilityScheduleRoutes } from "./routes/visibility-schedules";
+import { tokenRoutes } from "./routes/api-tokens";
+import { v1Routes } from "./routes/v1";
+import type { TokenContext } from "./services/api-token-service";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -56,6 +62,7 @@ export type Bindings = {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   APP_BASE_URL: string;
+  POSTHOG_API_KEY: string;
 };
 
 export type Variables = {
@@ -64,6 +71,7 @@ export type Variables = {
   parsedBody: string;
   requestId: string;
   logger: Logger;
+  tokenCtx: TokenContext;
 };
 
 export type AppEnv = {
@@ -91,7 +99,7 @@ app.use(
       "https://www.llmboost.com",
     ],
     credentials: true,
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: [
       "Content-Type",
       "Authorization",
@@ -146,6 +154,11 @@ app.route("/api/strategy", strategyRoutes);
 app.route("/api/browser", browserRoutes);
 app.route("/api/crawls", insightsRoutes);
 app.route("/api/reports", reportRoutes);
+app.route("/internal", reportUploadRoutes);
+app.route("/api/notification-channels", notificationChannelRoutes);
+app.route("/api/visibility/schedules", visibilityScheduleRoutes);
+app.route("/api/tokens", tokenRoutes);
+app.route("/api/v1", v1Routes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
@@ -192,10 +205,22 @@ import {
   createProjectRepository,
   createScoreRepository,
   createUserRepository,
+  createVisibilityRepository,
+  createCompetitorRepository,
 } from "./repositories";
 import { createCrawlService } from "./services/crawl-service";
 import { createNotificationService } from "./services/notification-service";
 import { createMonitoringService } from "./services/monitoring-service";
+import { createVisibilityService } from "./services/visibility-service";
+import {
+  scheduledVisibilityQueryQueries,
+  visibilityQueries,
+  projectQueries,
+  outboxEvents,
+  scanResultQueries,
+  leadQueries,
+} from "@llm-boost/db";
+import { trackServer } from "./lib/telemetry";
 
 // ... existing code ...
 
@@ -242,6 +267,202 @@ async function runScheduledTasks(env: Bindings) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Cleanup cron — daily at 3 AM UTC
+// ---------------------------------------------------------------------------
+
+async function cleanupExpiredData(env: Bindings): Promise<void> {
+  const db = createDb(env.DATABASE_URL);
+
+  // Delete expired scan results (30-day TTL handled by expiresAt column)
+  const deletedScans = await scanResultQueries(db).deleteExpired();
+  console.log(`Cleaned up ${deletedScans} expired scan results`);
+
+  // Delete unconverted leads older than 90 days
+  const deletedLeads = await leadQueries(db).deleteOldUnconverted(90);
+  console.log(`Cleaned up ${deletedLeads} stale leads`);
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled Visibility — 15-minute cron worker
+// ---------------------------------------------------------------------------
+
+interface VisibilityCheckResult {
+  provider: string;
+  brandMentioned: boolean;
+  urlCited: boolean;
+  citationPosition: number | null;
+}
+
+async function detectAndEmitChanges(
+  db: Database,
+  schedule: { id: string; projectId: string; query: string },
+  project: { id: string; userId: string; domain: string },
+  results: VisibilityCheckResult[],
+  previousByProvider: Map<
+    string,
+    { brandMentioned: boolean; citationPosition: number | null }
+  >,
+): Promise<void> {
+  for (const result of results) {
+    const previous = previousByProvider.get(result.provider);
+
+    if (!previous) continue;
+
+    // Detect mention lost
+    if (previous.brandMentioned === true && result.brandMentioned === false) {
+      await db.insert(outboxEvents).values({
+        type: "notification",
+        eventType: "mention_lost",
+        userId: project.userId,
+        projectId: project.id,
+        payload: {
+          query: schedule.query,
+          provider: result.provider,
+          domain: project.domain,
+        },
+      });
+    }
+
+    // Detect mention gained
+    if (previous.brandMentioned === false && result.brandMentioned === true) {
+      await db.insert(outboxEvents).values({
+        type: "notification",
+        eventType: "mention_gained",
+        userId: project.userId,
+        projectId: project.id,
+        payload: {
+          query: schedule.query,
+          provider: result.provider,
+          domain: project.domain,
+        },
+      });
+    }
+
+    // Detect position changed
+    if (
+      previous.citationPosition !== result.citationPosition &&
+      result.citationPosition != null
+    ) {
+      await db.insert(outboxEvents).values({
+        type: "notification",
+        eventType: "position_changed",
+        userId: project.userId,
+        projectId: project.id,
+        payload: {
+          query: schedule.query,
+          provider: result.provider,
+          oldPosition: previous.citationPosition,
+          newPosition: result.citationPosition,
+        },
+      });
+    }
+  }
+}
+
+async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
+  const db = createDb(env.DATABASE_URL);
+  const scheduleRepo = scheduledVisibilityQueryQueries(db);
+  const visQueries = visibilityQueries(db);
+
+  const dueQueries = await scheduleRepo.getDueQueries(new Date());
+  const batch = dueQueries.slice(0, 10);
+
+  for (const schedule of batch) {
+    try {
+      const pq = projectQueries(db);
+      const project = await pq.getById(schedule.projectId);
+      if (!project) {
+        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        continue;
+      }
+
+      // Fetch previous checks BEFORE running the new check to avoid the
+      // race condition where getLatestForQuery returns the newly-stored
+      // row instead of the previous one.
+      const previousByProvider = new Map<
+        string,
+        { brandMentioned: boolean; citationPosition: number | null }
+      >();
+      for (const provider of schedule.providers) {
+        const prev = await visQueries.getLatestForQuery(
+          schedule.projectId,
+          schedule.query,
+          provider,
+        );
+        if (prev) {
+          previousByProvider.set(provider, {
+            brandMentioned: prev.brandMentioned ?? false,
+            citationPosition: prev.citationPosition ?? null,
+          });
+        }
+      }
+
+      const visibilityService = createVisibilityService({
+        projects: createProjectRepository(db),
+        users: createUserRepository(db),
+        visibility: createVisibilityRepository(db),
+        competitors: createCompetitorRepository(db),
+      });
+
+      const stored = await visibilityService.runCheck({
+        userId: project.userId,
+        projectId: schedule.projectId,
+        query: schedule.query,
+        providers: schedule.providers,
+        apiKeys: {
+          chatgpt: env.OPENAI_API_KEY,
+          claude: env.ANTHROPIC_API_KEY,
+          perplexity: env.PERPLEXITY_API_KEY,
+          gemini: env.GOOGLE_API_KEY,
+        },
+      });
+
+      if (!stored || stored.length === 0) {
+        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        continue;
+      }
+
+      const results: VisibilityCheckResult[] = stored.map((s) => ({
+        provider: s.llmProvider,
+        brandMentioned: s.brandMentioned ?? false,
+        urlCited: s.urlCited ?? false,
+        citationPosition: s.citationPosition ?? null,
+      }));
+
+      await detectAndEmitChanges(
+        db,
+        schedule,
+        project,
+        results,
+        previousByProvider,
+      );
+      await scheduleRepo.markRun(schedule.id, schedule.frequency);
+
+      trackServer(
+        env.POSTHOG_API_KEY,
+        project.userId,
+        "scheduled_visibility_check_completed",
+        {
+          scheduleId: schedule.id,
+          projectId: schedule.projectId,
+          query: schedule.query,
+          providers: schedule.providers,
+        },
+      );
+    } catch (err) {
+      // Log and continue — don't let one failure block the rest
+      const log = createLogger({ requestId: "cron-visibility" });
+      log.error("Scheduled visibility check failed", {
+        scheduleId: schedule.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Still mark the run so we don't repeatedly fail on the same schedule
+      await scheduleRepo.markRun(schedule.id, schedule.frequency);
+    }
+  }
+}
+
 export default withSentry(
   (env: Bindings) => ({ dsn: env.SENTRY_DSN, tracesSampleRate: 0.1 }),
   {
@@ -253,6 +474,10 @@ export default withSentry(
     ) {
       if (controller.cron === "0 0 1 * *") {
         await resetMonthlyCredits(env);
+      } else if (controller.cron === "*/15 * * * *") {
+        await processScheduledVisibilityChecks(env);
+      } else if (controller.cron === "0 3 * * *") {
+        await cleanupExpiredData(env);
       } else {
         await runScheduledTasks(env);
       }
