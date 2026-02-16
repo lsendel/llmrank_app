@@ -278,6 +278,7 @@ export interface PageScoreDetail {
 export interface NotificationPreferences {
   notifyOnCrawlComplete: boolean;
   notifyOnScoreDrop: boolean;
+  webhookUrl: string | null;
 }
 
 export interface BillingInfo {
@@ -409,9 +410,19 @@ export interface PublicScanResult {
 
 export interface SharedReport {
   crawlId: string;
+  projectId: string;
   completedAt: string | null;
   pagesScored: number;
   summary: string | null;
+  project: {
+    name: string;
+    domain: string;
+    branding?: {
+      logoUrl?: string;
+      companyName?: string;
+      primaryColor?: string;
+    };
+  };
   scores: {
     overall: number;
     technical: number;
@@ -435,6 +446,9 @@ export interface SharedReport {
 
 export interface PlatformReadinessResult {
   platform: string;
+  score: number;
+  grade: string;
+  tips: string[];
   checks: {
     factor: string;
     label: string;
@@ -556,27 +570,25 @@ export interface ProjectIntegration {
 
 export interface IntegrationInsights {
   crawlId: string | null;
-  integrations:
-    | {
-        gsc: {
-          topQueries: {
-            query: string;
-            impressions: number;
-            clicks: number;
-            position: number;
-          }[];
-        } | null;
-        ga4: {
-          bounceRate: number;
-          avgEngagement: number;
-          topPages: { url: string; sessions: number }[];
-        } | null;
-        clarity: {
-          avgUxScore: number;
-          rageClickPages: string[];
-        } | null;
-      }
-    | null;
+  integrations: {
+    gsc: {
+      topQueries: {
+        query: string;
+        impressions: number;
+        clicks: number;
+        position: number;
+      }[];
+    } | null;
+    ga4: {
+      bounceRate: number;
+      avgEngagement: number;
+      topPages: { url: string; sessions: number }[];
+    } | null;
+    clarity: {
+      avgUxScore: number;
+      rageClickPages: string[];
+    } | null;
+  } | null;
 }
 
 export interface PageEnrichment {
@@ -656,6 +668,63 @@ export interface FusedInsights {
   }[];
 }
 
+// ─── Notification Channels ──────────────────────────────────────────
+
+export type NotificationChannelType = "email" | "webhook" | "slack_incoming";
+
+export type NotificationEventType =
+  | "crawl_completed"
+  | "score_drop"
+  | "mention_gained"
+  | "mention_lost"
+  | "position_changed";
+
+export interface NotificationChannel {
+  id: string;
+  userId: string;
+  type: NotificationChannelType;
+  config: Record<string, string>;
+  eventTypes: NotificationEventType[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateChannelInput {
+  type: NotificationChannelType;
+  config: Record<string, string>;
+  eventTypes: NotificationEventType[];
+}
+
+export interface ChannelUpdate {
+  enabled: boolean;
+  config: Record<string, string>;
+  eventTypes: NotificationEventType[];
+}
+
+// ─── API Tokens ────────────────────────────────────────────────────
+
+export interface ApiTokenInfo {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  projectId: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface ApiTokenWithPlaintext extends ApiTokenInfo {
+  plaintext: string;
+}
+
+export interface CreateTokenInput {
+  name: string;
+  projectId?: string;
+  scopes: string[];
+}
+
 // ─── Request helpers ────────────────────────────────────────────────
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
@@ -719,6 +788,10 @@ const apiClient = {
 
   delete<T>(path: string, options?: RequestOptions): Promise<T> {
     return request<T>(path, { ...options, method: "DELETE" });
+  },
+
+  patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    return request<T>(path, { ...options, method: "PATCH", body });
   },
 };
 
@@ -1194,17 +1267,38 @@ export const api = {
 
   // ── Public (no auth) ──────────────────────────────────────────
   public: {
-    async scan(url: string): Promise<PublicScanResult> {
-      const res = await apiClient.post<ApiEnvelope<PublicScanResult>>(
-        "/api/public/scan",
-        { url },
-      );
+    async scan(
+      url: string,
+    ): Promise<PublicScanResult & { scanResultId?: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<PublicScanResult & { scanResultId?: string }>
+      >("/api/public/scan", { url });
       return res.data;
     },
 
     async getReport(token: string): Promise<SharedReport> {
       const res = await apiClient.get<ApiEnvelope<SharedReport>>(
         `/api/public/reports/${token}`,
+      );
+      return res.data;
+    },
+
+    async getScanResult(id: string, token?: string) {
+      const params = token ? `?token=${token}` : "";
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/public/scan-results/${id}${params}`,
+      );
+      return res.data;
+    },
+
+    async captureLead(data: {
+      email: string;
+      reportToken?: string;
+      scanResultId?: string;
+    }): Promise<{ id: string }> {
+      const res = await apiClient.post<ApiEnvelope<{ id: string }>>(
+        "/api/public/leads",
+        data,
       );
       return res.data;
     },
@@ -1416,6 +1510,60 @@ export const api = {
 
     async disable(crawlId: string): Promise<void> {
       await apiClient.delete(`/api/crawls/${crawlId}/share`);
+    },
+  },
+
+  // ── Notification Channels ────────────────────────────────────
+  channels: {
+    async list(): Promise<NotificationChannel[]> {
+      const res = await apiClient.get<ApiEnvelope<NotificationChannel[]>>(
+        "/api/notification-channels",
+      );
+      return res.data;
+    },
+
+    async create(data: CreateChannelInput): Promise<NotificationChannel> {
+      const res = await apiClient.post<ApiEnvelope<NotificationChannel>>(
+        "/api/notification-channels",
+        data,
+      );
+      return res.data;
+    },
+
+    async update(
+      id: string,
+      data: Partial<ChannelUpdate>,
+    ): Promise<NotificationChannel> {
+      const res = await apiClient.patch<ApiEnvelope<NotificationChannel>>(
+        `/api/notification-channels/${id}`,
+        data,
+      );
+      return res.data;
+    },
+
+    async delete(id: string): Promise<void> {
+      await apiClient.delete(`/api/notification-channels/${id}`);
+    },
+  },
+
+  // ── API Tokens ───────────────────────────────────────────────
+  tokens: {
+    async list(): Promise<ApiTokenInfo[]> {
+      const res =
+        await apiClient.get<ApiEnvelope<ApiTokenInfo[]>>("/api/tokens");
+      return res.data;
+    },
+
+    async create(data: CreateTokenInput): Promise<ApiTokenWithPlaintext> {
+      const res = await apiClient.post<ApiEnvelope<ApiTokenWithPlaintext>>(
+        "/api/tokens",
+        data,
+      );
+      return res.data;
+    },
+
+    async revoke(id: string): Promise<void> {
+      await apiClient.delete(`/api/tokens/${id}`);
     },
   },
 };
