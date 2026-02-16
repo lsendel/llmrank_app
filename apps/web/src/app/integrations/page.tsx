@@ -1,7 +1,26 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  JsonLd,
+  webPageSchema,
+  breadcrumbSchema,
+} from "@/components/seo/json-ld";
+
+export const metadata: Metadata = {
+  title: "Integrations",
+  description:
+    "Connect LLM Boost with Google Search Console, Google Analytics, WordPress, Slack, and more to supercharge your AI SEO strategy.",
+  alternates: { canonical: "/integrations" },
+  openGraph: {
+    title: "Integrations | LLM Boost",
+    description:
+      "Connect Google Search Console, GA4, WordPress, and Slack to your AI-readiness workflow.",
+    url: "https://llmrank.app/integrations",
+  },
+};
 
 const INTEGRATIONS = [
   {
@@ -53,6 +72,20 @@ const INTEGRATIONS = [
 export default function IntegrationsPage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <JsonLd
+        data={webPageSchema({
+          title: "Integrations",
+          description:
+            "Connect Google Search Console, GA4, WordPress, and Slack to your AI-readiness workflow.",
+          path: "/integrations",
+        })}
+      />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "Home", path: "/" },
+          { name: "Integrations", path: "/integrations" },
+        ])}
+      />
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link
@@ -89,6 +122,9 @@ export default function IntegrationsPage() {
           </p>
         </div>
 
+        <h2 className="mb-6 text-2xl font-bold text-foreground">
+          Available Integrations
+        </h2>
         <div className="grid gap-6 md:grid-cols-2">
           {INTEGRATIONS.map((integration) => (
             <Card key={integration.name} className="flex flex-col">
@@ -134,11 +170,51 @@ export default function IntegrationsPage() {
             </Card>
           ))}
         </div>
+
+        {/* CTA section with internal links */}
+        <div className="mt-12 rounded-lg border border-border bg-muted/40 p-8 text-center">
+          <h2 className="text-xl font-bold text-foreground">
+            Get started with integrations
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Create a free account to connect your tools and start tracking
+            AI-readiness alongside your existing analytics.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="/scan"
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              Try a Free Scan
+            </Link>
+            <Link
+              href="/pricing"
+              className="text-sm font-semibold text-foreground hover:text-primary"
+            >
+              View pricing plans &rarr;
+            </Link>
+          </div>
+        </div>
       </main>
 
       <footer className="mt-auto border-t border-border py-8">
-        <div className="mx-auto text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} LLM Boost
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
+          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <Link href="/" className="hover:text-foreground">
+            Home
+          </Link>
+          <Link href="/scan" className="hover:text-foreground">
+            Free Scan
+          </Link>
+          <Link href="/pricing" className="hover:text-foreground">
+            Pricing
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
         </div>
       </footer>
     </div>

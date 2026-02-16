@@ -1,7 +1,26 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@/lib/auth-hooks";
 import { Check, Minus, Sparkles } from "lucide-react";
 import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
+import {
+  JsonLd,
+  productOffersSchema,
+  breadcrumbSchema,
+} from "@/components/seo/json-ld";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "LLM Boost pricing plans from Free to Agency ($299/mo). All plans include 37-factor AI-readiness scoring, automated crawling, and Lighthouse audits.",
+  alternates: { canonical: "/pricing" },
+  openGraph: {
+    title: "Pricing | LLM Boost",
+    description:
+      "Start free, upgrade when you need more pages, crawls, or integrations. Plans from $0 to $299/month.",
+    url: "https://llmrank.app/pricing",
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Plan data
@@ -98,9 +117,43 @@ const features: FeatureRow[] = [
 // Page component
 // ---------------------------------------------------------------------------
 
+const pricingJsonLd = productOffersSchema([
+  {
+    name: "Free",
+    price: 0,
+    description: "Try a quick site audit with 10 pages per crawl",
+    features: ["10 pages/crawl", "2 crawls/month", "1 project"],
+  },
+  {
+    name: "Starter",
+    price: 79,
+    description: "For solo sites and blogs with up to 100 pages per crawl",
+    features: ["100 pages/crawl", "10 crawls/month", "5 projects"],
+  },
+  {
+    name: "Pro",
+    price: 149,
+    description: "For growing businesses with up to 500 pages per crawl",
+    features: ["500 pages/crawl", "30 crawls/month", "20 projects"],
+  },
+  {
+    name: "Agency",
+    price: 299,
+    description: "For teams and client work with up to 2,000 pages per crawl",
+    features: ["2,000 pages/crawl", "Unlimited crawls", "50 projects"],
+  },
+]);
+
 export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      <JsonLd data={pricingJsonLd} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "Home", path: "/" },
+          { name: "Pricing", path: "/pricing" },
+        ])}
+      />
       {/* Nav — matches landing page */}
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">

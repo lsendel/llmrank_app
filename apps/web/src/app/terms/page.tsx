@@ -1,12 +1,26 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 
-export const metadata = {
-  title: "Terms of Service — LLM Boost",
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "LLM Boost terms of service covering account usage, billing, data handling, and acceptable use of the AI-readiness platform.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <JsonLd
+        data={webPageSchema({
+          title: "Terms of Service",
+          description:
+            "LLM Boost terms of service covering account usage, billing, data handling, and acceptable use.",
+          path: "/terms",
+          type: "WebPage",
+        })}
+      />
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link

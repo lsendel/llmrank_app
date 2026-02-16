@@ -1,12 +1,25 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 
-export const metadata = {
-  title: "Privacy Policy — LLM Boost",
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "LLM Boost privacy policy explaining how we collect, use, and protect your data when using our AI-readiness SEO platform.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <JsonLd
+        data={webPageSchema({
+          title: "Privacy Policy",
+          description: "How LLM Boost collects, uses, and protects your data.",
+          path: "/privacy",
+          type: "WebPage",
+        })}
+      />
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link

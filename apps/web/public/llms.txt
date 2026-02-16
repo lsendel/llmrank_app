@@ -1,0 +1,39 @@
+# LLM Boost
+
+> AI-Readiness SEO Platform that audits websites for visibility in AI-generated responses from ChatGPT, Claude, Perplexity, and Gemini.
+
+## About
+
+LLM Boost is a SaaS platform that crawls websites, scores every page across 37 AI-readiness factors, and provides actionable recommendations to improve how content appears in LLM-powered search engines.
+
+The scoring engine evaluates four categories:
+- Technical SEO (25%): crawlability, meta tags, canonicals, structured data
+- Content Quality (30%): depth, clarity, authority, citations
+- AI Readiness (30%): JSON-LD, llms.txt, schema markup, entity coverage
+- Performance (15%): Lighthouse metrics, page speed, Core Web Vitals
+
+## Pricing
+
+- Free: 10 pages/crawl, 2 crawls/month, 1 project
+- Starter ($79/mo): 100 pages/crawl, 10 crawls/month, 5 projects
+- Pro ($149/mo): 500 pages/crawl, 30 crawls/month, 20 projects
+- Agency ($299/mo): 2,000 pages/crawl, unlimited crawls, 50 projects
+
+## Features
+
+- 37-factor AI-readiness scoring engine
+- Automated website crawling with Lighthouse audits
+- AI visibility checks across ChatGPT, Claude, Perplexity, Gemini
+- Competitor analysis in AI responses
+- PDF and DOCX report generation
+- Integrations with Google Search Console, Google Analytics, WordPress
+- Score trend tracking over time
+
+## Links
+
+- [Homepage](https://llmrank.app)
+- [Pricing](https://llmrank.app/pricing)
+- [Integrations](https://llmrank.app/integrations)
+- [Free Scan](https://llmrank.app/scan)
+- [Terms of Service](https://llmrank.app/terms)
+- [Privacy Policy](https://llmrank.app/privacy)
