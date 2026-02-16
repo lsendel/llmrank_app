@@ -29,6 +29,9 @@ import { reportRoutes } from "./routes/reports";
 import { reportUploadRoutes } from "./routes/report-upload";
 import { notificationChannelRoutes } from "./routes/notification-channels";
 import { visibilityScheduleRoutes } from "./routes/visibility-schedules";
+import { tokenRoutes } from "./routes/api-tokens";
+import { v1Routes } from "./routes/v1";
+import type { TokenContext } from "./services/api-token-service";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -68,6 +71,7 @@ export type Variables = {
   parsedBody: string;
   requestId: string;
   logger: Logger;
+  tokenCtx: TokenContext;
 };
 
 export type AppEnv = {
@@ -153,6 +157,8 @@ app.route("/api/reports", reportRoutes);
 app.route("/internal", reportUploadRoutes);
 app.route("/api/notification-channels", notificationChannelRoutes);
 app.route("/api/visibility/schedules", visibilityScheduleRoutes);
+app.route("/api/tokens", tokenRoutes);
+app.route("/api/v1", v1Routes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
