@@ -859,3 +859,159 @@ export const reportSchedules = pgTable(
   },
   (t) => [index("idx_report_schedules_project").on(t.projectId)],
 );
+
+// ---------------------------------------------------------------------------
+// Organizations & RBAC
+// ---------------------------------------------------------------------------
+
+export const orgRoleEnum = pgEnum("org_role", ["owner", "admin", "member"]);
+
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    plan: planEnum("plan").notNull().default("free"),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    settings: jsonb("settings").default({}),
+    ssoEnabled: boolean("sso_enabled").notNull().default(false),
+    ssoProvider: text("sso_provider"),
+    ssoConfig: jsonb("sso_config"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_organizations_slug").on(t.slug)],
+);
+
+export const orgMembers = pgTable(
+  "org_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: orgRoleEnum("role").notNull().default("member"),
+    invitedBy: text("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    invitedAt: timestamp("invited_at"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_org_members_unique").on(t.orgId, t.userId),
+    index("idx_org_members_user").on(t.userId),
+  ],
+);
+
+export const orgInvites = pgTable(
+  "org_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: orgRoleEnum("role").notNull().default("member"),
+    token: text("token").notNull().unique(),
+    invitedBy: text("invited_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at").notNull(),
+    acceptedAt: timestamp("accepted_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_org_invites_org").on(t.orgId)],
+);
+
+// ---------------------------------------------------------------------------
+// Action Items (Gamification/Workflow)
+// ---------------------------------------------------------------------------
+
+export const actionItems = pgTable(
+  "action_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    issueCode: text("issue_code").notNull(),
+    status: text("status").notNull().default("pending"),
+    severity: issueSeverityEnum("severity").notNull(),
+    category: issueCategoryEnum("category").notNull(),
+    scoreImpact: real("score_impact").notNull().default(0),
+    title: text("title").notNull(),
+    description: text("description"),
+    assigneeId: text("assignee_id").references(() => users.id),
+    verifiedAt: timestamp("verified_at"),
+    verifiedByCrawlId: uuid("verified_by_crawl_id").references(
+      () => crawlJobs.id,
+    ),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_action_items_project").on(t.projectId),
+    index("idx_action_items_status").on(t.status),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Audit Logs
+// ---------------------------------------------------------------------------
+
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    resourceType: text("resource_type"),
+    resourceId: text("resource_id"),
+    metadata: jsonb("metadata").default({}),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_audit_logs_org_created").on(t.orgId, t.createdAt),
+    index("idx_audit_logs_actor").on(t.actorId),
+    index("idx_audit_logs_resource").on(t.resourceType, t.resourceId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Scoring Profiles (custom category weights)
+// ---------------------------------------------------------------------------
+
+export const scoringProfiles = pgTable(
+  "scoring_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    weights: jsonb("weights")
+      .$type<{
+        technical: number;
+        content: number;
+        aiReadiness: number;
+        performance: number;
+      }>()
+      .notNull(),
+    disabledFactors: jsonb("disabled_factors").$type<string[]>().default([]),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_scoring_profiles_user").on(t.userId)],
+);

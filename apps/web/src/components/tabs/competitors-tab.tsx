@@ -45,8 +45,10 @@ export function CompetitorsTab({ projectId }: Props) {
       );
       setNewDomain("");
       mutate(); // refetch
-    } catch (err: any) {
-      setError(err.message ?? "Failed to benchmark competitor");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to benchmark competitor",
+      );
     } finally {
       setBenchmarking(false);
     }

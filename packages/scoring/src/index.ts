@@ -30,3 +30,9 @@ export {
   type RecommendationEffort,
   type RecommendationImpact,
 } from "./recommendations";
+export {
+  SCORING_PRESETS,
+  DEFAULT_WEIGHTS,
+  normalizeWeights,
+  type ScoringWeights,
+} from "./profiles";

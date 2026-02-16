@@ -1470,6 +1470,7 @@ export const api = {
       email: string;
       onboardingComplete: boolean;
       persona: string | null;
+      digestFrequency: string | null;
     }> {
       const res = await apiClient.get<
         ApiEnvelope<{
@@ -1478,6 +1479,7 @@ export const api = {
           email: string;
           onboardingComplete: boolean;
           persona: string | null;
+          digestFrequency: string | null;
         }>
       >("/api/account");
       return res.data;
@@ -1488,6 +1490,7 @@ export const api = {
       phone?: string;
       onboardingComplete?: boolean;
       persona?: string;
+      digestFrequency?: string;
     }): Promise<void> {
       await apiClient.put("/api/account", data);
     },
@@ -2016,6 +2019,87 @@ export const api = {
     async getRegressions(projectId: string): Promise<Regression[]> {
       const res = await apiClient.get<ApiEnvelope<Regression[]>>(
         `/api/trends/${projectId}/regressions`,
+      );
+      return res.data;
+    },
+  },
+
+  // ── Action Plan ──────────────────────────────────────────────
+  actionPlan: {
+    async get(projectId: string): Promise<{
+      items: Array<{
+        id: string;
+        issueCode: string;
+        category: string;
+        severity: string;
+        status: string;
+        title: string;
+        description: string;
+        scoreImpact: number;
+        effortLevel: string;
+        affectedPageCount: number;
+        assignedTo: string | null;
+        completedAt: string | null;
+        verifiedAt: string | null;
+      }>;
+      summary: {
+        total: number;
+        pending: number;
+        inProgress: number;
+        completed: number;
+        verified: number;
+        dismissed: number;
+        estimatedScoreGain: number;
+        currentScore: number;
+        currentGrade: string;
+      };
+    }> {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/action-plan/${projectId}`,
+      );
+      return res.data;
+    },
+
+    async generate(projectId: string): Promise<void> {
+      await apiClient.post(`/api/action-plan/${projectId}/generate`);
+    },
+
+    async updateItem(
+      itemId: string,
+      data: { status?: string; assignedTo?: string },
+    ): Promise<void> {
+      await apiClient.patch(`/api/action-plan/items/${itemId}`, data);
+    },
+
+    async previewImpact(
+      projectId: string,
+      itemIds: string[],
+    ): Promise<{
+      currentScore: number;
+      predictedScore: number;
+      delta: number;
+      letterGrade: string;
+    }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          currentScore: number;
+          predictedScore: number;
+          delta: number;
+          letterGrade: string;
+        }>
+      >(`/api/action-plan/${projectId}/preview`, { itemIds });
+      return res.data;
+    },
+
+    async getProgress(projectId: string): Promise<{
+      total: number;
+      pending: number;
+      inProgress: number;
+      completed: number;
+      verified: number;
+    }> {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/action-plan/${projectId}/progress`,
       );
       return res.data;
     },
