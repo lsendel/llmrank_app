@@ -131,11 +131,11 @@ brandingRoutes.post(
       );
     }
 
-    // Parse multipart form data
-    const formData = await c.req.formData();
-    const file = formData.get("logo");
+    // Parse multipart form data via Hono's parseBody (returns File objects)
+    const body = await c.req.parseBody();
+    const file = body["logo"];
 
-    if (!file || !(file instanceof File)) {
+    if (!file || typeof file === "string") {
       return c.json(
         {
           error: {
@@ -147,17 +147,21 @@ brandingRoutes.post(
       );
     }
 
+    // file is now typed as File
+    const fileType = file.type;
+    const fileSize = file.size;
+
     // Validate file type
     if (
       !ALLOWED_MIME_TYPES.includes(
-        file.type as (typeof ALLOWED_MIME_TYPES)[number],
+        fileType as (typeof ALLOWED_MIME_TYPES)[number],
       )
     ) {
       return c.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: `Invalid file type "${file.type}". Allowed: PNG, JPEG, SVG`,
+            message: `Invalid file type "${fileType}". Allowed: PNG, JPEG, SVG`,
           },
         },
         422,
@@ -165,12 +169,12 @@ brandingRoutes.post(
     }
 
     // Validate file size
-    if (file.size > MAX_LOGO_SIZE) {
+    if (fileSize > MAX_LOGO_SIZE) {
       return c.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 2 MB`,
+            message: `File too large (${(fileSize / 1024 / 1024).toFixed(1)} MB). Maximum is 2 MB`,
           },
         },
         422,
@@ -178,13 +182,13 @@ brandingRoutes.post(
     }
 
     const project = c.get("project");
-    const ext = mimeToExt(file.type);
+    const ext = mimeToExt(fileType);
     const r2Key = `branding/${project.id}/logo.${ext}`;
 
     // Upload to R2
     const arrayBuffer = await file.arrayBuffer();
     await c.env.R2.put(r2Key, arrayBuffer, {
-      httpMetadata: { contentType: file.type },
+      httpMetadata: { contentType: fileType },
     });
 
     // Construct a public URL (convention: R2 custom domain or /api/public/r2/ proxy)

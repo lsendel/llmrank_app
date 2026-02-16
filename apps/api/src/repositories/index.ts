@@ -35,7 +35,12 @@ export interface ProjectRepository {
   }): ReturnType<ReturnType<typeof projectQueries>["create"]>;
   update(
     id: string,
-    data: { name?: string; settings?: unknown; branding?: unknown },
+    data: {
+      name?: string;
+      settings?: unknown;
+      branding?: unknown;
+      scoringProfileId?: string | null;
+    },
   ): ReturnType<ReturnType<typeof projectQueries>["update"]>;
   delete(id: string): ReturnType<ReturnType<typeof projectQueries>["delete"]>;
   getDueForCrawl(

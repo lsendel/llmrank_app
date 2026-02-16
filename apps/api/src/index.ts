@@ -39,6 +39,7 @@ import { visibilityScheduleRoutes } from "./routes/visibility-schedules";
 import { tokenRoutes } from "./routes/api-tokens";
 import { v1Routes } from "./routes/v1";
 import { scoringProfileRoutes } from "./routes/scoring-profiles";
+import { brandingRoutes } from "./routes/branding";
 import { generatorRoutes } from "./routes/generators";
 import { teamRoutes } from "./routes/teams";
 import { organizationRoutes } from "./routes/organizations";
@@ -170,6 +171,7 @@ app.use("*", async (c, next) => {
 // Routes
 app.route("/api/health", healthRoutes);
 app.route("/api/projects", projectRoutes);
+app.route("/api/projects", brandingRoutes);
 app.route("/api/crawls", crawlRoutes);
 app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
