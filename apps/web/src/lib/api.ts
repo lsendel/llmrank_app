@@ -1404,9 +1404,16 @@ export const api = {
         },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({
-          error: { code: "DOWNLOAD_ERROR", message: "Download failed" },
-        }));
+        const text = await res.text();
+        console.error("Report download failed:", res.status, text);
+        let err;
+        try {
+          err = JSON.parse(text);
+        } catch {
+          err = {
+            error: { code: "DOWNLOAD_ERROR", message: "Download failed" },
+          };
+        }
         throw new ApiError(
           res.status,
           err.error?.code ?? "DOWNLOAD_ERROR",

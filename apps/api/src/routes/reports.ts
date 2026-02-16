@@ -124,6 +124,9 @@ reportRoutes.get("/:id/download", async (c) => {
   }
 
   if (report.status !== "complete" || !report.r2Key) {
+    console.log(
+      `Report ${reportId} not ready: status=${report.status}, r2Key=${report.r2Key}`,
+    );
     return c.json(
       {
         error: {
@@ -135,9 +138,13 @@ reportRoutes.get("/:id/download", async (c) => {
     );
   }
 
+  console.log(`Downloading report ${reportId} from R2 key: ${report.r2Key}`);
   // Get the object from R2 and stream it
   const object = await c.env.R2.get(report.r2Key);
   if (!object) {
+    console.error(
+      `Report ${reportId} file not found in R2 key: ${report.r2Key}`,
+    );
     return c.json(
       {
         error: {

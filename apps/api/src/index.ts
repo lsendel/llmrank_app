@@ -141,6 +141,7 @@ app.route("/api/crawls", crawlRoutes);
 app.route("/api/pages", pageRoutes);
 app.route("/api/billing", billingRoutes);
 app.route("/ingest", ingestRoutes);
+app.route("/api/visibility/schedules", visibilityScheduleRoutes);
 app.route("/api/visibility", visibilityRoutes);
 app.route("/api/scores", scoreRoutes);
 app.route("/api/dashboard", dashboardRoutes);
@@ -156,7 +157,6 @@ app.route("/api/crawls", insightsRoutes);
 app.route("/api/reports", reportRoutes);
 app.route("/internal", reportUploadRoutes);
 app.route("/api/notification-channels", notificationChannelRoutes);
-app.route("/api/visibility/schedules", visibilityScheduleRoutes);
 app.route("/api/tokens", tokenRoutes);
 app.route("/api/v1", v1Routes);
 

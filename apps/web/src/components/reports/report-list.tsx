@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { api, type Report } from "@/lib/api";
 import { track } from "@/lib/telemetry";
+import { useToast } from "@/components/ui/use-toast";
 
 function formatFileSize(bytes: number | null): string {
   if (!bytes) return "-";
@@ -55,6 +56,7 @@ interface Props {
 }
 
 export function ReportList({ reports, onDelete }: Props) {
+  const { toast } = useToast();
   const [downloading, setDownloading] = useState<string | null>(null);
 
   async function handleDownload(report: Report) {
@@ -75,8 +77,13 @@ export function ReportList({ reports, onDelete }: Props) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      // Error handling via toast or similar
+    } catch (err: any) {
+      console.error("Download failed:", err);
+      toast({
+        title: "Download failed",
+        description: err.message || "Failed to download report",
+        variant: "destructive",
+      });
     } finally {
       setDownloading(null);
     }
