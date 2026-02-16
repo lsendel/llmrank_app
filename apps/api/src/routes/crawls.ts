@@ -1,13 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import {
-  createCrawlRepository,
-  createProjectRepository,
-  createScoreRepository,
-  createUserRepository,
-} from "../repositories";
-import { createCrawlService } from "../services/crawl-service";
 import { handleServiceError } from "../services/errors";
 import { rateLimit } from "../middleware/rate-limit";
 import {
@@ -31,7 +24,6 @@ crawlRoutes.post(
   "/",
   rateLimit({ limit: 10, windowSeconds: 3600, keyPrefix: "rl:crawl" }),
   async (c) => {
-    const db = c.get("db");
     const userId = c.get("userId");
 
     const body = await c.req.json();
@@ -46,15 +38,10 @@ crawlRoutes.post(
       );
     }
 
-    const service = createCrawlService({
-      crawls: createCrawlRepository(db),
-      projects: createProjectRepository(db),
-      users: createUserRepository(db),
-      scores: createScoreRepository(db),
-    });
+    const { crawlService } = c.get("container");
 
     try {
-      const crawlJob = await service.requestCrawl({
+      const crawlJob = await crawlService.requestCrawl({
         userId,
         projectId,
         requestUrl: c.req.url,
@@ -76,19 +63,13 @@ crawlRoutes.post(
 // ---------------------------------------------------------------------------
 
 crawlRoutes.get("/:id", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
 
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const data = await service.getCrawl(userId, crawlId);
+    const data = await crawlService.getCrawl(userId, crawlId);
     if ("status" in data && data.status === "complete") {
       c.header("Cache-Control", "public, max-age=86400, immutable");
     } else {
@@ -105,19 +86,13 @@ crawlRoutes.get("/:id", async (c) => {
 // ---------------------------------------------------------------------------
 
 crawlRoutes.get("/project/:projectId", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const crawls = await service.listProjectCrawls(userId, projectId);
+    const crawls = await crawlService.listProjectCrawls(userId, projectId);
     return c.json({
       data: crawls,
       pagination: { page: 1, limit: 50, total: crawls.length, totalPages: 1 },
@@ -132,18 +107,12 @@ crawlRoutes.get("/project/:projectId", async (c) => {
 // ---------------------------------------------------------------------------
 
 crawlRoutes.get("/:id/quick-wins", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const wins = await service.getQuickWins(userId, crawlId);
+    const wins = await crawlService.getQuickWins(userId, crawlId);
     return c.json({ data: wins });
   } catch (error) {
     return handleServiceError(c, error);
@@ -313,18 +282,12 @@ crawlRoutes.get("/:id/export", async (c) => {
 // ---------------------------------------------------------------------------
 
 crawlRoutes.get("/:id/platform-readiness", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const data = await service.getPlatformReadiness(userId, crawlId);
+    const data = await crawlService.getPlatformReadiness(userId, crawlId);
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -336,20 +299,14 @@ crawlRoutes.get("/:id/platform-readiness", async (c) => {
 // ---------------------------------------------------------------------------
 
 crawlRoutes.post("/:id/share", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
 
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const data = await service.enableSharing(userId, crawlId, {
+    const data = await crawlService.enableSharing(userId, crawlId, {
       level: body.level,
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
     });
@@ -364,18 +321,12 @@ crawlRoutes.post("/:id/share", async (c) => {
 // ---------------------------------------------------------------------------
 
 crawlRoutes.delete("/:id/share", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const data = await service.disableSharing(userId, crawlId);
+    const data = await crawlService.disableSharing(userId, crawlId);
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -387,20 +338,14 @@ crawlRoutes.delete("/:id/share", async (c) => {
 // ---------------------------------------------------------------------------
 
 crawlRoutes.patch("/:id/share", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
   const body = await c.req.json();
 
-  const service = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { crawlService } = c.get("container");
 
   try {
-    const data = await service.updateShareSettings(userId, crawlId, {
+    const data = await crawlService.updateShareSettings(userId, crawlId, {
       level: body.level,
       expiresAt:
         body.expiresAt === null
