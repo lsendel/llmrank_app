@@ -3,7 +3,15 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, Share2, Brain } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Share2,
+  Brain,
+  Zap,
+  AlertTriangle,
+  ArrowRight,
+} from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -288,6 +296,63 @@ export default function CrawlDetailPage() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* What's Next actions */}
+      {crawl.status === "complete" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">What to Do Next</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {quickWins && quickWins.length > 0 && (
+              <Link
+                href={`/dashboard/projects/${crawl.projectId}?tab=issues`}
+                className="flex items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted"
+              >
+                <span className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  Fix {quickWins.length} quick win
+                  {quickWins.length !== 1 ? "s" : ""} to gain up to +
+                  {quickWins.reduce((sum, w) => sum + w.scoreImpact, 0)} points
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            )}
+            {crawl.overallScore !== null && crawl.overallScore < 70 && (
+              <Link
+                href={`/dashboard/projects/${crawl.projectId}?tab=issues`}
+                className="flex items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted"
+              >
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  Review critical issues dragging your score down
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            )}
+            <Link
+              href={`/dashboard/projects/${crawl.projectId}`}
+              className="flex items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted"
+            >
+              <span className="flex items-center gap-2">
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                View full project overview
+              </span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+            <button
+              onClick={() => setShareOpen(true)}
+              className="flex w-full items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted"
+            >
+              <span className="flex items-center gap-2">
+                <Share2 className="h-4 w-4 text-muted-foreground" />
+                Share this report with your team
+              </span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </button>
           </CardContent>
         </Card>
       )}

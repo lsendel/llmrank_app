@@ -802,6 +802,15 @@ export interface ProjectProgress {
   topRegressedPages: { url: string; delta: number; current: number }[];
 }
 
+// Regressions
+export interface Regression {
+  category: string;
+  previousScore: number;
+  currentScore: number;
+  delta: number;
+  severity: "critical" | "warning" | "info";
+}
+
 // Intelligence fusion
 export interface PlatformOpportunity {
   platform: string;
@@ -2002,6 +2011,13 @@ export const api = {
         performance: p.performance ?? 0,
         delta: p.deltas?.overall ?? undefined,
       }));
+    },
+
+    async getRegressions(projectId: string): Promise<Regression[]> {
+      const res = await apiClient.get<ApiEnvelope<Regression[]>>(
+        `/api/trends/${projectId}/regressions`,
+      );
+      return res.data;
     },
   },
 

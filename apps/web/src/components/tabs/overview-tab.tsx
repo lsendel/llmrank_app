@@ -16,12 +16,14 @@ import {
   type CrawlJob,
   type CrawlInsights,
   type PageIssue,
+  type ProjectProgress,
 } from "@/lib/api";
 import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { PlatformOpportunityCards } from "@/components/platform-opportunity-cards";
 import { ScoreTrendChart } from "@/components/charts/score-trend-chart";
 import { ProjectProgressCard } from "@/components/cards/project-progress-card";
+import { RegressionAlert } from "@/components/cards/regression-alert";
 
 export function OverviewTab({
   latestCrawl,
@@ -36,6 +38,11 @@ export function OverviewTab({
   const { data: insights } = useApiSWR<CrawlInsights>(
     crawlId ? `insights-${crawlId}` : null,
     useCallback(() => api.crawls.getInsights(crawlId!), [crawlId]),
+  );
+
+  const { data: progress } = useApiSWR<ProjectProgress | null>(
+    `progress-${projectId}`,
+    useCallback(() => api.projects.progress(projectId), [projectId]),
   );
 
   const hasScores = latestCrawl?.scores != null;
@@ -67,6 +74,9 @@ export function OverviewTab({
 
   return (
     <>
+      {/* Regression alert banner */}
+      <RegressionAlert projectId={projectId} />
+
       {/* Hero section with ScoreCircle */}
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
         <Card className="flex items-center justify-center p-8">
@@ -89,13 +99,34 @@ export function OverviewTab({
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">AI Readiness</h3>
-                    <span
-                      className={cn(
-                        "text-xl font-bold",
-                        gradeColor(latestCrawl!.scores!.aiReadiness),
-                      )}
-                    >
-                      {latestCrawl!.scores!.aiReadiness}/100
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "text-xl font-bold",
+                          gradeColor(latestCrawl!.scores!.aiReadiness),
+                        )}
+                      >
+                        {latestCrawl!.scores!.aiReadiness}/100
+                      </span>
+                      {progress?.categoryDeltas.aiReadiness.delta !==
+                        undefined &&
+                        progress.categoryDeltas.aiReadiness.delta !== 0 && (
+                          <span
+                            className={cn(
+                              "text-xs font-medium",
+                              progress.categoryDeltas.aiReadiness.delta > 0
+                                ? "text-green-600"
+                                : "text-red-600",
+                            )}
+                          >
+                            {progress.categoryDeltas.aiReadiness.delta > 0
+                              ? "+"
+                              : ""}
+                            {progress.categoryDeltas.aiReadiness.delta.toFixed(
+                              0,
+                            )}
+                          </span>
+                        )}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -128,41 +159,57 @@ export function OverviewTab({
             <CardContent className="space-y-5">
               {[
                 {
-                  key: "technical",
+                  key: "technical" as const,
                   label: "Technical SEO (25%)",
                   score: latestCrawl!.scores!.technical,
                 },
                 {
-                  key: "content",
+                  key: "content" as const,
                   label: "Content Quality (30%)",
                   score: latestCrawl!.scores!.content,
                 },
                 {
-                  key: "performance",
+                  key: "performance" as const,
                   label: "Performance (15%)",
                   score: latestCrawl!.scores!.performance,
                 },
-              ].map((cat) => (
-                <div key={cat.key} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{cat.label}</span>
-                    <span
-                      className={cn("font-semibold", gradeColor(cat.score))}
-                    >
-                      {cat.score} / 100
-                    </span>
+              ].map((cat) => {
+                const delta = progress?.categoryDeltas[cat.key]?.delta;
+                return (
+                  <div key={cat.key} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{cat.label}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className={cn("font-semibold", gradeColor(cat.score))}
+                        >
+                          {cat.score} / 100
+                        </span>
+                        {delta !== undefined && delta !== 0 && (
+                          <span
+                            className={cn(
+                              "text-xs font-medium",
+                              delta > 0 ? "text-green-600" : "text-red-600",
+                            )}
+                          >
+                            {delta > 0 ? "+" : ""}
+                            {delta.toFixed(0)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500",
+                          scoreBarColor(cat.score),
+                        )}
+                        style={{ width: `${cat.score}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        scoreBarColor(cat.score),
-                      )}
-                      style={{ width: `${cat.score}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         </div>
