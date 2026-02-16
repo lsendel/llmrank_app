@@ -35,7 +35,7 @@ export function PdfDownloadButton({
       // reconciler crash on page mount (React 19 + scheduler mismatch)
       const { pdf } = await import("@react-pdf/renderer");
       const { AIReadinessReport } = await import("./report-template");
-      const blob = await pdf(
+      const rawBlob = await pdf(
         <AIReadinessReport
           crawl={crawl}
           quickWins={quickWins}
@@ -44,6 +44,11 @@ export function PdfDownloadButton({
           primaryColor={branding.primaryColor}
         />,
       ).toBlob();
+      // Ensure the blob has the correct MIME type for PDF
+      const blob =
+        rawBlob.type === "application/pdf"
+          ? rawBlob
+          : new Blob([rawBlob], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -51,7 +56,8 @@ export function PdfDownloadButton({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Delay revoke so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("PDF generation failed:", err);
       setError(true);
