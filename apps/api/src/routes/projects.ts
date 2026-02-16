@@ -6,15 +6,6 @@ import {
   UpdateProjectSchema,
   PaginationSchema,
 } from "@llm-boost/shared";
-import {
-  createCrawlRepository,
-  createProjectRepository,
-  createScoreRepository,
-  createUserRepository,
-  createPageRepository,
-} from "../repositories";
-import { createProjectService } from "../services/project-service";
-import { createProgressService } from "../services/progress-service";
 import { handleServiceError } from "../services/errors";
 
 export const projectRoutes = new Hono<AppEnv>();
@@ -27,7 +18,6 @@ projectRoutes.use("*", authMiddleware);
 // ---------------------------------------------------------------------------
 
 projectRoutes.get("/", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
 
   const query = PaginationSchema.safeParse({
@@ -48,15 +38,10 @@ projectRoutes.get("/", async (c) => {
     );
   }
 
-  const service = createProjectService({
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    crawls: createCrawlRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { projectService } = c.get("container");
 
   try {
-    const result = await service.listForUser(userId, query.data);
+    const result = await projectService.listForUser(userId, query.data);
     return c.json(result);
   } catch (error) {
     return handleServiceError(c, error);
@@ -68,7 +53,6 @@ projectRoutes.get("/", async (c) => {
 // ---------------------------------------------------------------------------
 
 projectRoutes.post("/", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
 
   const body = await c.req.json();
@@ -86,15 +70,10 @@ projectRoutes.post("/", async (c) => {
     );
   }
 
-  const service = createProjectService({
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    crawls: createCrawlRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { projectService } = c.get("container");
 
   try {
-    const project = await service.createProject(userId, parsed.data);
+    const project = await projectService.createProject(userId, parsed.data);
     return c.json({ data: project }, 201);
   } catch (error) {
     return handleServiceError(c, error);
@@ -106,19 +85,13 @@ projectRoutes.post("/", async (c) => {
 // ---------------------------------------------------------------------------
 
 projectRoutes.get("/:id", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
-  const service = createProjectService({
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    crawls: createCrawlRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { projectService } = c.get("container");
 
   try {
-    const data = await service.getProjectDetail(userId, projectId);
+    const data = await projectService.getProjectDetail(userId, projectId);
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -130,7 +103,6 @@ projectRoutes.get("/:id", async (c) => {
 // ---------------------------------------------------------------------------
 
 projectRoutes.put("/:id", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
@@ -149,15 +121,14 @@ projectRoutes.put("/:id", async (c) => {
     );
   }
 
-  const service = createProjectService({
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    crawls: createCrawlRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { projectService } = c.get("container");
 
   try {
-    const updated = await service.updateProject(userId, projectId, parsed.data);
+    const updated = await projectService.updateProject(
+      userId,
+      projectId,
+      parsed.data,
+    );
     return c.json({ data: updated });
   } catch (error) {
     return handleServiceError(c, error);
@@ -169,19 +140,13 @@ projectRoutes.put("/:id", async (c) => {
 // ---------------------------------------------------------------------------
 
 projectRoutes.delete("/:id", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
-  const service = createProjectService({
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    crawls: createCrawlRepository(db),
-    scores: createScoreRepository(db),
-  });
+  const { projectService } = c.get("container");
 
   try {
-    const result = await service.deleteProject(userId, projectId);
+    const result = await projectService.deleteProject(userId, projectId);
     return c.json({ data: result });
   } catch (error) {
     return handleServiceError(c, error);
@@ -193,19 +158,13 @@ projectRoutes.delete("/:id", async (c) => {
 // ---------------------------------------------------------------------------
 
 projectRoutes.get("/:id/progress", async (c) => {
-  const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
-  const service = createProgressService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    scores: createScoreRepository(db),
-    pages: createPageRepository(db),
-  });
+  const { progressService } = c.get("container");
 
   try {
-    const data = await service.getProjectProgress(userId, projectId);
+    const data = await progressService.getProjectProgress(userId, projectId);
     if (!data) {
       return c.json({
         data: null,

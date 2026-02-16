@@ -36,6 +36,7 @@ import { visibilityScheduleRoutes } from "./routes/visibility-schedules";
 import { tokenRoutes } from "./routes/api-tokens";
 import { v1Routes } from "./routes/v1";
 import type { TokenContext } from "./services/api-token-service";
+import { type Container, createContainer } from "./container";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -79,6 +80,7 @@ export type Variables = {
   requestId: string;
   logger: Logger;
   tokenCtx: TokenContext;
+  container: Container;
 };
 
 export type AppEnv = {
@@ -147,6 +149,7 @@ app.use("*", async (c, next) => {
 
   const db = createDb(c.env.DATABASE_URL);
   c.set("db", db);
+  c.set("container", createContainer(db));
   c.set("logger", createLogger({ requestId: c.get("requestId") }));
   await next();
 });
