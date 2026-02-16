@@ -3,6 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { withOwnership } from "../middleware/ownership";
 import { handleServiceError } from "../services/errors";
+import { toCrawlResponse, toCrawlListResponse } from "../dto/crawl.dto";
 import { rateLimit } from "../middleware/rate-limit";
 import { pageQueries, scoreQueries, userQueries } from "@llm-boost/db";
 
@@ -46,7 +47,7 @@ crawlRoutes.post(
           kv: c.env.KV,
         },
       });
-      return c.json({ data: crawlJob }, 201);
+      return c.json({ data: toCrawlResponse(crawlJob) }, 201);
     } catch (error) {
       return handleServiceError(c, error);
     }
@@ -70,7 +71,7 @@ crawlRoutes.get("/:id", withOwnership("crawl"), async (c) => {
     } else {
       c.header("Cache-Control", "private, max-age=10");
     }
-    return c.json({ data });
+    return c.json({ data: toCrawlResponse(data) });
   } catch (error) {
     return handleServiceError(c, error);
   }
@@ -89,7 +90,7 @@ crawlRoutes.get("/project/:projectId", withOwnership("project"), async (c) => {
   try {
     const crawls = await crawlService.listProjectCrawls(userId, projectId);
     return c.json({
-      data: crawls,
+      data: toCrawlListResponse(crawls),
       pagination: { page: 1, limit: 50, total: crawls.length, totalPages: 1 },
     });
   } catch (error) {

@@ -8,6 +8,11 @@ import {
   PaginationSchema,
 } from "@llm-boost/shared";
 import { handleServiceError } from "../services/errors";
+import {
+  toProjectResponse,
+  toProjectDetailResponse,
+  toProjectListResponse,
+} from "../dto/project.dto";
 
 export const projectRoutes = new Hono<AppEnv>();
 
@@ -43,7 +48,10 @@ projectRoutes.get("/", async (c) => {
 
   try {
     const result = await projectService.listForUser(userId, query.data);
-    return c.json(result);
+    return c.json({
+      ...result,
+      data: toProjectListResponse(result.data),
+    });
   } catch (error) {
     return handleServiceError(c, error);
   }
@@ -75,7 +83,7 @@ projectRoutes.post("/", async (c) => {
 
   try {
     const project = await projectService.createProject(userId, parsed.data);
-    return c.json({ data: project }, 201);
+    return c.json({ data: toProjectResponse(project) }, 201);
   } catch (error) {
     return handleServiceError(c, error);
   }
@@ -93,7 +101,7 @@ projectRoutes.get("/:id", withOwnership("project"), async (c) => {
 
   try {
     const data = await projectService.getProjectDetail(userId, projectId);
-    return c.json({ data });
+    return c.json({ data: toProjectDetailResponse(data) });
   } catch (error) {
     return handleServiceError(c, error);
   }
@@ -130,7 +138,7 @@ projectRoutes.put("/:id", withOwnership("project"), async (c) => {
       projectId,
       parsed.data,
     );
-    return c.json({ data: updated });
+    return c.json({ data: toProjectResponse(updated) });
   } catch (error) {
     return handleServiceError(c, error);
   }
