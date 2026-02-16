@@ -45,8 +45,8 @@ export function OverviewTab({
     useCallback(() => api.projects.progress(projectId), [projectId]),
   );
 
-  const [sitemapContent, setSitemapContent] = useState<string | null>(null);
-  const [llmsTxtContent, setLlmsTxtContent] = useState<string | null>(null);
+  const [_sitemapContent, _setSitemapContent] = useState<string | null>(null);
+  const [_llmsTxtContent, _setLlmsTxtContent] = useState<string | null>(null);
 
   const hasScores = latestCrawl?.scores != null;
 
