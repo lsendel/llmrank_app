@@ -43,6 +43,13 @@
       "when": 1771178741184,
       "tag": "0005_late_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771237515675,
+      "tag": "0006_fearless_boom_boom",
+      "breakpoints": true
     }
   ]
 }
