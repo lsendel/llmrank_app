@@ -83,7 +83,7 @@ describe("insightsRoutes", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=3600");
     await expect(res.json()).resolves.toEqual({ data: { summary: [] } });
     expect(insightsServiceMocks.getInsights).toHaveBeenCalledWith(
       "user-1",
@@ -101,7 +101,7 @@ describe("insightsRoutes", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=3600");
     await expect(res.json()).resolves.toEqual({ data: { chart: [] } });
     expect(insightsServiceMocks.getIssueHeatmap).toHaveBeenCalledWith(
       "user-1",
@@ -121,7 +121,7 @@ describe("insightsRoutes", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=300");
+    expect(res.headers.get("Cache-Control")).toBe("private, max-age=300");
     await expect(res.json()).resolves.toEqual({ data: { nodes: [] } });
     expect(intelligenceServiceMocks.getFusedInsights).toHaveBeenCalledWith(
       "user-1",
