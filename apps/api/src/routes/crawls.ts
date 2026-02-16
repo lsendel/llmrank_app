@@ -1,15 +1,10 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
+import { withOwnership } from "../middleware/ownership";
 import { handleServiceError } from "../services/errors";
 import { rateLimit } from "../middleware/rate-limit";
-import {
-  crawlQueries,
-  pageQueries,
-  projectQueries,
-  scoreQueries,
-  userQueries,
-} from "@llm-boost/db";
+import { pageQueries, scoreQueries, userQueries } from "@llm-boost/db";
 
 export const crawlRoutes = new Hono<AppEnv>();
 
@@ -62,7 +57,7 @@ crawlRoutes.post(
 // GET /:id — Get crawl status and progress
 // ---------------------------------------------------------------------------
 
-crawlRoutes.get("/:id", async (c) => {
+crawlRoutes.get("/:id", withOwnership("crawl"), async (c) => {
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
 
@@ -85,7 +80,7 @@ crawlRoutes.get("/:id", async (c) => {
 // GET /project/:projectId — List crawls for a project
 // ---------------------------------------------------------------------------
 
-crawlRoutes.get("/project/:projectId", async (c) => {
+crawlRoutes.get("/project/:projectId", withOwnership("project"), async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
@@ -106,7 +101,7 @@ crawlRoutes.get("/project/:projectId", async (c) => {
 // GET /:id/quick-wins — Top 5 highest-impact, easiest-to-fix issues
 // ---------------------------------------------------------------------------
 
-crawlRoutes.get("/:id/quick-wins", async (c) => {
+crawlRoutes.get("/:id/quick-wins", withOwnership("crawl"), async (c) => {
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
   const { crawlService } = c.get("container");

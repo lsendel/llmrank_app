@@ -81,6 +81,9 @@ export type Variables = {
   logger: Logger;
   tokenCtx: TokenContext;
   container: Container;
+  // Ownership middleware sets these
+  project?: any; // Set by withOwnership("project")
+  crawl?: any; // Set by withOwnership("crawl")
 };
 
 export type AppEnv = {

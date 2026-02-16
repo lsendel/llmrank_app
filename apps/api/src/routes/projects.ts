@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
+import { withOwnership } from "../middleware/ownership";
 import {
   CreateProjectSchema,
   UpdateProjectSchema,
@@ -84,7 +85,7 @@ projectRoutes.post("/", async (c) => {
 // GET /:id — Get project detail with latest crawl
 // ---------------------------------------------------------------------------
 
-projectRoutes.get("/:id", async (c) => {
+projectRoutes.get("/:id", withOwnership("project"), async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
@@ -102,7 +103,7 @@ projectRoutes.get("/:id", async (c) => {
 // PUT /:id — Update project
 // ---------------------------------------------------------------------------
 
-projectRoutes.put("/:id", async (c) => {
+projectRoutes.put("/:id", withOwnership("project"), async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
@@ -139,7 +140,7 @@ projectRoutes.put("/:id", async (c) => {
 // DELETE /:id — Soft delete
 // ---------------------------------------------------------------------------
 
-projectRoutes.delete("/:id", async (c) => {
+projectRoutes.delete("/:id", withOwnership("project"), async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
@@ -157,7 +158,7 @@ projectRoutes.delete("/:id", async (c) => {
 // GET /:id/progress — Cross-crawl improvement progress
 // ---------------------------------------------------------------------------
 
-projectRoutes.get("/:id/progress", async (c) => {
+projectRoutes.get("/:id/progress", withOwnership("project"), async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("id");
 
