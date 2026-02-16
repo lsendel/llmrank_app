@@ -40,6 +40,7 @@ import { v1Routes } from "./routes/v1";
 import { scoringProfileRoutes } from "./routes/scoring-profiles";
 import { generatorRoutes } from "./routes/generators";
 import { teamRoutes } from "./routes/teams";
+import { organizationRoutes } from "./routes/organizations";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -196,6 +197,7 @@ app.route("/api/v1", v1Routes);
 app.route("/api/scoring-profiles", scoringProfileRoutes);
 app.route("/api/projects", generatorRoutes);
 app.route("/api/teams", teamRoutes);
+app.route("/api/orgs", organizationRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
@@ -270,9 +272,12 @@ async function resetMonthlyCredits(env: Bindings) {
   const db = createDb(env.DATABASE_URL);
   const queries = userQueries(db);
   for (const [plan, limits] of Object.entries(PLAN_LIMITS)) {
+    const credits = Number.isFinite(limits.crawlsPerMonth)
+      ? limits.crawlsPerMonth
+      : 999999;
     await queries.resetCrawlCreditsForPlan(
       plan as (typeof users.plan.enumValues)[number],
-      limits.crawlsPerMonth,
+      credits,
     );
   }
 }
