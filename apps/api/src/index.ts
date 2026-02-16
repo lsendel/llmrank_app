@@ -5,7 +5,6 @@ import { createDb, type Database, users, userQueries } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
-import { compress } from "hono/compress";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
 import { createAuth } from "./lib/auth";
@@ -116,9 +115,6 @@ app.use(
     maxAge: 86400,
   }),
 );
-
-// Compression
-app.use("*", compress());
 
 // Cache public routes (5 minutes cache, 1 hour stale-while-revalidate)
 app.use(
