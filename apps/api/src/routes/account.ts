@@ -126,7 +126,13 @@ accountRoutes.get("/notifications", async (c) => {
 accountRoutes.put("/notifications", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
 
   const data: {
     notifyOnCrawlComplete?: boolean;
@@ -190,7 +196,13 @@ const VALID_FREQUENCIES = ["off", "weekly", "monthly"] as const;
 accountRoutes.put("/digest", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
 
   const update: { digestFrequency?: string; digestDay?: number } = {};
 

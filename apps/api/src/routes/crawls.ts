@@ -325,7 +325,13 @@ crawlRoutes.delete("/:id/share", withOwnership("crawl"), async (c) => {
 crawlRoutes.patch("/:id/share", withOwnership("crawl"), async (c) => {
   const userId = c.get("userId");
   const crawlId = c.req.param("id");
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
 
   const { crawlService } = c.get("container");
 
