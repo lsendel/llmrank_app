@@ -515,6 +515,34 @@ export const competitors = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Competitor Benchmarks
+// ---------------------------------------------------------------------------
+
+export const competitorBenchmarks = pgTable(
+  "competitor_benchmarks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    competitorDomain: text("competitor_domain").notNull(),
+    overallScore: real("overall_score"),
+    technicalScore: real("technical_score"),
+    contentScore: real("content_score"),
+    aiReadinessScore: real("ai_readiness_score"),
+    performanceScore: real("performance_score"),
+    letterGrade: text("letter_grade"),
+    issueCount: integer("issue_count").default(0),
+    topIssues: jsonb("top_issues").default([]),
+    crawledAt: timestamp("crawled_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_comp_benchmarks_project").on(t.projectId),
+    index("idx_comp_benchmarks_domain").on(t.projectId, t.competitorDomain),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Project Integrations (GSC, PSI, GA4, Clarity)
 // ---------------------------------------------------------------------------
 
