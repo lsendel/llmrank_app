@@ -11,7 +11,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.title.length < THRESHOLDS.title.min ||
     page.title.length > THRESHOLDS.title.max
   ) {
-    deduct(s, "MISSING_TITLE", -15, { titleLength: page.title?.length ?? 0 });
+    deduct(s, "MISSING_TITLE", { titleLength: page.title?.length ?? 0 });
   }
 
   // MISSING_META_DESC
@@ -20,19 +20,19 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.metaDescription.length < THRESHOLDS.metaDesc.min ||
     page.metaDescription.length > THRESHOLDS.metaDesc.max
   ) {
-    deduct(s, "MISSING_META_DESC", -10, {
+    deduct(s, "MISSING_META_DESC", {
       descLength: page.metaDescription?.length ?? 0,
     });
   }
 
   // MISSING_H1
   if (page.extracted.h1.length === 0) {
-    deduct(s, "MISSING_H1", -8);
+    deduct(s, "MISSING_H1");
   }
 
   // MULTIPLE_H1
   if (page.extracted.h1.length > 1) {
-    deduct(s, "MULTIPLE_H1", -5, { h1Count: page.extracted.h1.length });
+    deduct(s, "MULTIPLE_H1", { h1Count: page.extracted.h1.length });
   }
 
   // HEADING_HIERARCHY - check for skipped levels
@@ -45,7 +45,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   if (page.extracted.h6.length > 0) headingLevels.push(6);
   for (let i = 1; i < headingLevels.length; i++) {
     if (headingLevels[i] - headingLevels[i - 1] > 1) {
-      deduct(s, "HEADING_HIERARCHY", -3, {
+      deduct(s, "HEADING_HIERARCHY", {
         skippedFrom: `H${headingLevels[i - 1]}`,
         skippedTo: `H${headingLevels[i]}`,
       });
@@ -55,7 +55,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
 
   // HTTP_STATUS
   if (page.statusCode >= THRESHOLDS.httpErrorStatus) {
-    deduct(s, "HTTP_STATUS", -25, { statusCode: page.statusCode });
+    deduct(s, "HTTP_STATUS", { statusCode: page.statusCode });
   }
 
   // NOINDEX_SET
@@ -63,12 +63,12 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.extracted.has_robots_meta &&
     page.extracted.robots_directives.includes("noindex")
   ) {
-    deduct(s, "NOINDEX_SET", -20);
+    deduct(s, "NOINDEX_SET");
   }
 
   // MISSING_CANONICAL
   if (!page.canonicalUrl) {
-    deduct(s, "MISSING_CANONICAL", -8);
+    deduct(s, "MISSING_CANONICAL");
   }
 
   // MISSING_ALT_TEXT
@@ -85,7 +85,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   // MISSING_OG_TAGS
   const ogTags = page.extracted.og_tags ?? {};
   if (!ogTags["og:title"] || !ogTags["og:description"] || !ogTags["og:image"]) {
-    deduct(s, "MISSING_OG_TAGS", -5);
+    deduct(s, "MISSING_OG_TAGS");
   }
 
   // SLOW_RESPONSE
@@ -93,14 +93,14 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.siteContext?.responseTimeMs &&
     page.siteContext.responseTimeMs > THRESHOLDS.slowResponseMs
   ) {
-    deduct(s, "SLOW_RESPONSE", -10, {
+    deduct(s, "SLOW_RESPONSE", {
       responseTimeMs: page.siteContext.responseTimeMs,
     });
   }
 
   // MISSING_SITEMAP
   if (page.siteContext && !page.siteContext.hasSitemap) {
-    deduct(s, "MISSING_SITEMAP", -5);
+    deduct(s, "MISSING_SITEMAP");
   }
 
   // SITEMAP_INVALID_FORMAT
@@ -109,7 +109,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.siteContext.sitemapAnalysis &&
     !page.siteContext.sitemapAnalysis.isValid
   ) {
-    deduct(s, "SITEMAP_INVALID_FORMAT", -8);
+    deduct(s, "SITEMAP_INVALID_FORMAT");
   }
 
   // SITEMAP_STALE_URLS
@@ -117,7 +117,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.siteContext?.sitemapAnalysis &&
     page.siteContext.sitemapAnalysis.staleUrlCount > 0
   ) {
-    deduct(s, "SITEMAP_STALE_URLS", -3, {
+    deduct(s, "SITEMAP_STALE_URLS", {
       staleUrlCount: page.siteContext.sitemapAnalysis.staleUrlCount,
       totalUrls: page.siteContext.sitemapAnalysis.urlCount,
     });
@@ -132,7 +132,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
       page.siteContext.sitemapAnalysis.urlCount /
       page.siteContext.sitemapAnalysis.discoveredPageCount;
     if (coverage < THRESHOLDS.sitemapCoverageMin) {
-      deduct(s, "SITEMAP_LOW_COVERAGE", -5, {
+      deduct(s, "SITEMAP_LOW_COVERAGE", {
         sitemapUrls: page.siteContext.sitemapAnalysis.urlCount,
         discoveredPages: page.siteContext.sitemapAnalysis.discoveredPageCount,
         coverage: Math.round(coverage * 100),
@@ -145,7 +145,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.redirectChain &&
     page.redirectChain.length >= THRESHOLDS.redirectChainMaxHops
   ) {
-    deduct(s, "REDIRECT_CHAIN", -8, {
+    deduct(s, "REDIRECT_CHAIN", {
       hops: page.redirectChain.length,
       chain: page.redirectChain.map((h) => `${h.status_code} ${h.url}`),
     });
@@ -156,7 +156,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.extracted.cors_mixed_content &&
     page.extracted.cors_mixed_content > 0
   ) {
-    deduct(s, "CORS_MIXED_CONTENT", -5, {
+    deduct(s, "CORS_MIXED_CONTENT", {
       mixedContentCount: page.extracted.cors_mixed_content,
     });
   }
@@ -166,7 +166,7 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.extracted.cors_unsafe_blank_links &&
     page.extracted.cors_unsafe_blank_links > 0
   ) {
-    deduct(s, "CORS_UNSAFE_LINKS", -3, {
+    deduct(s, "CORS_UNSAFE_LINKS", {
       unsafeBlankLinks: page.extracted.cors_unsafe_blank_links,
     });
   }
