@@ -4,6 +4,7 @@ import {
   getQuickWins,
   PLATFORM_REQUIREMENTS,
   aggregatePageScores,
+  CrawlStatus,
   type CrawlJobPayload,
   type LLMPlatformId,
 } from "@llm-boost/shared";
@@ -19,8 +20,6 @@ import { assertProjectOwnership } from "./shared/assert-ownership";
 import { signPayload } from "../middleware/hmac";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { toAggregateInput } from "./score-helpers";
-
-const ACTIVE_STATUSES = new Set(["pending", "queued", "crawling", "scoring"]);
 
 export interface CrawlServiceDeps {
   crawls: CrawlRepository;
@@ -58,7 +57,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       const existingLatest = await deps.crawls.getLatestByProject(
         args.projectId,
       );
-      if (existingLatest && ACTIVE_STATUSES.has(existingLatest.status)) {
+      if (existingLatest && CrawlStatus.from(existingLatest.status).isActive) {
         const err = ERROR_CODES.CRAWL_IN_PROGRESS;
         throw new ServiceError("CRAWL_IN_PROGRESS", err.status, err.message);
       }
@@ -475,7 +474,7 @@ async function enrichCrawlScores(
   scores: ScoreRepository,
 ) {
   if (!crawlJob) return null;
-  if (crawlJob.status !== "complete") {
+  if (CrawlStatus.from(crawlJob.status).value !== "complete") {
     return {
       ...crawlJob,
       overallScore: null,
