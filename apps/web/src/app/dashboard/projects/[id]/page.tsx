@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
@@ -41,31 +41,6 @@ function TabLoadingSkeleton() {
       <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
     </div>
   );
-}
-
-class TabErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="rounded-md border border-destructive/20 bg-destructive/5 p-6 text-center">
-          <p className="text-sm text-destructive">
-            Failed to load this tab. Please refresh the page.
-          </p>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 const VisibilityTab = dynamic(
@@ -277,31 +252,23 @@ export default function ProjectPage() {
         </TabsContent>
 
         <TabsContent value="competitors" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <CompetitorsTab projectId={project.id} />
-          </TabErrorBoundary>
+          <CompetitorsTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="visibility" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <VisibilityTab
-              projectId={project.id}
-              domain={project.domain}
-              latestCrawlId={latestCrawlId}
-            />
-          </TabErrorBoundary>
+          <VisibilityTab
+            projectId={project.id}
+            domain={project.domain}
+            latestCrawlId={latestCrawlId}
+          />
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <IntegrationsTab projectId={project.id} />
-          </TabErrorBoundary>
+          <IntegrationsTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
-          </TabErrorBoundary>
+          <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6 pt-4">

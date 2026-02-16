@@ -23,10 +23,12 @@ export function competitorBenchmarkQueries(db: Database) {
       return benchmark;
     },
 
-    async listByProject(projectId: string) {
+    async listByProject(projectId: string, limit = 50, offset = 0) {
       return db.query.competitorBenchmarks.findMany({
         where: eq(competitorBenchmarks.projectId, projectId),
         orderBy: [desc(competitorBenchmarks.crawledAt)],
+        limit,
+        offset,
       });
     },
 

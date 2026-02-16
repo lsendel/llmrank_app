@@ -128,8 +128,12 @@ publicRoutes.post("/scan", async (c) => {
 
   const hasLlmsTxt = llmsResponse?.ok ?? false;
 
-  // Build content hash (simple hash for dedup — not needed for public scan)
-  const contentHash = String(html.length);
+  // Build content hash using SHA-256 for proper deduplication
+  const htmlBytes = new TextEncoder().encode(html);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", htmlBytes);
+  const contentHash = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
   // Build PageData for scoring engine
   const pageData: PageData = {
@@ -217,8 +221,8 @@ publicRoutes.post("/scan", async (c) => {
   // Persist scan result to DB
   const db = c.get("db");
   const ipBytes = new TextEncoder().encode(ip);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", ipBytes);
-  const ipHash = Array.from(new Uint8Array(hashBuffer))
+  const ipHashBuffer = await crypto.subtle.digest("SHA-256", ipBytes);
+  const ipHash = Array.from(new Uint8Array(ipHashBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
@@ -386,10 +390,11 @@ publicRoutes.get("/scan-results/:id", async (c) => {
   }
 
   // Check if email was captured (token = lead ID)
+  // Validate that the lead's scanResultId matches the requested scan result
   let isUnlocked = false;
   if (unlockToken) {
     const lead = await leadQueries(db).getById(unlockToken);
-    isUnlocked = !!lead;
+    isUnlocked = !!lead && lead.scanResultId === id;
   }
 
   if (isUnlocked) {

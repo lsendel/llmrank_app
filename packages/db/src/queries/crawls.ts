@@ -60,10 +60,12 @@ export function crawlQueries(db: Database) {
       });
     },
 
-    async listByProject(projectId: string) {
+    async listByProject(projectId: string, limit = 50, offset = 0) {
       return db.query.crawlJobs.findMany({
         where: eq(crawlJobs.projectId, projectId),
         orderBy: [desc(crawlJobs.createdAt)],
+        limit,
+        offset,
       });
     },
 

@@ -55,11 +55,6 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         throw new ServiceError("NOT_FOUND", err.status, "User not found");
       }
 
-      if (user.crawlCreditsRemaining <= 0) {
-        const err = ERROR_CODES.CRAWL_LIMIT_REACHED;
-        throw new ServiceError("CRAWL_LIMIT_REACHED", err.status, err.message);
-      }
-
       const existingLatest = await deps.crawls.getLatestByProject(
         args.projectId,
       );
@@ -96,8 +91,15 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       if (args.env.kv) {
         const healthRaw = await args.env.kv.get("crawler:health:latest");
         if (healthRaw) {
-          const health = JSON.parse(healthRaw);
-          if (health.status === "down") {
+          let health: Record<string, unknown> | null = null;
+          try {
+            health = JSON.parse(healthRaw);
+          } catch {
+            console.error(
+              "[crawl] Failed to parse crawler health data from KV",
+            );
+          }
+          if (health?.status === "down") {
             await deps.crawls.updateStatus(crawlJob.id, {
               status: "failed",
               errorMessage:
@@ -362,10 +364,9 @@ export function createCrawlService(deps: CrawlServiceDeps) {
           crawlCreditsRemaining: number;
         };
 
-        if (user.crawlCreditsRemaining <= 0) continue;
-
-        // Decrement credits
-        await deps.users.decrementCrawlCredits(user.id);
+        // Atomically decrement credits; skip if none remain
+        const credited = await deps.users.decrementCrawlCredits(user.id);
+        if (!credited) continue;
 
         // Create job
         const config = buildCrawlConfig(project, user.plan);

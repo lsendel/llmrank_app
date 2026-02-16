@@ -10,10 +10,12 @@ export function competitorQueries(db: Database) {
       });
     },
 
-    async listByProject(projectId: string) {
+    async listByProject(projectId: string, limit = 50, offset = 0) {
       return db.query.competitors.findMany({
         where: eq(competitors.projectId, projectId),
         orderBy: [desc(competitors.createdAt)],
+        limit,
+        offset,
       });
     },
 

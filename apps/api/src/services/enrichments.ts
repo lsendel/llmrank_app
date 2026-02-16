@@ -41,45 +41,58 @@ export async function runIntegrationEnrichments(
   const allPageUrls = input.insertedPages.map((p) => p.url);
 
   // Decrypt credentials and refresh OAuth tokens if needed
-  const prepared = await Promise.all(
-    enabled.map(async (integration) => {
-      const creds = JSON.parse(
-        await decrypt(integration.encryptedCredentials!, input.encryptionKey),
-      );
+  const prepared = (
+    await Promise.all(
+      enabled.map(async (integration) => {
+        let creds: Record<string, string>;
+        try {
+          creds = JSON.parse(
+            await decrypt(
+              integration.encryptedCredentials!,
+              input.encryptionKey,
+            ),
+          );
+        } catch {
+          console.error(
+            `[enrichments] Failed to parse credentials for integration ${integration.id} (${integration.provider})`,
+          );
+          return null;
+        }
 
-      // Refresh OAuth tokens if expired
-      if (
-        (integration.provider === "gsc" || integration.provider === "ga4") &&
-        creds.refreshToken &&
-        integration.tokenExpiresAt &&
-        integration.tokenExpiresAt < new Date()
-      ) {
-        const refreshed = await refreshAccessToken({
-          refreshToken: creds.refreshToken,
-          clientId: input.googleClientId,
-          clientSecret: input.googleClientSecret,
-        });
-        creds.accessToken = refreshed.accessToken;
+        // Refresh OAuth tokens if expired
+        if (
+          (integration.provider === "gsc" || integration.provider === "ga4") &&
+          creds.refreshToken &&
+          integration.tokenExpiresAt &&
+          integration.tokenExpiresAt < new Date()
+        ) {
+          const refreshed = await refreshAccessToken({
+            refreshToken: creds.refreshToken,
+            clientId: input.googleClientId,
+            clientSecret: input.googleClientSecret,
+          });
+          creds.accessToken = refreshed.accessToken;
 
-        const newEncrypted = await encrypt(
-          JSON.stringify(creds),
-          input.encryptionKey,
-        );
-        await integrationQueries(db).updateCredentials(
-          integration.id,
-          newEncrypted,
-          new Date(Date.now() + refreshed.expiresIn * 1000),
-        );
-      }
+          const newEncrypted = await encrypt(
+            JSON.stringify(creds),
+            input.encryptionKey,
+          );
+          await integrationQueries(db).updateCredentials(
+            integration.id,
+            newEncrypted,
+            new Date(Date.now() + refreshed.expiresIn * 1000),
+          );
+        }
 
-      return {
-        provider: integration.provider,
-        integrationId: integration.id,
-        credentials: creds as Record<string, string>,
-        config: (integration.config ?? {}) as Record<string, unknown>,
-      };
-    }),
-  );
+        return {
+          provider: integration.provider,
+          integrationId: integration.id,
+          credentials: creds as Record<string, string>,
+          config: (integration.config ?? {}) as Record<string, unknown>,
+        };
+      }),
+    )
+  ).filter((item): item is NonNullable<typeof item> => item !== null);
 
   // Run all fetchers
   const results = await runEnrichments(prepared, project.domain, allPageUrls);

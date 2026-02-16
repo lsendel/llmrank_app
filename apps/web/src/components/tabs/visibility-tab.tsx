@@ -109,7 +109,16 @@ export default function VisibilityTab({
       const data = await api.visibility.list(projectId);
       setHistory(data);
     })
-      .catch(console.error)
+      .catch((err: unknown) => {
+        toast({
+          title: "Failed to load history",
+          description:
+            err instanceof Error
+              ? err.message
+              : "Could not load visibility history",
+          variant: "destructive",
+        });
+      })
       .finally(() => setHistoryLoaded(true));
   }, [withAuth, projectId]);
 
@@ -119,7 +128,16 @@ export default function VisibilityTab({
       const data = await api.visibility.schedules.list(projectId);
       setSchedules(data);
     })
-      .catch(console.error)
+      .catch((err: unknown) => {
+        toast({
+          title: "Failed to load schedules",
+          description:
+            err instanceof Error
+              ? err.message
+              : "Could not load scheduled checks",
+          variant: "destructive",
+        });
+      })
       .finally(() => setSchedulesLoaded(true));
   }, [withAuth, projectId]);
 

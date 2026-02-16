@@ -13,15 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, scoreColor } from "@/lib/utils";
-import {
-  Loader2,
-  ArrowRight,
-  Globe,
-  RotateCcw,
-  Users,
-  Code,
-} from "lucide-react";
-import { track } from "@/lib/telemetry";
+import { Loader2, ArrowRight, Globe, RotateCcw } from "lucide-react";
 
 const TIPS = [
   "73% of AI citations come from pages with structured data.",
@@ -61,9 +53,6 @@ export default function OnboardingPage() {
   // Step 0 state
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [workStyle, setWorkStyle] = useState<string | null>(null);
-  const [teamSize, setTeamSize] = useState<string | null>(null);
-
   // Step 1 state
   const [domain, setDomain] = useState("");
   const [projectName, setProjectName] = useState("");
@@ -153,8 +142,8 @@ export default function OnboardingPage() {
           intervalRef.current = Math.min(intervalRef.current * 1.5, 30000);
           pollingRef.current = setTimeout(poll, intervalRef.current);
         }
-      } catch {
-        // On error, keep polling with backoff
+      } catch (_err) {
+        console.warn("Crawl polling failed, retrying with backoff:", _err);
         intervalRef.current = Math.min(intervalRef.current * 1.5, 30000);
         pollingRef.current = setTimeout(poll, intervalRef.current);
       }
@@ -211,8 +200,8 @@ export default function OnboardingPage() {
       }
       const url = new URL(hostname);
       setProjectName(url.hostname);
-    } catch {
-      // If not a valid URL yet, just use the raw value
+    } catch (err) {
+      console.warn("URL parsing failed during domain input:", err);
       if (value.trim()) {
         setProjectName(value.trim());
       }
@@ -233,6 +222,12 @@ export default function OnboardingPage() {
 
     setSubmitting(true);
     try {
+      // Update profile with name and mark onboarding complete
+      await api.account.updateProfile({
+        name: name.trim(),
+        onboardingComplete: true,
+      });
+
       // Normalize domain
       let normalizedDomain = domain.trim();
       if (
@@ -242,37 +237,11 @@ export default function OnboardingPage() {
         normalizedDomain = `https://${normalizedDomain}`;
       }
 
-      // Build persona payload from Step 0 answers
-      const personaPayload = workStyle
-        ? {
-            teamSize: teamSize ?? "solo",
-            primaryGoal: workStyle,
-            domain: normalizedDomain,
-          }
-        : null;
-
-      // Run profile update, persona classification, and project creation in parallel
-      const [, personaResult, project] = await Promise.all([
-        api.account.updateProfile({
-          name: name.trim(),
-          onboardingComplete: true,
-        }),
-        personaPayload
-          ? api.account.classifyPersona(personaPayload).catch(() => null)
-          : Promise.resolve(null),
-        api.projects.create({
-          name: projectName.trim(),
-          domain: normalizedDomain,
-        }),
-      ]);
-
-      if (personaResult) {
-        track("persona_classified", {
-          persona: personaResult.persona,
-          source: "onboarding",
-          confidence: personaResult.confidence,
-        });
-      }
+      // Create project
+      const project = await api.projects.create({
+        name: projectName.trim(),
+        domain: normalizedDomain,
+      });
 
       setProjectId(project.id);
       setStep(2);
@@ -346,84 +315,6 @@ export default function OnboardingPage() {
                   <p className="text-sm text-destructive">{nameError}</p>
                 )}
               </div>
-
-              {/* Persona Q1 */}
-              <div className="space-y-2">
-                <Label>How do you work?</Label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {(
-                    [
-                      {
-                        value: "client_reporting",
-                        label: "Manage client sites",
-                        Icon: Users,
-                      },
-                      {
-                        value: "own_site_optimization",
-                        label: "Optimize my site",
-                        Icon: Globe,
-                      },
-                      {
-                        value: "technical_audit",
-                        label: "Technical audits",
-                        Icon: Code,
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        setWorkStyle(option.value);
-                        if (option.value !== "client_reporting")
-                          setTeamSize(null);
-                      }}
-                      className={cn(
-                        "flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-colors hover:border-primary/60",
-                        workStyle === option.value
-                          ? "border-primary bg-primary/5"
-                          : "border-border",
-                      )}
-                    >
-                      <option.Icon className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        {option.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Persona Q2 — only if managing client sites */}
-              {workStyle === "client_reporting" && (
-                <div className="space-y-2">
-                  <Label>Team size?</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        { value: "solo", label: "Just me" },
-                        { value: "small_team", label: "2-10" },
-                        { value: "large_team", label: "10+" },
-                      ] as const
-                    ).map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setTeamSize(option.value)}
-                        className={cn(
-                          "rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-primary/60",
-                          teamSize === option.value
-                            ? "border-primary bg-primary/5"
-                            : "border-border",
-                        )}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <Button className="w-full" onClick={handleContinue}>
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />

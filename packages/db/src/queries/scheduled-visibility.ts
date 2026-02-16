@@ -18,12 +18,14 @@ export function scheduledVisibilityQueryQueries(db: Database) {
       return row;
     },
 
-    async listByProject(projectId: string) {
+    async listByProject(projectId: string, limit = 50, offset = 0) {
       return db
         .select()
         .from(scheduledVisibilityQueries)
         .where(eq(scheduledVisibilityQueries.projectId, projectId))
-        .orderBy(scheduledVisibilityQueries.createdAt);
+        .orderBy(scheduledVisibilityQueries.createdAt)
+        .limit(limit)
+        .offset(offset);
     },
 
     async getById(id: string) {

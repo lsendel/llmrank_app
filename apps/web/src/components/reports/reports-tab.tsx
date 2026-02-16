@@ -97,8 +97,13 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
     try {
       await api.reports.delete(reportId);
       setReports((prev) => prev.filter((r) => r.id !== reportId));
-    } catch {
-      // Handle error
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to delete report",
+        description:
+          err instanceof Error ? err.message : "Could not delete the report",
+        variant: "destructive",
+      });
     }
   }
 
@@ -217,8 +222,13 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
       setSchedules((prev) =>
         prev.map((s) => (s.id === updated.id ? updated : s)),
       );
-    } catch {
-      // Handle error
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to update schedule",
+        description:
+          err instanceof Error ? err.message : "Could not toggle the schedule",
+        variant: "destructive",
+      });
     }
   }
 
@@ -226,8 +236,13 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
     try {
       await api.reports.schedules.delete(id);
       setSchedules((prev) => prev.filter((s) => s.id !== id));
-    } catch {
-      // Handle error
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to delete schedule",
+        description:
+          err instanceof Error ? err.message : "Could not delete the schedule",
+        variant: "destructive",
+      });
     }
   }
 

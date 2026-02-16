@@ -35,9 +35,14 @@ adminRoutes.get("/metrics", async (c) => {
 
     // Include crawler health from KV
     const crawlerHealthRaw = await c.env.KV.get("crawler:health:latest");
-    const crawlerHealth = crawlerHealthRaw
-      ? JSON.parse(crawlerHealthRaw)
-      : null;
+    let crawlerHealth: unknown = null;
+    if (crawlerHealthRaw) {
+      try {
+        crawlerHealth = JSON.parse(crawlerHealthRaw);
+      } catch {
+        console.error("[admin] Failed to parse crawler health data from KV");
+      }
+    }
 
     return c.json({ data: { ...metrics, crawlerHealth } });
   } catch (error) {

@@ -84,7 +84,8 @@ export function visibilityQueries(db: Database) {
           sql`date_trunc('week', ${visibilityChecks.checkedAt})`,
           visibilityChecks.llmProvider,
         )
-        .orderBy(sql`date_trunc('week', ${visibilityChecks.checkedAt})`);
+        .orderBy(sql`date_trunc('week', ${visibilityChecks.checkedAt})`)
+        .limit(52);
 
       return rows.map((r) => ({
         weekStart: r.weekStart,

@@ -23,7 +23,6 @@ export function StrategyTab({ projectId }: { projectId: string }) {
   const { withAuth } = useApi();
   const { toast } = useToast();
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [personas, setPersonas] = useState<StrategyPersona[]>([]);
   const [addingComp, setAddingComp] = useState(false);
   const [newCompDomain, setNewCompDomain] = useState("");
@@ -69,10 +68,7 @@ export function StrategyTab({ projectId }: { projectId: string }) {
       setNewCompDomain("");
       mutateComps();
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to add competitor";
-      setError(msg);
-      toast({ title: "Error", description: msg, variant: "destructive" });
+      console.error(err);
     } finally {
       setAddingComp(false);
     }
@@ -83,23 +79,12 @@ export function StrategyTab({ projectId }: { projectId: string }) {
       await withAuth(() => api.strategy.removeCompetitor(id));
       mutateComps();
     } catch (err) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "Failed to remove competitor",
-        variant: "destructive",
-      });
+      console.error(err);
     }
   }
 
   return (
     <div className="space-y-8">
-      {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
       {/* AI Crawler Timeline */}
       <CrawlerTimelineChart projectId={projectId} />
 

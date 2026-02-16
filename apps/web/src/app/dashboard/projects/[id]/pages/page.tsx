@@ -35,6 +35,7 @@ export default function PagesPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [expandedPageDetail, setExpandedPageDetail] =
     useState<PageDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [scoreMin, setScoreMin] = useState<string>("");
   const [scoreMax, setScoreMax] = useState<string>("");
 
@@ -47,7 +48,9 @@ export default function PagesPage() {
         setPages(result.data);
       }
     })
-      .catch(console.error)
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load pages");
+      })
       .finally(() => setLoading(false));
   }, [withAuth, params.id]);
 
@@ -81,6 +84,26 @@ export default function PagesPage() {
     return (
       <div className="flex items-center justify-center py-16">
         <p className="text-muted-foreground">Loading pages...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Link
+            href={`/dashboard/projects/${params.id}`}
+            className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Project
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight">Pages</h1>
+        </div>
+        <Card className="p-8 text-center">
+          <p className="text-destructive">{error}</p>
+        </Card>
       </div>
     );
   }
