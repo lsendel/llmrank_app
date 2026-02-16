@@ -77,11 +77,12 @@ export function ReportList({ reports, onDelete }: Props) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Download failed:", err);
       toast({
         title: "Download failed",
-        description: err.message || "Failed to download report",
+        description:
+          err instanceof Error ? err.message : "Failed to download report",
         variant: "destructive",
       });
     } finally {

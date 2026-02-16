@@ -895,6 +895,52 @@ export interface CreateTokenInput {
   scopes: string[];
 }
 
+export interface ScoringProfile {
+  id: string;
+  name: string;
+  weights: {
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance: number;
+  };
+  disabledFactors: string[];
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  ownerId: string;
+  plan: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: string;
+  joinedAt: string;
+}
+
+export interface TeamDetail extends Omit<Team, "role"> {
+  members: TeamMember[];
+  role: string;
+}
+
+export interface Benchmarks {
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  count: number;
+  updatedAt: string;
+}
+
 // ─── Request helpers ────────────────────────────────────────────────
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
@@ -1470,6 +1516,7 @@ export const api = {
       email: string;
       onboardingComplete: boolean;
       persona: string | null;
+      digestFrequency: string | null;
     }> {
       const res = await apiClient.get<
         ApiEnvelope<{
@@ -1478,6 +1525,7 @@ export const api = {
           email: string;
           onboardingComplete: boolean;
           persona: string | null;
+          digestFrequency: string | null;
         }>
       >("/api/account");
       return res.data;
@@ -1488,6 +1536,7 @@ export const api = {
       phone?: string;
       onboardingComplete?: boolean;
       persona?: string;
+      digestFrequency?: string;
     }): Promise<void> {
       await apiClient.put("/api/account", data);
     },
@@ -2021,6 +2070,87 @@ export const api = {
     },
   },
 
+  // ── Action Plan ──────────────────────────────────────────────
+  actionPlan: {
+    async get(projectId: string): Promise<{
+      items: Array<{
+        id: string;
+        issueCode: string;
+        category: string;
+        severity: string;
+        status: string;
+        title: string;
+        description: string;
+        scoreImpact: number;
+        effortLevel: string;
+        affectedPageCount: number;
+        assignedTo: string | null;
+        completedAt: string | null;
+        verifiedAt: string | null;
+      }>;
+      summary: {
+        total: number;
+        pending: number;
+        inProgress: number;
+        completed: number;
+        verified: number;
+        dismissed: number;
+        estimatedScoreGain: number;
+        currentScore: number;
+        currentGrade: string;
+      };
+    }> {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/action-plan/${projectId}`,
+      );
+      return res.data;
+    },
+
+    async generate(projectId: string): Promise<void> {
+      await apiClient.post(`/api/action-plan/${projectId}/generate`);
+    },
+
+    async updateItem(
+      itemId: string,
+      data: { status?: string; assignedTo?: string },
+    ): Promise<void> {
+      await apiClient.patch(`/api/action-plan/items/${itemId}`, data);
+    },
+
+    async previewImpact(
+      projectId: string,
+      itemIds: string[],
+    ): Promise<{
+      currentScore: number;
+      predictedScore: number;
+      delta: number;
+      letterGrade: string;
+    }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          currentScore: number;
+          predictedScore: number;
+          delta: number;
+          letterGrade: string;
+        }>
+      >(`/api/action-plan/${projectId}/preview`, { itemIds });
+      return res.data;
+    },
+
+    async getProgress(projectId: string): Promise<{
+      total: number;
+      pending: number;
+      inProgress: number;
+      completed: number;
+      verified: number;
+    }> {
+      const res = await apiClient.get<ApiEnvelope<any>>(
+        `/api/action-plan/${projectId}/progress`,
+      );
+      return res.data;
+    },
+  },
+
   // ── API Tokens ───────────────────────────────────────────────
   tokens: {
     async list(): Promise<ApiTokenInfo[]> {
@@ -2039,6 +2169,118 @@ export const api = {
 
     async revoke(id: string): Promise<void> {
       await apiClient.delete(`/api/tokens/${id}`);
+    },
+  },
+
+  // ── Scoring Profiles ────────────────────────────────────────
+  scoringProfiles: {
+    async list(): Promise<ScoringProfile[]> {
+      const res = await apiClient.get<ApiEnvelope<ScoringProfile[]>>(
+        "/api/scoring-profiles",
+      );
+      return res.data;
+    },
+    async create(data: {
+      name: string;
+      weights: ScoringProfile["weights"];
+    }): Promise<ScoringProfile> {
+      const res = await apiClient.post<ApiEnvelope<ScoringProfile>>(
+        "/api/scoring-profiles",
+        data,
+      );
+      return res.data;
+    },
+    async update(
+      id: string,
+      data: Partial<{ name: string; weights: ScoringProfile["weights"] }>,
+    ): Promise<ScoringProfile> {
+      const res = await apiClient.put<ApiEnvelope<ScoringProfile>>(
+        `/api/scoring-profiles/${id}`,
+        data,
+      );
+      return res.data;
+    },
+    async delete(id: string): Promise<void> {
+      await apiClient.delete(`/api/scoring-profiles/${id}`);
+    },
+  },
+
+  // ── Teams ───────────────────────────────────────────────────
+  teams: {
+    async list(): Promise<Team[]> {
+      const res = await apiClient.get<ApiEnvelope<Team[]>>("/api/teams");
+      return res.data;
+    },
+    async create(name: string): Promise<Team> {
+      const res = await apiClient.post<ApiEnvelope<Team>>("/api/teams", {
+        name,
+      });
+      return res.data;
+    },
+    async getById(id: string): Promise<TeamDetail> {
+      const res = await apiClient.get<ApiEnvelope<TeamDetail>>(
+        `/api/teams/${id}`,
+      );
+      return res.data;
+    },
+    async invite(
+      teamId: string,
+      data: { email: string; role?: string },
+    ): Promise<any> {
+      const res = await apiClient.post<ApiEnvelope<any>>(
+        `/api/teams/${teamId}/invite`,
+        data,
+      );
+      return res.data;
+    },
+    async acceptInvite(token: string): Promise<any> {
+      const res = await apiClient.post<ApiEnvelope<any>>(
+        "/api/teams/accept-invite",
+        { token },
+      );
+      return res.data;
+    },
+    async updateRole(
+      teamId: string,
+      memberId: string,
+      role: string,
+    ): Promise<any> {
+      const res = await apiClient.patch<ApiEnvelope<any>>(
+        `/api/teams/${teamId}/members/${memberId}`,
+        { role },
+      );
+      return res.data;
+    },
+    async removeMember(teamId: string, memberId: string): Promise<void> {
+      await apiClient.delete(`/api/teams/${teamId}/members/${memberId}`);
+    },
+  },
+
+  // ── Generators ──────────────────────────────────────────────
+  generators: {
+    async sitemap(projectId: string): Promise<string> {
+      const res = await apiClient.post<string>(
+        `/api/projects/${projectId}/generate/sitemap`,
+        {},
+      );
+      return res as unknown as string;
+    },
+    async llmsTxt(projectId: string): Promise<string> {
+      const res = await apiClient.post<string>(
+        `/api/projects/${projectId}/generate/llms-txt`,
+        {},
+      );
+      return res as unknown as string;
+    },
+  },
+
+  // ── Public Benchmarks ───────────────────────────────────────
+  benchmarks: {
+    async get(): Promise<Benchmarks | null> {
+      const res = await apiClient.get<ApiEnvelope<Benchmarks | null>>(
+        "/api/public/benchmarks",
+      );
+      return res.data;
     },
   },
 };

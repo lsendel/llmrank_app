@@ -4,6 +4,7 @@ import { buildContentScoringPrompt } from "./prompts";
 import { getCachedScore, setCachedScore } from "./cache";
 import type { KVNamespace } from "./cache";
 import { withRetry } from "./retry";
+import { LLM_MODELS } from "./llm-config";
 
 export interface LLMScorerOptions {
   anthropicApiKey: string;
@@ -21,7 +22,7 @@ export class LLMScorer {
   constructor(options: LLMScorerOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
     this.kv = options.kvNamespace;
-    this.model = options.model ?? "claude-haiku-4-5-20251001";
+    this.model = options.model ?? LLM_MODELS.scoring;
   }
 
   /**

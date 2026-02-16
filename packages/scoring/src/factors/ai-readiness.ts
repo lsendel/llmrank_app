@@ -17,12 +17,12 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
 
   // MISSING_LLMS_TXT: -20 if siteContext.hasLlmsTxt is false
   if (page.siteContext && !page.siteContext.hasLlmsTxt) {
-    deduct(s, "MISSING_LLMS_TXT", -20);
+    deduct(s, "MISSING_LLMS_TXT");
   }
 
   // AI_CRAWLER_BLOCKED: -25 if siteContext.aiCrawlersBlocked has entries
   if (page.siteContext && page.siteContext.aiCrawlersBlocked.length > 0) {
-    deduct(s, "AI_CRAWLER_BLOCKED", -25, {
+    deduct(s, "AI_CRAWLER_BLOCKED", {
       blockedCrawlers: page.siteContext.aiCrawlersBlocked,
     });
   }
@@ -30,7 +30,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
   // NO_STRUCTURED_DATA: -15 if no structured_data
   const structuredData = page.extracted.structured_data ?? [];
   if (structuredData.length === 0) {
-    deduct(s, "NO_STRUCTURED_DATA", -15);
+    deduct(s, "NO_STRUCTURED_DATA");
   }
 
   // INCOMPLETE_SCHEMA: -8 if schema exists but missing required props
@@ -44,7 +44,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
           (prop) => !(prop in schemaObj),
         );
         if (missingProps.length > 0) {
-          deduct(s, "INCOMPLETE_SCHEMA", -8, {
+          deduct(s, "INCOMPLETE_SCHEMA", {
             schemaType,
             missingProps,
           });
@@ -84,7 +84,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     hasQuestionHeadings &&
     !hasFaqSchema
   ) {
-    deduct(s, "NO_DIRECT_ANSWERS", -10);
+    deduct(s, "NO_DIRECT_ANSWERS");
   }
 
   // MISSING_ENTITY_MARKUP: -5 if key entities not in schema
@@ -93,7 +93,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     entityTypes.includes(t),
   );
   if (structuredData.length > 0 && !hasEntityMarkup) {
-    deduct(s, "MISSING_ENTITY_MARKUP", -5);
+    deduct(s, "MISSING_ENTITY_MARKUP");
   }
 
   // NO_SUMMARY_SECTION: -5 if page lacks a summary/key takeaway section
@@ -104,7 +104,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     page.wordCount >= THRESHOLDS.summarySectionMinWords &&
     !hasSummarySection
   ) {
-    deduct(s, "NO_SUMMARY_SECTION", -5);
+    deduct(s, "NO_SUMMARY_SECTION");
   }
 
   // POOR_QUESTION_COVERAGE: -10 if content doesn't address likely queries
@@ -112,7 +112,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     page.llmScores &&
     page.llmScores.structure < THRESHOLDS.structureScorePoor
   ) {
-    deduct(s, "POOR_QUESTION_COVERAGE", -10, {
+    deduct(s, "POOR_QUESTION_COVERAGE", {
       structureScore: page.llmScores.structure,
     });
   }
@@ -124,7 +124,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
       return !obj["@type"];
     });
     if (hasInvalidSchema) {
-      deduct(s, "INVALID_SCHEMA", -8);
+      deduct(s, "INVALID_SCHEMA");
     }
   }
 
@@ -137,7 +137,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     !hasAuthCitation &&
     page.wordCount > THRESHOLDS.authoritativeCitationMinWords
   ) {
-    deduct(s, "MISSING_AUTHORITATIVE_CITATIONS", -5);
+    deduct(s, "MISSING_AUTHORITATIVE_CITATIONS");
   }
 
   // PDF_ONLY_CONTENT: -5 if page is thin but links to PDFs
@@ -146,7 +146,7 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     pdfLinks.length > 0 &&
     page.wordCount < THRESHOLDS.pdfOnlyContentMaxWords
   ) {
-    deduct(s, "PDF_ONLY_CONTENT", -5, {
+    deduct(s, "PDF_ONLY_CONTENT", {
       pdfCount: pdfLinks.length,
       wordCount: page.wordCount,
     });

@@ -31,6 +31,7 @@ import { IssuesTab } from "@/components/tabs/issues-tab";
 import { HistoryTab } from "@/components/tabs/history-tab";
 import { StrategyTab } from "@/components/tabs/strategy-tab";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
+import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 
 function TabLoadingSkeleton() {
   return (
@@ -282,8 +283,9 @@ export default function ProjectPage() {
         <TabsContent value="settings" className="space-y-6 pt-4">
           <BrandingSettingsForm
             projectId={project.id}
-            initialBranding={project.branding as any}
+            initialBranding={project.branding}
           />
+          <ScoringProfileSection projectId={project.id} />
         </TabsContent>
       </Tabs>
     </div>

@@ -22,11 +22,18 @@ describe("deduct", () => {
     expect(state.score).toBe(0);
   });
 
-  it("does nothing for unknown issue codes", () => {
+  it("uses scoreImpact from definition when amount is omitted", () => {
     const state = freshState(100);
-    deduct(state, "TOTALLY_UNKNOWN_CODE", -50);
-    expect(state.score).toBe(100);
-    expect(state.issues).toHaveLength(0);
+    deduct(state, "MISSING_TITLE");
+    expect(state.score).toBe(85); // scoreImpact is -15
+    expect(state.issues).toHaveLength(1);
+  });
+
+  it("accepts data as second positional arg when amount is omitted", () => {
+    const state = freshState(100);
+    deduct(state, "MISSING_TITLE", { titleLength: 0 });
+    expect(state.score).toBe(85);
+    expect(state.issues[0].data).toEqual({ titleLength: 0 });
   });
 
   it("attaches optional data to the issue", () => {

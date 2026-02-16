@@ -7,7 +7,7 @@ export function scoreContentFactors(page: PageData): FactorResult {
 
   // THIN_CONTENT: -15 if <200 words, -8 if 200-499
   if (page.wordCount < THRESHOLDS.thinContentWords) {
-    deduct(s, "THIN_CONTENT", -15, { wordCount: page.wordCount });
+    deduct(s, "THIN_CONTENT", { wordCount: page.wordCount });
   } else if (page.wordCount < THRESHOLDS.moderateContentWords) {
     deduct(s, "THIN_CONTENT", -8, { wordCount: page.wordCount });
   }
@@ -47,18 +47,18 @@ export function scoreContentFactors(page: PageData): FactorResult {
   if (page.siteContext?.contentHashes) {
     const otherUrl = page.siteContext.contentHashes.get(page.contentHash);
     if (otherUrl && otherUrl !== page.url) {
-      deduct(s, "DUPLICATE_CONTENT", -15, { duplicateOf: otherUrl });
+      deduct(s, "DUPLICATE_CONTENT", { duplicateOf: otherUrl });
     }
   }
 
   // STALE_CONTENT
   if ((page.siteContext as Record<string, unknown> | undefined)?.staleContent) {
-    deduct(s, "STALE_CONTENT", -5);
+    deduct(s, "STALE_CONTENT");
   }
 
   // NO_INTERNAL_LINKS
   if (page.extracted.internal_links.length < THRESHOLDS.minInternalLinks) {
-    deduct(s, "NO_INTERNAL_LINKS", -8, {
+    deduct(s, "NO_INTERNAL_LINKS", {
       internalLinkCount: page.extracted.internal_links.length,
     });
   }
@@ -70,7 +70,7 @@ export function scoreContentFactors(page: PageData): FactorResult {
     internalCount > 0 &&
     externalCount > internalCount * THRESHOLDS.excessiveLinkRatio
   ) {
-    deduct(s, "EXCESSIVE_LINKS", -3, { internalCount, externalCount });
+    deduct(s, "EXCESSIVE_LINKS", { internalCount, externalCount });
   }
 
   // MISSING_FAQ_STRUCTURE
@@ -91,14 +91,14 @@ export function scoreContentFactors(page: PageData): FactorResult {
     (t) => t.toLowerCase() === "faqpage" || t.toLowerCase() === "qapage",
   );
   if (hasQuestionHeadings && !hasFaqSchema) {
-    deduct(s, "MISSING_FAQ_STRUCTURE", -5);
+    deduct(s, "MISSING_FAQ_STRUCTURE");
   }
 
   // POOR_READABILITY
   const flesch = page.extracted.flesch_score;
   if (flesch != null) {
     if (flesch < THRESHOLDS.fleschPoor) {
-      deduct(s, "POOR_READABILITY", -10, {
+      deduct(s, "POOR_READABILITY", {
         fleschScore: flesch,
         classification: page.extracted.flesch_classification,
       });
@@ -113,7 +113,7 @@ export function scoreContentFactors(page: PageData): FactorResult {
   // LOW_TEXT_HTML_RATIO
   const textRatio = page.extracted.text_html_ratio;
   if (textRatio != null && textRatio < THRESHOLDS.textHtmlRatioMin) {
-    deduct(s, "LOW_TEXT_HTML_RATIO", -8, {
+    deduct(s, "LOW_TEXT_HTML_RATIO", {
       textHtmlRatio: Math.round(textRatio * 100) / 100,
     });
   }
@@ -133,7 +133,7 @@ export function scoreContentFactors(page: PageData): FactorResult {
     page.extracted.top_transition_words ?? []
   ).filter((w) => assistantWords.includes(w.toLowerCase()));
   if (detectedAssistantWords.length >= THRESHOLDS.aiAssistantSpeakMinCount) {
-    deduct(s, "AI_ASSISTANT_SPEAK", -10, {
+    deduct(s, "AI_ASSISTANT_SPEAK", {
       detectedWords: detectedAssistantWords,
     });
   }
@@ -145,7 +145,7 @@ export function scoreContentFactors(page: PageData): FactorResult {
     page.extracted.sentence_length_variance <
       THRESHOLDS.sentenceLengthVarianceMin
   ) {
-    deduct(s, "UNIFORM_SENTENCE_LENGTH", -5, {
+    deduct(s, "UNIFORM_SENTENCE_LENGTH", {
       variance: Math.round(page.extracted.sentence_length_variance * 100) / 100,
     });
   }
@@ -161,7 +161,7 @@ export function scoreContentFactors(page: PageData): FactorResult {
   );
 
   if (!hasEEAT && page.wordCount >= THRESHOLDS.eeatMinWords) {
-    deduct(s, "LOW_EEAT_SCORE", -15);
+    deduct(s, "LOW_EEAT_SCORE");
   }
 
   return { score: Math.max(0, s.score), issues: s.issues };

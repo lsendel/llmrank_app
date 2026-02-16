@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { withRetry } from "./retry";
+import { LLM_MODELS } from "./llm-config";
 
 export interface ExtractedFact {
   type: "metric" | "definition" | "claim" | "quote";
@@ -12,7 +13,7 @@ export class FactExtractor {
   private client: Anthropic;
   private model: string;
 
-  constructor(apiKey: string, model = "claude-3-haiku-20240307") {
+  constructor(apiKey: string, model = LLM_MODELS.factExtraction) {
     this.client = new Anthropic({ apiKey });
     this.model = model;
   }

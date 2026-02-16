@@ -10,8 +10,8 @@ export function useApi() {
     async <T>(fn: () => Promise<T>): Promise<T> => {
       try {
         return await fn();
-      } catch (error: any) {
-        if (error?.status === 401) {
+      } catch (error: unknown) {
+        if ((error as { status?: number })?.status === 401) {
           router.push("/sign-in");
         }
         throw error;

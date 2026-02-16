@@ -20,7 +20,6 @@ interface Deps {
 interface DispatchEnv {
   reportServiceUrl: string;
   sharedSecret: string;
-  databaseUrl: string;
 }
 
 const MAX_RETRIES = 3;
@@ -102,7 +101,6 @@ export function createReportService(deps: Deps) {
         type: input.type,
         format: input.format,
         config: mergedConfig as ReportConfig,
-        databaseUrl: env.databaseUrl,
         isPublic: !!(input.config as Record<string, unknown> | undefined)
           ?.isPublic,
       };

@@ -4,6 +4,7 @@ import {
   getQuickWins,
   PLATFORM_REQUIREMENTS,
   aggregatePageScores,
+  CrawlStatus,
   type CrawlJobPayload,
   type LLMPlatformId,
 } from "@llm-boost/shared";
@@ -20,8 +21,6 @@ import { signPayload } from "../middleware/hmac";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { toAggregateInput } from "./score-helpers";
 
-const ACTIVE_STATUSES = new Set(["pending", "queued", "crawling", "scoring"]);
-
 export interface CrawlServiceDeps {
   crawls: CrawlRepository;
   projects: ProjectRepository;
@@ -33,7 +32,15 @@ export interface CrawlerDispatchEnv {
   crawlerUrl?: string;
   sharedSecret: string;
   queue?: any;
-  kv?: { get(key: string): Promise<string | null> };
+  kv?: {
+    get(key: string): Promise<string | null>;
+    put(
+      key: string,
+      value: string,
+      options?: { expirationTtl?: number },
+    ): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
 }
 
 export function createCrawlService(deps: CrawlServiceDeps) {
@@ -55,25 +62,54 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         throw new ServiceError("NOT_FOUND", err.status, "User not found");
       }
 
-      const existingLatest = await deps.crawls.getLatestByProject(
-        args.projectId,
-      );
-      if (existingLatest && ACTIVE_STATUSES.has(existingLatest.status)) {
-        const err = ERROR_CODES.CRAWL_IN_PROGRESS;
-        throw new ServiceError("CRAWL_IN_PROGRESS", err.status, err.message);
-      }
-
-      const decremented = await deps.users.decrementCrawlCredits(args.userId);
-      if (!decremented) {
-        const err = ERROR_CODES.CRAWL_LIMIT_REACHED;
-        throw new ServiceError("CRAWL_LIMIT_REACHED", err.status, err.message);
+      // Advisory lock to prevent TOCTOU race on concurrent crawl requests
+      const lockKey = `crawl-lock:${args.projectId}`;
+      if (args.env.kv) {
+        const existing = await args.env.kv.get(lockKey);
+        if (existing) {
+          const err = ERROR_CODES.CRAWL_IN_PROGRESS;
+          throw new ServiceError("CRAWL_IN_PROGRESS", err.status, err.message);
+        }
+        await args.env.kv.put(lockKey, Date.now().toString(), {
+          expirationTtl: 300,
+        });
       }
 
       const crawlConfig = buildCrawlConfig(project, user.plan);
-      const crawlJob = await deps.crawls.create({
-        projectId: project.id,
-        config: crawlConfig,
-      });
+      let crawlJob: Awaited<ReturnType<CrawlRepository["create"]>>;
+      try {
+        const existingLatest = await deps.crawls.getLatestByProject(
+          args.projectId,
+        );
+        if (
+          existingLatest &&
+          CrawlStatus.from(existingLatest.status).isActive
+        ) {
+          const err = ERROR_CODES.CRAWL_IN_PROGRESS;
+          throw new ServiceError("CRAWL_IN_PROGRESS", err.status, err.message);
+        }
+
+        const decremented = await deps.users.decrementCrawlCredits(args.userId);
+        if (!decremented) {
+          const err = ERROR_CODES.CRAWL_LIMIT_REACHED;
+          throw new ServiceError(
+            "CRAWL_LIMIT_REACHED",
+            err.status,
+            err.message,
+          );
+        }
+
+        crawlJob = await deps.crawls.create({
+          projectId: project.id,
+          config: crawlConfig,
+        });
+      } catch (error) {
+        // Release lock on failure
+        if (args.env.kv) {
+          await args.env.kv.delete(lockKey).catch(() => {});
+        }
+        throw error;
+      }
 
       if (!args.env.crawlerUrl) {
         await deps.crawls.updateStatus(crawlJob.id, {
@@ -475,7 +511,7 @@ async function enrichCrawlScores(
   scores: ScoreRepository,
 ) {
   if (!crawlJob) return null;
-  if (crawlJob.status !== "complete") {
+  if (CrawlStatus.from(crawlJob.status).value !== "complete") {
     return {
       ...crawlJob,
       overallScore: null,

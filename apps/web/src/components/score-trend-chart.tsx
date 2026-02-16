@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
 import type { CrawlJob } from "@/lib/api";
 
-export function ScoreTrendChart({
+export function CrawlHistoryChart({
   crawlHistory,
 }: {
   crawlHistory: CrawlJob[];

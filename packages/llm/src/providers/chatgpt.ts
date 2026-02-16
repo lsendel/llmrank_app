@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { analyzeResponse, type VisibilityCheckResult } from "../visibility";
 import { withRetry, withTimeout } from "../retry";
+import { LLM_MODELS } from "../llm-config";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -15,7 +16,7 @@ export async function checkChatGPT(
   const response = await withRetry(() =>
     withTimeout(
       client.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: LLM_MODELS.visibility.chatgpt,
         messages: [{ role: "user", content: query }],
         max_tokens: 1024,
       }),

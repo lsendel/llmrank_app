@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { withRetry } from "./retry";
+import { LLM_MODELS } from "./llm-config";
 
 export interface UserPersona {
   name: string;
@@ -22,7 +23,7 @@ export class PersonaGenerator {
 
   constructor(options: PersonaGeneratorOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
-    this.model = options.model ?? "claude-3-5-sonnet-20240620";
+    this.model = options.model ?? LLM_MODELS.personas;
   }
 
   /**

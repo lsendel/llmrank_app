@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { cn, gradeColor } from "@/lib/utils";
 import type { CrawlJob } from "@/lib/api";
-import { ScoreTrendChart } from "@/components/score-trend-chart";
+import { CrawlHistoryChart } from "@/components/score-trend-chart";
 
 export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
   if (crawlHistory.length === 0) {
@@ -29,7 +29,7 @@ export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
 
   return (
     <div className="space-y-6">
-      <ScoreTrendChart crawlHistory={crawlHistory} />
+      <CrawlHistoryChart crawlHistory={crawlHistory} />
       <Card>
         <Table>
           <TableHeader>

@@ -248,12 +248,19 @@ describe("CrawlService", () => {
 
     it("fast-fails with friendly message when crawler is known-down", async () => {
       const kv = {
-        get: vi.fn().mockResolvedValue(
-          JSON.stringify({
-            status: "down",
-            checkedAt: new Date().toISOString(),
-          }),
-        ),
+        get: vi.fn().mockImplementation((key: string) => {
+          if (key === "crawler:health:latest") {
+            return Promise.resolve(
+              JSON.stringify({
+                status: "down",
+                checkedAt: new Date().toISOString(),
+              }),
+            );
+          }
+          return Promise.resolve(null); // no lock
+        }),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
       };
       const service = createCrawlService({ crawls, projects, users, scores });
 

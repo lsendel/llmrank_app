@@ -55,7 +55,6 @@ dashboardRoutes.get("/stats", async (c) => {
             type: "detailed",
             format: "pdf",
             config: {} as ReportConfig,
-            databaseUrl: "",
           };
           const raw = await fetchReportData(db, job);
           const aggregated = aggregateReportData(raw, {

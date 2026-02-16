@@ -120,7 +120,7 @@ export default function VisibilityTab({
         });
       })
       .finally(() => setHistoryLoaded(true));
-  }, [withAuth, projectId]);
+  }, [withAuth, projectId, toast]);
 
   // Load schedules on mount
   useEffect(() => {
@@ -139,7 +139,7 @@ export default function VisibilityTab({
         });
       })
       .finally(() => setSchedulesLoaded(true));
-  }, [withAuth, projectId]);
+  }, [withAuth, projectId, toast]);
 
   async function handleRunCheck() {
     if (!query.trim() || selectedProviders.length === 0) return;

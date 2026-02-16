@@ -205,6 +205,5 @@ export interface GenerateReportJob {
   type: ReportType;
   format: ReportFormat;
   config: ReportConfig;
-  databaseUrl: string;
   isPublic?: boolean;
 }

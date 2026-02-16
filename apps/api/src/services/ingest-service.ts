@@ -1,5 +1,6 @@
 import {
   CrawlResultBatchSchema,
+  CrawlStatus,
   type CrawlPageResult,
 } from "@llm-boost/shared";
 import { detectContentType } from "@llm-boost/scoring";
@@ -78,7 +79,8 @@ export function createIngestService(deps: IngestServiceDeps) {
         throw new ServiceError("NOT_FOUND", 404, "Crawl job not found");
       }
 
-      if (crawlJob.status === "pending" || crawlJob.status === "queued") {
+      const crawlStatus = CrawlStatus.from(crawlJob.status);
+      if (crawlStatus.canTransitionTo("crawling")) {
         await deps.crawls.updateStatus(crawlJob.id, {
           status: "crawling",
           startedAt: crawlJob.startedAt ?? new Date(),

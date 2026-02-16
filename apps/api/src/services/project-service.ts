@@ -1,8 +1,8 @@
 import {
   ERROR_CODES,
   aggregatePageScores,
-  canCreateProject,
-  getLimits,
+  Plan,
+  CrawlStatus,
 } from "@llm-boost/shared";
 import type {
   ProjectRepository,
@@ -48,13 +48,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
       }
 
       const existingProjects = await deps.projects.listByUser(userId);
-      if (!canCreateProject(user.plan, existingProjects.length)) {
+      const plan = Plan.from(user.plan);
+      if (!plan.canCreateProject(existingProjects.length)) {
         const err = ERROR_CODES.PLAN_LIMIT_REACHED;
-        const limits = getLimits(user.plan);
         throw new ServiceError(
           "PLAN_LIMIT_REACHED",
           err.status,
-          `Your ${user.plan} plan allows a maximum of ${limits.projects} project(s). Upgrade to add more.`,
+          `Your ${user.plan} plan allows a maximum of ${plan.maxProjects} project(s). Upgrade to add more.`,
         );
       }
 
@@ -106,7 +106,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
     crawlJob: Awaited<ReturnType<CrawlRepository["getById"]>> | null,
   ) {
     if (!crawlJob) return null;
-    if (crawlJob.status !== "complete") {
+    const status = CrawlStatus.from(crawlJob.status);
+    if (status.value !== "complete") {
       return {
         ...crawlJob,
         overallScore: null as number | null,

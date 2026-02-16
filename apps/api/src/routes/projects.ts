@@ -180,7 +180,7 @@ projectRoutes.get("/:id/progress", withOwnership("project"), async (c) => {
         message: "Need at least 2 completed crawls",
       });
     }
-    c.header("Cache-Control", "public, max-age=300");
+    c.header("Cache-Control", "private, max-age=300");
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);

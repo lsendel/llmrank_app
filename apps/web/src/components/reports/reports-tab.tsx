@@ -59,10 +59,11 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
         a.click();
         URL.revokeObjectURL(url);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Export failed",
-        description: err.message || "Could not export data",
+        description:
+          err instanceof Error ? err.message : "Could not export data",
         variant: "destructive",
       });
     }
@@ -206,10 +207,11 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
       setSchedules((prev) => [...prev, schedule]);
       setEmail("");
       toast({ title: "Schedule created" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Failed to create schedule",
-        description: err.message,
+        description:
+          err instanceof Error ? err.message : "Failed to create schedule",
         variant: "destructive",
       });
     } finally {

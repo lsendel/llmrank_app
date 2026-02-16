@@ -51,7 +51,6 @@ reportRoutes.post("/generate", async (c) => {
     const report = await service.generate(userId, parsed.data, {
       reportServiceUrl: c.env.REPORT_SERVICE_URL,
       sharedSecret: c.env.SHARED_SECRET,
-      databaseUrl: c.env.DATABASE_URL,
     });
     return c.json({ data: report }, 201);
   } catch (error) {

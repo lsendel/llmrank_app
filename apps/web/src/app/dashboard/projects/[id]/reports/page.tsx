@@ -24,8 +24,8 @@ export default function ReportsPage() {
       ]);
       setReports(reportList);
       setProject(proj);
-    } catch {
-      // Silently fail - empty state shown
+    } catch (err) {
+      console.error("Failed to fetch reports:", err);
     } finally {
       setLoading(false);
     }
@@ -50,8 +50,8 @@ export default function ReportsPage() {
     try {
       await api.reports.delete(reportId);
       setReports((prev) => prev.filter((r) => r.id !== reportId));
-    } catch {
-      // Handle error
+    } catch (err) {
+      console.error("Failed to delete report:", err);
     }
   }
 

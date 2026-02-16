@@ -37,10 +37,11 @@ export function AiFixButton({
       const result = await api.fixes.generate({ projectId, pageId, issueCode });
       setFix(result.generatedFix);
       setOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Fix generation failed",
-        description: err.message || "Could not generate fix",
+        description:
+          err instanceof Error ? err.message : "Could not generate fix",
         variant: "destructive",
       });
     } finally {
