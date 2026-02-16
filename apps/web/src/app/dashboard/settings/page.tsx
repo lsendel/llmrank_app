@@ -44,6 +44,7 @@ import {
   Globe,
   Hash,
   Loader2,
+  Users,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApi } from "@/lib/use-api";
@@ -227,6 +228,30 @@ export default function SettingsPage() {
   const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
   const [revokingToken, setRevokingToken] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
+
+  // Persona state
+  const [persona, setPersona] = useState<string | null>(null);
+  const [savingPersona, setSavingPersona] = useState(false);
+
+  useEffect(() => {
+    api.account
+      .getMe()
+      .then((me) => setPersona(me.persona))
+      .catch(() => {});
+  }, []);
+
+  async function handlePersonaChange(value: string) {
+    setSavingPersona(true);
+    const previous = persona;
+    setPersona(value);
+    try {
+      await api.account.updateProfile({ persona: value });
+    } catch {
+      setPersona(previous);
+    } finally {
+      setSavingPersona(false);
+    }
+  }
 
   // Sync webhook input from loaded notifications
   useEffect(() => {
@@ -556,6 +581,45 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-8 pt-4">
+          {/* Your Role */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Your Role</CardTitle>
+              </div>
+              <CardDescription>
+                This determines how your dashboard is organized. Change anytime.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select
+                  value={persona ?? ""}
+                  disabled={savingPersona}
+                  onValueChange={handlePersonaChange}
+                >
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Not set" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="agency">Agency</SelectItem>
+                    <SelectItem value="freelancer">Freelancer</SelectItem>
+                    <SelectItem value="in_house">In-House</SelectItem>
+                    <SelectItem value="developer">Developer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {savingPersona && (
+                <p className="mt-2 text-sm text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Notification Preferences */}
           <Card>
             <CardHeader>

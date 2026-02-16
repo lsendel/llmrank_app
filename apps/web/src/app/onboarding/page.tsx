@@ -13,7 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, scoreColor } from "@/lib/utils";
-import { Loader2, ArrowRight, Globe, RotateCcw } from "lucide-react";
+import {
+  Loader2,
+  ArrowRight,
+  Globe,
+  RotateCcw,
+  Users,
+  Code,
+} from "lucide-react";
 import { track } from "@/lib/telemetry";
 
 const TIPS = [
@@ -54,8 +61,8 @@ export default function OnboardingPage() {
   // Step 0 state
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [workStyle, _setWorkStyle] = useState<string | null>(null);
-  const [teamSize, _setTeamSize] = useState<string | null>(null);
+  const [workStyle, setWorkStyle] = useState<string | null>(null);
+  const [teamSize, setTeamSize] = useState<string | null>(null);
 
   // Step 1 state
   const [domain, setDomain] = useState("");
@@ -339,6 +346,84 @@ export default function OnboardingPage() {
                   <p className="text-sm text-destructive">{nameError}</p>
                 )}
               </div>
+
+              {/* Persona Q1 */}
+              <div className="space-y-2">
+                <Label>How do you work?</Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {(
+                    [
+                      {
+                        value: "client_reporting",
+                        label: "Manage client sites",
+                        Icon: Users,
+                      },
+                      {
+                        value: "own_site_optimization",
+                        label: "Optimize my site",
+                        Icon: Globe,
+                      },
+                      {
+                        value: "technical_audit",
+                        label: "Technical audits",
+                        Icon: Code,
+                      },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setWorkStyle(option.value);
+                        if (option.value !== "client_reporting")
+                          setTeamSize(null);
+                      }}
+                      className={cn(
+                        "flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-colors hover:border-primary/60",
+                        workStyle === option.value
+                          ? "border-primary bg-primary/5"
+                          : "border-border",
+                      )}
+                    >
+                      <option.Icon className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {option.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Persona Q2 — only if managing client sites */}
+              {workStyle === "client_reporting" && (
+                <div className="space-y-2">
+                  <Label>Team size?</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        { value: "solo", label: "Just me" },
+                        { value: "small_team", label: "2-10" },
+                        { value: "large_team", label: "10+" },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setTeamSize(option.value)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-primary/60",
+                          teamSize === option.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border",
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Button className="w-full" onClick={handleContinue}>
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
