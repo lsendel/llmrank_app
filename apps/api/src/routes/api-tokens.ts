@@ -22,7 +22,7 @@ function buildService(c: {
 }) {
   const db = c.get("db");
   return createApiTokenService({
-    apiTokens: apiTokenQueries(db),
+    apiTokens: apiTokenQueries(db) as any,
     projects: { getById: (id: string) => projectQueries(db).getById(id) },
   });
 }

@@ -61,7 +61,7 @@ export function buildProject(
 }
 
 export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
-  return {
+  const base: UserEntity = {
     id: "user-1",
     email: "test@example.com",
     emailVerified: false,
@@ -70,16 +70,20 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
     clerkId: null,
     phone: null,
     avatarUrl: null,
+    image: null,
     stripeCustomerId: null,
     stripeSubId: null,
     crawlCreditsRemaining: 5,
     notifyOnCrawlComplete: true,
     notifyOnScoreDrop: true,
+    webhookUrl: null,
     isAdmin: false,
+    lastSignedIn: null,
     createdAt: STATIC_DATE,
     updatedAt: STATIC_DATE,
-    ...overrides,
   };
+
+  return { ...base, ...overrides };
 }
 
 export function buildCrawlJob(
@@ -111,9 +115,8 @@ export function buildCrawlJob(
 }
 
 export function buildScore(overrides: Partial<ScoreEntity> = {}): ScoreEntity {
-  return {
+  const base: ScoreEntity = {
     id: "score-1",
-    image: null,
     pageId: "page-1",
     jobId: "crawl-1",
     overallScore: 85,
@@ -123,9 +126,12 @@ export function buildScore(overrides: Partial<ScoreEntity> = {}): ScoreEntity {
     lighthousePerf: null,
     lighthouseSeo: null,
     detail: {},
+    platformScores: null,
+    recommendations: null,
     createdAt: STATIC_DATE,
-    ...overrides,
-  };
+  } as ScoreEntity;
+
+  return { ...base, ...overrides };
 }
 
 export function buildVisibilityCheck(
@@ -172,6 +178,12 @@ export function buildPage(overrides: Partial<PageEntity> = {}): PageEntity {
     metaDesc: null,
     h1: null,
     wordCount: 500,
+    contentHash: "hash123",
+    contentType: "blog_post",
+    textLength: 5000,
+    htmlLength: 12000,
+    r2RawKey: null,
+    r2LhKey: null,
     crawledAt: STATIC_DATE,
     createdAt: STATIC_DATE,
     updatedAt: STATIC_DATE,
@@ -199,4 +211,70 @@ export function buildReport(
     createdAt: STATIC_DATE,
     ...overrides,
   } as ReportEntity;
+}
+
+// ---------------------------------------------------------------------------
+// Platform Growth Entities (untyped — no formal repository interfaces yet)
+// ---------------------------------------------------------------------------
+
+export function buildNotificationChannel(overrides: Partial<any> = {}) {
+  return {
+    id: "ch-1",
+    userId: "user-1",
+    projectId: null,
+    channelType: "webhook" as const,
+    config: { url: "https://hooks.example.com" },
+    eventTypes: ["crawl_completed"],
+    enabled: true,
+    createdAt: STATIC_DATE,
+    updatedAt: STATIC_DATE,
+    ...overrides,
+  };
+}
+
+export function buildScheduledQuery(overrides: Partial<any> = {}) {
+  return {
+    id: "sq-1",
+    projectId: "proj-1",
+    query: "best CRM software",
+    providers: ["chatgpt", "claude"],
+    frequency: "daily" as const,
+    lastRunAt: null,
+    nextRunAt: new Date(Date.now() + 86400000),
+    enabled: true,
+    createdAt: STATIC_DATE,
+    ...overrides,
+  };
+}
+
+export function buildApiToken(overrides: Partial<any> = {}) {
+  return {
+    id: "tok-1",
+    userId: "user-1",
+    projectId: "proj-1",
+    name: "CI token",
+    tokenHash: "abc123hash",
+    tokenPrefix: "llmb_abc1",
+    scopes: ["metrics:read"] as string[],
+    lastUsedAt: null,
+    expiresAt: null,
+    revokedAt: null,
+    createdAt: STATIC_DATE,
+    ...overrides,
+  };
+}
+
+export function buildScanResult(overrides: Partial<any> = {}) {
+  return {
+    id: "scan-1",
+    domain: "example.com",
+    url: "https://example.com",
+    scores: { overall: 85 },
+    issues: [],
+    quickWins: [],
+    ipHash: "sha256hash",
+    createdAt: STATIC_DATE,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    ...overrides,
+  };
 }

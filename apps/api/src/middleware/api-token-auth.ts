@@ -44,7 +44,7 @@ export const apiTokenAuth = createMiddleware<AppEnv>(async (c, next) => {
   // Authenticate token via service
   const db = c.get("db");
   const service = createApiTokenService({
-    apiTokens: apiTokenQueries(db),
+    apiTokens: apiTokenQueries(db) as any,
     projects: { getById: (id: string) => projectQueries(db).getById(id) },
   });
 

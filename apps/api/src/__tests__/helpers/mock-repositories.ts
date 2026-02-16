@@ -13,6 +13,12 @@ import type {
   OutboxRepository,
   AdminRepository,
 } from "../../repositories";
+import {
+  buildNotificationChannel,
+  buildApiToken,
+  buildScheduledQuery,
+  buildScanResult,
+} from "./factories";
 
 // ---------------------------------------------------------------------------
 // Generic override helper
@@ -192,6 +198,7 @@ export function createMockEnrichmentRepo(
   return applyOverrides(
     {
       listByPage: vi.fn().mockResolvedValue([]),
+      listByJob: vi.fn().mockResolvedValue([]),
     },
     overrides,
   );
@@ -246,6 +253,70 @@ export function createMockAdminRepo(
       replayOutboxEvent: vi.fn().mockResolvedValue(undefined),
       cancelCrawlJob: vi.fn().mockResolvedValue(undefined),
       recordAction: vi.fn().mockResolvedValue(undefined),
+    },
+    overrides,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Platform Growth Entities (untyped — no formal repository interfaces yet)
+// ---------------------------------------------------------------------------
+
+// Notification Channel
+export function createMockChannelRepo(overrides?: any) {
+  return applyOverrides(
+    {
+      create: vi.fn().mockResolvedValue(buildNotificationChannel()),
+      listByUser: vi.fn().mockResolvedValue([]),
+      getById: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+      delete: vi.fn(),
+      countByUser: vi.fn().mockResolvedValue(0),
+      findByEventType: vi.fn().mockResolvedValue([]),
+    },
+    overrides,
+  );
+}
+
+// API Token
+export function createMockTokenRepo(overrides?: any) {
+  return applyOverrides(
+    {
+      create: vi.fn().mockResolvedValue(buildApiToken()),
+      findByHash: vi.fn().mockResolvedValue(null),
+      listByUser: vi.fn().mockResolvedValue([]),
+      revoke: vi.fn(),
+      updateLastUsed: vi.fn(),
+      countByUser: vi.fn().mockResolvedValue(0),
+    },
+    overrides,
+  );
+}
+
+// Scheduled Query
+export function createMockScheduleRepo(overrides?: any) {
+  return applyOverrides(
+    {
+      create: vi.fn().mockResolvedValue(buildScheduledQuery()),
+      listByProject: vi.fn().mockResolvedValue([]),
+      getById: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+      delete: vi.fn(),
+      getDueQueries: vi.fn().mockResolvedValue([]),
+      markRun: vi.fn(),
+      countByProject: vi.fn().mockResolvedValue(0),
+    },
+    overrides,
+  );
+}
+
+// Scan Result
+export function createMockScanResultRepo(overrides?: any) {
+  return applyOverrides(
+    {
+      create: vi.fn().mockResolvedValue(buildScanResult()),
+      getById: vi.fn().mockResolvedValue(null),
+      deleteExpired: vi.fn().mockResolvedValue(0),
     },
     overrides,
   );
