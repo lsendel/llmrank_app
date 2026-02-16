@@ -54,6 +54,7 @@ crawlRoutes.post(
         env: {
           crawlerUrl: c.env.CRAWLER_URL,
           sharedSecret: c.env.SHARED_SECRET,
+          kv: c.env.KV,
         },
       });
       return c.json({ data: crawlJob }, 201);

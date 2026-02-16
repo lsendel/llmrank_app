@@ -244,6 +244,30 @@ describe("CrawlService", () => {
       });
       expect(result.id).toBe("crawl-1");
     });
+
+    it("fast-fails with friendly message when crawler is known-down", async () => {
+      const kv = {
+        get: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            status: "down",
+            checkedAt: new Date().toISOString(),
+          }),
+        ),
+      };
+      const service = createCrawlService({ crawls, projects, users, scores });
+
+      await expect(
+        service.requestCrawl({
+          userId: "user-1",
+          projectId: "proj-1",
+          requestUrl: "https://api.test",
+          env: { ...env, kv },
+        }),
+      ).rejects.toThrow("Crawler service is temporarily unavailable");
+
+      // Should NOT attempt fetch at all
+      expect(mockFetchWithRetry).not.toHaveBeenCalled();
+    });
   });
 
   describe("getCrawl", () => {

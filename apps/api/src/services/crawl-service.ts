@@ -33,6 +33,7 @@ export interface CrawlerDispatchEnv {
   crawlerUrl?: string;
   sharedSecret: string;
   queue?: any;
+  kv?: { get(key: string): Promise<string | null> };
 }
 
 export function createCrawlService(deps: CrawlServiceDeps) {
@@ -89,6 +90,26 @@ export function createCrawlService(deps: CrawlServiceDeps) {
           status: "failed",
           errorMessage: "Crawler service is not yet available.",
         };
+      }
+
+      // Fast-fail if crawler is known-down
+      if (args.env.kv) {
+        const healthRaw = await args.env.kv.get("crawler:health:latest");
+        if (healthRaw) {
+          const health = JSON.parse(healthRaw);
+          if (health.status === "down") {
+            await deps.crawls.updateStatus(crawlJob.id, {
+              status: "failed",
+              errorMessage:
+                "Crawler is currently down (detected by health check)",
+            });
+            throw new ServiceError(
+              "CRAWLER_UNAVAILABLE",
+              503,
+              "Crawler service is temporarily unavailable. Please try again in a few minutes.",
+            );
+          }
+        }
       }
 
       const callbackUrl = new URL("/ingest/batch", args.requestUrl).toString();
