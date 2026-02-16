@@ -7,6 +7,7 @@ import { createReportRepository } from "../../repositories";
 
 vi.mock("../../repositories", () => ({
   createReportRepository: vi.fn(),
+  createPageRepository: () => ({}),
 }));
 
 const mockCreateRepo = vi.mocked(createReportRepository);

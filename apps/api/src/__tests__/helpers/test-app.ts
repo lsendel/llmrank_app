@@ -4,6 +4,8 @@ import type { AppEnv, Bindings } from "../../index";
 import { createKVStub } from "./kv-stub";
 import { createR2Stub } from "./r2-stub";
 import { createDb, type Database } from "@llm-boost/db";
+import { createContainer } from "../../container";
+import { ServiceError } from "../../services/errors";
 
 import { healthRoutes } from "../../routes/health";
 import { projectRoutes } from "../../routes/projects";
@@ -48,9 +50,13 @@ export function createTestApp(options: TestAppOptions = {}) {
 
   app.use("*", cors({ origin: "*" }));
 
-  // Inject DB + fake auth (bypasses Clerk JWT verification)
+  // Build DI container from (potentially mocked) repository factories.
+  const container = createContainer(db);
+
+  // Inject DB, DI container + fake auth (bypasses Clerk JWT verification)
   app.use("*", async (c, next) => {
     c.set("db", db);
+    c.set("container", container);
     c.set("userId", userId);
     c.set("requestId", "test-req-id");
     c.set("logger", {
@@ -92,6 +98,26 @@ export function createTestApp(options: TestAppOptions = {}) {
   app.notFound((c) =>
     c.json({ error: { code: "NOT_FOUND", message: "Route not found" } }, 404),
   );
+
+  app.onError((err, c) => {
+    if (err instanceof ServiceError) {
+      return c.json(
+        {
+          error: {
+            code: err.code,
+            message: err.message,
+            details: err.details,
+          },
+        },
+        err.status as import("hono/utils/http-status").StatusCode,
+      );
+    }
+    console.error("Unhandled test error:", err.message);
+    return c.json(
+      { error: { code: "INTERNAL_ERROR", message: err.message } },
+      500,
+    );
+  });
 
   const env: Bindings = {
     R2: r2 as any,

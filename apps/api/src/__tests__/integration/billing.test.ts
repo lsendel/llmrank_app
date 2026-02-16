@@ -31,7 +31,11 @@ const mockUserRepo = {
 
 vi.mock("../../repositories", () => ({
   createBillingRepository: () => mockBillingRepo,
+  createProjectRepository: () => ({}),
   createUserRepository: () => mockUserRepo,
+  createCrawlRepository: () => ({}),
+  createScoreRepository: () => ({}),
+  createPageRepository: () => ({}),
 }));
 
 // Mock the Stripe billing package to avoid real Stripe calls

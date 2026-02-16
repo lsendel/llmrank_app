@@ -57,9 +57,10 @@ const mockEnrichmentRepo = {
 
 vi.mock("../../repositories", () => ({
   createProjectRepository: () => mockProjectRepo,
+  createUserRepository: () => ({}),
   createCrawlRepository: () => mockCrawlRepo,
-  createPageRepository: () => mockPageRepo,
   createScoreRepository: () => mockScoreRepo,
+  createPageRepository: () => mockPageRepo,
   createEnrichmentRepository: () => mockEnrichmentRepo,
 }));
 

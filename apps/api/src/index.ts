@@ -9,6 +9,7 @@ import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
+import { ServiceError } from "./services/errors";
 import { createAuth } from "./lib/auth";
 import { healthRoutes } from "./routes/health";
 import { projectRoutes } from "./routes/projects";
@@ -215,6 +216,14 @@ app.notFound((c) => {
 
 // Global error handler
 app.onError((err, c) => {
+  // Return proper status for known service errors (e.g. from ownership middleware)
+  if (err instanceof ServiceError) {
+    return c.json(
+      { error: { code: err.code, message: err.message, details: err.details } },
+      err.status as import("hono/utils/http-status").StatusCode,
+    );
+  }
+
   const log =
     c.get("logger") ?? createLogger({ requestId: c.get("requestId") });
   log.error("Unhandled error", {

@@ -37,7 +37,12 @@ export function projectQueries(db: Database) {
 
     async update(
       id: string,
-      data: { name?: string; settings?: unknown; branding?: unknown },
+      data: {
+        name?: string;
+        settings?: unknown;
+        branding?: unknown;
+        scoringProfileId?: string | null;
+      },
     ) {
       const [updated] = await db
         .update(projects)

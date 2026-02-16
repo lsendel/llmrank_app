@@ -35,6 +35,10 @@ const mockProjectRepo = {
 vi.mock("../../repositories", () => ({
   createLogRepository: () => mockLogRepo,
   createProjectRepository: () => mockProjectRepo,
+  createUserRepository: () => ({}),
+  createCrawlRepository: () => ({}),
+  createScoreRepository: () => ({}),
+  createPageRepository: () => ({}),
 }));
 
 // ---------------------------------------------------------------------------

@@ -50,6 +50,11 @@ const mockAdminRepo = {
 
 vi.mock("../../repositories", () => ({
   createAdminRepository: () => mockAdminRepo,
+  createProjectRepository: () => ({}),
+  createUserRepository: () => ({}),
+  createCrawlRepository: () => ({}),
+  createScoreRepository: () => ({}),
+  createPageRepository: () => ({}),
 }));
 
 // Mock notification and monitoring services used by metrics endpoint

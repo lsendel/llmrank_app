@@ -56,6 +56,7 @@ vi.mock("../../repositories", () => ({
   createUserRepository: () => mockUserRepo,
   createCrawlRepository: () => mockCrawlRepo,
   createScoreRepository: () => mockScoreRepo,
+  createPageRepository: () => ({}),
 }));
 
 // ---------------------------------------------------------------------------

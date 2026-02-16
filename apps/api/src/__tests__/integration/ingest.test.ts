@@ -36,9 +36,11 @@ const mockOutboxRepo = {
 };
 
 vi.mock("../../repositories", () => ({
+  createProjectRepository: () => ({}),
+  createUserRepository: () => ({}),
   createCrawlRepository: () => mockCrawlRepo,
-  createPageRepository: () => mockPageRepo,
   createScoreRepository: () => mockScoreRepo,
+  createPageRepository: () => mockPageRepo,
   createOutboxRepository: () => mockOutboxRepo,
 }));
 
