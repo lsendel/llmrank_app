@@ -1,6 +1,8 @@
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { timing } from "hono/timing";
 import { createDb, type Database, users, userQueries } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { requestIdMiddleware } from "./middleware/request-id";
@@ -99,6 +101,8 @@ const app = new Hono<AppEnv>();
 
 // Global middleware
 app.use("*", requestIdMiddleware);
+app.use("*", timing());
+app.use("*", compress());
 app.use("*", logger());
 app.use(
   "*",
