@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTestApp } from "../helpers/test-app";
-import { buildUser } from "../helpers/factories";
+import { buildUser, buildProject } from "../helpers/factories";
 import { ServiceError } from "../../services/errors";
 
 // ---------------------------------------------------------------------------
@@ -225,6 +225,9 @@ describe("Strategy Routes", () => {
         wordCount: 500,
         projectId: "proj-1",
       });
+      mockProjectRepo.getById.mockResolvedValue(
+        buildProject({ id: "proj-1", userId: "test-user-id" }),
+      );
 
       const res = await request("/api/strategy/apply-fix", {
         method: "POST",
@@ -391,6 +394,9 @@ describe("Strategy Routes", () => {
         wordCount: 500,
         projectId: "proj-1",
       });
+      mockProjectRepo.getById.mockResolvedValue(
+        buildProject({ id: "proj-1", userId: "test-user-id" }),
+      );
 
       // Mock the global fetch for competitor content fetch
       const originalFetch = globalThis.fetch;

@@ -108,6 +108,39 @@ vi.mock("../../repositories", () => ({
 // Tests
 // ---------------------------------------------------------------------------
 
+// Helper to compute HMAC-SHA256 nonce (mirrors the route's hmacSign)
+async function hmacSign(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Build a valid OAuth state with HMAC nonce (matches the route's state generation)
+async function buildOAuthState(payload: {
+  projectId: string;
+  provider: string;
+  userId: string;
+}): Promise<string> {
+  const nonce = await hmacSign(
+    "test-secret",
+    JSON.stringify({
+      projectId: payload.projectId,
+      provider: payload.provider,
+      userId: payload.userId,
+    }),
+  );
+  return btoa(JSON.stringify({ ...payload, nonce }));
+}
+
 describe("Integration Routes", () => {
   const { request } = createTestApp();
   const project = buildProject({ id: "proj-1", userId: "test-user-id" });
@@ -536,13 +569,11 @@ describe("Integration Routes", () => {
 
   describe("POST /api/integrations/oauth/google/callback", () => {
     it("returns 200 when code exchange succeeds", async () => {
-      const state = btoa(
-        JSON.stringify({
-          projectId: "proj-1",
-          provider: "gsc",
-          userId: "test-user-id",
-        }),
-      );
+      const state = await buildOAuthState({
+        projectId: "proj-1",
+        provider: "gsc",
+        userId: "test-user-id",
+      });
 
       const res = await request("/api/integrations/oauth/google/callback", {
         method: "POST",
@@ -603,13 +634,15 @@ describe("Integration Routes", () => {
     });
 
     it("returns 401 when state userId does not match current user", async () => {
-      const state = btoa(
-        JSON.stringify({
-          projectId: "proj-1",
-          provider: "gsc",
-          userId: "different-user",
-        }),
-      );
+      // Build state with a valid nonce for a different user.
+      // The route verifies the HMAC nonce first, so a nonce computed
+      // for "different-user" will pass nonce verification, then the
+      // userId mismatch check (stateData.userId !== userId) triggers.
+      const state = await buildOAuthState({
+        projectId: "proj-1",
+        provider: "gsc",
+        userId: "different-user",
+      });
 
       const res = await request("/api/integrations/oauth/google/callback", {
         method: "POST",
@@ -628,13 +661,11 @@ describe("Integration Routes", () => {
 
     it("returns 404 when project in state does not exist", async () => {
       mockProjectGetById.mockResolvedValue(null);
-      const state = btoa(
-        JSON.stringify({
-          projectId: "nonexistent",
-          provider: "gsc",
-          userId: "test-user-id",
-        }),
-      );
+      const state = await buildOAuthState({
+        projectId: "nonexistent",
+        provider: "gsc",
+        userId: "test-user-id",
+      });
 
       const res = await request("/api/integrations/oauth/google/callback", {
         method: "POST",
