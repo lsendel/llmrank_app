@@ -7,7 +7,6 @@ export { pageQueries } from "./queries/pages";
 export { scoreQueries } from "./queries/scores";
 export { visibilityQueries } from "./queries/visibility";
 export { competitorQueries } from "./queries/competitors";
-export { competitorBenchmarkQueries } from "./queries/competitor-benchmarks";
 export { billingQueries } from "./queries/billing";
 export { adminQueries } from "./queries/admin";
 export { logQueries } from "./queries/logs";
