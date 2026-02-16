@@ -112,6 +112,12 @@ export const fixTypeEnum = pgEnum("fix_type", [
   "heading_structure",
 ]);
 
+export const fixStatusEnum = pgEnum("fix_status", [
+  "generated",
+  "applied",
+  "dismissed",
+]);
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -782,21 +788,31 @@ export const apiTokens = pgTable(
 // Content Fixes (AI Content Rewriter)
 // ---------------------------------------------------------------------------
 
-export const contentFixes = pgTable("content_fixes", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id),
-  pageId: uuid("page_id").references(() => pages.id),
-  issueCode: varchar("issue_code", { length: 64 }).notNull(),
-  fixType: fixTypeEnum("fix_type").notNull(),
-  originalContent: text("original_content"),
-  generatedFix: text("generated_fix").notNull(),
-  status: varchar("status", { length: 16 }).notNull().default("generated"),
-  tokensUsed: integer("tokens_used"),
-  model: varchar("model", { length: 64 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const contentFixes = pgTable(
+  "content_fixes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id").references(() => pages.id, {
+      onDelete: "cascade",
+    }),
+    issueCode: varchar("issue_code", { length: 64 }).notNull(),
+    fixType: fixTypeEnum("fix_type").notNull(),
+    originalContent: text("original_content"),
+    generatedFix: text("generated_fix").notNull(),
+    status: fixStatusEnum("status").notNull().default("generated"),
+    tokensUsed: integer("tokens_used"),
+    model: varchar("model", { length: 64 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_content_fixes_user").on(t.userId),
+    index("idx_content_fixes_project").on(t.projectId),
+    index("idx_content_fixes_page").on(t.pageId),
+  ],
+);

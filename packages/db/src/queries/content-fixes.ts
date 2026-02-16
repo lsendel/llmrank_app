@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import type { Database } from "../client";
 import { contentFixes } from "../schema";
 
@@ -25,16 +25,18 @@ export function contentFixQueries(db: Database) {
         .where(
           and(
             eq(contentFixes.userId, userId),
-            sql`${contentFixes.createdAt} >= ${startOfMonth.toISOString()}`,
+            gte(contentFixes.createdAt, startOfMonth),
           ),
         );
       return row?.count ?? 0;
     },
     async updateStatus(id: string, status: string) {
-      await db
+      const [updated] = await db
         .update(contentFixes)
-        .set({ status })
-        .where(eq(contentFixes.id, id));
+        .set({ status: status as any })
+        .where(eq(contentFixes.id, id))
+        .returning();
+      return updated;
     },
   };
 }
