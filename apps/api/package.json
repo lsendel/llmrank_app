@@ -15,6 +15,7 @@
     "format": "prettier --write src"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39",
     "@llm-boost/billing": "workspace:*",
     "@llm-boost/db": "workspace:*",
     "@llm-boost/integrations": "workspace:*",

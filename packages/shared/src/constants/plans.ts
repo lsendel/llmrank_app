@@ -28,6 +28,7 @@ export interface PlanLimits {
   reportHistoryDepth: number;
   reportCompetitorSection: boolean;
   reportIntegrationData: boolean;
+  fixesPerMonth: number;
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -52,6 +53,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     reportHistoryDepth: 1,
     reportCompetitorSection: false,
     reportIntegrationData: false,
+    fixesPerMonth: 5,
   },
   starter: {
     pagesPerCrawl: 100,
@@ -74,6 +76,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     reportHistoryDepth: 3,
     reportCompetitorSection: true,
     reportIntegrationData: false,
+    fixesPerMonth: 50,
   },
   pro: {
     pagesPerCrawl: 500,
@@ -96,6 +99,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     reportHistoryDepth: 10,
     reportCompetitorSection: true,
     reportIntegrationData: true,
+    fixesPerMonth: 200,
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -118,5 +122,6 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     reportHistoryDepth: Infinity,
     reportCompetitorSection: true,
     reportIntegrationData: true,
+    fixesPerMonth: Infinity,
   },
 };
