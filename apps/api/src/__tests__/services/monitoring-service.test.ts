@@ -14,6 +14,9 @@ vi.mock("../../lib/logger", () => ({
   }),
 }));
 
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -173,6 +176,60 @@ describe("MonitoringService", () => {
       // Verify it's a valid ISO date
       expect(new Date(metrics.systemTime as string).toISOString()).toBe(
         metrics.systemTime,
+      );
+    });
+  });
+
+  describe("checkCrawlerHealth", () => {
+    it("stores healthy status in KV when crawler responds OK", async () => {
+      const kv = { put: vi.fn(), get: vi.fn().mockResolvedValue(null) };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ status: "ok" }),
+      });
+
+      const db = createMockDb();
+      db._whereMock.mockResolvedValueOnce([]); // for stalled jobs check
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkCrawlerHealth("https://crawler.test", kv as any);
+
+      expect(kv.put).toHaveBeenCalledWith(
+        "crawler:health:latest",
+        expect.stringContaining('"status":"up"'),
+        expect.objectContaining({ expirationTtl: 3600 }),
+      );
+    });
+
+    it("stores down status when crawler responds with error", async () => {
+      const kv = { put: vi.fn(), get: vi.fn().mockResolvedValue(null) };
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
+
+      const db = createMockDb();
+      db._whereMock.mockResolvedValueOnce([]);
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkCrawlerHealth("https://crawler.test", kv as any);
+
+      expect(kv.put).toHaveBeenCalledWith(
+        "crawler:health:latest",
+        expect.stringContaining('"status":"down"'),
+        expect.objectContaining({ expirationTtl: 3600 }),
+      );
+    });
+
+    it("stores down status when fetch throws", async () => {
+      const kv = { put: vi.fn(), get: vi.fn().mockResolvedValue(null) };
+      mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
+
+      const db = createMockDb();
+      db._whereMock.mockResolvedValueOnce([]);
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkCrawlerHealth("https://crawler.test", kv as any);
+
+      expect(kv.put).toHaveBeenCalledWith(
+        "crawler:health:latest",
+        expect.stringContaining('"status":"down"'),
+        expect.objectContaining({ expirationTtl: 3600 }),
       );
     });
   });
