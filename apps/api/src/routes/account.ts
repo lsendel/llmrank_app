@@ -35,7 +35,13 @@ accountRoutes.get("/", async (c) => {
 accountRoutes.put("/", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
   const parsed = UpdateProfileSchema.safeParse(body);
   if (!parsed.success) {
     return c.json(
@@ -60,7 +66,13 @@ accountRoutes.put("/", async (c) => {
 accountRoutes.post("/classify-persona", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
   const parsed = PersonaQuestionnaireSchema.safeParse(body);
   if (!parsed.success) {
     return c.json(

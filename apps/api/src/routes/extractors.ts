@@ -69,10 +69,49 @@ extractorRoutes.put("/:projectId/:id", authMiddleware, async (c) => {
   const ownership = await requireProjectOwnership(c, projectId);
   if (!ownership.ok) return ownership.response;
 
+  const rawBody = await c.req.json().catch(() => null);
+  if (!rawBody) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
+  const allowedFields: Record<string, unknown> = {};
+  if (typeof rawBody.name === "string") allowedFields.name = rawBody.name;
+  if (typeof rawBody.type === "string") {
+    if (rawBody.type !== "css_selector" && rawBody.type !== "regex") {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "type must be css_selector or regex",
+          },
+        },
+        422,
+      );
+    }
+    allowedFields.type = rawBody.type;
+  }
+  if (typeof rawBody.selector === "string")
+    allowedFields.selector = rawBody.selector;
+  if (typeof rawBody.attribute === "string" || rawBody.attribute === null) {
+    allowedFields.attribute = rawBody.attribute;
+  }
+  if (Object.keys(allowedFields).length === 0) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "At least one field required",
+        },
+      },
+      422,
+    );
+  }
   const updated = await extractorQueries(db).update(
     c.req.param("id"),
     projectId,
-    await c.req.json(),
+    allowedFields,
   );
   if (!updated) {
     return c.json(

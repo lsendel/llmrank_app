@@ -22,7 +22,13 @@ crawlRoutes.post(
   async (c) => {
     const userId = c.get("userId");
 
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => null);
+    if (!body) {
+      return c.json(
+        { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+        422,
+      );
+    }
     const { projectId } = body as { projectId: string };
 
     if (!projectId) {

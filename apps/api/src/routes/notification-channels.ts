@@ -49,6 +49,67 @@ notificationChannelRoutes.post("/", async (c) => {
     );
   }
 
+  if (body.channelType === "webhook" || body.channelType === "slack_incoming") {
+    const urlStr = (body.config as Record<string, unknown>)?.url;
+    if (!urlStr || typeof urlStr !== "string") {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "config.url is required for webhook channels",
+          },
+        },
+        422,
+      );
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(urlStr);
+    } catch {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "config.url must be a valid URL",
+          },
+        },
+        422,
+      );
+    }
+    if (parsed.protocol !== "https:") {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "config.url must use HTTPS",
+          },
+        },
+        422,
+      );
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "[::1]" ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal")
+    ) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "config.url must not point to a private address",
+          },
+        },
+        422,
+      );
+    }
+  }
+
   const service = buildService(c);
 
   try {

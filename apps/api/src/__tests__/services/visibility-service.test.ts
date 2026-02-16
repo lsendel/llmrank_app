@@ -48,6 +48,7 @@ describe("VisibilityService", () => {
     vi.clearAllMocks();
     projects = createMockProjectRepo();
     projects.getById.mockResolvedValue(projectFixture);
+    projects.listByUser.mockResolvedValue([projectFixture]);
     users = createMockUserRepo();
     users.getById.mockResolvedValue(userFixture);
     visibility = createMockVisibilityRepo();
