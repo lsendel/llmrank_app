@@ -163,7 +163,7 @@ export default function SettingsPage() {
       "account-notifications",
       useCallback(() => api.account.getNotifications(), []),
     );
-  const { data: _digestPrefs, mutate: _mutateDigest } =
+  const { data: digestPrefs, mutate: mutateDigest } =
     useApiSWR<DigestPreferences>(
       "account-digest",
       useCallback(() => api.account.getDigestPreferences(), []),
@@ -186,7 +186,7 @@ export default function SettingsPage() {
   const [savingNotification, setSavingNotification] = useState<string | null>(
     null,
   );
-  const [_savingDigest, _setSavingDigest] = useState(false);
+  const [savingDigest, setSavingDigest] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [upgrading, setUpgrading] = useState<string | null>(null);
@@ -571,44 +571,22 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-0">
-              {[
-                {
-                  key: "notifyOnCrawlComplete" as const,
-                  label: "Crawl Complete",
-                  description: "Get notified when a crawl finishes.",
-                  persisted: true,
-                },
-                {
-                  key: "notifyOnScoreDrop" as const,
-                  label: "Score Drops",
-                  description:
-                    "Get alerted when a project score drops by 10+ points.",
-                  persisted: true,
-                },
-                {
-                  key: "weeklyReport" as const,
-                  label: "Weekly Report",
-                  description:
-                    "Receive a weekly summary of your project scores.",
-                  persisted: false,
-                },
-                {
-                  key: "newIssues" as const,
-                  label: "New Critical Issues",
-                  description:
-                    "Get notified when new critical issues are detected.",
-                  persisted: false,
-                },
-              ].map((notification, index) => {
-                const isOn = notification.persisted
-                  ? !!(
-                      notifications?.[
-                        notification.key as
-                          | "notifyOnCrawlComplete"
-                          | "notifyOnScoreDrop"
-                      ] ?? true
-                    )
-                  : false;
+              {(
+                [
+                  {
+                    key: "notifyOnCrawlComplete",
+                    label: "Crawl Complete",
+                    description: "Get notified when a crawl finishes.",
+                  },
+                  {
+                    key: "notifyOnScoreDrop",
+                    label: "Score Drops",
+                    description:
+                      "Get alerted when a project score drops by 10+ points.",
+                  },
+                ] as const
+              ).map((notification, index) => {
+                const isOn = !!(notifications?.[notification.key] ?? true);
                 return (
                   <div key={notification.key}>
                     {index > 0 && <Separator className="my-0" />}
@@ -616,11 +594,6 @@ export default function SettingsPage() {
                       <div>
                         <p className="text-sm font-medium">
                           {notification.label}
-                          {!notification.persisted && (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              Coming soon
-                            </span>
-                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {notification.description}
@@ -630,24 +603,12 @@ export default function SettingsPage() {
                         type="button"
                         role="switch"
                         aria-checked={isOn}
-                        disabled={
-                          !notification.persisted ||
-                          savingNotification === notification.key
-                        }
+                        disabled={savingNotification === notification.key}
                         onClick={() =>
-                          notification.persisted &&
-                          handleToggleNotification(
-                            notification.key as
-                              | "notifyOnCrawlComplete"
-                              | "notifyOnScoreDrop",
-                          )
+                          handleToggleNotification(notification.key)
                         }
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          !notification.persisted
-                            ? "cursor-not-allowed opacity-50 bg-muted"
-                            : isOn
-                              ? "bg-primary"
-                              : "bg-muted"
+                          isOn ? "bg-primary" : "bg-muted"
                         }`}
                       >
                         <span
@@ -660,6 +621,93 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
+            </CardContent>
+          </Card>
+
+          {/* Email Digest Preferences */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Email Digest</CardTitle>
+              </div>
+              <CardDescription>
+                Receive periodic summaries of your project scores and issues.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Frequency</Label>
+                <Select
+                  value={digestPrefs?.digestFrequency ?? "off"}
+                  disabled={savingDigest}
+                  onValueChange={async (value) => {
+                    setSavingDigest(true);
+                    try {
+                      await api.account.updateDigestPreferences({
+                        digestFrequency: value,
+                      });
+                      await mutateDigest();
+                    } catch (err) {
+                      console.error("Failed to update digest frequency:", err);
+                    } finally {
+                      setSavingDigest(false);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">Off</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {digestPrefs?.digestFrequency === "weekly" && (
+                <div className="space-y-2">
+                  <Label>Send on</Label>
+                  <Select
+                    value={String(digestPrefs?.digestDay ?? 1)}
+                    disabled={savingDigest}
+                    onValueChange={async (value) => {
+                      setSavingDigest(true);
+                      try {
+                        await api.account.updateDigestPreferences({
+                          digestDay: Number(value),
+                        });
+                        await mutateDigest();
+                      } catch (err) {
+                        console.error("Failed to update digest day:", err);
+                      } finally {
+                        setSavingDigest(false);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Sunday</SelectItem>
+                      <SelectItem value="1">Monday</SelectItem>
+                      <SelectItem value="2">Tuesday</SelectItem>
+                      <SelectItem value="3">Wednesday</SelectItem>
+                      <SelectItem value="4">Thursday</SelectItem>
+                      <SelectItem value="5">Friday</SelectItem>
+                      <SelectItem value="6">Saturday</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {savingDigest && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </p>
+              )}
             </CardContent>
           </Card>
 
