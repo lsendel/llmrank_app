@@ -17,6 +17,9 @@ import {
   type CrawlInsights,
   type PageIssue,
 } from "@/lib/api";
+import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
+import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
+import { PlatformOpportunityCards } from "@/components/platform-opportunity-cards";
 
 export function OverviewTab({
   latestCrawl,
@@ -123,6 +126,15 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
+
+      {/* Integration Insights */}
+      <IntegrationInsightsCards projectId={projectId} />
+
+      {/* Platform Readiness */}
+      {latestCrawl?.id && <PlatformReadinessMatrix crawlId={latestCrawl.id} />}
+
+      {/* Platform Opportunity + Content Health */}
+      {latestCrawl?.id && <PlatformOpportunityCards crawlId={latestCrawl.id} />}
 
       {/* Insights Charts */}
       {insights && (

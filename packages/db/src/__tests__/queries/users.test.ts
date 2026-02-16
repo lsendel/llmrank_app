@@ -133,11 +133,13 @@ describe("userQueries", () => {
     );
 
     expect(mock.chain.insert).toHaveBeenCalled();
-    expect(mock.chain.values).toHaveBeenCalledWith({
-      clerkId: "clerk_new",
-      email: "new@test.com",
-      name: "New",
-    });
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clerkId: "clerk_new",
+        email: "new@test.com",
+        name: "New",
+      }),
+    );
     expect(result).toEqual(newUser);
   });
 
@@ -152,10 +154,12 @@ describe("userQueries", () => {
     });
 
     expect(mock.chain.insert).toHaveBeenCalled();
-    expect(mock.chain.values).toHaveBeenCalledWith({
-      email: "created@test.com",
-      name: "Created",
-    });
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "created@test.com",
+        name: "Created",
+      }),
+    );
     expect(result).toEqual(newUser);
   });
 

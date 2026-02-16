@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createDb } from "@llm-boost/db";
 import * as schema from "@llm-boost/db";
 import type { Bindings } from "../index";
+import { convertLeadToProject } from "../services/lead-conversion-service";
 
 export function createAuth(env: Bindings) {
   const db = createDb(env.DATABASE_URL);
@@ -35,12 +36,26 @@ export function createAuth(env: Bindings) {
       "https://llmrank.app",
       "https://www.llmrank.app",
     ].filter(Boolean),
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            // Best-effort: seed a project from a prior public scan lead.
+            // Failures must never block the signup flow.
+            try {
+              await convertLeadToProject(db, user.id, user.email);
+            } catch {
+              // Silently swallow — the user still signs up successfully.
+            }
+          },
+        },
+      },
+    },
     advanced: {
-      // @ts-expect-error - generateId is supported at runtime
       generateId: () => crypto.randomUUID(),
       crossSubDomainCookies: {
         enabled: true,
-        domain: ".llmrank.app",
+        domain: "llmrank.app",
       },
     },
   });

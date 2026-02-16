@@ -22,9 +22,13 @@ export default function ScanPage() {
     setError(null);
     try {
       const result = await api.public.scan(url.trim());
-      // Store result in sessionStorage for the results page
-      sessionStorage.setItem("scanResult", JSON.stringify(result));
-      router.push("/scan/results");
+      // Prefer URL-based navigation with scanResultId; fall back to sessionStorage
+      if (result.scanResultId) {
+        router.push(`/scan/results?id=${result.scanResultId}`);
+      } else {
+        sessionStorage.setItem("scanResult", JSON.stringify(result));
+        router.push("/scan/results");
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

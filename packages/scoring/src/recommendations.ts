@@ -145,8 +145,9 @@ export function generateRecommendations(
   }
 
   const recommendations: Recommendation[] = [];
-  for (const [code, issue] of issueByCode.entries()) {
-    const template = RECOMMENDATION_TEMPLATES[code] ?? templateFromDefinition(code);
+  for (const code of issueByCode.keys()) {
+    const template =
+      RECOMMENDATION_TEMPLATES[code] ?? templateFromDefinition(code);
     recommendations.push({
       issueCode: code,
       ...template,
@@ -168,29 +169,31 @@ export function generateRecommendations(
   return recommendations.slice(0, maxRecommendations);
 }
 
-const STRENGTH_TEMPLATES: Record<string, { title: string; description: string }> =
-  {
-    technical: {
-      title: "Technical foundation is solid",
-      description:
-        "Core SEO infrastructure (indexation, canonicals, metadata) is in great shape.",
-    },
-    content: {
-      title: "Content depth and structure stand out",
-      description:
-        "Pages provide comprehensive coverage with clear hierarchy and supporting assets.",
-    },
-    aiReadiness: {
-      title: "Optimized for AI discovery",
-      description:
-        "Structured data, crawler access, and llms.txt signals are configured well.",
-    },
-    performance: {
-      title: "Fast, stable experience",
-      description:
-        "Lighthouse and Core Web Vitals indicators show consistently quick rendering.",
-    },
-  };
+const STRENGTH_TEMPLATES: Record<
+  string,
+  { title: string; description: string }
+> = {
+  technical: {
+    title: "Technical foundation is solid",
+    description:
+      "Core SEO infrastructure (indexation, canonicals, metadata) is in great shape.",
+  },
+  content: {
+    title: "Content depth and structure stand out",
+    description:
+      "Pages provide comprehensive coverage with clear hierarchy and supporting assets.",
+  },
+  aiReadiness: {
+    title: "Optimized for AI discovery",
+    description:
+      "Structured data, crawler access, and llms.txt signals are configured well.",
+  },
+  performance: {
+    title: "Fast, stable experience",
+    description:
+      "Lighthouse and Core Web Vitals indicators show consistently quick rendering.",
+  },
+};
 
 export function generateStrengths(
   categoryScores: {

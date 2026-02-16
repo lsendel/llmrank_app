@@ -15,12 +15,6 @@ export interface ContentTypeResult {
   signals: string[];
 }
 
-interface Rule {
-  type: ContentTypeId;
-  score: number;
-  signal: string;
-}
-
 const SCHEMA_MAP: Record<string, ContentTypeId> = {
   Article: "blog_post",
   BlogPosting: "blog_post",
@@ -43,14 +37,54 @@ const PATH_RULES: Array<{
   weight: number;
   signal: string;
 }> = [
-  { pattern: /(blog|insights|stories|library)/, type: "blog_post", weight: 1.5, signal: "URL contains blog keyword" },
-  { pattern: /(news|press|updates|announcements|release-notes)/, type: "news_article", weight: 1.5, signal: "News path keyword" },
-  { pattern: /(docs|documentation|developers|api|kb)/, type: "documentation", weight: 2, signal: "Documentation path keyword" },
-  { pattern: /(support|help|knowledge|faq|troubleshoot)/, type: "support", weight: 1.5, signal: "Support/help path keyword" },
-  { pattern: /(product|features|platform|capabilities)/, type: "product", weight: 1, signal: "Product-focused path" },
-  { pattern: /(solutions|services|why-|platform)/, type: "landing_page", weight: 1, signal: "Solution/landing keyword" },
-  { pattern: /(case-stud|customers|success-stories)/, type: "case_study", weight: 1.5, signal: "Case study keyword" },
-  { pattern: /(about|company|team|culture|careers)/, type: "about", weight: 1, signal: "About/company keyword" },
+  {
+    pattern: /(blog|insights|stories|library)/,
+    type: "blog_post",
+    weight: 1.5,
+    signal: "URL contains blog keyword",
+  },
+  {
+    pattern: /(news|press|updates|announcements|release-notes)/,
+    type: "news_article",
+    weight: 1.5,
+    signal: "News path keyword",
+  },
+  {
+    pattern: /(docs|documentation|developers|api|kb)/,
+    type: "documentation",
+    weight: 2,
+    signal: "Documentation path keyword",
+  },
+  {
+    pattern: /(support|help|knowledge|faq|troubleshoot)/,
+    type: "support",
+    weight: 1.5,
+    signal: "Support/help path keyword",
+  },
+  {
+    pattern: /(product|features|platform|capabilities)/,
+    type: "product",
+    weight: 1,
+    signal: "Product-focused path",
+  },
+  {
+    pattern: /(solutions|services|why-|platform)/,
+    type: "landing_page",
+    weight: 1,
+    signal: "Solution/landing keyword",
+  },
+  {
+    pattern: /(case-stud|customers|success-stories)/,
+    type: "case_study",
+    weight: 1.5,
+    signal: "Case study keyword",
+  },
+  {
+    pattern: /(about|company|team|culture|careers)/,
+    type: "about",
+    weight: 1,
+    signal: "About/company keyword",
+  },
 ];
 
 export function detectContentType(

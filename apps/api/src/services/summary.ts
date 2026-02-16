@@ -54,8 +54,9 @@ export async function persistCrawlSummaryData(
   const db = createDb(input.databaseUrl);
   const summaryData = await persistSummaryWithDb(db, input);
   if (summaryData) {
-    await detectScoreRegression(db, {
+    await detectAnomaliesAndNotify(db, {
       projectId: input.projectId,
+      jobId: input.jobId,
       resendApiKey: input.resendApiKey,
       appBaseUrl: input.appBaseUrl,
     });
@@ -126,10 +127,11 @@ async function persistSummaryWithDb(
   return summaryData;
 }
 
-async function detectScoreRegression(
+async function detectAnomaliesAndNotify(
   db: Database,
   args: {
     projectId: string;
+    jobId: string;
     resendApiKey?: string;
     appBaseUrl?: string;
   },
@@ -138,6 +140,11 @@ async function detectScoreRegression(
   const project = await projectQueries(db).getById(args.projectId);
   if (!project) return;
 
+  const notifier = createNotificationService(db, args.resendApiKey, {
+    appBaseUrl: args.appBaseUrl,
+  });
+
+  // 1. Detect Score Regression
   const progressService = createProgressService({
     crawls: crawlQueries(db),
     projects: projectQueries(db),
@@ -149,20 +156,34 @@ async function detectScoreRegression(
     project.userId,
     args.projectId,
   );
-  if (!progress) return;
 
-  const drop = progress.currentScore - progress.previousScore;
-  const threshold = -5; // notify when score drops by 5+ points
-  if (drop > threshold) return;
+  if (progress) {
+    const drop = progress.currentScore - progress.previousScore;
+    const threshold = -5; // notify when score drops by 5+ points
+    if (drop <= threshold) {
+      await notifier.sendScoreDrop({
+        userId: project.userId,
+        projectId: args.projectId,
+        projectName: project.name,
+        previousScore: Math.round(progress.previousScore),
+        currentScore: Math.round(progress.currentScore),
+      });
+    }
+  }
 
-  const notifier = createNotificationService(db, args.resendApiKey, {
-    appBaseUrl: args.appBaseUrl,
-  });
-  await notifier.sendScoreDrop({
-    userId: project.userId,
-    projectId: args.projectId,
-    projectName: project.name,
-    previousScore: Math.round(progress.previousScore),
-    currentScore: Math.round(progress.currentScore),
-  });
+  // 2. Detect High-ROI Quick Wins
+  const issues = await scoreQueries(db).getIssuesByJob(args.jobId);
+  const quickWins = getQuickWins(issues);
+  const highRoiWins = quickWins.filter(
+    (w) => w.scoreImpact >= 10 && w.effortLevel === "low",
+  );
+
+  if (highRoiWins.length > 0) {
+    await notifier.sendHighRoiAlert({
+      userId: project.userId,
+      projectId: args.projectId,
+      projectName: project.name,
+      wins: highRoiWins.slice(0, 3),
+    });
+  }
 }

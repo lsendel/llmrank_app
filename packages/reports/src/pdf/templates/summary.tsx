@@ -187,6 +187,60 @@ export function SummaryReportPdf({ data }: { data: ReportData }) {
           <ReportFooter brandName={brandName} />
         </Page>
       )}
+
+      {/* Lead Capture Page (Public only) */}
+      {data.isPublic && (
+        <Page size="A4" style={[styles.page, { backgroundColor: brandColor }]}>
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#ffffff",
+            }}
+          >
+            <Text style={{ fontSize: 24, fontFamily: "Helvetica-Bold" }}>
+              Ready to optimize for AI Search?
+            </Text>
+            <Text style={{ fontSize: 12, marginTop: 10, opacity: 0.9 }}>
+              {brandName
+                ? `Contact ${brandName} to implement these expert AI SEO optimizations.`
+                : "Scan your site free and start your journey to AI visibility."}
+            </Text>
+            <View
+              style={{
+                marginTop: 30,
+                padding: 12,
+                backgroundColor: "#ffffff",
+                borderRadius: 4,
+              }}
+            >
+              <Text
+                style={{
+                  color: brandColor,
+                  fontSize: 14,
+                  fontFamily: "Helvetica-Bold",
+                }}
+              >
+                {brandName ? "Contact Agency" : "llmboost.io"}
+              </Text>
+            </View>
+          </View>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 40,
+              left: 40,
+              right: 40,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#ffffff", opacity: 0.6, fontSize: 8 }}>
+              Powered by LLM Boost
+            </Text>
+          </View>
+        </Page>
+      )}
     </Document>
   );
 }

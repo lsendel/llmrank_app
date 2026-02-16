@@ -67,6 +67,7 @@ accountRoutes.get("/notifications", async (c) => {
     data: {
       notifyOnCrawlComplete: user.notifyOnCrawlComplete,
       notifyOnScoreDrop: user.notifyOnScoreDrop,
+      webhookUrl: user.webhookUrl ?? null,
     },
   });
 });
@@ -83,12 +84,33 @@ accountRoutes.put("/notifications", async (c) => {
   const data: {
     notifyOnCrawlComplete?: boolean;
     notifyOnScoreDrop?: boolean;
+    webhookUrl?: string | null;
   } = {};
   if (typeof body.notifyOnCrawlComplete === "boolean") {
     data.notifyOnCrawlComplete = body.notifyOnCrawlComplete;
   }
   if (typeof body.notifyOnScoreDrop === "boolean") {
     data.notifyOnScoreDrop = body.notifyOnScoreDrop;
+  }
+  if ("webhookUrl" in body) {
+    if (body.webhookUrl === null || body.webhookUrl === "") {
+      data.webhookUrl = null;
+    } else if (
+      typeof body.webhookUrl === "string" &&
+      body.webhookUrl.startsWith("https://")
+    ) {
+      data.webhookUrl = body.webhookUrl;
+    } else {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Webhook URL must be an HTTPS URL",
+          },
+        },
+        422,
+      );
+    }
   }
 
   const updated = await userQueries(db).updateNotifications(userId, data);

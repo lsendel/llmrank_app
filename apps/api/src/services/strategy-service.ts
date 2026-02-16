@@ -107,6 +107,24 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       return optimizer.rewriteForAIVisibility(content);
     },
 
+    async optimizeDimension(
+      userId: string,
+      pageId: string,
+      content: string,
+      dimension:
+        | "clarity"
+        | "authority"
+        | "comprehensiveness"
+        | "structure"
+        | "citation_worthiness",
+      tone: string | undefined,
+      apiKey: string,
+    ) {
+      await assertPageOwnership(userId, pageId);
+      const optimizer = new StrategyOptimizer(apiKey);
+      return optimizer.improveDimension({ content, dimension, tone });
+    },
+
     async brief(keyword: string, apiKey: string) {
       const optimizer = new StrategyOptimizer(apiKey);
       return optimizer.generateContentBrief(keyword);

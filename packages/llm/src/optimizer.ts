@@ -179,18 +179,110 @@ Return ONLY a JSON object:
   "citabilityBoost": 25
 }
 
-Return only the JSON.`;
+    Return only the JSON.`;
 
     const response = await withRetry(() =>
       this.client.messages.create({
         model: this.model,
+
         max_tokens: 1000,
+
         messages: [{ role: "user", content: prompt }],
       }),
     );
 
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
+
+    return JSON.parse(stripFences(text));
+  }
+
+  /**
+
+   * Improves a specific dimension of content quality.
+
+   */
+
+  async improveDimension(data: {
+    content: string;
+
+    dimension:
+      | "clarity"
+      | "authority"
+      | "comprehensiveness"
+      | "structure"
+      | "citation_worthiness";
+
+    tone?: string;
+  }): Promise<OptimizationResult> {
+    const rubrics = {
+      clarity:
+        "Simplify sentence structures, use active voice, and improve the logical flow. Focus on making it easy to understand.",
+
+      authority:
+        "Incorporate expert terminology, suggest places for data/citations (use [PLACEHOLDER] for data), and demonstrate deep domain expertise.",
+
+      comprehensiveness:
+        "Add sub-topics, address common user questions, and ensure all key aspects of the topic are covered thoroughly.",
+
+      structure:
+        "Improve heading hierarchy (H2/H3), use bullet points/lists where appropriate, and ensure the content is easily scannable.",
+
+      citation_worthiness:
+        "Refine content into punchy, definitive statements that are easy for AI assistants to extract as direct answers. Add unique insights.",
+    };
+
+    const prompt = `You are an expert AI SEO Copywriter. Your goal is to rewrite the following content to improve its "${
+      data.dimension
+    }" score for AI search engines.
+
+
+
+## Instructions for ${data.dimension}:
+
+${rubrics[data.dimension]}
+
+
+
+## Tone
+
+${data.tone || "Maintain the existing tone of the content."}
+
+
+
+## Content to Improve:
+
+${data.content}
+
+
+
+## Output Format
+
+Return a JSON object with:
+
+1. "optimized": The rewritten content.
+
+2. "explanation": A 1-sentence summary of what was specifically changed to improve the ${
+      data.dimension
+    } score.
+
+
+
+Return only the JSON.`;
+
+    const response = await withRetry(() =>
+      this.client.messages.create({
+        model: this.model,
+
+        max_tokens: 4000,
+
+        messages: [{ role: "user", content: prompt }],
+      }),
+    );
+
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
+
     return JSON.parse(stripFences(text));
   }
 }

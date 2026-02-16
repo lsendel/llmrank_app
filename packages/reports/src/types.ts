@@ -46,6 +46,7 @@ export interface ReportData {
   platformOpportunities: ReportPlatformOpportunity[] | null;
   integrations: ReportIntegrationData | null;
   config: ReportConfig;
+  isPublic?: boolean;
 }
 
 export interface ReportIssue {
@@ -166,4 +167,5 @@ export interface GenerateReportJob {
   format: ReportFormat;
   config: ReportConfig;
   databaseUrl: string;
+  isPublic?: boolean;
 }

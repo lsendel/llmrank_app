@@ -4,7 +4,9 @@ import { createNotificationService } from "../../services/notification-service";
 import { buildUser, type UserEntity } from "../helpers/factories";
 
 const enqueueMock = vi.fn();
+const insertValuesMock = vi.fn().mockResolvedValue(undefined);
 const resendSendMock = vi.fn();
+const findByEventTypeMock = vi.fn().mockResolvedValue([]);
 
 vi.mock("@llm-boost/db", async () => {
   const actual =
@@ -12,6 +14,9 @@ vi.mock("@llm-boost/db", async () => {
   return {
     ...actual,
     outboxQueries: vi.fn(() => ({ enqueue: enqueueMock })),
+    notificationChannelQueries: vi.fn(() => ({
+      findByEventType: findByEventTypeMock,
+    })),
   };
 });
 
@@ -27,11 +32,13 @@ describe("NotificationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     enqueueMock.mockReset();
+    insertValuesMock.mockReset().mockResolvedValue(undefined);
     resendSendMock.mockReset();
+    findByEventTypeMock.mockReset().mockResolvedValue([]);
   });
 
   describe("queueEmail", () => {
-    it("enqueues payload with template namespace", async () => {
+    it("enqueues payload with template namespace and new columns", async () => {
       const { db } = createDbMock(buildUser({ email: "user@test.com" }));
       const service = createNotificationService(db, RESEND_KEY);
 
@@ -42,13 +49,16 @@ describe("NotificationService", () => {
         data: { projectId: "p1" },
       });
 
-      expect(enqueueMock).toHaveBeenCalledWith({
+      expect(insertValuesMock).toHaveBeenCalledWith({
         type: "email:crawl_completed",
+        eventType: "crawl_completed",
+        userId: "u1",
         payload: {
           userId: "u1",
           to: "user@test.com",
           data: { projectId: "p1" },
         },
+        status: "pending",
       });
     });
   });
@@ -79,8 +89,10 @@ describe("NotificationService", () => {
         jobId: "j1",
       });
 
-      expect(enqueueMock).toHaveBeenCalledWith({
+      expect(insertValuesMock).toHaveBeenCalledWith({
         type: "email:crawl_completed",
+        eventType: "crawl_completed",
+        userId: user.id,
         payload: {
           userId: user.id,
           to: "user@test.com",
@@ -94,6 +106,7 @@ describe("NotificationService", () => {
             reportUrl: "https://staging.llmboost.io/dashboard/projects/p1",
           },
         },
+        status: "pending",
       });
     });
 
@@ -128,7 +141,7 @@ describe("NotificationService", () => {
         jobId: "j1",
       });
 
-      expect(enqueueMock).toHaveBeenCalledWith(
+      expect(insertValuesMock).toHaveBeenCalledWith(
         expect.objectContaining({
           payload: expect.objectContaining({
             data: expect.objectContaining({
@@ -153,7 +166,7 @@ describe("NotificationService", () => {
         jobId: "j1",
       });
 
-      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(insertValuesMock).not.toHaveBeenCalled();
     });
 
     it("falls back to null metrics when no scores exist", async () => {
@@ -168,7 +181,7 @@ describe("NotificationService", () => {
         jobId: "j1",
       });
 
-      expect(enqueueMock).toHaveBeenCalledWith(
+      expect(insertValuesMock).toHaveBeenCalledWith(
         expect.objectContaining({
           payload: expect.objectContaining({
             data: expect.objectContaining({
@@ -196,8 +209,10 @@ describe("NotificationService", () => {
         currentScore: 70,
       });
 
-      expect(enqueueMock).toHaveBeenCalledWith({
+      expect(insertValuesMock).toHaveBeenCalledWith({
         type: "email:score_drop",
+        eventType: "score_drop",
+        userId: user.id,
         payload: {
           userId: user.id,
           to: "user@test.com",
@@ -209,6 +224,7 @@ describe("NotificationService", () => {
             currentScore: 70,
           },
         },
+        status: "pending",
       });
     });
 
@@ -225,7 +241,7 @@ describe("NotificationService", () => {
         currentScore: 85,
       });
 
-      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(insertValuesMock).not.toHaveBeenCalled();
     });
 
     it("skips when user not found", async () => {
@@ -240,7 +256,7 @@ describe("NotificationService", () => {
         currentScore: 60,
       });
 
-      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(insertValuesMock).not.toHaveBeenCalled();
     });
   });
 
@@ -324,7 +340,7 @@ describe("NotificationService", () => {
       const events = [
         {
           id: "evt-1",
-          type: "webhook:something",
+          type: "unknown:type",
           status: "pending",
           attempts: 0,
           payload: { data: {} },
@@ -461,7 +477,7 @@ describe("NotificationService", () => {
         currentScore: 85,
       });
 
-      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(insertValuesMock).not.toHaveBeenCalled();
     });
 
     it("skips when user has no email", async () => {
@@ -477,7 +493,7 @@ describe("NotificationService", () => {
         currentScore: 70,
       });
 
-      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(insertValuesMock).not.toHaveBeenCalled();
     });
   });
 
@@ -495,7 +511,7 @@ describe("NotificationService", () => {
       });
 
       // Empty string is falsy - should skip
-      expect(enqueueMock).not.toHaveBeenCalled();
+      expect(insertValuesMock).not.toHaveBeenCalled();
     });
   });
 });
@@ -513,6 +529,7 @@ function createDbMock(
     .mockResolvedValue([{ count: options.issueCount ?? 0 }]);
   const selectFromMock = vi.fn().mockReturnValue({ where: selectWhereMock });
   const selectMock = vi.fn().mockReturnValue({ from: selectFromMock });
+  const insertMock = vi.fn().mockReturnValue({ values: insertValuesMock });
 
   const db = {
     query: {
@@ -527,8 +544,15 @@ function createDbMock(
           summaryData: options.summaryData ?? null,
         }),
       },
+      projects: {
+        findFirst: vi.fn().mockResolvedValue({
+          settings: { webhookUrl: "https://hook.example.com" },
+          userId: user?.id ?? null,
+        }),
+      },
     },
     select: selectMock,
+    insert: insertMock,
   } as unknown as Database;
   return { db };
 }

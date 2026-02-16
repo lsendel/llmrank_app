@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "@react-pdf/renderer";
+import { View, Text, StyleSheet, Image } from "@react-pdf/renderer";
 import type { ReportData } from "../../types";
 
 const styles = StyleSheet.create({
@@ -7,13 +7,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
-    paddingBottom: 8,
+    marginBottom: 20,
+    paddingBottom: 10,
     borderBottom: "1 solid #e5e7eb",
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
-  brandName: { fontSize: 12, fontFamily: "Helvetica-Bold", color: "#4f46e5" },
-  date: { fontSize: 8, color: "#9ca3af" },
+  logo: { width: 24, height: 24, objectFit: "contain" },
+  brandName: { fontSize: 14, fontFamily: "Helvetica-Bold" },
+  date: { fontSize: 9, color: "#6b7280" },
   compactHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -21,7 +22,7 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     borderBottom: "0.5 solid #e5e7eb",
   },
-  compactBrand: { fontSize: 9, color: "#4f46e5", fontFamily: "Helvetica-Bold" },
+  compactBrand: { fontSize: 9, fontFamily: "Helvetica-Bold" },
 });
 
 export function ReportHeader({
@@ -31,7 +32,10 @@ export function ReportHeader({
   data: ReportData;
   compact?: boolean;
 }) {
-  const brandName = data.project.branding?.companyName ?? "LLM Boost";
+  const brandName = data.project.branding?.companyName || "LLM Boost";
+  const brandColor = data.project.branding?.primaryColor || "#4f46e5";
+  const logoUrl = data.project.branding?.logoUrl;
+
   const date = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -41,7 +45,9 @@ export function ReportHeader({
   if (compact) {
     return (
       <View style={styles.compactHeader}>
-        <Text style={styles.compactBrand}>{brandName}</Text>
+        <Text style={[styles.compactBrand, { color: brandColor }]}>
+          {brandName}
+        </Text>
         <Text style={styles.date}>
           {data.project.domain} | {date}
         </Text>
@@ -52,9 +58,17 @@ export function ReportHeader({
   return (
     <View style={styles.header}>
       <View style={styles.brand}>
-        <Text style={styles.brandName}>{brandName}</Text>
+        {logoUrl && <Image src={logoUrl} style={styles.logo} />}
+        <Text style={[styles.brandName, { color: brandColor }]}>
+          {brandName}
+        </Text>
       </View>
-      <Text style={styles.date}>{date}</Text>
+      <View style={{ alignItems: "flex-end" }}>
+        <Text style={styles.date}>{date}</Text>
+        <Text style={{ fontSize: 7, color: "#9ca3af", marginTop: 2 }}>
+          {data.project.domain}
+        </Text>
+      </View>
     </View>
   );
 }

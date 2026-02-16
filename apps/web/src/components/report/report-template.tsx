@@ -31,12 +31,13 @@ const styles = StyleSheet.create({
   brandContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    // gap: 10, removed for safety
   },
   logo: {
     width: 30,
     height: 30,
     objectFit: "contain",
+    marginRight: 10,
   },
   brand: {
     fontSize: 18,
@@ -82,7 +83,8 @@ const styles = StyleSheet.create({
   scoreGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    // gap: 10, removed for safety
+    justifyContent: "space-between",
     marginBottom: 20,
   },
   scoreCard: {
@@ -91,6 +93,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eeeeee",
     borderRadius: 6,
+    marginBottom: 10,
   },
   scoreLabel: {
     fontSize: 10,
@@ -144,26 +147,50 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
   logoUrl,
   primaryColor = "#6366f1",
 }) => {
+  // Ensure primaryColor is a valid 6-char hex, otherwise fallback
+  const safePrimary = /^#[0-9A-F]{6}$/i.test(primaryColor || "")
+    ? primaryColor
+    : "#6366f1";
+
   // Dynamic styles based on props
   const dynamicStyles = {
-    brand: { color: primaryColor },
+    brand: { color: safePrimary },
+    sectionTitle: { color: safePrimary },
     summaryCard: {
-      backgroundColor: `${primaryColor}10`, // 10% opacity hex approximation not valid in PDF, use fixed light tint or RGB
-      // React-PDF doesn't support hex alpha well, fallback to prop if valid hex, else default
-      borderLeftColor: primaryColor,
+      backgroundColor: "#f0f4ff",
+      borderLeftColor: safePrimary,
     },
   };
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {/* Colored header bar */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 4,
+            backgroundColor: safePrimary,
+          }}
+        />
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.brandContainer}>
             {logoUrl && <Image src={logoUrl} style={styles.logo} />}
-            <Text style={[styles.brand, dynamicStyles.brand]}>
-              {companyName}
-            </Text>
+            <View>
+              <Text style={[styles.brand, dynamicStyles.brand]}>
+                {companyName}
+              </Text>
+              {companyName !== "LLM Boost" && (
+                <Text style={{ fontSize: 8, color: "#999999" }}>
+                  Prepared by {companyName}
+                </Text>
+              )}
+            </View>
           </View>
           <View style={styles.projectInfo}>
             <Text>{crawl.projectName}</Text>
@@ -182,7 +209,9 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
         {/* Executive Summary */}
         {crawl.summary && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Executive Summary</Text>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>
+              Executive Summary
+            </Text>
             <View style={[styles.summaryCard, dynamicStyles.summaryCard]}>
               <Text style={styles.summaryText}>{crawl.summary}</Text>
             </View>
@@ -191,7 +220,9 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
 
         {/* Scores */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Score Breakdown</Text>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>
+            Score Breakdown
+          </Text>
           <View style={styles.scoreGrid}>
             <View style={styles.scoreCard}>
               <Text style={styles.scoreLabel}>Technical SEO</Text>
@@ -223,7 +254,9 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
         {/* Quick Wins */}
         {quickWins.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Priority Recommendations</Text>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>
+              Priority Recommendations
+            </Text>
             {quickWins.map((win, i) => (
               <View key={i} style={styles.issueRow}>
                 <Text style={styles.issueMessage}>
@@ -237,6 +270,7 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
 
         {/* Footer */}
         <Text style={styles.footer}>
+          {companyName !== "LLM Boost" ? `${companyName} \u2022 ` : ""}
           Confidence in AI discovery depends on continuous optimization. This
           report is based on current LLM indexing patterns as of February 2026.
         </Text>

@@ -53,9 +53,7 @@ const {
     signals: [],
   });
 
-  const generateRecommendations = vi
-    .fn()
-    .mockReturnValue(recommendations);
+  const generateRecommendations = vi.fn().mockReturnValue(recommendations);
 
   const scorePage = vi.fn().mockReturnValue({
     overallScore: 85,

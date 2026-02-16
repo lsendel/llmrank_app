@@ -19,10 +19,14 @@ describe("IntegrationInsightsService", () => {
     crawls = createMockCrawlRepo({
       getLatestByProject: vi
         .fn()
-        .mockResolvedValue(buildCrawlJob({ id: "crawl-1", projectId: "proj-1" })),
+        .mockResolvedValue(
+          buildCrawlJob({ id: "crawl-1", projectId: "proj-1" }),
+        ),
       getById: vi
         .fn()
-        .mockResolvedValue(buildCrawlJob({ id: "crawl-1", projectId: "proj-1" })),
+        .mockResolvedValue(
+          buildCrawlJob({ id: "crawl-1", projectId: "proj-1" }),
+        ),
     });
     enrichments = createMockEnrichmentRepo({
       listByJob: vi.fn().mockResolvedValue([]),
@@ -30,7 +34,7 @@ describe("IntegrationInsightsService", () => {
   });
 
   it("returns null integrations when project has no crawls", async () => {
-    crawls.getLatestByProject.mockResolvedValue(null);
+    crawls.getLatestByProject.mockResolvedValue(undefined);
     const service = createIntegrationInsightsService({
       projects,
       crawls,
@@ -48,7 +52,7 @@ describe("IntegrationInsightsService", () => {
         jobId: "crawl-1",
         provider: "gsc",
         data: { query: "ai seo", impressions: 120, clicks: 12, position: 2 },
-        createdAt: new Date(),
+        fetchedAt: new Date(),
       },
     ]);
     const service = createIntegrationInsightsService({

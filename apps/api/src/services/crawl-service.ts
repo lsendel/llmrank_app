@@ -5,7 +5,9 @@ import {
   PLATFORM_REQUIREMENTS,
   aggregatePageScores,
   type CrawlJobPayload,
+  type LLMPlatformId,
 } from "@llm-boost/shared";
+import { calculatePlatformScores } from "@llm-boost/scoring";
 import type {
   CrawlRepository,
   ProjectRepository,
@@ -186,20 +188,43 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
       await assertProjectOwnership(deps.projects, userId, crawlJob.projectId);
-      const issues = await deps.scores.getIssuesByJob(crawlId);
-      const issueCodes = new Set(issues.map((i) => i.code));
 
-      return Object.entries(PLATFORM_REQUIREMENTS).map(
-        ([platform, checks]) => ({
+      const [issues, scores] = await Promise.all([
+        deps.scores.getIssuesByJob(crawlId),
+        deps.scores.listByJob(crawlId),
+      ]);
+
+      const issueCodes = new Set(issues.map((i) => i.code));
+      const aggregate = aggregatePageScores(toAggregateInput(scores));
+
+      const platformScores = calculatePlatformScores({
+        technicalScore: aggregate.scores.technical,
+        contentScore: aggregate.scores.content,
+        aiReadinessScore: aggregate.scores.aiReadiness,
+        performanceScore: aggregate.scores.performance,
+      });
+
+      return Object.entries(PLATFORM_REQUIREMENTS).map(([platform, checks]) => {
+        const platformId = platform.toLowerCase() as LLMPlatformId;
+        const scoreData = platformScores[platformId] || {
+          score: 0,
+          grade: "F",
+          tips: [],
+        };
+
+        return {
           platform,
+          score: scoreData.score,
+          grade: scoreData.grade,
+          tips: scoreData.tips,
           checks: checks.map((check) => ({
             factor: check.factor,
             label: check.label,
             importance: check.importance,
             pass: !issueCodes.has(check.issueCode),
           })),
-        }),
-      );
+        };
+      });
     },
 
     async enableSharing(userId: string, crawlId: string) {

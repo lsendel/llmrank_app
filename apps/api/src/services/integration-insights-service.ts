@@ -17,14 +17,10 @@ export function createIntegrationInsightsService(
   deps: IntegrationInsightsDeps,
 ) {
   return {
-    async getInsights(
-      userId: string,
-      projectId: string,
-      crawlId?: string,
-    ) {
+    async getInsights(userId: string, projectId: string, crawlId?: string) {
       await assertProjectOwnership(deps.projects, userId, projectId);
 
-      let crawl = null;
+      let crawl;
       if (crawlId) {
         crawl = await deps.crawls.getById(crawlId);
         if (!crawl || crawl.projectId !== projectId) {

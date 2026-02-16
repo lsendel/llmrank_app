@@ -1,4 +1,4 @@
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { visibilityChecks, llmProviderEnum } from "../schema";
 
@@ -43,6 +43,26 @@ export function visibilityQueries(db: Database) {
       return db.query.visibilityChecks.findFirst({
         where: eq(visibilityChecks.id, id),
       });
+    },
+
+    async getLatestForQuery(
+      projectId: string,
+      query: string,
+      provider: string,
+    ) {
+      const [row] = await db
+        .select()
+        .from(visibilityChecks)
+        .where(
+          and(
+            eq(visibilityChecks.projectId, projectId),
+            eq(visibilityChecks.query, query),
+            eq(visibilityChecks.llmProvider, provider as LLMProvider),
+          ),
+        )
+        .orderBy(desc(visibilityChecks.checkedAt))
+        .limit(1);
+      return row ?? null;
     },
 
     /**

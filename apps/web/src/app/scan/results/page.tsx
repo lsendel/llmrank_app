@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, CheckCircle, Lock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
+import { EmailCaptureGate } from "@/components/email-capture-gate";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import { track } from "@/lib/telemetry";
+import { api } from "@/lib/api";
 import type { PublicScanResult, QuickWin } from "@/lib/api";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
@@ -19,43 +21,104 @@ const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   high: { label: "Significant", color: "bg-destructive/10 text-destructive" },
 };
 
-export default function ScanResultsPage() {
+function ScanResultsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const scanId = searchParams.get("id");
+
   const [result, setResult] = useState<PublicScanResult | null>(null);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Persist unlock token across refreshes
+  const [unlockToken, setUnlockToken] = useState<string | null>(() => {
+    if (typeof window === "undefined" || !scanId) return null;
+    return localStorage.getItem(`scan-unlocked-${scanId}`);
+  });
+
+  const fetchResult = useCallback(async (id: string, token?: string | null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.public.getScanResult(id, token ?? undefined);
+      setResult(data);
+      // If quickWins are present, the result is unlocked
+      setIsUnlocked(!!data.quickWins);
+    } catch {
+      setError("Failed to load scan results. The link may have expired.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
+    if (scanId) {
+      // API-based flow: fetch from server
+      fetchResult(scanId, unlockToken);
+      return;
+    }
+
+    // Fallback: read from sessionStorage (backwards compat)
     const stored = sessionStorage.getItem("scanResult");
     if (!stored) {
       router.replace("/scan");
       return;
     }
 
-    let cancelled = false;
-    Promise.resolve().then(() => {
-      if (!cancelled) {
-        const parsed: PublicScanResult = JSON.parse(stored);
-        setResult(parsed);
-        track("scan.completed", {
-          domain: parsed.url,
-          grade:
-            parsed.scores.overall >= 90
-              ? "A"
-              : parsed.scores.overall >= 80
-                ? "B"
-                : parsed.scores.overall >= 70
-                  ? "C"
-                  : parsed.scores.overall >= 60
-                    ? "D"
-                    : "F",
-          score: parsed.scores.overall,
-        });
-      }
+    const parsed: PublicScanResult = JSON.parse(stored);
+    setResult(parsed);
+    setIsUnlocked(true); // sessionStorage always has full data
+    setLoading(false);
+    track("scan.completed", {
+      domain: parsed.url,
+      grade: parsed.scores.letterGrade,
+      score: parsed.scores.overall,
     });
+  }, [scanId, unlockToken, router, fetchResult]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+  // Track scan completion when result loads via API
+  useEffect(() => {
+    if (result && scanId) {
+      track("scan.completed", {
+        domain: result.url ?? result.domain,
+        grade: result.scores?.letterGrade,
+        score: result.scores?.overall,
+      });
+    }
+  }, [result, scanId]);
+
+  function handleEmailCaptured(leadId: string) {
+    if (scanId) {
+      // Persist the unlock token so refreshes stay unlocked
+      localStorage.setItem(`scan-unlocked-${scanId}`, leadId);
+      setUnlockToken(leadId);
+      // Refetch with the unlock token to get full results
+      fetchResult(scanId, leadId);
+    } else {
+      // sessionStorage flow -- already fully unlocked
+      setIsUnlocked(true);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading results...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <p className="text-destructive">{error}</p>
+        <Link href="/scan">
+          <Button variant="outline">Scan Another Site</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!result) {
     return (
@@ -127,60 +190,80 @@ export default function ScanResultsPage() {
         </Card>
       </div>
 
-      {/* Key Findings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Key Findings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Finding pass={meta.hasLlmsTxt} label="llms.txt file" />
-            <Finding
-              pass={meta.aiCrawlersBlocked.length === 0}
-              label="AI crawlers allowed"
-            />
-            <Finding pass={meta.hasSitemap} label="Sitemap found" />
-            <Finding
-              pass={meta.schemaTypes.length > 0}
-              label="Structured data"
-            />
-            <Finding
-              pass={
-                !!meta.title &&
-                meta.title.length >= 30 &&
-                meta.title.length <= 60
-              }
-              label="Title tag (30-60 chars)"
-            />
-            <Finding
-              pass={Object.keys(meta.ogTags).length > 0}
-              label="Open Graph tags"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Key Findings — only shown if meta is available (full data or sessionStorage) */}
+      {meta && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Key Findings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Finding pass={meta.hasLlmsTxt} label="llms.txt file" />
+              <Finding
+                pass={meta.aiCrawlersBlocked.length === 0}
+                label="AI crawlers allowed"
+              />
+              <Finding pass={meta.hasSitemap} label="Sitemap found" />
+              <Finding
+                pass={meta.schemaTypes.length > 0}
+                label="Structured data"
+              />
+              <Finding
+                pass={
+                  !!meta.title &&
+                  meta.title.length >= 30 &&
+                  meta.title.length <= 60
+                }
+                label="Title tag (30-60 chars)"
+              />
+              <Finding
+                pass={Object.keys(meta.ogTags).length > 0}
+                label="Open Graph tags"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Quick Wins */}
-      {quickWins.length > 0 && (
+      {/* Top Issues (always visible -- gated view shows up to 3) */}
+      {issues && issues.length > 0 && (
         <div>
-          <h2 className="mb-4 text-lg font-semibold">Top Quick Wins</h2>
+          <h2 className="mb-4 text-lg font-semibold">
+            {isUnlocked
+              ? `All Issues (${issues.length})`
+              : `Top Issues (${issues.length})`}
+          </h2>
           <div className="space-y-3">
-            {quickWins.map((win, i) => (
-              <QuickWinCard key={win.code} win={win} rank={i + 1} />
+            {issues.map((issue, i) => (
+              <IssueCard key={`${issue.code}-${i}`} {...issue} />
             ))}
           </div>
         </div>
       )}
 
-      {/* All Issues */}
-      {issues.length > 0 && (
+      {/* Email gate -- shown when results are gated (not unlocked) */}
+      {!isUnlocked && scanId && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            <span className="text-sm">
+              Full results including Quick Wins are locked
+            </span>
+          </div>
+          <EmailCaptureGate
+            scanResultId={scanId}
+            onCaptured={handleEmailCaptured}
+          />
+        </div>
+      )}
+
+      {/* Quick Wins -- only shown when unlocked */}
+      {isUnlocked && quickWins && quickWins.length > 0 && (
         <div>
-          <h2 className="mb-4 text-lg font-semibold">
-            All Issues ({issues.length})
-          </h2>
+          <h2 className="mb-4 text-lg font-semibold">Top Quick Wins</h2>
           <div className="space-y-3">
-            {issues.map((issue, i) => (
-              <IssueCard key={`${issue.code}-${i}`} {...issue} />
+            {quickWins.map((win, i) => (
+              <QuickWinCard key={win.code} win={win} rank={i + 1} />
             ))}
           </div>
         </div>
@@ -209,6 +292,20 @@ export default function ScanResultsPage() {
         </p>
       </Card>
     </div>
+  );
+}
+
+export default function ScanResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <p className="text-muted-foreground">Loading results...</p>
+        </div>
+      }
+    >
+      <ScanResultsContent />
+    </Suspense>
   );
 }
 

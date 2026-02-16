@@ -64,7 +64,22 @@ export function createReportService(deps: Deps) {
         );
       }
 
-      // 4. Create report record
+      // 4. Auto-inherit project branding into report config
+      const branding = (project.branding ?? {}) as {
+        logoUrl?: string;
+        companyName?: string;
+        primaryColor?: string;
+      };
+      const mergedConfig = {
+        ...(input.config ?? {}),
+        brandingLogoUrl:
+          (input.config as any)?.brandingLogoUrl ?? branding.logoUrl,
+        brandingColor:
+          (input.config as any)?.brandingColor ?? branding.primaryColor,
+        preparedFor: (input.config as any)?.preparedFor ?? branding.companyName,
+      };
+
+      // 5. Create report record
       const report = await deps.reports.create({
         projectId: input.projectId,
         crawlJobId: input.crawlJobId,
@@ -72,10 +87,10 @@ export function createReportService(deps: Deps) {
         type: input.type,
         format: input.format,
         status: "queued",
-        config: input.config ?? {},
+        config: mergedConfig,
       });
 
-      // 5. Dispatch to report service via HTTP (HMAC-authenticated)
+      // 6. Dispatch to report service via HTTP (HMAC-authenticated)
       const job: GenerateReportJob = {
         reportId: report.id,
         projectId: input.projectId,
@@ -83,8 +98,9 @@ export function createReportService(deps: Deps) {
         userId,
         type: input.type,
         format: input.format,
-        config: (input.config ?? {}) as ReportConfig,
+        config: mergedConfig as ReportConfig,
         databaseUrl: "",
+        isPublic: !!(input.config as any)?.isPublic,
       };
 
       const body = JSON.stringify(job);

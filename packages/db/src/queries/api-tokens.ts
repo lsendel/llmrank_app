@@ -11,7 +11,7 @@ export function apiTokenQueries(db: Database) {
       tokenHash: string;
       tokenPrefix: string;
       scopes: string[];
-      expiresAt?: Date;
+      expiresAt?: Date | null;
     }) {
       const [token] = await db.insert(apiTokens).values(data).returning();
       return token;

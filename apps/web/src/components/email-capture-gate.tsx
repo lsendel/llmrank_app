@@ -8,12 +8,14 @@ import { api } from "@/lib/api";
 import { track } from "@/lib/telemetry";
 
 interface EmailCaptureGateProps {
-  reportToken: string;
-  onCaptured: () => void;
+  reportToken?: string;
+  scanResultId?: string;
+  onCaptured: (leadId: string) => void;
 }
 
 export function EmailCaptureGate({
   reportToken,
+  scanResultId,
   onCaptured,
 }: EmailCaptureGateProps) {
   const [email, setEmail] = useState("");
@@ -32,10 +34,18 @@ export function EmailCaptureGate({
 
     setSubmitting(true);
     try {
-      await api.public.captureLead({ email: trimmed, reportToken });
-      localStorage.setItem(`report-unlocked-${reportToken}`, "true");
-      track("scan.email_captured", { domain: reportToken });
-      onCaptured();
+      const lead = await api.public.captureLead({
+        email: trimmed,
+        reportToken,
+        scanResultId,
+      });
+      if (reportToken) {
+        localStorage.setItem(`report-unlocked-${reportToken}`, "true");
+      }
+      track("scan.email_captured", {
+        domain: reportToken ?? scanResultId ?? "unknown",
+      });
+      onCaptured(lead.id);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

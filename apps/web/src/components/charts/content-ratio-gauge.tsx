@@ -88,13 +88,15 @@ export function ContentRatioGauge({
         </div>
       </CardContent>
       <CardFooter className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
-        <div>Avg. {Math.round(avgWordCount).toLocaleString()} words per page</div>
+        <div>
+          Avg. {Math.round(avgWordCount).toLocaleString()} words per page
+        </div>
         {avgHtmlToTextRatio != null && (
           <div>Text-to-HTML ratio {avgHtmlToTextRatio.toFixed(1)}%</div>
         )}
         {totalTextLength != null && totalHtmlLength != null && (
           <div>
-            Text {totalTextLength.toLocaleString()} chars · HTML{' '}
+            Text {totalTextLength.toLocaleString()} chars · HTML{" "}
             {totalHtmlLength.toLocaleString()} chars
           </div>
         )}

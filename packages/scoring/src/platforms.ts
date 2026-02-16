@@ -1,4 +1,8 @@
-import { LLM_PLATFORMS, PLATFORM_TIPS, PLATFORM_WEIGHTS } from "@llm-boost/shared";
+import {
+  LLM_PLATFORMS,
+  PLATFORM_TIPS,
+  PLATFORM_WEIGHTS,
+} from "@llm-boost/shared";
 import type { LLMPlatformId } from "@llm-boost/shared";
 
 export interface PlatformScoreResult {

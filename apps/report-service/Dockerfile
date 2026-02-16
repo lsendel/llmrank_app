@@ -23,7 +23,7 @@ COPY packages/db/ packages/db/
 COPY packages/reports/ packages/reports/
 COPY apps/report-service/ apps/report-service/
 
-# Build the report service
+# Build the report service (bundles workspace deps into single file)
 WORKDIR /app/apps/report-service
 RUN pnpm build
 
@@ -43,13 +43,10 @@ COPY packages/db/package.json packages/db/
 COPY packages/reports/package.json packages/reports/
 COPY apps/report-service/package.json apps/report-service/
 
-# Install production deps only
-RUN pnpm install --frozen-lockfile --prod
+# Install production deps only (ignore-scripts to skip husky prepare)
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-# Copy built output and source (workspace deps need source)
-COPY --from=base /app/packages/shared/ packages/shared/
-COPY --from=base /app/packages/db/ packages/db/
-COPY --from=base /app/packages/reports/ packages/reports/
+# Copy built output only (workspace deps are bundled into dist/index.js)
 COPY --from=base /app/apps/report-service/dist/ apps/report-service/dist/
 
 WORKDIR /app/apps/report-service

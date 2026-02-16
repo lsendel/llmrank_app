@@ -83,6 +83,9 @@ export default function HomePage() {
           <Link href="/pricing" className="hover:text-foreground">
             Pricing
           </Link>
+          <Link href="/integrations" className="hover:text-foreground">
+            Integrations
+          </Link>
           <Link href="/terms" className="hover:text-foreground">
             Terms
           </Link>

@@ -30,7 +30,7 @@ export function SignIn() {
   const handleGoogleSignIn = async () => {
     await signIn.social({
       provider: "google",
-      callbackURL: "/dashboard", // defaults to base url + headers referer
+      callbackURL: window.location.origin + "/dashboard",
     });
   };
 

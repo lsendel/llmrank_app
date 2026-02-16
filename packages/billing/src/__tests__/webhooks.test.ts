@@ -43,6 +43,22 @@ vi.mock("../gateway", async (importOriginal) => {
   };
 });
 
+// Mock plan-map to handle test data price IDs
+vi.mock("../plan-map", () => ({
+  planCodeFromPriceId: (priceId: string) => {
+    if (priceId === "price_pro") return "pro";
+    if (priceId === "price_starter") return "starter";
+    if (priceId === "price_agency") return "agency";
+    return undefined;
+  },
+  priceIdFromPlanCode: (planCode: string) => {
+    if (planCode === "pro") return "price_pro";
+    if (planCode === "starter") return "price_starter";
+    if (planCode === "agency") return "price_agency";
+    return undefined;
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

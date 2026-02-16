@@ -1,7 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createDb, reports, eq } from "@llm-boost/db";
 import { renderPdf, renderDocx, aggregateReportData } from "@llm-boost/reports";
 import type { GenerateReportJob } from "@llm-boost/reports";
@@ -14,26 +13,68 @@ import { fetchReportData } from "./data-fetcher";
 const PORT = parseInt(process.env.PORT ?? "8080", 10);
 const DATABASE_URL = process.env.DATABASE_URL!;
 const SHARED_SECRET = process.env.SHARED_SECRET!;
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID!;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY!;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME ?? "ai-seo-storage";
+const API_BASE_URL = process.env.API_BASE_URL!; // e.g. https://api.llmrank.app
 
 // ---------------------------------------------------------------------------
-// S3 client for R2
+// HMAC signing (for uploading back to API worker)
 // ---------------------------------------------------------------------------
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-});
+async function signUploadHeaders(
+  reportId: string,
+  r2Key: string,
+): Promise<{ signature: string; timestamp: string }> {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const message = `${timestamp}${reportId}${r2Key}`;
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(SHARED_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+  const hex = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return { signature: `hmac-sha256=${hex}`, timestamp };
+}
 
 // ---------------------------------------------------------------------------
-// HMAC verification
+// Upload to R2 via API worker relay
+// ---------------------------------------------------------------------------
+
+async function uploadViaApi(
+  reportId: string,
+  r2Key: string,
+  body: Uint8Array,
+  contentType: string,
+): Promise<void> {
+  const { signature, timestamp } = await signUploadHeaders(reportId, r2Key);
+
+  const res = await fetch(`${API_BASE_URL}/internal/report-upload`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "X-Signature": signature,
+      "X-Timestamp": timestamp,
+      "X-Report-Id": reportId,
+      "X-R2-Key": r2Key,
+      "X-Content-Type": contentType,
+    },
+    body: Buffer.from(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "Unknown error");
+    throw new Error(`API upload failed (${res.status}): ${text}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HMAC verification (for incoming job requests)
 // ---------------------------------------------------------------------------
 
 const MAX_TIMESTAMP_DRIFT_S = 300; // 5 minutes
@@ -117,6 +158,7 @@ app.post("/generate", async (c) => {
       const reportData = aggregateReportData(rawData, {
         type: job.type,
         config: job.config,
+        isPublic: job.isPublic,
       });
 
       // Render document
@@ -125,33 +167,14 @@ app.post("/generate", async (c) => {
           ? await renderPdf(reportData, job.type)
           : await renderDocx(reportData, job.type);
 
-      // Upload to R2 via S3 API
+      // Upload to R2 via API worker relay
       const r2Key = `reports/${job.projectId}/${job.reportId}.${job.format}`;
       const contentType =
         job.format === "pdf"
           ? "application/pdf"
           : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: r2Key,
-          Body: buffer,
-          ContentType: contentType,
-        }),
-      );
-
-      // Update report record as complete
-      await db
-        .update(reports)
-        .set({
-          status: "complete",
-          r2Key,
-          fileSize: buffer.byteLength,
-          generatedAt: new Date(),
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        })
-        .where(eq(reports.id, job.reportId));
+      await uploadViaApi(job.reportId, r2Key, buffer, contentType);
 
       console.log(`Report ${job.reportId} generated successfully (${r2Key})`);
     } catch (error) {

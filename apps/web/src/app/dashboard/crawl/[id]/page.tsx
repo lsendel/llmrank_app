@@ -12,6 +12,7 @@ import {
   Brain,
   Download,
 } from "lucide-react";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -146,29 +147,39 @@ export default function CrawlDetailPage() {
       {/* Actions */}
       {crawl.status === "complete" && (
         <div className="flex items-center gap-3">
-          <PDFDownloadLink
-            document={
-              <AIReadinessReport
-                crawl={crawl}
-                quickWins={quickWins || []}
-                companyName={branding.companyName || "LLM Boost"}
-                logoUrl={branding.logoUrl}
-                primaryColor={branding.primaryColor}
-              />
+          <ErrorBoundary
+            fallback={
+              <span className="text-xs text-muted-foreground">
+                PDF Preview Error
+              </span>
             }
-            fileName={`llm-boost-report-${params.id}.pdf`}
           >
-            {({ loading: pdfLoading }: { loading: boolean }) => (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pdfLoading || quickWinsLoading}
-              >
-                <Download className="mr-1.5 h-4 w-4" />
-                {pdfLoading || quickWinsLoading ? "Preparing..." : "Export PDF"}
-              </Button>
-            )}
-          </PDFDownloadLink>
+            <PDFDownloadLink
+              document={
+                <AIReadinessReport
+                  crawl={crawl}
+                  quickWins={quickWins || []}
+                  companyName={branding.companyName || "LLM Boost"}
+                  logoUrl={branding.logoUrl}
+                  primaryColor={branding.primaryColor}
+                />
+              }
+              fileName={`llm-boost-report-${params.id}.pdf`}
+            >
+              {({ loading: pdfLoading }: { loading: boolean }) => (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pdfLoading || quickWinsLoading}
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  {pdfLoading || quickWinsLoading
+                    ? "Preparing..."
+                    : "Export PDF"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          </ErrorBoundary>
           <ShareButton crawlId={params.id} />
         </div>
       )}

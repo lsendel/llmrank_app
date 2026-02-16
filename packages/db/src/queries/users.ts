@@ -76,6 +76,7 @@ export function userQueries(db: Database) {
       data: {
         notifyOnCrawlComplete?: boolean;
         notifyOnScoreDrop?: boolean;
+        webhookUrl?: string | null;
       },
     ) {
       const [updated] = await db
@@ -85,6 +86,7 @@ export function userQueries(db: Database) {
         .returning({
           notifyOnCrawlComplete: users.notifyOnCrawlComplete,
           notifyOnScoreDrop: users.notifyOnScoreDrop,
+          webhookUrl: users.webhookUrl,
         });
       return updated;
     },

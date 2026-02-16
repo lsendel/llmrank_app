@@ -40,7 +40,7 @@ export function SignUp() {
     import("@/lib/auth-client").then(({ signIn }) => {
       signIn.social({
         provider: "google",
-        callbackURL: "/dashboard",
+        callbackURL: window.location.origin + "/dashboard",
       });
     });
   };

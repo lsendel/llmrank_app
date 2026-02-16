@@ -2,8 +2,7 @@ app = "llm-boost-reports"
 primary_region = "iad"
 
 [build]
-  # Deploy from repo root: flyctl deploy --config apps/report-service/fly.toml --dockerfile apps/report-service/Dockerfile
-  dockerfile = "apps/report-service/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8080

@@ -65,6 +65,7 @@ export interface AggregateOptions {
   type: "summary" | "detailed";
   config?: ReportConfig;
   gscImpressions?: number | null;
+  isPublic?: boolean;
 }
 
 export interface RawDbResults {
@@ -376,5 +377,6 @@ export function aggregateReportData(
       ? aggregateIntegrations(raw.enrichments)
       : null,
     config: options.config ?? {},
+    isPublic: options.isPublic,
   };
 }

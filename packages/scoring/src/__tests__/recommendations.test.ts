@@ -40,7 +40,9 @@ describe("generateRecommendations", () => {
     const issues = Object.keys(RECOMMENDATION_TEMPLATES).map((code) =>
       makeIssue({ code }),
     );
-    expect(generateRecommendations(issues, 50, 5).length).toBeLessThanOrEqual(5);
+    expect(generateRecommendations(issues, 50, 5).length).toBeLessThanOrEqual(
+      5,
+    );
   });
 });
 
@@ -59,7 +61,11 @@ describe("generateStrengths", () => {
 
   it("skips categories with critical issues", () => {
     const strengths = generateStrengths(categoryScores, [
-      makeIssue({ code: "HTTP_STATUS", category: "technical", severity: "critical" }),
+      makeIssue({
+        code: "HTTP_STATUS",
+        category: "technical",
+        severity: "critical",
+      }),
     ]);
     expect(strengths.find((s) => s.category === "technical")).toBeUndefined();
   });

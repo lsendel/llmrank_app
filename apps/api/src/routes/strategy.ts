@@ -210,6 +210,60 @@ strategyRoutes.post("/optimize", enforcePlan("starter"), async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /optimize-dimension — AI Rewriter for specific dimension (Starter+)
+// ---------------------------------------------------------------------------
+
+strategyRoutes.post(
+  "/optimize-dimension",
+  enforcePlan("starter"),
+  async (c) => {
+    const userId = c.get("userId");
+    const body = await c.req.json<{
+      pageId: string;
+      content: string;
+      dimension: any;
+      tone?: string;
+    }>();
+
+    if (!body.pageId || !body.content || !body.dimension) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "pageId, content, and dimension are required",
+          },
+        },
+        422,
+      );
+    }
+
+    if (!c.env.ANTHROPIC_API_KEY) {
+      return c.json(
+        {
+          error: { code: "CONFIG_ERROR", message: "AI service not configured" },
+        },
+        500,
+      );
+    }
+
+    const service = buildStrategyService(c);
+    try {
+      const result = await service.optimizeDimension(
+        userId,
+        body.pageId,
+        body.content,
+        body.dimension,
+        body.tone,
+        c.env.ANTHROPIC_API_KEY,
+      );
+      return c.json({ data: result });
+    } catch (error) {
+      return handleServiceError(c, error);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
 // POST /brief — Generate SEO content brief (Starter+)
 // ---------------------------------------------------------------------------
 

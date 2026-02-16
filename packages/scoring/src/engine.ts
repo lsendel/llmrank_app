@@ -4,7 +4,7 @@ import { scoreContentFactors } from "./factors/content";
 import { scoreAiReadinessFactors } from "./factors/ai-readiness";
 import { scorePerformanceFactors } from "./factors/performance";
 import type { Issue } from "@llm-boost/shared";
-import { calculatePlatformScores } from "./platforms";
+import { calculatePlatformScores, type PlatformScores } from "./platforms";
 
 const WEIGHTS = {
   technical: 0.25,
@@ -30,6 +30,7 @@ export function scorePage(page: PageData): ScoringResult {
       contentScore: 0,
       aiReadinessScore: 0,
       performanceScore: 0,
+      platformScores: {} as PlatformScores,
       letterGrade: "F",
       issues: [
         {
