@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { analyzeResponse, type VisibilityCheckResult } from "../visibility";
 import { withRetry, withTimeout } from "../retry";
+import { LLM_MODELS } from "../llm-config";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -15,7 +16,7 @@ export async function checkClaude(
   const response = await withRetry(() =>
     withTimeout(
       client.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        model: LLM_MODELS.visibility.claude,
         max_tokens: 1024,
         messages: [{ role: "user", content: query }],
       }),
