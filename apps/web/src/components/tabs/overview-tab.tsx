@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreCircle } from "@/components/score-circle";
@@ -44,6 +44,9 @@ export function OverviewTab({
     `progress-${projectId}`,
     useCallback(() => api.projects.progress(projectId), [projectId]),
   );
+
+  const [sitemapContent, setSitemapContent] = useState<string | null>(null);
+  const [llmsTxtContent, setLlmsTxtContent] = useState<string | null>(null);
 
   const hasScores = latestCrawl?.scores != null;
 

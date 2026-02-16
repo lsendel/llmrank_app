@@ -38,6 +38,7 @@ import { cn, gradeColor } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { Progress } from "@/components/ui/progress";
 import { NextStepsCard } from "@/components/cards/next-steps-card";
+import { PercentileBadge } from "@/components/percentile-badge";
 import { usePersonaLayout } from "@/hooks/use-persona-layout";
 import { useDashboardStats, useRecentActivity } from "@/hooks/use-dashboard";
 import { track } from "@/lib/telemetry";
@@ -158,6 +159,9 @@ export default function DashboardPage() {
 
       {/* What to Do Next */}
       <NextStepsCard stats={stats} activity={activity ?? []} />
+
+      {/* Percentile Badge */}
+      {stats.avgScore > 0 && <PercentileBadge avgScore={stats.avgScore} />}
 
       {/* Quick Tools */}
       {stats.totalProjects > 0 && activity && activity.length > 0 && (

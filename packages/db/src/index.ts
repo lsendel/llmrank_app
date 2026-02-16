@@ -26,4 +26,10 @@ export { digestPreferenceQueries } from "./queries/digest-preferences";
 export { reportScheduleQueries } from "./queries/report-schedules";
 export { scoringProfileQueries } from "./queries/scoring-profiles";
 export { teamQueries } from "./queries/teams";
+export {
+  organizationQueries,
+  orgMemberQueries,
+  orgInviteQueries,
+  auditLogQueries,
+} from "./queries/organizations";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";
