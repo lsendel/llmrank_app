@@ -14,8 +14,10 @@ interface Props {
 const LABELS = ["Technical", "Content", "AI Readiness", "Performance"];
 
 export function PdfRadarChart({ scores, size = 200 }: Props) {
-  const cx = size / 2;
-  const cy = size / 2;
+  const pad = 40; // padding for labels outside the chart area
+  const vb = size + pad * 2;
+  const cx = vb / 2;
+  const cy = vb / 2;
   const r = (size - 60) / 2;
 
   const values = [
@@ -39,7 +41,7 @@ export function PdfRadarChart({ scores, size = 200 }: Props) {
     .join(" ");
 
   return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <Svg width={size} height={size} viewBox={`0 0 ${vb} ${vb}`}>
       {/* Grid rings */}
       {rings.map((ring) => (
         <Polygon

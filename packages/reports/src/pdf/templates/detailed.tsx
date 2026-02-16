@@ -245,6 +245,20 @@ function formatPillar(pillar: ReportPillar): string {
   return PILLAR_LABELS[pillar] ?? pillar;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  technical: "Technical",
+  content: "Content",
+  ai_readiness: "AI Readiness",
+  performance: "Performance",
+};
+
+function formatCategory(category: string): string {
+  return (
+    CATEGORY_LABELS[category] ??
+    category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
 function formatDelta(delta: number): { label: string; color: string } {
   if (delta > 0) {
     return { label: `+${delta} vs last crawl`, color: "#16a34a" };
@@ -387,8 +401,7 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
             <View style={styles.col}>
               <PdfBarChart
                 data={data.issues.byCategory.map((c) => ({
-                  label:
-                    c.category.charAt(0).toUpperCase() + c.category.slice(1),
+                  label: formatCategory(c.category),
                   value: c.count,
                 }))}
                 width={260}
@@ -650,7 +663,7 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
               {group.map((issue, i) => (
                 <View key={i} style={styles.issueRow} wrap={false}>
                   <Text style={styles.issueCode}>
-                    {issue.code} | {issue.category}
+                    {issue.code} | {formatCategory(issue.category)}
                   </Text>
                   <Text style={styles.issueMessage}>{issue.message}</Text>
                   <Text style={styles.issueRec}>{issue.recommendation}</Text>

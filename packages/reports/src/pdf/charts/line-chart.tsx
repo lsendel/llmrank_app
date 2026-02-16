@@ -39,7 +39,13 @@ export function PdfLineChart({
 }: Props) {
   if (series.length === 0 || series[0].data.length === 0) return null;
 
-  const padding = { top: title ? 30 : 10, right: 20, bottom: 30, left: 40 };
+  const hasLegend = series.length > 1;
+  const padding = {
+    top: title ? 30 : 10,
+    right: 20,
+    bottom: hasLegend ? 50 : 30,
+    left: 40,
+  };
   const chartW = width - padding.left - padding.right;
   const chartH = height - padding.top - padding.bottom;
   const points = series[0].data.length;
@@ -97,22 +103,26 @@ export function PdfLineChart({
         </G>
       ))}
 
-      {/* X-axis labels */}
-      {series[0].data.map((d, i) => (
-        <Text
-          key={i}
-          x={x(i)}
-          y={height - 6}
-          textAnchor="middle"
-          style={{
-            fontSize: 7,
-            fontFamily: "Helvetica",
-            fill: "#9ca3af",
-          }}
-        >
-          {d.label}
-        </Text>
-      ))}
+      {/* X-axis labels (skip duplicates from same-day crawls) */}
+      {series[0].data.map((d, i, arr) => {
+        const isDuplicate = i > 0 && arr[i - 1].label === d.label;
+        if (isDuplicate) return null;
+        return (
+          <Text
+            key={i}
+            x={x(i)}
+            y={height - (hasLegend ? 22 : 6)}
+            textAnchor="middle"
+            style={{
+              fontSize: 7,
+              fontFamily: "Helvetica",
+              fill: "#9ca3af",
+            }}
+          >
+            {d.label}
+          </Text>
+        );
+      })}
 
       {/* Lines + dots for each series */}
       {series.map((s) => {
@@ -135,12 +145,12 @@ export function PdfLineChart({
       })}
 
       {/* Legend */}
-      {series.length > 1 &&
+      {hasLegend &&
         series.map((s, i) => (
           <G key={s.name}>
             <Rect
               x={padding.left + i * 100}
-              y={height - 16}
+              y={height - 14}
               width={10}
               height={10}
               fill={s.color}
@@ -148,7 +158,7 @@ export function PdfLineChart({
             />
             <Text
               x={padding.left + i * 100 + 14}
-              y={height - 7}
+              y={height - 5}
               style={{
                 fontSize: 8,
                 fontFamily: "Helvetica",

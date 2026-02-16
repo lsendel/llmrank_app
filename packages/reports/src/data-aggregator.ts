@@ -36,6 +36,7 @@ export interface RawCrawl {
 }
 
 export interface RawPageScore {
+  pageId?: string;
   url: string;
   title: string | null;
   overallScore: number;
@@ -45,10 +46,12 @@ export interface RawPageScore {
   lighthousePerf: number | null;
   lighthouseSeo: number | null;
   detail: Record<string, unknown> | null;
+  wordCount?: number | null;
   issueCount?: number;
 }
 
 export interface RawIssue {
+  pageId?: string;
   code: string;
   category: string;
   severity: string;
@@ -225,8 +228,10 @@ const COVERAGE_CODES = Object.entries(ISSUE_METADATA)
 function buildActionPlanTiers(issues: ReportIssue[]): ReportActionPlanTier[] {
   const critical = issues.filter((i) => i.severity === "critical");
   const warning = issues.filter((i) => i.severity === "warning");
-  const quickWins = warning.filter((i) => i.scoreImpact >= 3);
-  const strategic = warning.filter((i) => i.scoreImpact < 3);
+  const quickWins = warning.filter(
+    (i) => i.effort === "low" || i.effort === "medium",
+  );
+  const strategic = warning.filter((i) => i.effort === "high");
   const info = issues.filter((i) => i.severity === "info");
 
   return [
@@ -404,6 +409,17 @@ export function aggregateReportData(
     },
   ).sort((a, b) => a.coveragePercent - b.coveragePercent);
 
+  // Count issues per page from raw issue rows
+  const issueCountByPageId = new Map<string, number>();
+  for (const issue of issues) {
+    if (issue.pageId) {
+      issueCountByPageId.set(
+        issue.pageId,
+        (issueCountByPageId.get(issue.pageId) ?? 0) + 1,
+      );
+    }
+  }
+
   // Pages (sorted worst-first)
   const reportPages: ReportPageScore[] = pageScores
     .map((p) => ({
@@ -417,7 +433,9 @@ export function aggregateReportData(
         (((p.lighthousePerf ?? 0) + (p.lighthouseSeo ?? 0)) / 2) * 100,
       ),
       grade: getLetterGrade(p.overallScore),
-      issueCount: p.issueCount ?? 0,
+      issueCount: p.pageId
+        ? (issueCountByPageId.get(p.pageId) ?? 0)
+        : (p.issueCount ?? 0),
     }))
     .sort((a, b) => a.overall - b.overall);
 
@@ -503,10 +521,7 @@ export function aggregateReportData(
     .map((p) => (p.detail as any)?.llmContentScores)
     .filter(Boolean);
   if (llmScores.length > 0 || pageScores.length > 0) {
-    const wordCounts = pageScores.map((p) => {
-      const ext = (p.detail as any)?.extracted;
-      return ext?.text_length ?? 0;
-    });
+    const wordCounts = pageScores.map((p) => p.wordCount ?? 0);
     contentHealth = {
       avgWordCount: Math.round(average(wordCounts)),
       avgClarity: llmScores.length

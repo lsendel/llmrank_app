@@ -43,6 +43,7 @@ export async function fetchReportData(
 
   const pageScoreRows = await db
     .select({
+      pageId: pageScores.pageId,
       url: pages.url,
       title: pages.title,
       overallScore: pageScores.overallScore,
@@ -52,6 +53,8 @@ export async function fetchReportData(
       lighthousePerf: pageScores.lighthousePerf,
       lighthouseSeo: pageScores.lighthouseSeo,
       detail: pageScores.detail,
+      wordCount: pages.wordCount,
+      textLength: pages.textLength,
     })
     .from(pageScores)
     .innerJoin(pages, eq(pages.id, pageScores.pageId))
@@ -59,6 +62,7 @@ export async function fetchReportData(
 
   const issueRows = await db
     .select({
+      pageId: issues.pageId,
       code: issues.code,
       category: issues.category,
       severity: issues.severity,
@@ -151,6 +155,7 @@ export async function fetchReportData(
     pageScores: pageScoreRows.map((p) => ({
       ...p,
       detail: p.detail as Record<string, unknown> | null,
+      wordCount: p.wordCount ?? p.textLength ?? null,
     })),
     issues: issueRows.map((i) => ({
       ...i,
