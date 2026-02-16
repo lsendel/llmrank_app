@@ -64,10 +64,11 @@ export function QuickWinsCard({
       });
       setBatchResults(results);
       setBatchDialogOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Batch fix failed",
-        description: err.message || "Could not generate fixes",
+        description:
+          err instanceof Error ? err.message : "Could not generate fixes",
         variant: "destructive",
       });
     } finally {

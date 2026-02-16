@@ -82,6 +82,7 @@ strategyRoutes.get("/:projectId/topic-map", enforcePlan("pro"), async (c) => {
 
 strategyRoutes.post("/apply-fix", enforcePlan("starter"), async (c) => {
   const db = c.get("db");
+  const userId = c.get("userId");
   const body = await c.req.json<{
     pageId: string;
     missingFact: string;
@@ -91,6 +92,15 @@ strategyRoutes.post("/apply-fix", enforcePlan("starter"), async (c) => {
   const pageRepo = createPageRepository(db);
   const page = await pageRepo.getById(body.pageId);
   if (!page) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Page not found" } },
+      404,
+    );
+  }
+
+  // Verify the page's project belongs to the authenticated user
+  const project = await createProjectRepository(db).getById(page.projectId);
+  if (!project || project.userId !== userId) {
     return c.json(
       { error: { code: "NOT_FOUND", message: "Page not found" } },
       404,
@@ -118,13 +128,13 @@ strategyRoutes.post("/apply-fix", enforcePlan("starter"), async (c) => {
 
 strategyRoutes.post("/semantic-gap", enforcePlan("pro"), async (c) => {
   const db = c.get("db");
+  const userId = c.get("userId");
   const body = await c.req.json<{
     projectId: string;
     pageId: string;
     competitorDomain: string;
   }>();
 
-  // Verify ownership via repo
   const pageRepo = createPageRepository(db);
   const page = await pageRepo.getById(body.pageId);
   if (!page) {
@@ -134,13 +144,19 @@ strategyRoutes.post("/semantic-gap", enforcePlan("pro"), async (c) => {
     );
   }
 
+  // Verify the page's project belongs to the authenticated user
+  const project = await createProjectRepository(db).getById(page.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Page not found" } },
+      404,
+    );
+  }
+
   const extractor = new FactExtractor(c.env.ANTHROPIC_API_KEY);
 
-  // Extract from user page (title + wordCount as proxy for now,
-  // in real app we'd fetch the full HTML/Text from R2)
   const userContent = `Title: ${page.title}. URL: ${page.url}. Word Count: ${page.wordCount}`;
 
-  // Fetch competitor content (placeholder for demo)
   let competitorContent = `A leading competitor in the niche of ${body.competitorDomain}. Their site features pricing starting at $49 and supports enterprise scale with 99.9% uptime.`;
 
   try {

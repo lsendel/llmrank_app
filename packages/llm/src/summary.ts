@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { QuickWin } from "@llm-boost/shared";
 import { withRetry } from "./retry";
+import { LLM_MODELS } from "./llm-config";
 
 export interface SummaryGeneratorOptions {
   anthropicApiKey: string;
@@ -13,7 +14,7 @@ export class SummaryGenerator {
 
   constructor(options: SummaryGeneratorOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
-    this.model = options.model ?? "claude-3-haiku-20240307";
+    this.model = options.model ?? LLM_MODELS.summary;
   }
 
   /**

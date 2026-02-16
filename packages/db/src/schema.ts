@@ -240,6 +240,9 @@ export const projects = pgTable(
       .notNull()
       .default("manual"),
     nextCrawlAt: timestamp("next_crawl_at"),
+    scoringProfileId: uuid("scoring_profile_id"),
+    leaderboardOptIn: boolean("leaderboard_opt_in").notNull().default(false),
+    teamId: uuid("team_id"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -1014,4 +1017,60 @@ export const scoringProfiles = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_scoring_profiles_user").on(t.userId)],
+);
+
+// ---------------------------------------------------------------------------
+// Teams & RBAC
+// ---------------------------------------------------------------------------
+
+export const teamRoleEnum = pgEnum("team_role", [
+  "owner",
+  "admin",
+  "editor",
+  "viewer",
+]);
+
+export const teams = pgTable("teams", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => users.id),
+  plan: planEnum("plan").notNull().default("free"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: teamRoleEnum("role").notNull().default("viewer"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_team_members_unique").on(t.teamId, t.userId),
+    index("idx_team_members_user").on(t.userId),
+  ],
+);
+
+export const teamInvitations = pgTable(
+  "team_invitations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: teamRoleEnum("role").notNull().default("viewer"),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_team_invitations_team").on(t.teamId)],
 );

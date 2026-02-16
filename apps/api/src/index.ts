@@ -37,8 +37,11 @@ import { notificationChannelRoutes } from "./routes/notification-channels";
 import { visibilityScheduleRoutes } from "./routes/visibility-schedules";
 import { tokenRoutes } from "./routes/api-tokens";
 import { v1Routes } from "./routes/v1";
+import { scoringProfileRoutes } from "./routes/scoring-profiles";
+import { generatorRoutes } from "./routes/generators";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
+import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -189,6 +192,8 @@ app.route("/internal", reportUploadRoutes);
 app.route("/api/notification-channels", notificationChannelRoutes);
 app.route("/api/tokens", tokenRoutes);
 app.route("/api/v1", v1Routes);
+app.route("/api/scoring-profiles", scoringProfileRoutes);
+app.route("/api/projects", generatorRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
@@ -535,6 +540,10 @@ export default withSentry(
           appBaseUrl: env.APP_BASE_URL,
         });
         await digest.processMonthlyDigests();
+      } else if (controller.cron === "0 4 * * *") {
+        // Daily benchmark aggregation — 4 AM UTC
+        const db = createDb(env.DATABASE_URL);
+        await aggregateBenchmarks(db, env.KV);
       } else {
         await runScheduledTasks(env);
       }

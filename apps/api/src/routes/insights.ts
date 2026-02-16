@@ -32,7 +32,7 @@ insightsRoutes.get("/:crawlId/insights", async (c) => {
 
   try {
     const data = await service.getInsights(userId, crawlId);
-    c.header("Cache-Control", "public, max-age=3600");
+    c.header("Cache-Control", "private, max-age=3600");
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -54,7 +54,7 @@ insightsRoutes.get("/:crawlId/issue-heatmap", async (c) => {
 
   try {
     const data = await service.getIssueHeatmap(userId, crawlId);
-    c.header("Cache-Control", "public, max-age=3600");
+    c.header("Cache-Control", "private, max-age=3600");
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -78,7 +78,7 @@ insightsRoutes.get("/:crawlId/fused-insights", async (c) => {
 
   try {
     const data = await service.getFusedInsights(userId, crawlId);
-    c.header("Cache-Control", "public, max-age=300");
+    c.header("Cache-Control", "private, max-age=300");
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);

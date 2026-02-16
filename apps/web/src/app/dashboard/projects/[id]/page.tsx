@@ -282,7 +282,7 @@ export default function ProjectPage() {
         <TabsContent value="settings" className="space-y-6 pt-4">
           <BrandingSettingsForm
             projectId={project.id}
-            initialBranding={project.branding as any}
+            initialBranding={project.branding}
           />
         </TabsContent>
       </Tabs>

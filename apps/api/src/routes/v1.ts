@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { apiTokenAuth } from "../middleware/api-token-auth";
 import { crawlQueries, scoreQueries, visibilityQueries } from "@llm-boost/db";
+import { scorePage, type PageData } from "@llm-boost/scoring";
 import type { TokenScope, TokenContext } from "../services/api-token-service";
+import { z } from "zod";
 
 export const v1Routes = new Hono<AppEnv>();
 
@@ -287,6 +289,88 @@ v1Routes.get("/projects/:id/visibility", async (c) => {
         checkedAt: check.checkedAt,
       })),
       trends,
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /score — Lightweight real-time scoring (no crawl needed)
+// ---------------------------------------------------------------------------
+
+const scoreInputSchema = z.object({
+  url: z.string().url(),
+  title: z.string().nullable().optional(),
+  content: z.string().optional(),
+  metaDescription: z.string().nullable().optional(),
+});
+
+v1Routes.post("/score", async (c) => {
+  const body = scoreInputSchema.safeParse(await c.req.json());
+  if (!body.success) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid request",
+          details: body.error.flatten(),
+        },
+      },
+      422,
+    );
+  }
+
+  const { url, title, content, metaDescription } = body.data;
+  const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0;
+
+  const pageData: PageData = {
+    url,
+    statusCode: 200,
+    title: title ?? null,
+    metaDescription: metaDescription ?? null,
+    canonicalUrl: url,
+    wordCount,
+    contentHash: "",
+    extracted: {
+      h1: [],
+      h2: [],
+      h3: [],
+      h4: [],
+      h5: [],
+      h6: [],
+      schema_types: [],
+      internal_links: [],
+      external_links: [],
+      images_without_alt: 0,
+      has_robots_meta: false,
+      robots_directives: [],
+      og_tags: {},
+      structured_data: [],
+      pdf_links: [],
+      cors_unsafe_blank_links: 0,
+      cors_mixed_content: 0,
+      cors_has_issues: false,
+      sentence_length_variance: null,
+      top_transition_words: [],
+    },
+    lighthouse: null,
+    llmScores: null,
+  };
+
+  const result = scorePage(pageData);
+
+  return c.json({
+    data: {
+      url,
+      scores: {
+        overall: result.overallScore,
+        technical: result.technicalScore,
+        content: result.contentScore,
+        aiReadiness: result.aiReadinessScore,
+        performance: result.performanceScore,
+        letterGrade: result.letterGrade,
+      },
+      issues: result.issues.slice(0, 5),
+      platformScores: result.platformScores,
     },
   });
 });

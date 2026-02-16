@@ -67,7 +67,7 @@ crawlRoutes.get("/:id", withOwnership("crawl"), async (c) => {
   try {
     const data = await crawlService.getCrawl(userId, crawlId);
     if ("status" in data && data.status === "complete") {
-      c.header("Cache-Control", "public, max-age=86400, immutable");
+      c.header("Cache-Control", "private, max-age=86400, immutable");
     } else {
       c.header("Cache-Control", "private, max-age=10");
     }

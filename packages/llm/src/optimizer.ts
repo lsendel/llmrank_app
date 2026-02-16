@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { withRetry } from "./retry";
+import { stripFences } from "./utils";
+import { LLM_MODELS } from "./llm-config";
 
 export interface OptimizationResult {
   original: string;
@@ -16,18 +18,13 @@ export interface ContentBrief {
   searchIntent: string;
 }
 
-function stripFences(text: string): string {
-  const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  return match ? match[1].trim() : text.trim();
-}
-
 export class StrategyOptimizer {
   private client: Anthropic;
   private model: string;
 
   constructor(apiKey: string, model?: string) {
     this.client = new Anthropic({ apiKey });
-    this.model = model ?? "claude-3-5-sonnet-20240620";
+    this.model = model ?? LLM_MODELS.optimizer;
   }
 
   /**

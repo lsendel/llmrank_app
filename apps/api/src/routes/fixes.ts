@@ -200,11 +200,11 @@ fixRoutes.post("/generate-batch", async (c) => {
           planLimit: limits.fixesPerMonth,
         });
         results.push({ code: win.code, fix, error: null });
-      } catch (err: any) {
+      } catch (err: unknown) {
         results.push({
           code: win.code,
           fix: null,
-          error: err.message ?? "Generation failed",
+          error: err instanceof Error ? err.message : "Generation failed",
         });
       }
     }

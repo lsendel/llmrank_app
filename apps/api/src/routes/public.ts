@@ -5,7 +5,7 @@ import { analyzeSitemap } from "../lib/sitemap";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import { aggregateReportData, fetchReportData } from "@llm-boost/reports";
 import type { GenerateReportJob } from "@llm-boost/reports";
-import { getQuickWins } from "@llm-boost/shared";
+import { getQuickWins, type ReportConfig } from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";
 import {
   crawlQueries,
@@ -18,6 +18,16 @@ import { badgeRoutes } from "./badge";
 export const publicRoutes = new Hono<AppEnv>();
 
 publicRoutes.route("/badge", badgeRoutes);
+
+// ---------------------------------------------------------------------------
+// GET /api/public/benchmarks — Public percentile data
+// ---------------------------------------------------------------------------
+
+publicRoutes.get("/benchmarks", async (c) => {
+  const data = await c.env.KV.get("benchmarks:overall", "json");
+  if (!data) return c.json({ data: null });
+  return c.json({ data });
+});
 
 // ---------------------------------------------------------------------------
 // POST /api/public/scan — No-auth instant domain scan
@@ -307,8 +317,7 @@ publicRoutes.get("/reports/:token", async (c) => {
     userId: project.userId,
     type: "detailed",
     format: "pdf",
-    config: {} as any,
-    databaseUrl: "",
+    config: {} as ReportConfig,
   };
 
   const raw = await fetchReportData(db, job);

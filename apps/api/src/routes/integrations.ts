@@ -25,6 +25,21 @@ import {
 import { createIntegrationInsightsService } from "../services/integration-insights-service";
 import { handleServiceError } from "../services/errors";
 
+async function hmacSign(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export const integrationRoutes = new Hono<AppEnv>();
 
 integrationRoutes.use("*", authMiddleware);
@@ -343,7 +358,12 @@ integrationRoutes.post("/:projectId/oauth/google/start", async (c) => {
     );
   }
 
-  const state = btoa(JSON.stringify({ projectId, provider, userId }));
+  const statePayload = { projectId, provider, userId };
+  const nonce = await hmacSign(
+    c.env.SHARED_SECRET,
+    JSON.stringify(statePayload),
+  );
+  const state = btoa(JSON.stringify({ ...statePayload, nonce }));
   const redirectUri = `${c.req.header("Origin") ?? c.req.url.split("/api")[0]}/integrations/callback/google`;
 
   const url = buildGoogleAuthUrl({
@@ -389,6 +409,23 @@ integrationRoutes.post("/oauth/google/callback", async (c) => {
     return c.json(
       { error: { code: "VALIDATION_ERROR", message: "Invalid state" } },
       422,
+    );
+  }
+
+  // Verify HMAC nonce to prevent CSRF/state forgery
+  const { nonce, ...stateWithoutNonce } = stateData as any;
+  const expectedNonce = await hmacSign(
+    c.env.SHARED_SECRET,
+    JSON.stringify({
+      projectId: stateWithoutNonce.projectId,
+      provider: stateWithoutNonce.provider,
+      userId: stateWithoutNonce.userId,
+    }),
+  );
+  if (!nonce || nonce !== expectedNonce) {
+    return c.json(
+      { error: { code: "UNAUTHORIZED", message: "Invalid state nonce" } },
+      401,
     );
   }
 

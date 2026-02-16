@@ -38,7 +38,7 @@ scoreRoutes.get("/job/:jobId/pages", async (c) => {
 
   try {
     const data = await service.listPagesForJob(userId, jobId);
-    c.header("Cache-Control", "public, max-age=86400, immutable");
+    c.header("Cache-Control", "private, max-age=86400, immutable");
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -56,7 +56,7 @@ scoreRoutes.get("/page/:pageId", async (c) => {
 
   try {
     const data = await service.getPage(userId, pageId);
-    c.header("Cache-Control", "public, max-age=86400, immutable");
+    c.header("Cache-Control", "private, max-age=86400, immutable");
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);

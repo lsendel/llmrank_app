@@ -17,8 +17,8 @@ export function useApiSWR<T>(
   return useSWR<T>(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 10_000,
-    onError(error: any) {
-      if (error?.status === 401) {
+    onError(error: unknown) {
+      if ((error as { status?: number })?.status === 401) {
         router.push("/sign-in");
       }
     },
