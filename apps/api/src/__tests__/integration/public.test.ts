@@ -231,6 +231,7 @@ describe("Public Routes", () => {
         completedAt: new Date("2024-06-15"),
         shareToken: "valid-token",
         shareEnabled: true,
+        shareLevel: "full",
       });
 
       mockGetByShareToken.mockResolvedValue(crawl);

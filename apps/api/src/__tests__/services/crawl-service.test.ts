@@ -486,7 +486,7 @@ describe("CrawlService", () => {
 
       const result = await service.enableSharing("user-1", "crawl-1");
       expect(result.shareToken).toBe("token-abc");
-      expect(result.shareUrl).toBe("/report/token-abc");
+      expect(result.shareUrl).toBe("/share/token-abc");
     });
 
     it("returns existing token when sharing is already enabled", async () => {
