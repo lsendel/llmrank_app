@@ -39,3 +39,8 @@ export function reset(): void {
   if (typeof window === "undefined") return;
   posthog.reset();
 }
+
+export function getFeatureFlag(key: string): boolean | string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return posthog.getFeatureFlag(key);
+}
