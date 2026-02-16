@@ -117,6 +117,18 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 // ---------------------------------------------------------------------------
+// Mock repositories — provide all 5 factories required by createContainer()
+// ---------------------------------------------------------------------------
+
+vi.mock("../../repositories", () => ({
+  createProjectRepository: () => ({}),
+  createUserRepository: () => ({}),
+  createCrawlRepository: () => ({}),
+  createScoreRepository: () => ({}),
+  createPageRepository: () => ({}),
+}));
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

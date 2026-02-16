@@ -5,6 +5,28 @@ import { createTestApp } from "../helpers/test-app";
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
+// ---------------------------------------------------------------------------
+// Mock auth middleware to bypass JWT verification
+// ---------------------------------------------------------------------------
+
+vi.mock("../../middleware/auth", () => ({
+  authMiddleware: vi.fn().mockImplementation(async (_c: any, next: any) => {
+    await next();
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock repositories — provide all 5 factories required by createContainer()
+// ---------------------------------------------------------------------------
+
+vi.mock("../../repositories", () => ({
+  createProjectRepository: () => ({}),
+  createUserRepository: () => ({}),
+  createCrawlRepository: () => ({}),
+  createScoreRepository: () => ({}),
+  createPageRepository: () => ({}),
+}));
+
 describe("Health Routes", () => {
   const { request } = createTestApp();
 

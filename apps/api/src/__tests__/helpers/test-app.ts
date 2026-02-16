@@ -109,7 +109,7 @@ export function createTestApp(options: TestAppOptions = {}) {
             details: err.details,
           },
         },
-        err.status as import("hono/utils/http-status").StatusCode,
+        err.status as import("hono/utils/http-status").ContentfulStatusCode,
       );
     }
     console.error("Unhandled test error:", err.message);

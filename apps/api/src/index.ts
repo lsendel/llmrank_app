@@ -222,7 +222,7 @@ app.onError((err, c) => {
   if (err instanceof ServiceError) {
     return c.json(
       { error: { code: err.code, message: err.message, details: err.details } },
-      err.status as import("hono/utils/http-status").StatusCode,
+      err.status as import("hono/utils/http-status").ContentfulStatusCode,
     );
   }
 

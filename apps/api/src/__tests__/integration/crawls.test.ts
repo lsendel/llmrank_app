@@ -82,10 +82,15 @@ vi.stubGlobal("fetch", mockFetch);
 // ---------------------------------------------------------------------------
 
 describe("Crawl Routes", () => {
-  const { request } = createTestApp();
+  const { request, kv } = createTestApp();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Clear KV to remove advisory locks left by previous tests
+    const keys = await kv.list();
+    for (const key of keys.keys) {
+      await kv.delete(key.name);
+    }
     mockUserRepo.getById.mockResolvedValue(buildUser({ id: "test-user-id" }));
     mockProjectRepo.getById.mockResolvedValue(
       buildProject({ id: "proj-1", userId: "test-user-id" }),

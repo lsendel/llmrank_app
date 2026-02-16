@@ -2,6 +2,7 @@ import {
   scorePage,
   generateRecommendations,
   type PageData,
+  type ScoringWeights,
 } from "@llm-boost/scoring";
 import type { CrawlPageResult } from "@llm-boost/shared";
 import type { ScoreRepository } from "../repositories";
@@ -17,6 +18,7 @@ export function createPageScoringService() {
       batchPages: CrawlPageResult[],
       insertedPages: InsertedPage[],
       jobId: string,
+      customWeights?: ScoringWeights,
     ): {
       scoreRows: Parameters<ScoreRepository["createBatch"]>[0];
       issueRows: Parameters<ScoreRepository["createIssues"]>[0];
@@ -41,7 +43,7 @@ export function createPageScoringService() {
           llmScores: null,
         };
 
-        const result = scorePage(pageData);
+        const result = scorePage(pageData, customWeights);
 
         scoreRows.push({
           pageId: insertedPage.id,
