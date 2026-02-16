@@ -24,6 +24,7 @@ import { strategyRoutes } from "../../routes/strategy";
 import { browserRoutes } from "../../routes/browser";
 import { reportRoutes } from "../../routes/reports";
 import { fixRoutes } from "../../routes/fixes";
+import { competitorRoutes } from "../../routes/competitors";
 
 interface TestAppOptions {
   db?: Database;
@@ -86,6 +87,7 @@ export function createTestApp(options: TestAppOptions = {}) {
   app.route("/api/browser", browserRoutes);
   app.route("/api/reports", reportRoutes);
   app.route("/api/fixes", fixRoutes);
+  app.route("/api/competitors", competitorRoutes);
 
   app.notFound((c) =>
     c.json({ error: { code: "NOT_FOUND", message: "Route not found" } }, 404),
