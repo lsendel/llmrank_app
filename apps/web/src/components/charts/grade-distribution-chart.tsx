@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   BarChart,
   Bar,
@@ -24,7 +25,9 @@ interface Props {
   grades: { grade: string; count: number; percentage: number }[];
 }
 
-export function GradeDistributionChart({ grades }: Props) {
+export const GradeDistributionChart = memo(function GradeDistributionChart({
+  grades,
+}: Props) {
   const total = grades.reduce((s, g) => s + g.count, 0);
 
   return (
@@ -74,4 +77,4 @@ export function GradeDistributionChart({ grades }: Props) {
       </CardContent>
     </Card>
   );
-}
+});

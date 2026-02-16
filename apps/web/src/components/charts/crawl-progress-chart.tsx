@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2 } from "lucide-react";
@@ -19,7 +20,7 @@ interface Props {
   status: string;
 }
 
-export function CrawlProgressChart({
+export const CrawlProgressChart = memo(function CrawlProgressChart({
   found,
   crawled,
   scored,
@@ -94,4 +95,4 @@ export function CrawlProgressChart({
       </CardContent>
     </Card>
   );
-}
+});

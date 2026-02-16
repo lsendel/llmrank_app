@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   RadarChart,
   Radar,
@@ -20,7 +21,7 @@ interface Props {
   className?: string;
 }
 
-export function ScoreRadarChart({
+export const ScoreRadarChart = memo(function ScoreRadarChart({
   technical,
   content,
   aiReadiness,
@@ -81,4 +82,4 @@ export function ScoreRadarChart({
       </CardContent>
     </Card>
   );
-}
+});

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const baseSidebarLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -97,7 +98,9 @@ export default function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   );

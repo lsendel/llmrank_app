@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   Card,
@@ -22,7 +23,7 @@ interface Props {
   total: number;
 }
 
-export function IssueDistributionChart({
+export const IssueDistributionChart = memo(function IssueDistributionChart({
   bySeverity,
   byCategory,
   total,
@@ -110,4 +111,4 @@ export function IssueDistributionChart({
       </CardFooter>
     </Card>
   );
-}
+});

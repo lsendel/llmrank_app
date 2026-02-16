@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   Card,
   CardContent,
@@ -19,7 +20,7 @@ interface Props {
   totalHtmlLength?: number;
 }
 
-export function ContentRatioGauge({
+export const ContentRatioGauge = memo(function ContentRatioGauge({
   avgWordCount,
   pagesAboveThreshold,
   totalPages,
@@ -103,4 +104,4 @@ export function ContentRatioGauge({
       </CardFooter>
     </Card>
   );
-}
+});
