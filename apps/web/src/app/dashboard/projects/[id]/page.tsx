@@ -14,6 +14,7 @@ import {
   Eye,
   Plug,
   Compass,
+  Trophy,
   Settings,
   Download,
 } from "lucide-react";
@@ -58,6 +59,20 @@ const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
     </div>
   ),
 });
+
+const CompetitorsTab = dynamic(
+  () =>
+    import("@/components/tabs/competitors-tab").then((mod) => ({
+      default: mod.CompetitorsTab,
+    })),
+  {
+    loading: () => (
+      <div className="py-8 text-center text-muted-foreground">
+        Loading competitors...
+      </div>
+    ),
+  },
+);
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -189,6 +204,10 @@ export default function ProjectPage() {
             <Compass className="mr-1.5 h-4 w-4" />
             Strategy
           </TabsTrigger>
+          <TabsTrigger value="competitors">
+            <Trophy className="mr-1.5 h-4 w-4" />
+            Competitors
+          </TabsTrigger>
           <TabsTrigger value="visibility">
             <Eye className="mr-1.5 h-4 w-4" />
             Visibility
@@ -233,6 +252,10 @@ export default function ProjectPage() {
 
         <TabsContent value="strategy" className="pt-4">
           <StrategyTab projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="competitors" className="space-y-6 pt-4">
+          <CompetitorsTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="visibility" className="space-y-6 pt-4">

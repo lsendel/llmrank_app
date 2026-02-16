@@ -1683,6 +1683,51 @@ export const api = {
     },
   },
 
+  // ── Benchmarks ───────────────────────────────────────────────
+  benchmarks: {
+    async trigger(data: { projectId: string; competitorDomain: string }) {
+      const res = await apiClient.post<ApiEnvelope<any>>(
+        "/api/competitors/benchmark",
+        data,
+      );
+      return res.data;
+    },
+    async list(projectId: string) {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          projectScores: {
+            overall: number;
+            technical: number;
+            content: number;
+            aiReadiness: number;
+            performance: number;
+            letterGrade: string;
+          };
+          competitors: Array<{
+            competitorDomain: string;
+            scores: {
+              overall: number | null;
+              technical: number | null;
+              content: number | null;
+              aiReadiness: number | null;
+              performance: number | null;
+              letterGrade: string | null;
+            };
+            comparison: {
+              overall: number;
+              technical: number;
+              content: number;
+              aiReadiness: number;
+              performance: number;
+            };
+            crawledAt: string;
+          }>;
+        }>
+      >(`/api/competitors?projectId=${projectId}`);
+      return res.data;
+    },
+  },
+
   // ── API Tokens ───────────────────────────────────────────────
   tokens: {
     async list(): Promise<ApiTokenInfo[]> {
