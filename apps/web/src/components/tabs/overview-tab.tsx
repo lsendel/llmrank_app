@@ -39,11 +39,26 @@ export function OverviewTab({
   const hasScores = latestCrawl?.scores != null;
 
   if (!hasScores) {
+    const isFailed = latestCrawl?.status === "failed";
     return (
       <Card className="p-8 text-center">
-        <p className="text-muted-foreground">
-          No crawl data yet. Click &quot;Run Crawl&quot; to analyze this site.
-        </p>
+        {isFailed ? (
+          <div className="space-y-2">
+            <p className="font-medium text-destructive">Last crawl failed</p>
+            {latestCrawl?.errorMessage && (
+              <p className="text-sm text-muted-foreground">
+                {latestCrawl.errorMessage}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Click &quot;Run Crawl&quot; to try again.
+            </p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            No crawl data yet. Click &quot;Run Crawl&quot; to analyze this site.
+          </p>
+        )}
       </Card>
     );
   }

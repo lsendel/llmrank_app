@@ -106,10 +106,34 @@ export function createProjectService(deps: ProjectServiceDeps) {
     crawlJob: Awaited<ReturnType<CrawlRepository["getById"]>> | null,
   ) {
     if (!crawlJob) return null;
-    if (crawlJob.status !== "complete") return crawlJob;
+    if (crawlJob.status !== "complete") {
+      return {
+        ...crawlJob,
+        overallScore: null as number | null,
+        letterGrade: null as string | null,
+        scores: null as {
+          technical: number;
+          content: number;
+          aiReadiness: number;
+          performance: number;
+        } | null,
+      };
+    }
 
     const pageScores = await deps.scores.listByJob(crawlJob.id);
-    if (pageScores.length === 0) return crawlJob;
+    if (pageScores.length === 0) {
+      return {
+        ...crawlJob,
+        overallScore: null as number | null,
+        letterGrade: null as string | null,
+        scores: null as {
+          technical: number;
+          content: number;
+          aiReadiness: number;
+          performance: number;
+        } | null,
+      };
+    }
 
     return {
       ...crawlJob,
