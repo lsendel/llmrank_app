@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
   uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,19 @@ export const scheduleFrequencyEnum = pgEnum("schedule_frequency", [
   "hourly",
   "daily",
   "weekly",
+]);
+
+export const fixTypeEnum = pgEnum("fix_type", [
+  "meta_description",
+  "title_tag",
+  "json_ld",
+  "llms_txt",
+  "faq_section",
+  "summary_section",
+  "alt_text",
+  "og_tags",
+  "canonical",
+  "heading_structure",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -763,3 +777,26 @@ export const apiTokens = pgTable(
     uniqueIndex("idx_api_tokens_hash").on(t.tokenHash),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Content Fixes (AI Content Rewriter)
+// ---------------------------------------------------------------------------
+
+export const contentFixes = pgTable("content_fixes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  pageId: uuid("page_id").references(() => pages.id),
+  issueCode: varchar("issue_code", { length: 64 }).notNull(),
+  fixType: fixTypeEnum("fix_type").notNull(),
+  originalContent: text("original_content"),
+  generatedFix: text("generated_fix").notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("generated"),
+  tokensUsed: integer("tokens_used"),
+  model: varchar("model", { length: 64 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

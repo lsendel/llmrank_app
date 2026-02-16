@@ -20,4 +20,5 @@ export { scanResultQueries } from "./queries/scan-results";
 export { apiTokenQueries } from "./queries/api-tokens";
 export { notificationChannelQueries } from "./queries/notification-channels";
 export { scheduledVisibilityQueryQueries } from "./queries/scheduled-visibility";
+export { contentFixQueries } from "./queries/content-fixes";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";
