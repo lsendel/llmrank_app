@@ -1654,6 +1654,35 @@ export const api = {
     },
   },
 
+  // ── AI Fixes ───────────────────────────────────────────────
+  fixes: {
+    async generate(data: {
+      projectId: string;
+      pageId?: string;
+      issueCode: string;
+    }) {
+      const res = await apiClient.post<ApiEnvelope<any>>(
+        "/api/fixes/generate",
+        data,
+      );
+      return res.data;
+    },
+
+    async list(projectId: string) {
+      const res = await apiClient.get<ApiEnvelope<any[]>>(
+        `/api/fixes?projectId=${projectId}`,
+      );
+      return res.data;
+    },
+
+    async supported() {
+      const res = await apiClient.get<ApiEnvelope<string[]>>(
+        "/api/fixes/supported",
+      );
+      return res.data;
+    },
+  },
+
   // ── API Tokens ───────────────────────────────────────────────
   tokens: {
     async list(): Promise<ApiTokenInfo[]> {
