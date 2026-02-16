@@ -867,7 +867,12 @@ export const reportSchedules = pgTable(
 // Organizations & RBAC
 // ---------------------------------------------------------------------------
 
-export const orgRoleEnum = pgEnum("org_role", ["owner", "admin", "member"]);
+export const orgRoleEnum = pgEnum("org_role", [
+  "owner",
+  "admin",
+  "member",
+  "viewer",
+]);
 
 export const organizations = pgTable(
   "organizations",

@@ -87,20 +87,20 @@ export function organizationQueries(db: Database) {
 
 export function orgMemberQueries(db: Database) {
   return {
-    async add(
-      orgId: string,
-      userId: string,
-      role: OrgRole = "member",
-      invitedBy?: string,
-    ) {
+    async add(data: {
+      orgId: string;
+      userId: string;
+      role?: OrgRole;
+      invitedBy?: string;
+    }) {
       const [row] = await db
         .insert(orgMembers)
         .values({
-          orgId,
-          userId,
-          role,
-          invitedBy: invitedBy ?? null,
-          invitedAt: invitedBy ? new Date() : null,
+          orgId: data.orgId,
+          userId: data.userId,
+          role: data.role ?? "member",
+          invitedBy: data.invitedBy ?? null,
+          invitedAt: data.invitedBy ? new Date() : null,
         })
         .returning();
       return row;
