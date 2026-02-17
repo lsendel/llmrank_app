@@ -7,6 +7,7 @@ import {
   JsonLd,
   productOffersSchema,
   breadcrumbSchema,
+  faqSchema,
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
@@ -144,6 +145,29 @@ const pricingJsonLd = productOffersSchema([
   },
 ]);
 
+const PRICING_FAQ = [
+  {
+    question: "Can I change plans at any time?",
+    answer:
+      "Yes. You can upgrade or downgrade your plan at any time from the dashboard settings page. When upgrading, the new plan takes effect immediately and you are billed the prorated difference. When downgrading, the change takes effect at the start of your next billing cycle.",
+  },
+  {
+    question: "What happens when I hit my crawl limit?",
+    answer:
+      "When you reach your monthly crawl limit, you can still view all existing scores, reports, and recommendations. New crawls will be available when your billing cycle resets. Upgrade to a higher plan for more crawls — the Pro plan includes 30 per month and Agency offers unlimited crawls.",
+  },
+  {
+    question: "Do I need a credit card for the free plan?",
+    answer:
+      "No. The free plan requires only an email address to sign up. You get 10 pages per crawl, 2 crawls per month, and 1 project — no credit card needed. Upgrade when you need more capacity.",
+  },
+  {
+    question: "What is an AI visibility check?",
+    answer:
+      "Visibility checks query major AI platforms — ChatGPT, Claude, Perplexity, and Gemini — with relevant queries to see if your brand is mentioned or your URLs are cited. This helps you understand how visible your content is in AI-generated answers, not just in traditional search results.",
+  },
+];
+
 export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -153,6 +177,14 @@ export default function PricingPage() {
           { name: "Home", path: "/" },
           { name: "Pricing", path: "/pricing" },
         ])}
+      />
+      <JsonLd
+        data={faqSchema(
+          PRICING_FAQ.map((item) => ({
+            question: item.question,
+            answer: item.answer,
+          })),
+        )}
       />
       {/* Nav — matches landing page */}
       <header className="border-b border-border">
@@ -197,9 +229,29 @@ export default function PricingPage() {
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
           Start free, upgrade when you need more pages, crawls, or integrations.
-          All plans include the full 37-factor scoring engine.
+          All plans include the full 37-factor scoring engine built on{" "}
+          <a
+            href="https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary hover:underline"
+          >
+            Google Search Central standards
+          </a>
+          .
         </p>
       </section>
+
+      <p className="mx-auto mt-6 max-w-2xl px-6 text-sm leading-relaxed text-muted-foreground">
+        Every plan includes access to our full 37-factor scoring engine, which
+        evaluates Technical SEO, Content Quality, AI Readiness, and Performance.
+        The free tier lets you scan up to 10 pages per crawl with 2 monthly
+        crawls and 1 project. Paid plans unlock more pages per crawl, higher
+        crawl frequency, additional projects, AI visibility checks, integrations
+        with Google Search Console and Google Analytics, and detailed report
+        exports. All plans include prioritized quick wins, issue catalogs, and
+        score trend tracking.
+      </p>
 
       {/* Cards */}
       <section className="mx-auto w-full max-w-6xl px-6 pb-20">
@@ -325,6 +377,50 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
+
+      {/* FAQ */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-center text-2xl font-bold text-foreground">
+            Pricing FAQ
+          </h2>
+          <div className="mt-8 space-y-6">
+            {PRICING_FAQ.map((item) => (
+              <details
+                key={item.question}
+                className="group rounded-lg border border-border p-5"
+              >
+                <summary className="cursor-pointer text-base font-semibold text-foreground">
+                  {item.question}
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  {item.answer}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-3xl px-6 pb-12 text-center">
+        <p className="text-sm text-muted-foreground">
+          Not sure which plan is right for you?{" "}
+          <Link
+            href="/scan"
+            className="font-medium text-primary hover:underline"
+          >
+            Try a free scan
+          </Link>{" "}
+          first, or{" "}
+          <Link
+            href="/integrations"
+            className="font-medium text-primary hover:underline"
+          >
+            explore our integrations
+          </Link>{" "}
+          to see what connects with your workflow.
+        </p>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
