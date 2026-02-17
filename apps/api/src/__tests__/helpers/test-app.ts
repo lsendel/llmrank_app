@@ -147,6 +147,7 @@ export function createTestApp(options: TestAppOptions = {}) {
     APP_BASE_URL: "http://localhost:3000",
     POSTHOG_API_KEY: "",
     BING_API_KEY: "test-key",
+    GEMINI_API_KEY: "test-key",
     ...options.envOverrides,
   };
 

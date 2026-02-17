@@ -73,6 +73,23 @@ export const LighthouseResultSchema = z.object({
   lh_r2_key: z.string().optional(),
 });
 
+export const SiteContextSchema = z.object({
+  has_llms_txt: z.boolean(),
+  ai_crawlers_blocked: z.array(z.string()),
+  has_sitemap: z.boolean(),
+  sitemap_analysis: z
+    .object({
+      is_valid: z.boolean(),
+      url_count: z.number().int(),
+      stale_url_count: z.number().int(),
+      discovered_page_count: z.number().int(),
+    })
+    .optional(),
+  content_hashes: z.record(z.string()), // hash -> url
+  response_time_ms: z.number().optional(),
+  page_size_bytes: z.number().int().optional(),
+});
+
 // Single page result from crawler
 export const CrawlPageResultSchema = z.object({
   url: z.string().url(),
@@ -95,6 +112,7 @@ export const CrawlPageResultSchema = z.object({
     )
     .optional()
     .default([]),
+  site_context: SiteContextSchema.optional(),
 });
 
 // Hetzner -> Cloudflare: Batch result callback
@@ -114,5 +132,6 @@ export const CrawlResultBatchSchema = z.object({
 export type CrawlJobPayload = z.infer<typeof CrawlJobPayloadSchema>;
 export type ExtractedData = z.infer<typeof ExtractedDataSchema>;
 export type LighthouseResult = z.infer<typeof LighthouseResultSchema>;
+export type SiteContext = z.infer<typeof SiteContextSchema>;
 export type CrawlPageResult = z.infer<typeof CrawlPageResultSchema>;
 export type CrawlResultBatch = z.infer<typeof CrawlResultBatchSchema>;

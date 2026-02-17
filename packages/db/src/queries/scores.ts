@@ -121,6 +121,15 @@ export function scoreQueries(db: Database) {
       }));
     },
 
+    async update(id: string, data: Partial<ScoreCreateData>) {
+      const [updated] = await db
+        .update(pageScores)
+        .set(data)
+        .where(eq(pageScores.id, id))
+        .returning();
+      return updated;
+    },
+
     async updateDetail(
       pageScoreId: string,
       detailPatch: Record<string, unknown>,
@@ -133,6 +142,10 @@ export function scoreQueries(db: Database) {
         .where(eq(pageScores.id, pageScoreId))
         .returning();
       return updated;
+    },
+
+    async clearIssues(pageId: string) {
+      return db.delete(issues).where(eq(issues.pageId, pageId));
     },
   };
 }

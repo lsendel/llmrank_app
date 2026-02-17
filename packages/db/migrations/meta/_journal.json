@@ -71,6 +71,13 @@
       "when": 1771300450214,
       "tag": "0009_insight_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771305216980,
+      "tag": "0010_curvy_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,12 @@
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import type { Database } from "../client";
-import { crawlJobs, crawlStatusEnum, projects, pageScores } from "../schema";
+import {
+  crawlJobs,
+  crawlStatusEnum,
+  projects,
+  pageScores,
+  pages,
+} from "../schema";
 
 type CrawlStatus = (typeof crawlStatusEnum.enumValues)[number];
 
@@ -29,6 +35,7 @@ export function crawlQueries(db: Database) {
         r2Prefix?: string;
         startedAt?: Date;
         completedAt?: Date;
+        siteContext?: unknown;
       },
     ) {
       const [updated] = await db
@@ -66,6 +73,64 @@ export function crawlQueries(db: Database) {
         orderBy: [desc(crawlJobs.createdAt)],
         limit,
         offset,
+      });
+    },
+
+    async listCompletedByProject(projectId: string, limit = 50) {
+      return db.query.crawlJobs.findMany({
+        where: and(
+          eq(crawlJobs.projectId, projectId),
+          eq(crawlJobs.status, "complete"),
+        ),
+        limit,
+        orderBy: [desc(crawlJobs.createdAt)],
+      });
+    },
+
+    async getComparisonData(jobId1: string, jobId2: string) {
+      // Fetch scores and pages for both jobs
+      const [scores1, pages1, scores2, pages2] = await Promise.all([
+        db.query.pageScores.findMany({ where: eq(pageScores.jobId, jobId1) }),
+        db.query.pages.findMany({ where: eq(pages.jobId, jobId1) }),
+        db.query.pageScores.findMany({ where: eq(pageScores.jobId, jobId2) }),
+        db.query.pages.findMany({ where: eq(pages.jobId, jobId2) }),
+      ]);
+
+      const pageMap1 = new Map(pages1.map((p) => [p.id, p.url]));
+      const pageMap2 = new Map(pages2.map((p) => [p.id, p.url]));
+
+      const scoresByUrl1 = new Map<string, any>();
+      for (const s of scores1) {
+        const url = pageMap1.get(s.pageId);
+        if (url) scoresByUrl1.set(url, s);
+      }
+
+      const scoresByUrl2 = new Map<string, any>();
+      for (const s of scores2) {
+        const url = pageMap2.get(s.pageId);
+        if (url) scoresByUrl2.set(url, s);
+      }
+
+      // Find all unique URLs across both jobs
+      const allUrls = new Set([...scoresByUrl1.keys(), ...scoresByUrl2.keys()]);
+
+      return Array.from(allUrls).map((url) => {
+        const s1 = scoresByUrl1.get(url);
+        const s2 = scoresByUrl2.get(url);
+
+        return {
+          url,
+          oldScore: s1?.overallScore ?? null,
+          newScore: s2?.overallScore ?? null,
+          delta:
+            s1 && s2
+              ? s2.overallScore - s1.overallScore
+              : s2
+                ? s2.overallScore
+                : s1
+                  ? -s1.overallScore
+                  : 0,
+        };
       });
     },
 

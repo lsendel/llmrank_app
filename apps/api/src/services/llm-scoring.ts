@@ -14,6 +14,7 @@ export interface LLMScoringInput {
   batchPages: CrawlPageResult[];
   insertedPages: { id: string; url: string }[];
   insertedScores: { id: string; pageId: string }[];
+  jobId: string;
 }
 
 /**
@@ -59,9 +60,82 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
         );
         if (!llmScores) return;
 
-        await scoreQueries(db).updateDetail(scoreRow.id, {
-          llmContentScores: llmScores,
+        // Re-score the page with LLM scores populated
+        const { scorePage, generateRecommendations } =
+          await import("@llm-boost/scoring");
+        const pageData = {
+          url: crawlPage.url,
+          statusCode: crawlPage.status_code,
+          title: crawlPage.title,
+          metaDescription: crawlPage.meta_description,
+          canonicalUrl: crawlPage.canonical_url,
+          wordCount: crawlPage.word_count,
+          contentHash: crawlPage.content_hash,
+          extracted: crawlPage.extracted,
+          lighthouse: crawlPage.lighthouse ?? null,
+          llmScores,
+          siteContext: crawlPage.site_context
+            ? {
+                hasLlmsTxt: crawlPage.site_context.has_llms_txt,
+                aiCrawlersBlocked: crawlPage.site_context.ai_crawlers_blocked,
+                hasSitemap: crawlPage.site_context.has_sitemap,
+                sitemapAnalysis: crawlPage.site_context.sitemap_analysis
+                  ? {
+                      isValid: crawlPage.site_context.sitemap_analysis.is_valid,
+                      urlCount:
+                        crawlPage.site_context.sitemap_analysis.url_count,
+                      staleUrlCount:
+                        crawlPage.site_context.sitemap_analysis.stale_url_count,
+                      discoveredPageCount:
+                        crawlPage.site_context.sitemap_analysis
+                          .discovered_page_count,
+                    }
+                  : undefined,
+                contentHashes: new Map(
+                  Object.entries(crawlPage.site_context.content_hashes),
+                ),
+                responseTimeMs: crawlPage.site_context.response_time_ms,
+                pageSizeBytes: crawlPage.site_context.page_size_bytes,
+              }
+            : undefined,
+        };
+
+        const result = scorePage(pageData);
+
+        // Update main score fields
+        await scoreQueries(db).update(scoreRow.id, {
+          overallScore: result.overallScore,
+          technicalScore: result.technicalScore,
+          contentScore: result.contentScore,
+          aiReadinessScore: result.aiReadinessScore,
+          detail: {
+            performanceScore: result.performanceScore,
+            letterGrade: result.letterGrade,
+            extracted: crawlPage.extracted,
+            lighthouse: crawlPage.lighthouse ?? null,
+            llmContentScores: llmScores,
+          },
+          platformScores: result.platformScores,
+          recommendations: generateRecommendations(
+            result.issues,
+            result.overallScore,
+          ),
         });
+
+        // Replace issues
+        await scoreQueries(db).clearIssues(scoreRow.pageId);
+        await scoreQueries(db).createIssues(
+          result.issues.map((issue) => ({
+            pageId: scoreRow.pageId,
+            jobId: input.jobId,
+            category: issue.category,
+            severity: issue.severity,
+            code: issue.code,
+            message: issue.message,
+            recommendation: issue.recommendation,
+            data: issue.data ?? null,
+          })),
+        );
       } catch (err) {
         log.error("LLM scoring failed for page", {
           pageId: scoreRow.pageId,

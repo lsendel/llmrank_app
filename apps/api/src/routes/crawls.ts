@@ -5,7 +5,12 @@ import { withOwnership } from "../middleware/ownership";
 import { handleServiceError } from "../services/errors";
 import { toCrawlResponse, toCrawlListResponse } from "../dto/crawl.dto";
 import { rateLimit } from "../middleware/rate-limit";
-import { pageQueries, scoreQueries, userQueries } from "@llm-boost/db";
+import {
+  pageQueries,
+  scoreQueries,
+  userQueries,
+  crawlQueries,
+} from "@llm-boost/db";
 
 export const crawlRoutes = new Hono<AppEnv>();
 
@@ -130,6 +135,26 @@ crawlRoutes.get("/project/:projectId", withOwnership("project"), async (c) => {
   }
 });
 
+crawlRoutes.get(
+  "/project/:projectId/history",
+  withOwnership("project"),
+  async (c) => {
+    const db = c.get("db");
+    const projectId = c.req.param("projectId");
+    const limit = Number(c.req.query("limit") || "50");
+
+    try {
+      const crawls = await crawlQueries(db).listCompletedByProject(
+        projectId,
+        limit,
+      );
+      return c.json({ data: toCrawlListResponse(crawls) });
+    } catch (error) {
+      return handleServiceError(c, error);
+    }
+  },
+);
+
 // ---------------------------------------------------------------------------
 // GET /:id/quick-wins — Top 5 highest-impact, easiest-to-fix issues
 // ---------------------------------------------------------------------------
@@ -142,6 +167,43 @@ crawlRoutes.get("/:id/quick-wins", withOwnership("crawl"), async (c) => {
   try {
     const wins = await crawlService.getQuickWins(userId, crawlId);
     return c.json({ data: wins });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+crawlRoutes.get("/:id/compare/:otherId", withOwnership("crawl"), async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const crawlId1 = c.req.param("id");
+  const crawlId2 = c.req.param("otherId");
+
+  // withOwnership already verified ownership of crawlId1.
+  // We MUST also verify ownership of crawlId2.
+  const crawl2 = await crawlQueries(db).getById(crawlId2);
+  if (!crawl2) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  // Ensure crawl2 belongs to a project the user owns
+  const { projects } = c.get("container");
+  const project2 = await projects.getById(crawl2.projectId);
+  if (!project2 || project2.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Crawl not found" } },
+      404,
+    );
+  }
+
+  try {
+    const comparison = await crawlQueries(db).getComparisonData(
+      crawlId1,
+      crawlId2,
+    );
+    return c.json({ data: comparison });
   } catch (error) {
     return handleServiceError(c, error);
   }

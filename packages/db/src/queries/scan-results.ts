@@ -10,6 +10,7 @@ export function scanResultQueries(db: Database) {
       scores: Record<string, unknown>;
       issues: unknown[];
       quickWins: unknown[];
+      siteContext?: unknown;
       ipHash?: string;
     }) {
       const expiresAt = new Date();

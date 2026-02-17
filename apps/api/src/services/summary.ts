@@ -46,6 +46,7 @@ export interface CrawlSummaryData {
   pagesScored: number;
   generatedAt: string;
   issueCount: number;
+  siteContext?: unknown;
 }
 
 export async function persistCrawlSummaryData(
@@ -98,10 +99,11 @@ async function persistSummaryWithDb(
   const scoreQuery = scoreQueries(db);
   const crawlQuery = crawlQueries(db);
 
-  const [project, pageScores, issues] = await Promise.all([
+  const [project, pageScores, issues, crawlJob] = await Promise.all([
     projectQuery.getById(input.projectId),
     scoreQuery.listByJob(input.jobId),
     scoreQuery.getIssuesByJob(input.jobId),
+    crawlQuery.getById(input.jobId),
   ]);
 
   if (!project || pageScores.length === 0) {
@@ -121,6 +123,7 @@ async function persistSummaryWithDb(
     pagesScored: pageScores.length,
     generatedAt: new Date().toISOString(),
     issueCount: issues.length,
+    siteContext: (crawlJob as any)?.siteContext,
   };
 
   await crawlQuery.updateSummaryData(input.jobId, summaryData);

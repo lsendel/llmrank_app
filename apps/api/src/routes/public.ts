@@ -1,22 +1,12 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
+import { RobotsParser } from "@llm-boost/shared";
 import { parseHtml } from "../lib/html-parser";
 import { analyzeSitemap } from "../lib/sitemap";
 import { scorePage, type PageData } from "@llm-boost/scoring";
-import { aggregateReportData, fetchReportData } from "@llm-boost/reports";
-import type { GenerateReportJob } from "@llm-boost/reports";
-import {
-  getQuickWins,
-  AI_BOT_USER_AGENT_NAMES,
-  type ReportConfig,
-} from "@llm-boost/shared";
+import { getQuickWins, AI_BOT_USER_AGENT_NAMES } from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";
-import {
-  crawlQueries,
-  projectQueries,
-  leadQueries,
-  scanResultQueries,
-} from "@llm-boost/db";
+import { scanResultQueries } from "@llm-boost/db";
 import { badgeRoutes } from "./badge";
 
 export const publicRoutes = new Hono<AppEnv>();
@@ -125,18 +115,25 @@ publicRoutes.post("/scan", async (c) => {
   const aiCrawlersBlocked: string[] = [];
   if (robotsResponse?.ok) {
     const robotsTxt = await robotsResponse.text();
+    const parser = new RobotsParser(robotsTxt);
     for (const agent of AI_BOT_USER_AGENT_NAMES) {
-      const agentBlock = new RegExp(
-        `User-agent:\\s*${agent}[\\s\\S]*?Disallow:\\s*/`,
-        "i",
-      );
-      if (agentBlock.test(robotsTxt)) {
+      if (!parser.isAllowed(pageUrl, agent)) {
         aiCrawlersBlocked.push(agent);
       }
     }
   }
 
-  const hasLlmsTxt = llmsResponse?.ok ?? false;
+  let hasLlmsTxt = false;
+
+  if (llmsResponse?.ok) {
+    const rawLlms = await llmsResponse.text();
+    if (rawLlms.trim().length > 0) {
+      hasLlmsTxt = true;
+      // Optional: Store parsed content if needed, but for public scan we just check existence
+      // const parser = new LlmsTxtParser(rawLlms);
+      // const result = parser.parse();
+    }
+  }
 
   // Build content hash using SHA-256 for proper deduplication
   const htmlBytes = new TextEncoder().encode(html);
@@ -197,32 +194,33 @@ publicRoutes.post("/scan", async (c) => {
   const result = scorePage(pageData);
   const quickWins = getQuickWins(result.issues);
 
-  // Run a single visibility probe (Perplexity) — best-effort, don't block on failure
-  let visibility: {
-    provider: string;
-    brandMentioned: boolean;
-    urlCited: boolean;
-  } | null = null;
+  // Run visibility probes across multiple providers — best-effort, don't block on failure
+  let visibility: any[] = [];
 
-  const perplexityKey = c.env.PERPLEXITY_API_KEY;
-  if (perplexityKey) {
+  const apiKeys: Record<string, string> = {};
+  if (c.env.PERPLEXITY_API_KEY) apiKeys.perplexity = c.env.PERPLEXITY_API_KEY;
+  if (c.env.OPENAI_API_KEY) apiKeys.chatgpt = c.env.OPENAI_API_KEY;
+  if (c.env.ANTHROPIC_API_KEY) apiKeys.claude = c.env.ANTHROPIC_API_KEY;
+  if (c.env.GEMINI_API_KEY) apiKeys.gemini = c.env.GEMINI_API_KEY;
+
+  if (Object.keys(apiKeys).length > 0) {
     try {
       const checker = new VisibilityChecker();
       const autoQuery = `What is ${domain} known for?`;
-      const [probeResult] = await checker.checkAllProviders({
+      const results = await checker.checkAllProviders({
         query: autoQuery,
         targetDomain: domain,
         competitors: [],
-        providers: ["perplexity"],
-        apiKeys: { perplexity: perplexityKey },
+        providers: Object.keys(apiKeys),
+        apiKeys,
       });
-      if (probeResult) {
-        visibility = {
-          provider: probeResult.provider,
-          brandMentioned: probeResult.brandMentioned,
-          urlCited: probeResult.urlCited,
-        };
-      }
+      visibility = results.map((r) => ({
+        provider: r.provider,
+        brandMentioned: r.brandMentioned,
+        urlCited: r.urlCited,
+        citationPosition: r.citationPosition,
+        competitorMentions: r.competitorMentions,
+      }));
     } catch (err) {
       console.error(
         `[public-scan] Visibility probe failed for domain="${domain}":`,
@@ -254,6 +252,7 @@ publicRoutes.post("/scan", async (c) => {
     scores,
     issues: result.issues,
     quickWins,
+    siteContext: pageData.siteContext,
     ipHash,
   });
 
@@ -269,10 +268,11 @@ publicRoutes.post("/scan", async (c) => {
         title: parsed.title,
         description: parsed.metaDescription,
         wordCount: parsed.wordCount,
+        siteContext: pageData.siteContext,
         hasLlmsTxt,
-        hasSitemap: sitemapResult.exists,
-        sitemapUrls: sitemapResult.urlCount,
-        aiCrawlersBlocked,
+        hasSitemap: sitemapResult.exists, // Keep for backward compat
+        sitemapUrls: sitemapResult.urlCount, // Keep for backward compat
+        aiCrawlersBlocked, // Keep for backward compat
         schemaTypes: parsed.schemaTypes,
         ogTags: parsed.ogTags,
       },
@@ -422,6 +422,7 @@ publicRoutes.get("/scan-results/:id", async (c) => {
       url: result.url,
       scores: result.scores,
       issues: (result.issues as any[]).slice(0, 3),
+      siteContext: (result as any).siteContext,
       // quickWins omitted for gated view
       createdAt: result.createdAt,
     },

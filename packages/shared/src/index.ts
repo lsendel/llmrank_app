@@ -25,3 +25,4 @@ export * from "./domain/llms-txt";
 export * from "./domain/permissions";
 export * from "./schemas/report";
 export * from "./persona-widget-config";
+export * from "./utils/robots-parser";

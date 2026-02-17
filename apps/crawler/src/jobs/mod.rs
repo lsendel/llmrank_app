@@ -188,16 +188,54 @@ impl JobManager {
             .and_then(|u| Url::parse(u).ok())
             .and_then(|u| u.host_str().map(|h| h.to_string()));
 
+        // Initialize SiteContext data
+        let mut site_context = SiteContext {
+            has_llms_txt: false,
+            ai_crawlers_blocked: Vec::new(),
+            has_sitemap: false,
+            sitemap_analysis: None,
+            content_hashes: HashMap::new(),
+            response_time_ms: None,
+            page_size_bytes: None,
+        };
+
         // Fetch robots.txt if configured
         let robots = if crawl_config.respect_robots {
             if let Some(ref d) = domain {
-                RobotsChecker::new(d).await.ok()
+                if let Ok(checker) = RobotsChecker::new(d).await {
+                    // Check blocked bots
+                    site_context.ai_crawlers_blocked = checker.blocked_bots("/");
+
+                    // Check sitemaps
+                    if !checker.sitemaps.is_empty() {
+                        site_context.has_sitemap = true;
+                        // For now we just mark as present. Full analysis would require fetching the XML.
+                        site_context.sitemap_analysis = Some(SitemapAnalysis {
+                            is_valid: true,
+                            url_count: 0, // Placeholder
+                            stale_url_count: 0,
+                            discovered_page_count: 0,
+                        });
+                    }
+                    Some(checker)
+                } else {
+                    None
+                }
             } else {
                 None
             }
         } else {
             None
         };
+
+        // Check llms.txt
+        if crawl_config.check_llms_txt {
+            if let Some(ref d) = domain {
+                if crate::crawler::robots::fetch_llms_txt(d).await.is_some() {
+                    site_context.has_llms_txt = true;
+                }
+            }
+        }
 
         // Initialize CrawlEngine wrapped in Arc for sharing across workers
         let engine = Arc::new(CrawlEngine::new(
@@ -206,6 +244,7 @@ impl JobManager {
             storage,
             robots,
             crawl_config.clone(),
+            Some(site_context),
         ));
 
         // Reuse a single HTTP client for all callbacks

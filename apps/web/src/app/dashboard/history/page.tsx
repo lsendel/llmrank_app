@@ -1,7 +1,7 @@
 "use client";
 
 import { useApiSWR } from "@/lib/use-api-swr";
-import { api, type CrawlJobSummary } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useCallback, useState } from "react";
 import {
   Card,
@@ -76,86 +76,79 @@ export default function HistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {history.map(
-                  (
-                    job: CrawlJobSummary & {
-                      overallScore?: number | null;
-                      letterGrade?: string | null;
-                    },
-                  ) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="font-medium">
-                        {job.projectName || "Unknown Project"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            job.status === "complete"
-                              ? "default"
-                              : job.status === "failed"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                          className="capitalize"
-                        >
-                          {job.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {job.pagesScored ?? job.pagesCrawled ?? "-"}
-                      </TableCell>
-                      <TableCell>
-                        {job.overallScore != null ? (
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`font-bold ${
-                                job.letterGrade === "A"
-                                  ? "text-green-500"
-                                  : job.letterGrade === "B"
-                                    ? "text-blue-500"
-                                    : job.letterGrade === "C"
-                                      ? "text-yellow-500"
-                                      : "text-red-500"
-                              }`}
-                            >
-                              {job.overallScore}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="h-5 px-1.5 text-xs"
-                            >
-                              {job.letterGrade}
-                            </Badge>
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {job.createdAt &&
-                          formatDistanceToNow(new Date(job.createdAt), {
-                            addSuffix: true,
-                          })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {job.status === "complete" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            className="h-8 px-2"
+                {history.map((job) => (
+                  <TableRow key={job.id}>
+                    <TableCell className="font-medium">
+                      {job.projectName || "Unknown Project"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          job.status === "complete"
+                            ? "default"
+                            : job.status === "failed"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                        className="capitalize"
+                      >
+                        {job.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {job.pagesScored ?? job.pagesCrawled ?? "-"}
+                    </TableCell>
+                    <TableCell>
+                      {job.overallScore != null ? (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-bold ${
+                              job.letterGrade === "A"
+                                ? "text-green-500"
+                                : job.letterGrade === "B"
+                                  ? "text-blue-500"
+                                  : job.letterGrade === "C"
+                                    ? "text-yellow-500"
+                                    : "text-red-500"
+                            }`}
                           >
-                            <Link
-                              href={`/dashboard/projects/${job.projectId}?crawlId=${job.id}`}
-                            >
-                              View Report
-                            </Link>
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ),
-                )}
+                            {job.overallScore}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="h-5 px-1.5 text-xs"
+                          >
+                            {job.letterGrade}
+                          </Badge>
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {job.createdAt &&
+                        formatDistanceToNow(new Date(job.createdAt), {
+                          addSuffix: true,
+                        })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {job.status === "complete" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                          className="h-8 px-2"
+                        >
+                          <Link
+                            href={`/dashboard/projects/${job.projectId}?crawlId=${job.id}`}
+                          >
+                            View Report
+                          </Link>
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}

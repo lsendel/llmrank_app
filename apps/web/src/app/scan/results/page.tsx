@@ -3,7 +3,13 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle, Eye, Lock, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Eye, Lock, XCircle, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -113,9 +119,9 @@ function ScanResultsContent() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
         <p className="text-destructive">{error}</p>
-        <Link href="/scan">
-          <Button variant="outline">Scan Another Site</Button>
-        </Link>
+        <Button variant="outline" asChild>
+          <Link href="/scan">Scan Another Site</Link>
+        </Button>
       </div>
     );
   }
@@ -190,6 +196,30 @@ function ScanResultsContent() {
         </Card>
       </div>
 
+      <Card className="border border-primary/30 bg-primary/5 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-primary">
+              Need every issue and quick win?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Unlock the full checklist for this {scores.letterGrade ?? "—"}{" "}
+              grade page and get a PDF summary plus AI-ready recommendations.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button size="sm" asChild>
+              <Link href="/sign-up">Unlock detailed quick wins</Link>
+            </Button>
+            {!isUnlocked && (
+              <Button size="sm" variant="outline" asChild>
+                <a href="#unlock">Unlock this report</a>
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
       {/* Key Findings — only shown if meta is available (full data or sessionStorage) */}
       {meta && (
         <Card>
@@ -202,8 +232,21 @@ function ScanResultsContent() {
               <Finding
                 pass={meta.aiCrawlersBlocked.length === 0}
                 label="AI crawlers allowed"
+                details={
+                  meta.aiCrawlersBlocked.length > 0
+                    ? `Blocked: ${meta.aiCrawlersBlocked.join(", ")}`
+                    : undefined
+                }
               />
-              <Finding pass={meta.hasSitemap} label="Sitemap found" />
+              <Finding
+                pass={meta.hasSitemap}
+                label="Sitemap found"
+                details={
+                  meta.sitemapUrls > 0
+                    ? `${meta.sitemapUrls} URLs found`
+                    : undefined
+                }
+              />
               <Finding
                 pass={meta.schemaTypes.length > 0}
                 label="Structured data"
@@ -262,12 +305,12 @@ function ScanResultsContent() {
               </p>
             )}
             <div className="mt-3">
-              <Link href="/sign-up">
-                <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/sign-up">
                   Track visibility across 5 AI platforms
                   <ArrowLeft className="ml-1 h-3 w-3 rotate-180" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -291,7 +334,7 @@ function ScanResultsContent() {
 
       {/* Email gate -- shown when results are gated (not unlocked) */}
       {!isUnlocked && scanId && (
-        <div className="space-y-3">
+        <div className="space-y-3" id="unlock">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Lock className="h-4 w-4" />
             <span className="text-sm">
@@ -325,14 +368,12 @@ function ScanResultsContent() {
           data, LLM content scoring, and AI visibility checks.
         </p>
         <div className="mt-4 flex justify-center gap-3">
-          <Link href="/sign-up">
-            <Button size="lg">Sign Up Free</Button>
-          </Link>
-          <Link href="/scan">
-            <Button size="lg" variant="outline">
-              Scan Another Site
-            </Button>
-          </Link>
+          <Button size="lg" asChild>
+            <Link href="/sign-up">Sign Up Free</Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <Link href="/scan">Scan Another Site</Link>
+          </Button>
         </div>
         <p className="mt-4 text-xs text-muted-foreground">
           Create a free account to download PDF reports and get AI-generated
@@ -357,17 +398,37 @@ export default function ScanResultsPage() {
   );
 }
 
-function Finding({ pass, label }: { pass: boolean; label: string }) {
+function Finding({
+  pass,
+  label,
+  details,
+}: {
+  pass: boolean;
+  label: string;
+  details?: string;
+}) {
   return (
     <div className="flex items-center gap-2 text-sm">
       {pass ? (
-        <CheckCircle className="h-4 w-4 text-success" />
+        <CheckCircle className="h-4 w-4 text-green-600" />
       ) : (
-        <XCircle className="h-4 w-4 text-destructive" />
+        <XCircle className="h-4 w-4 text-red-600" />
       )}
       <span className={pass ? "text-foreground" : "text-muted-foreground"}>
         {label}
       </span>
+      {details && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{details}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 }

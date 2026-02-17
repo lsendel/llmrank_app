@@ -20,7 +20,7 @@ interface CaptureArgs {
   issues: Array<{
     pageId: string;
     code: string;
-    severity: string;
+    severity: "critical" | "warning" | "info";
     category: string;
   }>;
   pages: Array<{
@@ -42,10 +42,10 @@ export function createInsightCaptureService(deps: InsightCaptureDeps) {
   return {
     async capture(args: CaptureArgs) {
       const crawlRows = buildCrawlInsightRows(args);
-      await deps.crawlInsights.replaceForCrawl(args.crawlId, crawlRows);
+      await deps.crawlInsights.replaceForCrawl(args.crawlId, crawlRows as any);
 
       const pageRows = buildPageInsightRows(args).slice(0, MAX_PAGE_INSIGHTS);
-      await deps.pageInsights.replaceForCrawl(args.crawlId, pageRows);
+      await deps.pageInsights.replaceForCrawl(args.crawlId, pageRows as any);
     },
   };
 }
@@ -67,7 +67,11 @@ function buildCrawlInsightRows({
   const severityCounts = new Map<string, number>();
   const issueCounts = new Map<
     string,
-    { count: number; severity: string; category: string }
+    {
+      count: number;
+      severity: "critical" | "warning" | "info";
+      category: string;
+    }
   >();
 
   for (const score of scores) {
@@ -165,7 +169,7 @@ function buildCrawlInsightRows({
       projectId,
       category: "summary" as const,
       type: "score_summary",
-      severity: "info",
+      severity: "info" as const,
       headline: "Score overview",
       summary: `Average overall score ${scoreSummary.averages.overall}`,
       data: scoreSummary,
@@ -175,7 +179,7 @@ function buildCrawlInsightRows({
       projectId,
       category: "issue" as const,
       type: "issue_distribution",
-      severity: issues.length ? "warning" : "info",
+      severity: (issues.length ? "warning" : "info") as "warning" | "info",
       headline: "Issue snapshot",
       summary: `${issues.length} issues detected across the crawl`,
       data: {
@@ -188,7 +192,9 @@ function buildCrawlInsightRows({
       projectId,
       category: "content" as const,
       type: "content_depth",
-      severity: contentInsight.pagesBelow300 > 0 ? "warning" : "info",
+      severity: (contentInsight.pagesBelow300 > 0 ? "warning" : "info") as
+        | "warning"
+        | "info",
       headline: "Content depth",
       summary: `${contentInsight.pagesBelow300} pages under 300 words`,
       data: contentInsight,
@@ -198,9 +204,9 @@ function buildCrawlInsightRows({
       projectId,
       category: "platform" as const,
       type: "platform_readiness",
-      severity: platformReadiness.some((p) => p.avgScore < 70)
+      severity: (platformReadiness.some((p) => p.avgScore < 70)
         ? "warning"
-        : "info",
+        : "info") as "warning" | "info",
       headline: "Assistant readiness",
       summary: `Tracked across ${platformReadiness.length} assistants`,
       data: { platforms: platformReadiness },

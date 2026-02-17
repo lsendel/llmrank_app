@@ -25,6 +25,7 @@ pub struct CrawlEngine {
     pub storage: Arc<StorageClient>,
     pub robots: Option<RobotsChecker>,
     pub config: CrawlConfig,
+    pub site_context_data: Option<SiteContext>,
 }
 
 impl CrawlEngine {
@@ -35,6 +36,7 @@ impl CrawlEngine {
         storage: Arc<StorageClient>,
         robots: Option<RobotsChecker>,
         config: CrawlConfig,
+        site_context_data: Option<SiteContext>,
     ) -> Self {
         CrawlEngine {
             fetcher,
@@ -42,6 +44,7 @@ impl CrawlEngine {
             storage,
             robots,
             config,
+            site_context_data,
         }
     }
 
@@ -189,6 +192,7 @@ impl CrawlEngine {
             lighthouse: lighthouse_result,
             timing_ms,
             redirect_chain: fetch_result.redirect_chain,
+            site_context: self.site_context_data.clone(),
         })
     }
 

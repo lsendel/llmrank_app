@@ -109,6 +109,30 @@ pub struct LighthouseResult {
     pub lh_r2_key: Option<String>,
 }
 
+// --- Site Context ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SitemapAnalysis {
+    pub is_valid: bool,
+    pub url_count: u32,
+    pub stale_url_count: u32,
+    pub discovered_page_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SiteContext {
+    pub has_llms_txt: bool,
+    pub ai_crawlers_blocked: Vec<String>,
+    pub has_sitemap: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sitemap_analysis: Option<SitemapAnalysis>,
+    pub content_hashes: HashMap<String, String>, // hash -> url
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_time_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_size_bytes: Option<u64>,
+}
+
 // --- Crawl Page Result ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,6 +148,8 @@ pub struct CrawlPageResult {
     pub extracted: ExtractedData,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lighthouse: Option<LighthouseResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_context: Option<SiteContext>,
     pub timing_ms: u64,
     #[serde(default)]
     pub redirect_chain: Vec<RedirectHop>,

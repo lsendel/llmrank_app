@@ -75,6 +75,12 @@ export default function ScanPage() {
               </Button>
             </form>
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+            {!error && (
+              <p className="mt-3 text-xs text-muted-foreground text-left sm:text-center">
+                Include the full URL (for example, https://yourdomain.com/blog)
+                so the crawler can fetch the page without redirects.
+              </p>
+            )}
           </CardContent>
         </Card>
 

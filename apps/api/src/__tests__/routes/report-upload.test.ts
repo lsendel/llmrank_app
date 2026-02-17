@@ -64,6 +64,7 @@ function createBindings(): { env: Bindings; r2Put: ReturnType<typeof vi.fn> } {
     APP_BASE_URL: "https://app",
     POSTHOG_API_KEY: "",
     BING_API_KEY: "key",
+    GEMINI_API_KEY: "key",
   };
   return { env, r2Put };
 }

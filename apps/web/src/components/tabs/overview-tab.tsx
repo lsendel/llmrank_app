@@ -210,7 +210,10 @@ export function OverviewTab({
                     />
                   </div>
                   {/* AI-specific factor checklist */}
-                  <AiReadinessChecklist issues={issues} />
+                  <AiReadinessChecklist
+                    issues={issues}
+                    siteContext={latestCrawl?.summaryData?.siteContext}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -365,36 +368,90 @@ export function OverviewTab({
 }
 
 // AI readiness factor checklist — shows pass/fail for key AI-specific factors
-const AI_FACTORS = [
-  { code: "MISSING_LLMS_TXT", label: "llms.txt file" },
-  { code: "AI_CRAWLER_BLOCKED", label: "AI crawlers allowed" },
-  { code: "NO_STRUCTURED_DATA", label: "Structured data" },
-  { code: "CITATION_WORTHINESS", label: "Citation-worthy content" },
-] as const;
+import { SiteContext } from "@/lib/api";
+import { Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-function AiReadinessChecklist({ issues }: { issues: PageIssue[] }) {
+function AiReadinessChecklist({
+  issues,
+  siteContext,
+}: {
+  issues: PageIssue[];
+  siteContext?: SiteContext;
+}) {
   const issueCodes = new Set(issues.map((i) => i.code));
+
+  const factors = [
+    {
+      code: "MISSING_LLMS_TXT",
+      label: "llms.txt file",
+      pass: siteContext
+        ? siteContext.hasLlmsTxt
+        : !issueCodes.has("MISSING_LLMS_TXT"),
+    },
+    {
+      code: "AI_CRAWLER_BLOCKED",
+      label: "AI crawlers allowed",
+      pass: siteContext
+        ? siteContext.aiCrawlersBlocked.length === 0
+        : !issueCodes.has("AI_CRAWLER_BLOCKED"),
+      details:
+        siteContext && siteContext.aiCrawlersBlocked.length > 0
+          ? `Blocked: ${siteContext.aiCrawlersBlocked.join(", ")}`
+          : undefined,
+    },
+    {
+      code: "NO_SITEMAP",
+      label: "Sitemap found",
+      pass: siteContext
+        ? siteContext.hasSitemap
+        : !issueCodes.has("NO_SITEMAP"),
+      details: siteContext?.sitemapAnalysis
+        ? `${siteContext.sitemapAnalysis.urlCount} URLs`
+        : undefined,
+    },
+    {
+      code: "CITATION_WORTHINESS",
+      label: "Citation-worthy content",
+      pass: !issueCodes.has("CITATION_WORTHINESS"),
+    },
+  ];
+
   return (
     <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
-      {AI_FACTORS.map((factor) => {
-        // AI_CRAWLER_BLOCKED is inverted: the factor label says "allowed", so issue present = fail
-        const hasProblem = issueCodes.has(factor.code);
-        const pass = !hasProblem;
-        return (
-          <div key={factor.code} className="flex items-center gap-1.5 text-xs">
-            {pass ? (
-              <CheckCircle className="h-3.5 w-3.5 text-success" />
-            ) : (
-              <XCircle className="h-3.5 w-3.5 text-destructive" />
-            )}
-            <span
-              className={pass ? "text-foreground" : "text-muted-foreground"}
-            >
-              {factor.label}
-            </span>
-          </div>
-        );
-      })}
+      {factors.map((factor) => (
+        <div key={factor.label} className="flex items-center gap-1.5 text-xs">
+          {factor.pass ? (
+            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <XCircle className="h-3.5 w-3.5 text-red-600" />
+          )}
+          <span
+            className={
+              factor.pass ? "text-foreground" : "text-muted-foreground"
+            }
+          >
+            {factor.label}
+          </span>
+          {factor.details && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{factor.details}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

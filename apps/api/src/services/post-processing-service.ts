@@ -66,6 +66,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             batchPages: batch.pages,
             insertedPages,
             insertedScores,
+            jobId: crawlJobId,
           },
         });
       }

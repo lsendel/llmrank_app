@@ -94,17 +94,34 @@ export function analyzeResponse(
   const text = responseText.toLowerCase();
   const domain = targetDomain
     .toLowerCase()
-    .replace(/^(https?:\/\/)?(www\.)?/, "");
-  const brandName = domain.split(".")[0];
+    .replace(/^(https?:\/\/)?(www\.)?/, "")
+    .replace(/\/$/, "");
 
-  const brandMentioned = text.includes(brandName) || text.includes(domain);
-  const urlCited = text.includes(domain);
+  // Create brand variations (e.g. "llmrank.com" -> "llmrank", "llm rank")
+  const brandName = domain.split(".")[0];
+  const brandVariations = [brandName, brandName.replace(/-/g, " "), domain];
+
+  const brandMentioned = brandVariations.some((v) => text.includes(v));
+
+  // Detect Markdown links [Anchor](URL) or plain URLs
+  // We want to see if the target domain appears in a URL context
+  const urlRegex = new RegExp(
+    `\\(https?:\\/\\/[^)]*${escapeRegExp(domain)}[^)]*\\)|https?:\\/\\/[^\\s]*${escapeRegExp(domain)}`,
+    "i",
+  );
+  const urlCited = urlRegex.test(responseText);
 
   let citationPosition: number | null = null;
-  if (urlCited) {
-    const lines = text.split("\n").filter((l) => l.trim());
+  const lines = responseText.split("\n").filter((l) => l.trim());
+
+  // Find first occurrence line number
+  if (brandMentioned || urlCited) {
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(domain)) {
+      const lineLower = lines[i].toLowerCase();
+      if (
+        brandVariations.some((v) => lineLower.includes(v)) ||
+        urlRegex.test(lines[i])
+      ) {
         citationPosition = i + 1;
         break;
       }
@@ -114,14 +131,30 @@ export function analyzeResponse(
   const competitorMentions = competitors.map((comp) => {
     const compDomain = comp
       .toLowerCase()
-      .replace(/^(https?:\/\/)?(www\.)?/, "");
+      .replace(/^(https?:\/\/)?(www\.)?/, "")
+      .replace(/\/$/, "");
     const compBrand = compDomain.split(".")[0];
-    const mentioned = text.includes(compBrand) || text.includes(compDomain);
+    const compVariations = [
+      compBrand,
+      compBrand.replace(/-/g, " "),
+      compDomain,
+    ];
+
+    const mentioned = compVariations.some((v) => text.includes(v));
+    const compUrlRegex = new RegExp(
+      `\\(https?:\\/\\/[^)]*${escapeRegExp(compDomain)}[^)]*\\)|https?:\\/\\/[^\\s]*${escapeRegExp(compDomain)}`,
+      "i",
+    );
+    const cited = compUrlRegex.test(responseText);
+
     let position: number | null = null;
-    if (mentioned) {
-      const lines = text.split("\n").filter((l) => l.trim());
+    if (mentioned || cited) {
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(compBrand) || lines[i].includes(compDomain)) {
+        const lineLower = lines[i].toLowerCase();
+        if (
+          compVariations.some((v) => lineLower.includes(v)) ||
+          compUrlRegex.test(lines[i])
+        ) {
           position = i + 1;
           break;
         }
@@ -131,4 +164,8 @@ export function analyzeResponse(
   });
 
   return { brandMentioned, urlCited, citationPosition, competitorMentions };
+}
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

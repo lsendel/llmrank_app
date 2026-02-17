@@ -21,13 +21,13 @@ export function EmailCaptureGate({
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const trimmedEmail = email.trim();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const trimmed = email.trim();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
@@ -35,7 +35,7 @@ export function EmailCaptureGate({
     setSubmitting(true);
     try {
       const lead = await api.public.captureLead({
-        email: trimmed,
+        email: trimmedEmail,
         reportToken,
         scanResultId,
       });
@@ -74,10 +74,16 @@ export function EmailCaptureGate({
             }}
             disabled={submitting}
           />
-          <Button type="submit" disabled={submitting || !email.trim()}>
+          <Button type="submit" disabled={submitting || !trimmedEmail}>
             {submitting ? "..." : "Unlock"}
           </Button>
         </form>
+        {!error && (
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Use a work email so we can send the PDF summary and unlock every
+            quick win instantly.
+          </p>
+        )}
         {error && (
           <p className="text-sm text-destructive text-center mt-2">{error}</p>
         )}

@@ -2,6 +2,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 
 // ─── Error handling ─────────────────────────────────────────────────
 
+export interface ComparisonItem {
+  url: string;
+  oldScore: number | null;
+  newScore: number | null;
+  delta: number;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -125,6 +132,21 @@ export interface CrawlJob {
   projectId2?: string;
 }
 
+export interface SiteContext {
+  hasLlmsTxt: boolean;
+  aiCrawlersBlocked: string[];
+  hasSitemap: boolean;
+  sitemapAnalysis?: {
+    isValid: boolean;
+    urlCount: number;
+    staleUrlCount: number;
+    discoveredPageCount: number;
+  };
+  contentHashes: Record<string, string>;
+  responseTimeMs?: number;
+  pageSizeBytes?: number;
+}
+
 export interface CrawlSummaryData {
   project: {
     id: string;
@@ -143,6 +165,7 @@ export interface CrawlSummaryData {
   pagesScored: number;
   generatedAt: string;
   issueCount: number;
+  siteContext?: SiteContext;
 }
 
 export interface CrawledPage {
@@ -478,6 +501,7 @@ export interface PublicScanResult {
     aiCrawlersBlocked: string[];
     schemaTypes: string[];
     ogTags: Record<string, string>;
+    siteContext?: SiteContext;
   };
   visibility?: {
     provider: string;
@@ -1199,6 +1223,24 @@ export const api = {
         `/api/crawls/${crawlId}/fused-insights`,
       );
       return res.data;
+    },
+
+    async getProjectHistory(
+      projectId: string,
+      limit: number = 50,
+    ): Promise<ApiEnvelope<CrawlJob[]>> {
+      return apiClient.get<ApiEnvelope<CrawlJob[]>>(
+        `/api/crawls/project/${projectId}/history?limit=${limit}`,
+      );
+    },
+
+    async compare(
+      crawlId: string,
+      otherId: string,
+    ): Promise<ApiEnvelope<ComparisonItem[]>> {
+      return apiClient.get<ApiEnvelope<ComparisonItem[]>>(
+        `/api/crawls/${crawlId}/compare/${otherId}`,
+      );
     },
   },
 

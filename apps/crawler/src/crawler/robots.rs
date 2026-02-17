@@ -17,6 +17,8 @@ pub const AI_BOT_USER_AGENTS: &[&str] = &["GPTBot", "ClaudeBot", "PerplexityBot"
 pub struct RobotsChecker {
     /// Map from lowercase user-agent to list of disallowed path prefixes.
     rules: HashMap<String, Vec<String>>,
+    /// Sitemaps discovered in robots.txt
+    pub sitemaps: Vec<String>,
     /// Whether we successfully fetched and parsed the robots.txt.
     pub loaded: bool,
 }
@@ -35,31 +37,35 @@ impl RobotsChecker {
                 // No robots.txt or error — everything is allowed
                 return Ok(RobotsChecker {
                     rules: HashMap::new(),
+                    sitemaps: Vec::new(),
                     loaded: false,
                 });
             }
             Err(_) => {
                 return Ok(RobotsChecker {
                     rules: HashMap::new(),
+                    sitemaps: Vec::new(),
                     loaded: false,
                 });
             }
         };
 
         let body = response.text().await.unwrap_or_default();
-        let rules = Self::parse_robots_txt(&body);
+        let (rules, sitemaps) = Self::parse_robots_txt(&body);
 
         Ok(RobotsChecker {
             rules,
+            sitemaps,
             loaded: true,
         })
     }
 
     /// Create a RobotsChecker from raw robots.txt content (useful for testing).
     pub fn from_content(content: &str) -> Self {
-        let rules = Self::parse_robots_txt(content);
+        let (rules, sitemaps) = Self::parse_robots_txt(content);
         RobotsChecker {
             rules,
+            sitemaps,
             loaded: true,
         }
     }
@@ -102,9 +108,10 @@ impl RobotsChecker {
             .collect()
     }
 
-    /// Parse robots.txt content into a map of user-agent -> disallowed paths.
-    fn parse_robots_txt(content: &str) -> HashMap<String, Vec<String>> {
+    /// Parse robots.txt content into a map of user-agent -> disallowed paths, and list of sitemaps.
+    fn parse_robots_txt(content: &str) -> (HashMap<String, Vec<String>>, Vec<String>) {
         let mut rules: HashMap<String, Vec<String>> = HashMap::new();
+        let mut sitemaps: Vec<String> = Vec::new();
         let mut current_agents: Vec<String> = Vec::new();
 
         for line in content.lines() {
@@ -140,14 +147,19 @@ impl RobotsChecker {
                                 .push(value.to_string());
                         }
                     }
+                    "sitemap" => {
+                        if !value.is_empty() {
+                            sitemaps.push(value.to_string());
+                        }
+                    }
                     _ => {
-                        // Allow, Sitemap, etc. — we only care about Disallow for blocking
+                        // Allow, Crawl-delay, etc. — ignored for now
                     }
                 }
             }
         }
 
-        rules
+        (rules, sitemaps)
     }
 }
 

@@ -66,6 +66,7 @@ export type Bindings = {
   OPENAI_API_KEY: string;
   GOOGLE_API_KEY: string;
   PERPLEXITY_API_KEY: string;
+  GEMINI_API_KEY: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   CRAWLER_URL: string;

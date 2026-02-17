@@ -160,6 +160,13 @@ export function createIngestService(deps: IngestServiceDeps) {
         pagesCrawled: batch.stats.pages_crawled,
         pagesScored: (crawlJob.pagesScored ?? 0) + insertedPages.length,
       };
+
+      // Extract siteContext from the first page if present (it's domain-level data)
+      const pageWithContext = batch.pages.find((p) => p.site_context);
+      if (pageWithContext?.site_context) {
+        updateData.siteContext = pageWithContext.site_context;
+      }
+
       if (batch.is_final) {
         updateData.completedAt = new Date();
       }
