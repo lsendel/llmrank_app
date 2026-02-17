@@ -26,9 +26,21 @@ export const INTEGRATION_FETCHERS: Record<string, IntegrationFetcher> = {
   clarity: fetchClarityData,
 };
 
+export interface ProviderResult {
+  provider: string;
+  ok: boolean;
+  count: number;
+  error?: string;
+}
+
+export interface EnrichmentRunResult {
+  results: EnrichmentResult[];
+  providerResults: ProviderResult[];
+}
+
 /**
  * Run enrichments for all enabled integrations.
- * Returns flat array of per-page enrichment results.
+ * Returns flat array of per-page enrichment results plus per-provider diagnostics.
  */
 export async function runEnrichments(
   integrations: {
@@ -38,13 +50,22 @@ export async function runEnrichments(
   }[],
   domain: string,
   pageUrls: string[],
-): Promise<EnrichmentResult[]> {
+): Promise<EnrichmentRunResult> {
   const results: EnrichmentResult[] = [];
+  const providerResults: ProviderResult[] = [];
 
-  const settled = await Promise.allSettled(
+  await Promise.all(
     integrations.map(async (integration) => {
       const fetcher = INTEGRATION_FETCHERS[integration.provider];
-      if (!fetcher) return [];
+      if (!fetcher) {
+        providerResults.push({
+          provider: integration.provider,
+          ok: false,
+          count: 0,
+          error: "No fetcher registered",
+        });
+        return;
+      }
 
       const ctx: IntegrationFetcherContext = {
         domain,
@@ -53,17 +74,29 @@ export async function runEnrichments(
         config: integration.config,
       };
 
-      return fetcher(ctx);
+      try {
+        const items = await fetcher(ctx);
+        results.push(...items);
+        providerResults.push({
+          provider: integration.provider,
+          ok: true,
+          count: items.length,
+        });
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(
+          `Integration fetcher failed [${integration.provider}]:`,
+          errorMsg,
+        );
+        providerResults.push({
+          provider: integration.provider,
+          ok: false,
+          count: 0,
+          error: errorMsg,
+        });
+      }
     }),
   );
 
-  for (const result of settled) {
-    if (result.status === "fulfilled") {
-      results.push(...result.value);
-    } else {
-      console.error("Integration fetcher failed:", result.reason);
-    }
-  }
-
-  return results;
+  return { results, providerResults };
 }

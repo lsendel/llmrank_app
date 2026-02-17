@@ -186,9 +186,31 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
     try {
       await withAuth(async () => {
         const result = await api.integrations.sync(projectId);
+
+        const providers = result.providers ?? [];
+        const failed = providers.filter((p) => !p.ok);
+        const succeeded = providers.filter((p) => p.ok);
+
+        let description = `${result.enrichmentCount} enrichment rows stored`;
+        if (failed.length > 0) {
+          const failMsgs = failed
+            .map((p) => `${p.provider}: ${p.error}`)
+            .join("; ");
+          description += `. Errors: ${failMsgs}`;
+        }
+
         toast({
-          title: "Sync complete",
-          description: `Enriched ${result.enrichmentCount} pages from crawl`,
+          title:
+            failed.length === 0
+              ? "Sync complete"
+              : succeeded.length > 0
+                ? "Sync partially complete"
+                : "Sync failed — no data fetched",
+          description,
+          variant:
+            failed.length > 0 && succeeded.length === 0
+              ? "destructive"
+              : "default",
         });
         track("integration.synced", { projectId });
         await refreshIntegrations();

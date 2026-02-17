@@ -1985,14 +1985,28 @@ export const api = {
       return res.data;
     },
 
-    async sync(
-      projectId: string,
-    ): Promise<{ synced: boolean; enrichmentCount: number; crawlId: string }> {
+    async sync(projectId: string): Promise<{
+      synced: boolean;
+      enrichmentCount: number;
+      crawlId: string;
+      providers?: {
+        provider: string;
+        ok: boolean;
+        count: number;
+        error?: string;
+      }[];
+    }> {
       const res = await apiClient.post<
         ApiEnvelope<{
           synced: boolean;
           enrichmentCount: number;
           crawlId: string;
+          providers?: {
+            provider: string;
+            ok: boolean;
+            count: number;
+            error?: string;
+          }[];
         }>
       >(`/api/integrations/${projectId}/sync`);
       return res.data;

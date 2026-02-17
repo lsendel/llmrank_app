@@ -535,7 +535,7 @@ integrationRoutes.post("/:projectId/sync", async (c) => {
 
   const insertedPages = pages.map((p) => ({ id: p.id, url: p.url }));
 
-  await runIntegrationEnrichments({
+  const output = await runIntegrationEnrichments({
     databaseUrl: c.env.DATABASE_URL,
     encryptionKey: c.env.INTEGRATION_ENCRYPTION_KEY,
     googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
@@ -548,8 +548,9 @@ integrationRoutes.post("/:projectId/sync", async (c) => {
   return c.json({
     data: {
       synced: true,
-      enrichmentCount: insertedPages.length,
+      enrichmentCount: output.enrichmentRowsInserted,
       crawlId: latestCrawl.id,
+      providers: output.providerResults,
     },
   });
 });

@@ -4,7 +4,7 @@ import {
   integrationQueries,
   enrichmentQueries,
 } from "@llm-boost/db";
-import { runEnrichments } from "@llm-boost/integrations";
+import { runEnrichments, type ProviderResult } from "@llm-boost/integrations";
 import { decrypt, encrypt } from "../lib/crypto";
 import { refreshAccessToken } from "../lib/google-oauth";
 
@@ -18,13 +18,18 @@ export interface EnrichmentInput {
   insertedPages: { id: string; url: string }[];
 }
 
+export interface EnrichmentOutput {
+  enrichmentRowsInserted: number;
+  providerResults: ProviderResult[];
+}
+
 /**
  * Runs integration enrichments (GSC, PSI, GA4, Clarity) for a completed crawl.
- * Designed to run inside waitUntil() after the HTTP response is sent.
+ * Returns diagnostic info about which providers succeeded/failed.
  */
 export async function runIntegrationEnrichments(
   input: EnrichmentInput,
-): Promise<void> {
+): Promise<EnrichmentOutput> {
   console.log(
     `[enrichments] Starting enrichments for project=${input.projectId} job=${input.jobId} pages=${input.insertedPages.length}`,
   );
@@ -33,7 +38,7 @@ export async function runIntegrationEnrichments(
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) {
     console.log(`[enrichments] Project ${input.projectId} not found, skipping`);
-    return;
+    return { enrichmentRowsInserted: 0, providerResults: [] };
   }
 
   const integrations = await integrationQueries(db).listByProject(
@@ -45,7 +50,9 @@ export async function runIntegrationEnrichments(
   console.log(
     `[enrichments] Found ${integrations.length} integrations, ${enabled.length} enabled`,
   );
-  if (enabled.length === 0) return;
+  if (enabled.length === 0) {
+    return { enrichmentRowsInserted: 0, providerResults: [] };
+  }
 
   const allPageUrls = input.insertedPages.map((p) => p.url);
 
@@ -108,8 +115,15 @@ export async function runIntegrationEnrichments(
   );
 
   // Run all fetchers
-  const results = await runEnrichments(prepared, project.domain, allPageUrls);
-  console.log(`[enrichments] Fetchers returned ${results.length} results`);
+  const { results, providerResults } = await runEnrichments(
+    prepared,
+    project.domain,
+    allPageUrls,
+  );
+  console.log(
+    `[enrichments] Fetchers returned ${results.length} results`,
+    providerResults,
+  );
 
   // Map page URLs to page IDs
   const urlToPageId = new Map(input.insertedPages.map((p) => [p.url, p.id]));
@@ -139,4 +153,6 @@ export async function runIntegrationEnrichments(
   console.log(
     `[enrichments] Completed enrichments for project=${input.projectId} job=${input.jobId}`,
   );
+
+  return { enrichmentRowsInserted: enrichmentRows.length, providerResults };
 }
