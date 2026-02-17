@@ -23,7 +23,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Deploy Worker via Wrangler
+      - name: Deploy API Worker via Wrangler
         run: npx wrangler deploy
         working-directory: apps/api
         env:
@@ -35,7 +35,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-  deploy-pages:
+  deploy-web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,10 +49,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter @llm-boost/web build
+      - name: Build web app (OpenNext)
+        run: pnpm --filter @llm-boost/web build
 
-      - name: Deploy Pages via Wrangler
-        run: npx wrangler pages deploy .next --project-name=llm-boost
+      - name: Deploy Web Worker via Wrangler
+        run: npx wrangler deploy --config wrangler.jsonc
         working-directory: apps/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
