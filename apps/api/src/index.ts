@@ -82,6 +82,7 @@ export type Bindings = {
   BING_API_KEY: string;
   ADMIN_ALERT_EMAIL?: string;
   SLACK_ALERT_WEBHOOK_URL?: string;
+  WEB_WORKER?: Fetcher;
 };
 
 export type Variables = {
@@ -276,6 +277,7 @@ import {
 } from "@llm-boost/db";
 import { trackServer } from "./lib/telemetry";
 import { createDigestService } from "./services/digest-service";
+import { processOutboxEvents } from "./services/outbox-processor";
 
 // ... existing code ...
 
@@ -330,6 +332,9 @@ async function runScheduledTasks(env: Bindings) {
     sharedSecret: env.SHARED_SECRET,
     queue: env.CRAWL_QUEUE,
   });
+
+  // 4. Process outbox events (enrichments, LLM scoring, crawl summaries)
+  await processOutboxEvents(env.DATABASE_URL);
 }
 
 // ---------------------------------------------------------------------------

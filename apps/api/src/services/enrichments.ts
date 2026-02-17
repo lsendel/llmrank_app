@@ -25,16 +25,25 @@ export interface EnrichmentInput {
 export async function runIntegrationEnrichments(
   input: EnrichmentInput,
 ): Promise<void> {
+  console.log(
+    `[enrichments] Starting enrichments for project=${input.projectId} job=${input.jobId} pages=${input.insertedPages.length}`,
+  );
   const db = createDb(input.databaseUrl);
 
   const project = await projectQueries(db).getById(input.projectId);
-  if (!project) return;
+  if (!project) {
+    console.log(`[enrichments] Project ${input.projectId} not found, skipping`);
+    return;
+  }
 
   const integrations = await integrationQueries(db).listByProject(
     input.projectId,
   );
   const enabled = integrations.filter(
     (i) => i.enabled && i.encryptedCredentials,
+  );
+  console.log(
+    `[enrichments] Found ${integrations.length} integrations, ${enabled.length} enabled`,
   );
   if (enabled.length === 0) return;
 
@@ -94,8 +103,13 @@ export async function runIntegrationEnrichments(
     )
   ).filter((item): item is NonNullable<typeof item> => item !== null);
 
+  console.log(
+    `[enrichments] Prepared ${prepared.length} integrations: ${prepared.map((p) => p.provider).join(", ")}`,
+  );
+
   // Run all fetchers
   const results = await runEnrichments(prepared, project.domain, allPageUrls);
+  console.log(`[enrichments] Fetchers returned ${results.length} results`);
 
   // Map page URLs to page IDs
   const urlToPageId = new Map(input.insertedPages.map((p) => [p.url, p.id]));
@@ -112,10 +126,17 @@ export async function runIntegrationEnrichments(
 
   if (enrichmentRows.length > 0) {
     await enrichmentQueries(db).createBatch(enrichmentRows);
+    console.log(
+      `[enrichments] Inserted ${enrichmentRows.length} enrichment rows`,
+    );
   }
 
   // Update lastSyncAt for each integration
   for (const p of prepared) {
     await integrationQueries(db).updateLastSync(p.integrationId, null);
   }
+
+  console.log(
+    `[enrichments] Completed enrichments for project=${input.projectId} job=${input.jobId}`,
+  );
 }

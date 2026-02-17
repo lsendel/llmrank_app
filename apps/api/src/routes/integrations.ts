@@ -6,6 +6,7 @@ import {
   userQueries,
   integrationQueries,
   crawlQueries,
+  pageQueries,
   enrichmentQueries,
 } from "@llm-boost/db";
 import {
@@ -23,6 +24,7 @@ import {
   GOOGLE_SCOPES,
 } from "../lib/google-oauth";
 import { createIntegrationInsightsService } from "../services/integration-insights-service";
+import { runIntegrationEnrichments } from "../services/enrichments";
 import { handleServiceError } from "../services/errors";
 
 async function hmacSign(secret: string, message: string): Promise<string> {
@@ -476,6 +478,78 @@ integrationRoutes.post("/oauth/google/callback", async (c) => {
       provider: integration.provider,
       enabled: integration.enabled,
       hasCredentials: true,
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /:projectId/sync — Manually trigger integration enrichments
+// ---------------------------------------------------------------------------
+
+integrationRoutes.post("/:projectId/sync", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  // Find the latest completed crawl
+  const completedCrawls = await crawlQueries(db).listCompletedByProject(
+    projectId,
+    1,
+  );
+  if (completedCrawls.length === 0) {
+    return c.json(
+      {
+        error: {
+          code: "NO_CRAWL",
+          message: "No completed crawl found. Run a crawl first.",
+        },
+      },
+      404,
+    );
+  }
+
+  const latestCrawl = completedCrawls[0];
+
+  // Get pages for this crawl
+  const pages = await pageQueries(db).listByJob(latestCrawl.id);
+
+  if (pages.length === 0) {
+    return c.json(
+      {
+        error: {
+          code: "NO_PAGES",
+          message: "No pages found for the latest crawl.",
+        },
+      },
+      404,
+    );
+  }
+
+  const insertedPages = pages.map((p) => ({ id: p.id, url: p.url }));
+
+  await runIntegrationEnrichments({
+    databaseUrl: c.env.DATABASE_URL,
+    encryptionKey: c.env.INTEGRATION_ENCRYPTION_KEY,
+    googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
+    googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    projectId,
+    jobId: latestCrawl.id,
+    insertedPages,
+  });
+
+  return c.json({
+    data: {
+      synced: true,
+      enrichmentCount: insertedPages.length,
+      crawlId: latestCrawl.id,
     },
   });
 });

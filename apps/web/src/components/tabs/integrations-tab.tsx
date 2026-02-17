@@ -32,7 +32,16 @@ import {
 } from "@/lib/api";
 import { IntegrationInsightsView } from "@/components/integration-insights-view";
 import { track } from "@/lib/telemetry";
-import { BarChart3, Info } from "lucide-react";
+import {
+  BarChart3,
+  Info,
+  RefreshCw,
+  Check,
+  Search,
+  Gauge,
+  Activity,
+  MousePointerClick,
+} from "lucide-react";
 
 const INTEGRATIONS = [
   {
@@ -41,6 +50,17 @@ const INTEGRATIONS = [
     authType: "oauth2" as const,
     description: "Indexed pages, search queries, crawl stats",
     minPlan: "pro",
+    icon: Search,
+    dataCollected: [
+      "Top search queries with impressions, clicks, and position",
+      "Page-level index coverage status",
+      "Crawl stats and errors from Google",
+    ],
+    reportEnhancements: [
+      "Per-page Index Status badge in page scores",
+      "Search query intent analysis in AI Readiness",
+      "Click-through rate correlation with visibility",
+    ],
   },
   {
     provider: "psi" as const,
@@ -48,6 +68,17 @@ const INTEGRATIONS = [
     authType: "api_key" as const,
     description: "Core Web Vitals and lab performance scores",
     minPlan: "pro",
+    icon: Gauge,
+    dataCollected: [
+      "Core Web Vitals (LCP, FID, CLS) per page",
+      "Lab performance scores from Lighthouse",
+      "Render-blocking resource detection",
+    ],
+    reportEnhancements: [
+      "Real-world performance data in Performance scores",
+      "CWV pass/fail badges on page detail views",
+      "Performance trend tracking across crawls",
+    ],
   },
   {
     provider: "ga4" as const,
@@ -55,6 +86,17 @@ const INTEGRATIONS = [
     authType: "oauth2" as const,
     description: "Engagement metrics, bounce rate, sessions",
     minPlan: "agency",
+    icon: Activity,
+    dataCollected: [
+      "Average engagement time per page",
+      "Bounce rate and session duration",
+      "Top landing pages by traffic volume",
+    ],
+    reportEnhancements: [
+      "Engagement-weighted scoring in Content pillar",
+      "Traffic vs. AI-readiness correlation matrix",
+      "ROI prioritization based on real traffic data",
+    ],
   },
   {
     provider: "clarity" as const,
@@ -62,6 +104,17 @@ const INTEGRATIONS = [
     authType: "api_key" as const,
     description: "Heatmaps, dead clicks, rage clicks, scroll depth",
     minPlan: "agency",
+    icon: MousePointerClick,
+    dataCollected: [
+      "UX quality score per page (0-100)",
+      "Rage click and dead click detection",
+      "Scroll depth and reading behavior",
+    ],
+    reportEnhancements: [
+      "UX quality factor in AI Readiness scores",
+      "Rage-click pages flagged as critical issues",
+      "Content readability signals from scroll depth",
+    ],
   },
 ] as const;
 
@@ -87,10 +140,11 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
     useCallback(() => api.integrations.list(projectId), [projectId]),
   );
 
-  const { data: integrationInsights } = useApiSWR<IntegrationInsights>(
-    `integrations-insights-${projectId}`,
-    useCallback(() => api.integrations.insights(projectId), [projectId]),
-  );
+  const { data: integrationInsights, mutate: refreshInsights } =
+    useApiSWR<IntegrationInsights>(
+      `integrations-insights-${projectId}`,
+      useCallback(() => api.integrations.insights(projectId), [projectId]),
+    );
 
   const currentPlan = billing?.plan ?? "free";
 
@@ -114,10 +168,44 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
     message: string;
   } | null>(null);
 
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+
+  const hasConnectedIntegrations = integrations?.some(
+    (i) => i.hasCredentials && i.enabled,
+  );
 
   function getIntegration(provider: string): ProjectIntegration | undefined {
     return integrations?.find((i) => i.provider === provider);
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await withAuth(async () => {
+        const result = await api.integrations.sync(projectId);
+        toast({
+          title: "Sync complete",
+          description: `Enriched ${result.enrichmentCount} pages from crawl`,
+        });
+        track("integration.synced", { projectId });
+        await refreshIntegrations();
+        await refreshInsights();
+      });
+    } catch (err) {
+      toast({
+        title: "Sync failed",
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "Failed to sync integration data",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleConnect() {
@@ -237,16 +325,22 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
           const isConnected = !!integration?.hasCredentials;
           const isEnabled = integration?.enabled ?? false;
           const isLocked = !planAllows(currentPlan, meta.minPlan);
+          const Icon = meta.icon;
 
           return (
             <Card key={meta.provider} className={isLocked ? "opacity-60" : ""}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">{meta.label}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {meta.description}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-md bg-primary/10 p-2">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <CardTitle className="text-base">{meta.label}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {meta.description}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {isLocked ? (
@@ -312,11 +406,15 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
                       </button>
                     </div>
 
-                    {/* Last sync / error */}
-                    {integration?.lastSyncAt && (
+                    {/* Sync status */}
+                    {integration?.lastSyncAt ? (
                       <p className="text-xs text-muted-foreground">
                         Last synced:{" "}
                         {new Date(integration.lastSyncAt).toLocaleString()}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Not yet synced — click Sync Now or run a crawl
                       </p>
                     )}
                     {integration?.lastError && (
@@ -364,24 +462,63 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
                     </div>
                   </>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (
-                        meta.authType === "oauth2" &&
-                        (meta.provider === "gsc" || meta.provider === "ga4")
-                      ) {
-                        handleOAuthConnect(meta.provider);
-                      } else {
-                        setConnectModal({
-                          provider: meta.provider as "psi" | "clarity",
-                          label: meta.label,
-                        });
-                      }
-                    }}
-                  >
-                    Connect
-                  </Button>
+                  <div className="space-y-3">
+                    {/* What you'll get */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        What you&apos;ll get
+                      </p>
+                      <ul className="space-y-1">
+                        {meta.dataCollected.map((item) => (
+                          <li
+                            key={item}
+                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                          >
+                            <Check className="h-3 w-3 mt-0.5 text-primary shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Enhances your reports */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Enhances your reports
+                      </p>
+                      <ul className="space-y-1">
+                        {meta.reportEnhancements.map((item) => (
+                          <li
+                            key={item}
+                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                          >
+                            <BarChart3 className="h-3 w-3 mt-0.5 text-primary/60 shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        if (
+                          meta.authType === "oauth2" &&
+                          (meta.provider === "gsc" || meta.provider === "ga4")
+                        ) {
+                          handleOAuthConnect(meta.provider);
+                        } else {
+                          setConnectModal({
+                            provider: meta.provider as "psi" | "clarity",
+                            label: meta.label,
+                          });
+                        }
+                      }}
+                    >
+                      Connect
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -403,12 +540,28 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
                   : "Connect an integration and run a crawl to unlock insights."}
               </CardDescription>
             </div>
-            {integrationInsights?.integrations && (
-              <Badge variant="outline" className="h-6 gap-1 px-2 font-normal">
-                <Info className="h-3 w-3" />
-                Live Data
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {hasConnectedIntegrations && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSync}
+                  disabled={syncing}
+                  className="gap-1.5"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`}
+                  />
+                  {syncing ? "Syncing..." : "Sync Now"}
+                </Button>
+              )}
+              {integrationInsights?.integrations && (
+                <Badge variant="outline" className="h-6 gap-1 px-2 font-normal">
+                  <Info className="h-3 w-3" />
+                  Live Data
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -428,6 +581,72 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* How this data enhances your reports */}
+      {hasConnectedIntegrations && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              How integrations enhance your reports
+            </CardTitle>
+            <CardDescription>
+              Connected integrations add real-world signals to your AI-readiness
+              scores
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {INTEGRATIONS.map((meta) => {
+                const integration = getIntegration(meta.provider);
+                const isActive =
+                  integration?.hasCredentials && integration?.enabled;
+                const Icon = meta.icon;
+
+                return (
+                  <div
+                    key={meta.provider}
+                    className={`flex items-start gap-3 rounded-lg border p-3 ${
+                      isActive ? "bg-primary/5 border-primary/20" : "opacity-50"
+                    }`}
+                  >
+                    <div
+                      className={`mt-0.5 rounded-md p-1.5 ${
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{meta.label}</p>
+                        {isActive ? (
+                          <Check className="h-3.5 w-3.5 text-green-500" />
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">
+                            Not active
+                          </span>
+                        )}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {meta.reportEnhancements.slice(0, 2).map((item) => (
+                          <li
+                            key={item}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* API Key Connect Modal */}
       <Dialog

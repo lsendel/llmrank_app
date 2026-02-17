@@ -25,7 +25,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, MousePointer2, Zap, AlertCircle } from "lucide-react";
+import {
+  TrendingUp,
+  MousePointer2,
+  Zap,
+  AlertCircle,
+  Search,
+  Activity,
+  MousePointerClick,
+} from "lucide-react";
 import type { IntegrationInsights } from "@/lib/api";
 
 interface Props {
@@ -71,8 +79,68 @@ export function IntegrationInsightsView({
 
   const { gsc, ga4, clarity } = insights.integrations;
 
+  // Build summary highlights
+  const summaryItems: {
+    icon: React.ElementType;
+    label: string;
+    value: string;
+  }[] = [];
+  if (gsc) {
+    const queryCount = gsc.topQueries?.length ?? 0;
+    const avgPos =
+      queryCount > 0
+        ? (
+            gsc.topQueries.reduce((sum, q) => sum + q.position, 0) / queryCount
+          ).toFixed(1)
+        : "N/A";
+    summaryItems.push({
+      icon: Search,
+      label: "GSC",
+      value: `${queryCount} queries tracked · avg position ${avgPos}`,
+    });
+  }
+  if (ga4) {
+    summaryItems.push({
+      icon: Activity,
+      label: "GA4",
+      value: `${ga4.avgEngagement.toFixed(0)}s avg engagement · ${ga4.bounceRate.toFixed(1)}% bounce rate`,
+    });
+  }
+  if (clarity) {
+    summaryItems.push({
+      icon: MousePointerClick,
+      label: "Clarity",
+      value: `${clarity.avgUxScore.toFixed(0)}/100 UX score · ${clarity.rageClickPages.length} rage click pages`,
+    });
+  }
+
   return (
     <div className="space-y-6">
+      {/* Summary Banner */}
+      {summaryItems.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {summaryItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.label}
+                className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3"
+              >
+                <div className="rounded-md bg-primary/10 p-1.5">
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-medium truncate">{item.value}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* GSC Section */}
       {gsc && (
         <div className="grid gap-6 md:grid-cols-2">

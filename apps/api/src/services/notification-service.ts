@@ -218,6 +218,15 @@ export function createNotificationService(
         .limit(20);
 
       for (const event of events) {
+        // Skip non-notification events — they're handled by the outbox processor
+        if (
+          !event.type.startsWith("email:") &&
+          !event.type.startsWith("webhook:") &&
+          event.type !== "notification"
+        ) {
+          continue;
+        }
+
         try {
           if (event.type.startsWith("email:")) {
             const { to, data } = event.payload as any;

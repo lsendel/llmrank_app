@@ -1985,6 +1985,19 @@ export const api = {
       return res.data;
     },
 
+    async sync(
+      projectId: string,
+    ): Promise<{ synced: boolean; enrichmentCount: number; crawlId: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          synced: boolean;
+          enrichmentCount: number;
+          crawlId: string;
+        }>
+      >(`/api/integrations/${projectId}/sync`);
+      return res.data;
+    },
+
     async test(
       projectId: string,
       integrationId: string,
