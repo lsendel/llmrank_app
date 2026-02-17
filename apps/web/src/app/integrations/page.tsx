@@ -26,44 +26,48 @@ const INTEGRATIONS = [
   {
     name: "Google Search Console",
     description:
-      "Connect GSC to analyze actual search performance data alongside LLM readiness scores.",
+      "Connect GSC to analyze actual search performance data alongside AI-readiness scores. Import impressions, clicks, and average position for every page. Identify which pages rank well in traditional search but score poorly for AI visibility — these are your biggest opportunities for quick improvement.",
     features: [
-      "Import search analytics",
-      "Correlate rankings with AI scores",
-      "Identify high-opportunity keywords",
+      "Import search analytics (impressions, clicks, CTR)",
+      "Correlate traditional rankings with AI scores",
+      "Identify high-opportunity keywords for AI optimization",
+      "Track performance trends alongside readiness scores",
     ],
     status: "Available",
   },
   {
     name: "Google Analytics 4",
     description:
-      "Link GA4 to track how AI-driven traffic converts on your site.",
+      "Link GA4 to track how AI-driven traffic converts on your site. As AI search engines begin citing URLs directly, understanding which pages receive AI referral traffic — and how those visitors behave — is critical for measuring the ROI of AI-readiness improvements.",
     features: [
-      "Track AI referral traffic",
-      "Measure engagement metrics",
-      "Conversion attribution",
+      "Track AI referral traffic sources",
+      "Measure engagement and bounce rates from AI visitors",
+      "Conversion attribution for AI-driven sessions",
+      "Compare AI vs. organic traffic quality",
     ],
     status: "Available",
   },
   {
     name: "WordPress Plugin",
     description:
-      "Automatically optimize your content for AI search directly from your WP editor.",
+      "Automatically score your content for AI-readiness directly from the WordPress editor. Get real-time feedback on structured data, content depth, readability, and citation-worthiness as you write. Manage your robots.txt and generate Schema.org markup without touching code.",
     features: [
-      "Real-time content scoring",
-      "Schema markup generation",
-      "Robots.txt management",
+      "Real-time content scoring in the editor",
+      "One-click Schema.org markup generation",
+      "Robots.txt management for AI crawlers",
+      "Bulk optimization suggestions for existing posts",
     ],
     status: "Coming Soon",
   },
   {
     name: "Slack",
     description:
-      "Get notified when your AI visibility score changes or when you're cited by an LLM.",
+      "Get notified instantly when your AI visibility score changes, when you are cited by an LLM, or when a competitor gains ground. Weekly summary reports keep the whole team aligned on AI SEO priorities without needing to check the dashboard.",
     features: [
-      "Real-time alerts",
-      "Weekly summary reports",
-      "Team collaboration",
+      "Real-time score change alerts",
+      "Weekly AI-readiness summary reports",
+      "Competitor movement notifications",
+      "Team collaboration and assignment workflows",
     ],
     status: "Coming Soon",
   },
@@ -120,6 +124,16 @@ export default function IntegrationsPage() {
             Supercharge your AI SEO strategy by connecting LLM Boost with your
             favorite tools.
           </p>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            LLM Boost integrations connect your AI-readiness workflow with the
+            tools your team already uses. Import search analytics from Google
+            Search Console to correlate traditional rankings with AI visibility
+            scores. Track conversions from AI-driven traffic with Google
+            Analytics 4. Our upcoming WordPress plugin will let you score
+            content in real time as you write. Slack integration keeps your team
+            informed with automated alerts when scores change or your brand gets
+            cited by an AI engine.
+          </p>
         </div>
 
         <h2 className="mb-6 text-2xl font-bold text-foreground">
@@ -169,6 +183,31 @@ export default function IntegrationsPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        <div className="mt-8 rounded-lg border border-border bg-muted/40 p-5 text-sm text-muted-foreground">
+          <p>
+            Our integrations follow{" "}
+            <a
+              href="https://developers.google.com/search/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Google Search Central documentation
+            </a>{" "}
+            for search analytics and{" "}
+            <a
+              href="https://developers.google.com/analytics"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Google Analytics best practices
+            </a>{" "}
+            for traffic measurement. Data is fetched securely via OAuth 2.0 and
+            never stored beyond your active session.
+          </p>
         </div>
 
         {/* CTA section with internal links */}
