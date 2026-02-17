@@ -154,3 +154,18 @@ export function breadcrumbSchema(items: { name: string; path: string }[]) {
     })),
   };
 }
+
+export function faqSchema(questions: { question: string; answer: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: questions.map((q) => ({
+      "@type": "Question",
+      name: q.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: q.answer,
+      },
+    })),
+  };
+}
