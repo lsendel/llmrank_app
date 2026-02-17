@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 
 export default function ScanPage() {
@@ -93,6 +94,70 @@ export default function ScanPage() {
               <p className="text-sm text-muted-foreground">{item.desc}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-10 w-full max-w-2xl space-y-4 text-left">
+          <h2 className="text-xl font-bold text-foreground">
+            What does the AI-readiness scan check?
+          </h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            The free scan evaluates your page across 37 factors in four
+            categories. Technical SEO (25% weight) checks meta tags, structured
+            data, canonical URLs, robots directives, internal linking, and HTTP
+            status codes. Content Quality (30%) analyzes word count,
+            readability, heading structure, and content depth. AI Readiness
+            (30%) evaluates citation-worthiness, direct answers, FAQ structure,
+            and Open Graph tags. Performance (15%) measures Lighthouse scores
+            including page speed, accessibility, and best practices.
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Each factor starts with a perfect score and applies deductions for
+            issues found. Critical issues like missing titles or noindex
+            directives carry the heaviest penalties. The scan produces a letter
+            grade from A to F and a prioritized list of quick wins sorted by
+            impact and effort. Results are based on{" "}
+            <a
+              href="https://developers.google.com/search/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Google Search Central guidelines
+            </a>
+            ,{" "}
+            <a
+              href="https://schema.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Schema.org standards
+            </a>
+            , and{" "}
+            <a
+              href="https://developer.chrome.com/docs/lighthouse"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Chrome Lighthouse methodology
+            </a>
+            .
+          </p>
+        </div>
+
+        <div className="mt-8 w-full max-w-2xl text-center">
+          <p className="text-sm text-muted-foreground">
+            Want deeper analysis?{" "}
+            <Link
+              href="/pricing"
+              className="font-medium text-primary hover:underline"
+            >
+              View pricing plans
+            </Link>{" "}
+            for up to 2,000 pages per crawl, AI visibility tracking, and
+            integrations.
+          </p>
         </div>
       </div>
     </div>
