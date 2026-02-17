@@ -44,6 +44,17 @@ export const issueSeverityEnum = pgEnum("issue_severity", [
   "info",
 ]);
 
+export const insightCategoryEnum = pgEnum("insight_category", [
+  "summary",
+  "issue",
+  "content",
+  "ai_readiness",
+  "performance",
+  "visibility",
+  "competitor",
+  "platform",
+]);
+
 export const crawlScheduleEnum = pgEnum("crawl_schedule", [
   "manual",
   "daily",
@@ -391,6 +402,62 @@ export const issues = pgTable(
   (t) => [
     index("idx_issues_page").on(t.pageId),
     index("idx_issues_severity").on(t.jobId, t.severity),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Insights (aggregated crawl + per-page signals)
+// ---------------------------------------------------------------------------
+
+export const crawlInsights = pgTable(
+  "crawl_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crawlId: uuid("crawl_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    category: insightCategoryEnum("category").notNull(),
+    type: text("type").notNull(),
+    severity: issueSeverityEnum("severity"),
+    headline: text("headline").notNull(),
+    summary: text("summary"),
+    data: jsonb("data").notNull().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_crawl_insights_crawl").on(t.crawlId),
+    index("idx_crawl_insights_project").on(t.projectId),
+    index("idx_crawl_insights_type").on(t.type),
+  ],
+);
+
+export const pageInsights = pgTable(
+  "page_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crawlId: uuid("crawl_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    category: insightCategoryEnum("category").notNull(),
+    type: text("type").notNull(),
+    severity: issueSeverityEnum("severity"),
+    headline: text("headline").notNull(),
+    summary: text("summary"),
+    data: jsonb("data").notNull().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_page_insights_crawl").on(t.crawlId),
+    index("idx_page_insights_project").on(t.projectId),
+    index("idx_page_insights_page").on(t.pageId),
   ],
 );
 

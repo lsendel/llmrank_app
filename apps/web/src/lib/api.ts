@@ -1133,6 +1133,16 @@ export const api = {
       return res.data;
     },
 
+    async getHistory(
+      page: number = 1,
+      limit: number = 50,
+    ): Promise<PaginatedResponse<CrawlJob>> {
+      const qs = buildQueryString({ page, limit });
+      return apiClient.get<PaginatedResponse<CrawlJob>>(
+        `/api/crawls/history${qs}`,
+      );
+    },
+
     async list(
       projectId: string,
       params?: { page?: number; limit?: number },

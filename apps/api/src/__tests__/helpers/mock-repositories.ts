@@ -88,6 +88,8 @@ export function createMockCrawlRepo(
       getById: vi.fn().mockResolvedValue(null),
       getLatestByProject: vi.fn().mockResolvedValue(null),
       listByProject: vi.fn().mockResolvedValue([]),
+      listByUser: vi.fn().mockResolvedValue([]),
+      listActiveByUser: vi.fn().mockResolvedValue([]),
       updateStatus: vi.fn().mockResolvedValue(undefined),
       generateShareToken: vi.fn().mockResolvedValue("share-token-abc"),
       disableSharing: vi.fn().mockResolvedValue(undefined),

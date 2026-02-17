@@ -10,6 +10,9 @@ import {
   Bug,
   ChevronLeft,
   ChevronRight,
+  Trash2,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Tooltip,
@@ -17,9 +20,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 import { gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
@@ -47,14 +59,42 @@ import { QueueList } from "./_components/queue-list";
 
 export default function ProjectsPage() {
   const [page, setPage] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
 
-  const { data: result, isLoading: loading } = useApiSWR(
+  const {
+    data: result,
+    isLoading: loading,
+    mutate,
+  } = useApiSWR(
     `projects-list-${page}`,
     useCallback(
       () => api.projects.list({ page: page + 1, limit: PROJECTS_PER_PAGE }),
       [page],
     ),
   );
+
+  async function handleDeleteProject() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.projects.delete(deleteTarget.id);
+      setDeleteTarget(null);
+      toast({
+        title: "Project deleted",
+        description: `"${deleteTarget.name}" has been removed.`,
+      });
+      mutate();
+    } catch {
+      toast({ title: "Failed to delete project", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const projects = result?.data ?? [];
   const pagination = result?.pagination;
@@ -217,6 +257,28 @@ export default function ProjectsPage() {
                                     <TooltipContent>Issues</TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
+
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setDeleteTarget({
+                                            id: project.id,
+                                            name: project.name,
+                                          });
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
 
                               <Button
@@ -290,6 +352,50 @@ export default function ProjectsPage() {
           <QueueList />
         </TabsContent>
       </Tabs>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove{" "}
+              <span className="font-semibold">{deleteTarget?.name}</span> and
+              all its crawl data, scores, and reports.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <p className="text-sm text-destructive">
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteProject}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Project"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

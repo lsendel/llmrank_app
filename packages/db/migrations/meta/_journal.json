@@ -64,6 +64,13 @@
       "when": 1771257136220,
       "tag": "0008_long_cammi",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771300450214,
+      "tag": "0009_insight_tables",
+      "breakpoints": true
     }
   ]
 }

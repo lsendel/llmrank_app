@@ -5,6 +5,12 @@ export { projectQueries } from "./queries/projects";
 export { crawlQueries } from "./queries/crawls";
 export { pageQueries } from "./queries/pages";
 export { scoreQueries } from "./queries/scores";
+export {
+  crawlInsightQueries,
+  pageInsightQueries,
+  type CrawlInsightInsert,
+  type PageInsightInsert,
+} from "./queries/insights";
 export { visibilityQueries } from "./queries/visibility";
 export { competitorQueries } from "./queries/competitors";
 export { competitorBenchmarkQueries } from "./queries/competitor-benchmarks";

@@ -17,6 +17,11 @@ import { ServiceError } from "./errors";
 import { rescoreLLM } from "./llm-scoring";
 import { createPageScoringService } from "./page-scoring-service";
 import { createPostProcessingService } from "./post-processing-service";
+import { createInsightCaptureService } from "./insight-capture-service";
+import {
+  createCrawlInsightRepository,
+  createPageInsightRepository,
+} from "../repositories";
 
 export interface IngestServiceDeps {
   crawls: CrawlRepository;
@@ -50,6 +55,12 @@ export function createIngestService(deps: IngestServiceDeps) {
     users: deps.users,
     outbox: deps.outbox,
   });
+  const insightCaptureService =
+    deps.db &&
+    createInsightCaptureService({
+      crawlInsights: createCrawlInsightRepository(deps.db),
+      pageInsights: createPageInsightRepository(deps.db),
+    });
 
   return {
     async processBatch(args: {
@@ -153,6 +164,21 @@ export function createIngestService(deps: IngestServiceDeps) {
         updateData.completedAt = new Date();
       }
       await deps.crawls.updateStatus(crawlJob.id, updateData);
+
+      if (batch.is_final && insightCaptureService) {
+        const [allScores, allIssues, allPages] = await Promise.all([
+          deps.scores.listByJob(crawlJob.id),
+          deps.scores.getIssuesByJob(crawlJob.id),
+          deps.pages.listByJob(crawlJob.id),
+        ]);
+        await insightCaptureService.capture({
+          crawlId: crawlJob.id,
+          projectId: crawlJob.projectId,
+          scores: allScores as any,
+          issues: allIssues as any,
+          pages: allPages as any,
+        });
+      }
 
       // 5. Schedule post-processing
       await postProcessingService.schedule({

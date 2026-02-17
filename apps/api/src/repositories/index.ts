@@ -14,6 +14,10 @@ import {
   adminQueries,
   outboxQueries,
   reportQueries,
+  crawlInsightQueries,
+  pageInsightQueries,
+  type CrawlInsightInsert,
+  type PageInsightInsert,
   and,
   sql,
 } from "@llm-boost/db";
@@ -187,6 +191,50 @@ export function createScoreRepository(db: Database): ScoreRepository {
     getByPageWithIssues: (pageId) => queries.getByPageWithIssues(pageId),
     createBatch: (rows) => queries.createBatch(rows),
     createIssues: (rows) => queries.createIssues(rows),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Insight Repositories
+// ---------------------------------------------------------------------------
+
+export interface CrawlInsightRepository {
+  replaceForCrawl(
+    crawlId: string,
+    rows: CrawlInsightInsert[],
+  ): ReturnType<ReturnType<typeof crawlInsightQueries>["replaceForCrawl"]>;
+  listByCrawl(
+    crawlId: string,
+  ): ReturnType<ReturnType<typeof crawlInsightQueries>["listByCrawl"]>;
+}
+
+export function createCrawlInsightRepository(
+  db: Database,
+): CrawlInsightRepository {
+  const queries = crawlInsightQueries(db);
+  return {
+    replaceForCrawl: (crawlId, rows) => queries.replaceForCrawl(crawlId, rows),
+    listByCrawl: (crawlId) => queries.listByCrawl(crawlId),
+  };
+}
+
+export interface PageInsightRepository {
+  replaceForCrawl(
+    crawlId: string,
+    rows: PageInsightInsert[],
+  ): ReturnType<ReturnType<typeof pageInsightQueries>["replaceForCrawl"]>;
+  listByCrawl(
+    crawlId: string,
+  ): ReturnType<ReturnType<typeof pageInsightQueries>["listByCrawl"]>;
+}
+
+export function createPageInsightRepository(
+  db: Database,
+): PageInsightRepository {
+  const queries = pageInsightQueries(db);
+  return {
+    replaceForCrawl: (crawlId, rows) => queries.replaceForCrawl(crawlId, rows),
+    listByCrawl: (crawlId) => queries.listByCrawl(crawlId),
   };
 }
 
