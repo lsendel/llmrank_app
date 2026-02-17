@@ -175,3 +175,17 @@ export type CitationReadiness = z.infer<typeof CitationReadinessSchema>;
 export type ROIQuickWin = z.infer<typeof ROIQuickWinSchema>;
 export type ContentHealthMatrix = z.infer<typeof ContentHealthMatrixSchema>;
 export type FusedInsights = z.infer<typeof FusedInsightsSchema>;
+
+// --- 7-Dimension scoring schema (additive, does not replace legacy 4-pillar) ---
+
+export const DimensionScoreSchema = z.object({
+  llms_txt: z.number().min(0).max(100),
+  robots_crawlability: z.number().min(0).max(100),
+  sitemap: z.number().min(0).max(100),
+  schema_markup: z.number().min(0).max(100),
+  meta_tags: z.number().min(0).max(100),
+  bot_access: z.number().min(0).max(100),
+  content_citeability: z.number().min(0).max(100),
+});
+
+export type DimensionScore = z.infer<typeof DimensionScoreSchema>;

@@ -1,3 +1,5 @@
+import type { DimensionId } from "./dimensions";
+
 export const IssueSeverity = {
   CRITICAL: "critical",
   WARNING: "warning",
@@ -32,6 +34,7 @@ export interface IssueDefinition {
   recommendation: string;
   effortLevel: EffortLevel;
   implementationSnippet?: string;
+  dimension: DimensionId;
 }
 
 // All issue codes (37 original + 3 sitemap + 8 RustySEO = 48 factors)
@@ -47,6 +50,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add a unique, descriptive title tag between 30-60 characters that includes the page's primary topic.",
     effortLevel: "low",
     implementationSnippet: `<title>Your Page Topic — Brand Name</title>`,
+    dimension: "meta_tags",
   },
   MISSING_META_DESC: {
     code: "MISSING_META_DESC",
@@ -59,6 +63,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add a meta description of 120-160 characters that summarizes this page's key topic.",
     effortLevel: "low",
     implementationSnippet: `<meta name="description" content="A concise summary of this page's content in 120-160 characters." />`,
+    dimension: "meta_tags",
   },
   MISSING_H1: {
     code: "MISSING_H1",
@@ -70,6 +75,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add exactly one H1 heading that clearly describes the page's main topic.",
     effortLevel: "low",
     implementationSnippet: `<h1>Your Page's Main Topic</h1>`,
+    dimension: "content_citeability",
   },
   MULTIPLE_H1: {
     code: "MULTIPLE_H1",
@@ -81,6 +87,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Reduce to a single H1 heading. Convert additional H1s to H2 or lower.",
     effortLevel: "low",
     implementationSnippet: `<!-- Change extra <h1> tags to <h2> -->\n<h2>Secondary Section Title</h2>`,
+    dimension: "content_citeability",
   },
   HEADING_HIERARCHY: {
     code: "HEADING_HIERARCHY",
@@ -91,6 +98,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Ensure headings follow a logical hierarchy: H1 > H2 > H3 without skipping levels.",
     effortLevel: "low",
+    dimension: "content_citeability",
   },
   BROKEN_LINKS: {
     code: "BROKEN_LINKS",
@@ -101,6 +109,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Fix or remove broken internal links to improve crawlability.",
     effortLevel: "medium",
+    dimension: "bot_access",
   },
   MISSING_CANONICAL: {
     code: "MISSING_CANONICAL",
@@ -112,6 +121,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add a canonical tag pointing to the preferred URL for this page.",
     effortLevel: "low",
     implementationSnippet: `<link rel="canonical" href="https://example.com/preferred-url" />`,
+    dimension: "meta_tags",
   },
   NOINDEX_SET: {
     code: "NOINDEX_SET",
@@ -123,6 +133,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Remove the noindex directive if this page should be discoverable by AI search engines.",
     effortLevel: "low",
     implementationSnippet: `<!-- Remove this tag: -->\n<!-- <meta name="robots" content="noindex"> -->`,
+    dimension: "robots_crawlability",
   },
   MISSING_ALT_TEXT: {
     code: "MISSING_ALT_TEXT",
@@ -134,6 +145,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add descriptive alt text to all images to improve accessibility and AI understanding.",
     effortLevel: "low",
     implementationSnippet: `<img src="photo.jpg" alt="Descriptive text about the image content" />`,
+    dimension: "content_citeability",
   },
   HTTP_STATUS: {
     code: "HTTP_STATUS",
@@ -144,6 +156,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Fix the server error or redirect. Pages must return 200 status to be indexed.",
     effortLevel: "high",
+    dimension: "bot_access",
   },
   MISSING_OG_TAGS: {
     code: "MISSING_OG_TAGS",
@@ -156,6 +169,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add og:title, og:description, and og:image meta tags for better social and AI sharing.",
     effortLevel: "low",
     implementationSnippet: `<meta property="og:title" content="Page Title" />\n<meta property="og:description" content="Page description" />\n<meta property="og:image" content="https://example.com/image.jpg" />`,
+    dimension: "meta_tags",
   },
   SLOW_RESPONSE: {
     code: "SLOW_RESPONSE",
@@ -166,6 +180,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Optimize server response time to under 2 seconds. Check hosting, caching, and database queries.",
     effortLevel: "high",
+    dimension: "bot_access",
   },
   MISSING_SITEMAP: {
     code: "MISSING_SITEMAP",
@@ -177,6 +192,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Create and submit a sitemap.xml to help crawlers discover all pages.",
     effortLevel: "medium",
     implementationSnippet: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>https://example.com/</loc>\n    <lastmod>2025-01-01</lastmod>\n  </url>\n</urlset>`,
+    dimension: "sitemap",
   },
   SITEMAP_INVALID_FORMAT: {
     code: "SITEMAP_INVALID_FORMAT",
@@ -189,6 +205,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Fix sitemap.xml to follow the sitemaps.org/schemas/sitemap/0.9 standard. Validate at xml-sitemaps.com.",
     effortLevel: "medium",
     implementationSnippet: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://example.com/</loc></url>\n</urlset>`,
+    dimension: "sitemap",
   },
   SITEMAP_STALE_URLS: {
     code: "SITEMAP_STALE_URLS",
@@ -200,6 +217,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Update <lastmod> dates in your sitemap to reflect when pages were actually last modified.",
     effortLevel: "low",
     implementationSnippet: `<url>\n  <loc>https://example.com/page</loc>\n  <lastmod>${new Date().toISOString().slice(0, 10)}</lastmod>\n</url>`,
+    dimension: "sitemap",
   },
   SITEMAP_LOW_COVERAGE: {
     code: "SITEMAP_LOW_COVERAGE",
@@ -210,6 +228,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Ensure your sitemap includes all indexable pages. Use a sitemap generator or CMS plugin to auto-generate.",
     effortLevel: "medium",
+    dimension: "sitemap",
   },
   REDIRECT_CHAIN: {
     code: "REDIRECT_CHAIN",
@@ -220,6 +239,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Reduce redirect chains to a single hop. Each intermediate redirect adds latency and confuses AI crawlers.",
     effortLevel: "medium",
+    dimension: "bot_access",
   },
   CORS_MIXED_CONTENT: {
     code: "CORS_MIXED_CONTENT",
@@ -231,6 +251,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Update all resource URLs to use HTTPS. Mixed content is blocked by browsers and penalized by crawlers.",
     effortLevel: "low",
     implementationSnippet: `<!-- Change http:// to https:// -->\n<img src="https://cdn.example.com/image.png" />`,
+    dimension: "bot_access",
   },
   CORS_UNSAFE_LINKS: {
     code: "CORS_UNSAFE_LINKS",
@@ -242,6 +263,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       'Add rel="noopener noreferrer" to all external links that open in a new tab.',
     effortLevel: "low",
     implementationSnippet: `<a href="https://external.com" target="_blank" rel="noopener noreferrer">Link</a>`,
+    dimension: "bot_access",
   },
 
   // --- Content Quality (9 + 2 = 11 factors) ---
@@ -254,6 +276,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Expand content to at least 500 words of substantive, topic-relevant text.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   CONTENT_DEPTH: {
     code: "CONTENT_DEPTH",
@@ -264,6 +287,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Expand coverage of subtopics, add supporting data, examples, and expert analysis.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   CONTENT_CLARITY: {
     code: "CONTENT_CLARITY",
@@ -274,6 +298,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Improve clarity with shorter paragraphs, subheadings, bullet points, and plain language.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   CONTENT_AUTHORITY: {
     code: "CONTENT_AUTHORITY",
@@ -285,6 +310,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add citations, statistics, expert quotes, and authoritative sources to build credibility.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   DUPLICATE_CONTENT: {
     code: "DUPLICATE_CONTENT",
@@ -296,6 +322,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Consolidate duplicate pages using canonical tags or merge the content.",
     effortLevel: "medium",
     implementationSnippet: `<link rel="canonical" href="https://example.com/original-page" />`,
+    dimension: "content_citeability",
   },
   STALE_CONTENT: {
     code: "STALE_CONTENT",
@@ -306,6 +333,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Update content with current information, statistics, and recent developments.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   NO_INTERNAL_LINKS: {
     code: "NO_INTERNAL_LINKS",
@@ -317,6 +345,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add at least 2-3 internal links to related pages to improve discoverability.",
     effortLevel: "low",
     implementationSnippet: `<a href="/related-topic">Learn more about related topic</a>`,
+    dimension: "content_citeability",
   },
   EXCESSIVE_LINKS: {
     code: "EXCESSIVE_LINKS",
@@ -327,6 +356,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Balance your link profile by adding more internal links relative to external ones.",
     effortLevel: "low",
+    dimension: "content_citeability",
   },
   MISSING_FAQ_STRUCTURE: {
     code: "MISSING_FAQ_STRUCTURE",
@@ -338,6 +368,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Structure common questions using FAQ format with clear question headings and concise answers.",
     effortLevel: "medium",
     implementationSnippet: `<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "FAQPage",\n  "mainEntity": [{\n    "@type": "Question",\n    "name": "What is...?",\n    "acceptedAnswer": { "@type": "Answer", "text": "..." }\n  }]\n}\n</script>`,
+    dimension: "content_citeability",
   },
   POOR_READABILITY: {
     code: "POOR_READABILITY",
@@ -349,6 +380,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Simplify language: use shorter sentences, common words, and active voice. Target Flesch score of 60+.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   LOW_TEXT_HTML_RATIO: {
     code: "LOW_TEXT_HTML_RATIO",
@@ -360,6 +392,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Increase visible text content relative to HTML markup. Remove unnecessary wrappers, inline styles, and bloated templates.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   AI_ASSISTANT_SPEAK: {
     code: "AI_ASSISTANT_SPEAK",
@@ -370,6 +403,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Remove common AI transition words like 'In conclusion', 'Moreover', and 'It is important to note'. Use more natural, varied language.",
     effortLevel: "low",
+    dimension: "content_citeability",
   },
   UNIFORM_SENTENCE_LENGTH: {
     code: "UNIFORM_SENTENCE_LENGTH",
@@ -381,6 +415,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Vary your sentence length to create natural 'burstiness' and rhythm. Mix short, impactful sentences with longer descriptive ones.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   LOW_EEAT_SCORE: {
     code: "LOW_EEAT_SCORE",
@@ -391,6 +426,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Incorporate first-person anecdotes, unique data, or specific case studies. AI search engines prioritize content that demonstrates real-world experience over generic information.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   MISSING_AUTHORITATIVE_CITATIONS: {
     code: "MISSING_AUTHORITATIVE_CITATIONS",
@@ -402,6 +438,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Cite and link to authoritative external sources to verify your claims. This helps LLMs like Gemini and Perplexity validate your content's accuracy.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
 
   // --- AI Readiness (10 + 3 = 13 factors) ---
@@ -415,6 +452,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Create an llms.txt file at /llms.txt to explicitly permit AI crawlers and provide structured metadata about your site.",
     effortLevel: "low",
     implementationSnippet: `# /llms.txt\n# Site: Example.com\n# Description: Brief description of your site\n# Topics: topic1, topic2\n\nAllow: *`,
+    dimension: "llms_txt",
   },
   AI_CRAWLER_BLOCKED: {
     code: "AI_CRAWLER_BLOCKED",
@@ -427,6 +465,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Remove Disallow rules for AI user agents (GPTBot, ClaudeBot, PerplexityBot) in robots.txt.",
     effortLevel: "low",
     implementationSnippet: `# robots.txt — allow AI crawlers\nUser-agent: GPTBot\nAllow: /\n\nUser-agent: ClaudeBot\nAllow: /\n\nUser-agent: PerplexityBot\nAllow: /`,
+    dimension: "robots_crawlability",
   },
   NO_STRUCTURED_DATA: {
     code: "NO_STRUCTURED_DATA",
@@ -438,6 +477,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add JSON-LD structured data (at minimum: Organization, WebPage, and Article/FAQPage as appropriate).",
     effortLevel: "medium",
     implementationSnippet: `<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "WebPage",\n  "name": "Page Title",\n  "description": "Page description"\n}\n</script>`,
+    dimension: "schema_markup",
   },
   INCOMPLETE_SCHEMA: {
     code: "INCOMPLETE_SCHEMA",
@@ -448,6 +488,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Complete all required properties in your JSON-LD schema markup.",
     effortLevel: "medium",
+    dimension: "schema_markup",
   },
   CITATION_WORTHINESS: {
     code: "CITATION_WORTHINESS",
@@ -458,6 +499,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add unique data, original research, clear definitions, and expert analysis that AI would want to cite.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   NO_DIRECT_ANSWERS: {
     code: "NO_DIRECT_ANSWERS",
@@ -469,6 +511,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add clear, concise answer paragraphs at the top of sections that directly address likely user questions.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   MISSING_ENTITY_MARKUP: {
     code: "MISSING_ENTITY_MARKUP",
@@ -479,6 +522,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add schema markup for key entities (people, organizations, products) mentioned in your content.",
     effortLevel: "medium",
+    dimension: "schema_markup",
   },
   NO_SUMMARY_SECTION: {
     code: "NO_SUMMARY_SECTION",
@@ -490,6 +534,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
       "Add a TL;DR or key takeaways section that summarizes the page's main points.",
     effortLevel: "low",
     implementationSnippet: `<h2>Key Takeaways</h2>\n<ul>\n  <li>First main point</li>\n  <li>Second main point</li>\n  <li>Third main point</li>\n</ul>`,
+    dimension: "content_citeability",
   },
   POOR_QUESTION_COVERAGE: {
     code: "POOR_QUESTION_COVERAGE",
@@ -501,6 +546,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Research common questions about this topic and ensure your content addresses them directly.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   INVALID_SCHEMA: {
     code: "INVALID_SCHEMA",
@@ -511,6 +557,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Fix JSON-LD syntax errors. Validate at schema.org or Google Rich Results Test.",
     effortLevel: "medium",
+    dimension: "schema_markup",
   },
   HAS_PDF_CONTENT: {
     code: "HAS_PDF_CONTENT",
@@ -521,6 +568,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Ensure PDF content is also available as HTML for better AI discoverability. Add summaries of PDF content on the linking page.",
     effortLevel: "medium",
+    dimension: "content_citeability",
   },
   PDF_ONLY_CONTENT: {
     code: "PDF_ONLY_CONTENT",
@@ -532,6 +580,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Create HTML versions of important PDF content. AI models struggle to extract and cite PDF content compared to well-structured HTML.",
     effortLevel: "high",
+    dimension: "content_citeability",
   },
   AI_CONTENT_EXTRACTABLE: {
     code: "AI_CONTENT_EXTRACTABLE",
@@ -543,6 +592,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "No action needed — content structure is optimized for AI crawlers.",
     effortLevel: "low",
+    dimension: "content_citeability",
   },
 
   // --- Performance (5 factors) ---
@@ -555,6 +605,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Improve page performance: optimize images, reduce JavaScript, enable caching, minimize render-blocking resources.",
     effortLevel: "high",
+    dimension: "bot_access",
   },
   LH_SEO_LOW: {
     code: "LH_SEO_LOW",
@@ -565,6 +616,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Address Lighthouse SEO audit failures: ensure crawlable links, valid hreflang, proper meta tags.",
     effortLevel: "medium",
+    dimension: "bot_access",
   },
   LH_A11Y_LOW: {
     code: "LH_A11Y_LOW",
@@ -575,6 +627,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Improve accessibility: add alt text, ensure color contrast, use semantic HTML, add ARIA labels.",
     effortLevel: "medium",
+    dimension: "bot_access",
   },
   LH_BP_LOW: {
     code: "LH_BP_LOW",
@@ -585,6 +638,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Address Lighthouse best practice issues: use HTTPS, avoid deprecated APIs, fix console errors.",
     effortLevel: "medium",
+    dimension: "bot_access",
   },
   LARGE_PAGE_SIZE: {
     code: "LARGE_PAGE_SIZE",
@@ -595,6 +649,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Reduce page weight below 3MB: compress images, minify CSS/JS, lazy-load below-the-fold content.",
     effortLevel: "high",
+    dimension: "bot_access",
   },
 } as const;
 

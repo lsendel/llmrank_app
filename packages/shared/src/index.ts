@@ -7,6 +7,7 @@ export * from "./constants/plans";
 export * from "./constants/integrations";
 export * from "./constants/platform-requirements";
 export * from "./constants/platforms";
+export * from "./constants/dimensions";
 export * from "./constants/fix-guides";
 export * from "./schemas/integration";
 export * from "./utils/env";
