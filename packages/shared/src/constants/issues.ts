@@ -454,6 +454,28 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     implementationSnippet: `# /llms.txt\n# Site: Example.com\n# Description: Brief description of your site\n# Topics: topic1, topic2\n\nAllow: *`,
     dimension: "llms_txt",
   },
+  LLMS_TXT_QUALITY: {
+    code: "LLMS_TXT_QUALITY",
+    category: "ai_readiness",
+    severity: "warning",
+    scoreImpact: -10,
+    message: "llms.txt file is poorly structured or missing key sections",
+    recommendation:
+      "Improve your llms.txt with a title line (# Site Name), description (> text), and at least one section with links.",
+    effortLevel: "low",
+    dimension: "llms_txt",
+  },
+  LLMS_TXT_INCOMPLETE: {
+    code: "LLMS_TXT_INCOMPLETE",
+    category: "ai_readiness",
+    severity: "info",
+    scoreImpact: -5,
+    message: "llms.txt file is minimal — missing description or link sections",
+    recommendation:
+      "Add a description line (> your site description) and organized sections (## heading) with page links to your llms.txt.",
+    effortLevel: "low",
+    dimension: "llms_txt",
+  },
   AI_CRAWLER_BLOCKED: {
     code: "AI_CRAWLER_BLOCKED",
     category: "ai_readiness",

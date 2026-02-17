@@ -4,6 +4,7 @@ import type {
   LLMContentScores,
   Issue,
   LLMPlatformId,
+  DimensionScores,
 } from "@llm-boost/shared";
 import type { PlatformScoreResult } from "./platforms";
 
@@ -34,6 +35,7 @@ export interface PageData {
     contentHashes: Map<string, string>; // hash -> other page URL (for duplicate detection)
     responseTimeMs?: number;
     pageSizeBytes?: number;
+    llmsTxtContent?: string;
   };
 }
 
@@ -44,6 +46,19 @@ export interface FactorResult {
 
 export interface ScoringResult {
   overallScore: number;
+  technicalScore: number;
+  contentScore: number;
+  aiReadinessScore: number;
+  performanceScore: number;
+  letterGrade: "A" | "B" | "C" | "D" | "F";
+  platformScores: Record<LLMPlatformId, PlatformScoreResult>;
+  issues: Issue[];
+}
+
+export interface ScoringResultV2 {
+  overallScore: number;
+  dimensionScores: DimensionScores;
+  // Legacy compat fields (derived from dimensionsToLegacyScores)
   technicalScore: number;
   contentScore: number;
   aiReadinessScore: number;
