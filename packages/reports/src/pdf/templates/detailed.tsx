@@ -301,7 +301,7 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
     },
     {
       label: "Performance",
-      score: data.scores.performance,
+      score: data.scores.performance ?? 0,
       delta: data.scoreDeltas.performance,
     },
   ];

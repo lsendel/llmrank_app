@@ -28,7 +28,7 @@ export interface ReportData {
     technical: number;
     content: number;
     aiReadiness: number;
-    performance: number;
+    performance: number | null;
     letterGrade: string;
   };
   issues: {
@@ -99,7 +99,7 @@ export interface ReportPageScore {
   technical: number;
   content: number;
   aiReadiness: number;
-  performance: number;
+  performance: number | null;
   grade: string;
   issueCount: number;
 }

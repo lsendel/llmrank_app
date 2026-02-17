@@ -118,8 +118,8 @@ export function buildSummaryDocx(data: ReportData): Document {
     ),
     scoreText(
       "Performance",
-      data.scores.performance,
-      gradeColor(data.scores.performance),
+      data.scores.performance ?? 0,
+      gradeColor(data.scores.performance ?? 0),
     ),
     spacer(),
   ];

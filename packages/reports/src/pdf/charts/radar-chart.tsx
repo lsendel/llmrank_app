@@ -6,7 +6,7 @@ interface Props {
     technical: number;
     content: number;
     aiReadiness: number;
-    performance: number;
+    performance: number | null;
   };
   size?: number;
 }
@@ -24,7 +24,7 @@ export function PdfRadarChart({ scores, size = 200 }: Props) {
     scores.technical,
     scores.content,
     scores.aiReadiness,
-    scores.performance,
+    scores.performance ?? 0,
   ];
   const angles = values.map((_, i) => (i * 2 * Math.PI) / 4 - Math.PI / 2);
 

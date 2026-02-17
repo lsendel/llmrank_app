@@ -64,7 +64,7 @@ export function SummaryReportPdf({ data }: { data: ReportData }) {
     { label: "Technical SEO", score: data.scores.technical },
     { label: "Content Quality", score: data.scores.content },
     { label: "AI Readiness", score: data.scores.aiReadiness },
-    { label: "Performance", score: data.scores.performance },
+    { label: "Performance", score: data.scores.performance ?? 0 },
   ];
 
   return (

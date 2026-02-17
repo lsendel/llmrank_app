@@ -284,13 +284,19 @@ export function aggregateReportData(
   const technical = average(pageScores.map((p) => p.technicalScore));
   const content = average(pageScores.map((p) => p.contentScore));
   const aiReadiness = average(pageScores.map((p) => p.aiReadinessScore));
-  const performanceAvg = average(
-    pageScores.map((p) => {
-      const perf = p.lighthousePerf ?? 0;
-      const seo = p.lighthouseSeo ?? 0;
-      return Math.round(((perf + seo) / 2) * 100);
-    }),
+  const lighthousePages = pageScores.filter(
+    (p) => p.lighthousePerf != null || p.lighthouseSeo != null,
   );
+  const performanceAvg =
+    lighthousePages.length > 0
+      ? average(
+          lighthousePages.map((p) => {
+            const perf = p.lighthousePerf ?? 0;
+            const seo = p.lighthouseSeo ?? 0;
+            return Math.round(((perf + seo) / 2) * 100);
+          }),
+        )
+      : null;
 
   // Grade distribution
   const grades = { A: 0, B: 0, C: 0, D: 0, F: 0 };
@@ -429,9 +435,12 @@ export function aggregateReportData(
       technical: p.technicalScore ?? 0,
       content: p.contentScore ?? 0,
       aiReadiness: p.aiReadinessScore ?? 0,
-      performance: Math.round(
-        (((p.lighthousePerf ?? 0) + (p.lighthouseSeo ?? 0)) / 2) * 100,
-      ),
+      performance:
+        p.lighthousePerf != null || p.lighthouseSeo != null
+          ? Math.round(
+              (((p.lighthousePerf ?? 0) + (p.lighthouseSeo ?? 0)) / 2) * 100,
+            )
+          : null,
       grade: getLetterGrade(p.overallScore),
       issueCount: p.pageId
         ? (issueCountByPageId.get(p.pageId) ?? 0)
@@ -467,7 +476,10 @@ export function aggregateReportData(
     scoreDeltas.technical = Math.round(technical - previous.technical);
     scoreDeltas.content = Math.round(content - previous.content);
     scoreDeltas.aiReadiness = Math.round(aiReadiness - previous.aiReadiness);
-    scoreDeltas.performance = Math.round(performanceAvg - previous.performance);
+    scoreDeltas.performance =
+      performanceAvg != null
+        ? Math.round(performanceAvg - previous.performance)
+        : 0;
   }
 
   // Visibility

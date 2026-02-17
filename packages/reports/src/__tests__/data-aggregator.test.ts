@@ -182,6 +182,70 @@ describe("aggregateReportData", () => {
     expect(result.competitors![0].domain).toBe("rival.com");
   });
 
+  it("should handle null lighthouse data in performance average", () => {
+    const result = aggregateReportData(
+      makeRawResults({
+        pageScores: [
+          {
+            url: "https://example.com/",
+            title: "Home",
+            overallScore: 85,
+            technicalScore: 90,
+            contentScore: 80,
+            aiReadinessScore: 85,
+            lighthousePerf: null,
+            lighthouseSeo: null,
+            detail: null,
+            issueCount: 2,
+          },
+        ],
+      }),
+      { type: "summary" },
+    );
+    expect(result.scores.performance).toBeNull();
+    expect(result.pages[0].performance).toBeNull();
+  });
+
+  it("should compute performance only from pages with lighthouse data", () => {
+    const result = aggregateReportData(
+      makeRawResults({
+        pageScores: [
+          {
+            url: "https://example.com/",
+            title: "Home",
+            overallScore: 85,
+            technicalScore: 90,
+            contentScore: 80,
+            aiReadinessScore: 85,
+            lighthousePerf: 0.9,
+            lighthouseSeo: 0.95,
+            detail: null,
+            issueCount: 2,
+          },
+          {
+            url: "https://example.com/about",
+            title: "About",
+            overallScore: 70,
+            technicalScore: 75,
+            contentScore: 65,
+            aiReadinessScore: 72,
+            lighthousePerf: null,
+            lighthouseSeo: null,
+            detail: null,
+            issueCount: 5,
+          },
+        ],
+      }),
+      { type: "summary" },
+    );
+    // Only the first page has lighthouse data (0.9 + 0.95) / 2 * 100 = 92.5 → 93
+    expect(result.scores.performance).toBe(93);
+    expect(
+      result.pages.find((p) => p.url === "https://example.com/about")
+        ?.performance,
+    ).toBeNull();
+  });
+
   it("handles empty page scores gracefully", () => {
     const result = aggregateReportData(
       makeRawResults({ pageScores: [], issues: [] }),
