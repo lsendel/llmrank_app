@@ -31,12 +31,21 @@ export const metadata: Metadata = {
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
     url: BASE_URL,
+    images: [
+      {
+        url: `${BASE_URL}/og-default.png`,
+        width: 1200,
+        height: 630,
+        alt: "LLM Boost — AI-Readiness SEO Platform",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "LLM Boost - AI-Readiness SEO Platform",
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
+    images: [`${BASE_URL}/og-default.png`],
   },
   alternates: {
     canonical: "/",
