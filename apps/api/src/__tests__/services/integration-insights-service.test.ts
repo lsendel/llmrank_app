@@ -44,6 +44,22 @@ describe("IntegrationInsightsService", () => {
     expect(result).toEqual({ crawlId: null, integrations: null });
   });
 
+  it("returns empty integrations structure when crawl exists but no enrichments found", async () => {
+    enrichments.listByJob.mockResolvedValue([]);
+    const service = createIntegrationInsightsService({
+      projects,
+      crawls,
+      enrichments,
+    });
+    const result = await service.getInsights("user-1", "proj-1");
+    // Should return empty objects, not null, so the UI knows integrations are active but empty
+    expect(result.integrations).toEqual({
+      gsc: null,
+      ga4: null,
+      clarity: null,
+    });
+  });
+
   it("aggregates enrichments for the latest crawl", async () => {
     enrichments.listByJob.mockResolvedValue([
       {

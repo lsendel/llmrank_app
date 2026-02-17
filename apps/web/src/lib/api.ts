@@ -732,6 +732,9 @@ export interface IntegrationInsights {
         clicks: number;
         position: number;
       }[];
+      totalClicks: number;
+      totalImpressions: number;
+      indexedPages: { url: string; status: string }[];
     } | null;
     ga4: {
       bounceRate: number;

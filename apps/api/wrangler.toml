@@ -8,6 +8,10 @@ routes = [
   { pattern = "api.llmrank.app/*", zone_name = "llmrank.app" }
 ]
 
+[[services]]
+binding = "WEB_WORKER"
+service = "llm-boost-web"
+
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "ai-seo-storage"

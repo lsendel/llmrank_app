@@ -31,9 +31,25 @@ export function aggregateIntegrations(
       clicks: number;
       position: number;
     }[] = [];
+    let totalClicks = 0;
+    let totalImpressions = 0;
+    const indexedPages: { url: string; status: string }[] = [];
 
     for (const e of gscEnrichments) {
       const d = e.data as Record<string, unknown>;
+
+      // Accumulate totals from per-page enrichments
+      totalClicks += Number(d.totalClicks ?? 0);
+      totalImpressions += Number(d.totalImpressions ?? 0);
+
+      // Collect indexed status (from URL Inspection API)
+      if (d.indexedStatus && typeof d.indexedStatus === "string") {
+        // pageUrl may be stored on the enrichment row or inferred from context
+        const url = String(d.pageUrl ?? d.url ?? "");
+        if (url) {
+          indexedPages.push({ url, status: d.indexedStatus });
+        }
+      }
 
       // Support array-of-queries format: { queries: [...] }
       if (d.queries && Array.isArray(d.queries)) {
@@ -60,8 +76,15 @@ export function aggregateIntegrations(
       }
     }
 
+    // Deduplicate queries by query string (sum impressions/clicks, average position)
+    let topQueries: {
+      query: string;
+      impressions: number;
+      clicks: number;
+      position: number;
+    }[] = [];
+
     if (allQueries.length > 0) {
-      // Deduplicate by query string (sum impressions/clicks, average position)
       const queryMap = new Map<
         string,
         { impressions: number; clicks: number; positions: number[] }
@@ -81,24 +104,26 @@ export function aggregateIntegrations(
         }
       }
 
-      const deduped = Array.from(queryMap.entries()).map(([query, data]) => ({
-        query,
-        impressions: data.impressions,
-        clicks: data.clicks,
-        position:
-          Math.round(
-            (data.positions.reduce((a, b) => a + b, 0) /
-              data.positions.length) *
-              10,
-          ) / 10,
-      }));
-
-      gsc = {
-        topQueries: deduped
-          .sort((a, b) => b.impressions - a.impressions)
-          .slice(0, 20),
-      };
+      topQueries = Array.from(queryMap.entries())
+        .map(([query, data]) => ({
+          query,
+          impressions: data.impressions,
+          clicks: data.clicks,
+          position:
+            Math.round(
+              (data.positions.reduce((a, b) => a + b, 0) /
+                data.positions.length) *
+                10,
+            ) / 10,
+        }))
+        .sort((a, b) => b.impressions - a.impressions)
+        .slice(0, 20);
     }
+
+    // Always return GSC data when enrichment rows exist — even with no queries,
+    // the UI should show indexed status or a "no queries yet" message rather than
+    // the misleading "Sync failed" card.
+    gsc = { topQueries, totalClicks, totalImpressions, indexedPages };
   }
 
   // ---------------------------------------------------------------------------

@@ -102,17 +102,28 @@ export function IntegrationInsightsView({
   }[] = [];
   if (gsc) {
     const queryCount = gsc.topQueries?.length ?? 0;
-    const avgPos =
-      queryCount > 0
-        ? (
-            gsc.topQueries.reduce((sum, q) => sum + q.position, 0) / queryCount
-          ).toFixed(1)
-        : "N/A";
-    summaryItems.push({
-      icon: Search,
-      label: "GSC",
-      value: `${queryCount} queries tracked · avg position ${avgPos}`,
-    });
+    const indexedCount =
+      gsc.indexedPages?.filter(
+        (p) =>
+          p.status === "Submitted and indexed" ||
+          p.status === "Indexed, not submitted in sitemap",
+      ).length ?? 0;
+    if (queryCount > 0) {
+      const avgPos = (
+        gsc.topQueries.reduce((sum, q) => sum + q.position, 0) / queryCount
+      ).toFixed(1);
+      summaryItems.push({
+        icon: Search,
+        label: "GSC",
+        value: `${queryCount} queries tracked · avg position ${avgPos}`,
+      });
+    } else {
+      summaryItems.push({
+        icon: Search,
+        label: "GSC",
+        value: `${indexedCount} indexed pages · ${gsc.totalImpressions ?? 0} impressions`,
+      });
+    }
   }
   if (ga4) {
     summaryItems.push({
@@ -156,8 +167,8 @@ export function IntegrationInsightsView({
         </div>
       )}
 
-      {/* GSC Section */}
-      {gsc && (
+      {/* GSC Section — queries view */}
+      {gsc && gsc.topQueries.length > 0 && (
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -243,6 +254,63 @@ export function IntegrationInsightsView({
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* GSC Section — indexed status view (shown when no queries) */}
+      {gsc && gsc.topQueries.length === 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Search className="h-4 w-4 text-primary" />
+              Google Search Console — Index Status
+            </CardTitle>
+            <CardDescription>
+              {gsc.totalImpressions > 0
+                ? `${gsc.totalClicks} clicks · ${gsc.totalImpressions} impressions (last 28 days)`
+                : "No search query data yet — showing page index status"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {gsc.indexedPages.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Page</TableHead>
+                    <TableHead className="text-right">Index Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gsc.indexedPages.map((p) => (
+                    <TableRow key={p.url}>
+                      <TableCell className="max-w-[300px] truncate font-medium text-xs">
+                        {p.url.replace(/^https?:\/\/[^/]+/, "")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant={
+                            p.status.includes("indexed") ||
+                            p.status.includes("Indexed")
+                              ? "success"
+                              : "outline"
+                          }
+                          className="text-[10px] h-5 px-1.5"
+                        >
+                          {p.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No search queries found yet. This site may be new to Google
+                Search. Run another crawl after the site gains more search
+                visibility.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* GA4 Section */}

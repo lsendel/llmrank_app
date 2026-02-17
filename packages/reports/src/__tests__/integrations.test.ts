@@ -350,15 +350,22 @@ describe("aggregateIntegrations", () => {
     expect(result!.clarity!.rageClickPages).toHaveLength(0);
   });
 
-  it("handles GSC data with empty queries array", () => {
+  it("handles GSC data with empty queries array — returns GSC with empty queries", () => {
     const enrichments: RawEnrichment[] = [
       makeEnrichment({
         provider: "gsc",
-        data: { queries: [] },
+        data: { queries: [], totalClicks: 0, totalImpressions: 0 },
       }),
     ];
-    // No queries extracted, so gsc remains null => all null => returns null
-    expect(aggregateIntegrations(enrichments)).toBeNull();
+    // GSC enrichment rows exist, so we return a non-null GSC object
+    // (the UI shows "no queries yet" rather than misleading "sync failed")
+    const result = aggregateIntegrations(enrichments);
+    expect(result).not.toBeNull();
+    expect(result!.gsc).not.toBeNull();
+    expect(result!.gsc!.topQueries).toHaveLength(0);
+    expect(result!.gsc!.totalClicks).toBe(0);
+    expect(result!.gsc!.totalImpressions).toBe(0);
+    expect(result!.gsc!.indexedPages).toHaveLength(0);
   });
 
   it("handles mixed providers with all data present", () => {

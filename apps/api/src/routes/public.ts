@@ -74,13 +74,24 @@ publicRoutes.post("/scan", async (c) => {
   const domain = targetUrl.hostname;
   const pageUrl = targetUrl.toString();
 
+  // Domains served by our own Cloudflare zone — same-zone fetch bypasses
+  // the Workers pipeline and hits a non-existent origin, returning 404.
+  // Route these through the WEB_WORKER service binding instead.
+  const sameZoneDomains = new Set(["llmrank.app", "www.llmrank.app"]);
+
   // Fetch HTML, robots.txt, llms.txt, and sitemap in parallel
   const fetchWithTimeout = async (url: string): Promise<Response | null> => {
     try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "AISEOBot/1.0" },
-        signal: AbortSignal.timeout(10_000),
-      });
+      const parsedUrl = new URL(url);
+      const webWorker = c.env.WEB_WORKER;
+      const useSameZone =
+        sameZoneDomains.has(parsedUrl.hostname) && !!webWorker;
+      const res = await (useSameZone ? webWorker : globalThis).fetch(
+        new Request(url, {
+          headers: { "User-Agent": "AISEOBot/1.0" },
+          signal: AbortSignal.timeout(10_000),
+        }),
+      );
       return res;
     } catch (err) {
       console.error(`Fetch failed for ${url}:`, err);

@@ -7,7 +7,13 @@ export function scoreContentFactors(page: PageData): FactorResult {
 
   // THIN_CONTENT: -15 if <200 words, -8 if 200-499
   if (page.wordCount < THRESHOLDS.thinContentWords) {
-    deduct(s, "THIN_CONTENT", { wordCount: page.wordCount });
+    deduct(
+      s,
+      "THIN_CONTENT",
+      { wordCount: page.wordCount },
+      undefined,
+      `This page has only ${page.wordCount} words and isn't optimized for LLM citations. Try analyzing a full article or blog post instead (500+ words recommended).`,
+    );
   } else if (page.wordCount < THRESHOLDS.moderateContentWords) {
     deduct(s, "THIN_CONTENT", -8, { wordCount: page.wordCount });
   }

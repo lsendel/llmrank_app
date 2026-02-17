@@ -274,7 +274,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     scoreImpact: -15, // -15 if < 200 words, -8 if 200-499
     message: "Page has insufficient content",
     recommendation:
-      "Expand content to at least 500 words of substantive, topic-relevant text.",
+      "This navigation page has insufficient words and isn't optimized for LLM citations. Try analyzing a full article or blog post instead (500+ words recommended).",
     effortLevel: "high",
     dimension: "content_citeability",
   },

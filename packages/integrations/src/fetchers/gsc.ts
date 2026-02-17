@@ -1,6 +1,7 @@
 import type { IntegrationFetcherContext, EnrichmentResult } from "../types";
 
 const GSC_API = "https://www.googleapis.com/webmasters/v3";
+const GSC_INSPECT_API = "https://searchconsole.googleapis.com/v1";
 
 /**
  * Find the correct GSC site URL for a domain by listing verified sites.
@@ -148,17 +149,20 @@ export async function fetchGSCData(
 
     let indexedStatus: string | null = null;
     try {
-      const inspectRes = await fetch(`${GSC_API}/urlInspection/index:inspect`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
+      const inspectRes = await fetch(
+        `${GSC_INSPECT_API}/urlInspection/index:inspect`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            inspectionUrl: url,
+            siteUrl,
+          }),
         },
-        body: JSON.stringify({
-          inspectionUrl: url,
-          siteUrl,
-        }),
-      });
+      );
 
       if (inspectRes.ok) {
         const inspectData: {
@@ -178,6 +182,7 @@ export async function fetchGSCData(
       provider: "gsc",
       pageUrl: url,
       data: {
+        pageUrl: url,
         queries: analytics?.queries?.slice(0, 20) ?? [],
         totalClicks: analytics?.totalClicks ?? 0,
         totalImpressions: analytics?.totalImpressions ?? 0,

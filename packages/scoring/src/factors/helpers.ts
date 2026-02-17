@@ -20,6 +20,7 @@ export function deduct(
   code: IssueCode,
   amountOrData?: number | Record<string, unknown>,
   data?: Record<string, unknown>,
+  customRecommendation?: string,
 ): void {
   const def = ISSUE_DEFINITIONS[code];
   let amount: number;
@@ -39,7 +40,7 @@ export function deduct(
     category: def.category,
     severity: def.severity,
     message: def.message,
-    recommendation: def.recommendation,
+    recommendation: customRecommendation ?? def.recommendation,
     data: issueData,
   });
 }

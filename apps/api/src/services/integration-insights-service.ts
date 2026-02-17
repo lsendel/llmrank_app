@@ -35,7 +35,10 @@ export function createIntegrationInsightsService(
 
       const rows = await deps.enrichments.listByJob(crawl.id);
       if (rows.length === 0) {
-        return { crawlId: crawl.id, integrations: null };
+        return {
+          crawlId: crawl.id,
+          integrations: { gsc: null, ga4: null, clarity: null },
+        };
       }
 
       const normalized = rows.map((row) => ({
