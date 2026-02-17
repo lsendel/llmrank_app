@@ -1,17 +1,105 @@
 import type { IntegrationFetcherContext, EnrichmentResult } from "../types";
 
 const GA4_DATA_API = "https://analyticsdata.googleapis.com/v1beta";
+const GA4_ADMIN_API = "https://analyticsadmin.googleapis.com/v1beta";
+
+/**
+ * Auto-detect the GA4 property ID by listing account summaries
+ * and matching data streams against the project domain.
+ */
+async function findPropertyId(
+  domain: string,
+  accessToken: string,
+): Promise<string> {
+  const res = await fetch(`${GA4_ADMIN_API}/accountSummaries`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(`GA4 Admin API error: ${res.status}`);
+  }
+
+  const data: {
+    accountSummaries?: {
+      propertySummaries?: {
+        property: string;
+        displayName?: string;
+      }[];
+    }[];
+  } = await res.json();
+
+  const bare = domain
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
+
+  // Collect all property IDs
+  const allProperties: { id: string; displayName: string }[] = [];
+  for (const account of data.accountSummaries ?? []) {
+    for (const prop of account.propertySummaries ?? []) {
+      const id = prop.property.replace("properties/", "");
+      allProperties.push({
+        id,
+        displayName: (prop.displayName || "").toLowerCase(),
+      });
+    }
+  }
+
+  if (allProperties.length === 0) {
+    throw new Error("No GA4 properties found for this Google account");
+  }
+
+  // Try matching by display name first (fast, no extra API calls)
+  const byName = allProperties.find(
+    (p) => p.displayName.includes(bare) || bare.includes(p.displayName),
+  );
+  if (byName) return byName.id;
+
+  // Fall back to checking data streams for each property
+  for (const prop of allProperties) {
+    const streamsRes = await fetch(
+      `${GA4_ADMIN_API}/properties/${prop.id}/dataStreams`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!streamsRes.ok) continue;
+
+    const streamsData: {
+      dataStreams?: {
+        webStreamData?: { defaultUri?: string };
+      }[];
+    } = await streamsRes.json();
+
+    for (const stream of streamsData.dataStreams ?? []) {
+      const uri = (stream.webStreamData?.defaultUri || "")
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/$/, "");
+      if (uri === bare || uri === `www.${bare}` || `www.${uri}` === bare) {
+        return prop.id;
+      }
+    }
+  }
+
+  // If only one property exists, use it as fallback
+  if (allProperties.length === 1) {
+    return allProperties[0].id;
+  }
+
+  throw new Error(
+    `No GA4 property found matching "${bare}". Available properties: ${allProperties.map((p) => `${p.displayName} (${p.id})`).join(", ") || "none"}`,
+  );
+}
 
 export async function fetchGA4Data(
   ctx: IntegrationFetcherContext,
 ): Promise<EnrichmentResult[]> {
-  const { pageUrls, credentials, config } = ctx;
+  const { domain, pageUrls, credentials, config } = ctx;
   const { accessToken } = credentials;
-  const propertyId = config.propertyId as string | undefined;
 
-  if (!propertyId) {
-    throw new Error("GA4 property ID is required in integration config");
-  }
+  // Use configured property ID or auto-detect from domain
+  const propertyId =
+    (config.propertyId as string | undefined) ||
+    (await findPropertyId(domain, accessToken));
 
   // Run a report for the last 28 days with page path as a dimension
   const res = await fetch(
