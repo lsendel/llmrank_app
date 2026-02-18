@@ -397,6 +397,17 @@ impl JobManager {
                             &config.shared_secret,
                         )
                         .await;
+
+                        // POST external links to backlinks ingestion endpoint
+                        let backlink_entries = collect_backlink_entries(&batch.pages);
+                        Self::send_backlinks(
+                            &callback_client,
+                            &config.api_base_url,
+                            backlink_entries,
+                            &config.shared_secret,
+                        )
+                        .await;
+
                         batch_index += 1;
                         last_batch_time = Instant::now();
                     }
@@ -424,6 +435,16 @@ impl JobManager {
             &callback_client,
             &payload.callback_url,
             &final_batch,
+            &config.shared_secret,
+        )
+        .await;
+
+        // POST final batch backlinks
+        let backlink_entries = collect_backlink_entries(&final_batch.pages);
+        Self::send_backlinks(
+            &callback_client,
+            &config.api_base_url,
+            backlink_entries,
             &config.shared_secret,
         )
         .await;
