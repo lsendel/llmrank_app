@@ -29,6 +29,7 @@ import { useProject } from "@/hooks/use-project";
 import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
+import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 
 function TabLoadingSkeleton() {
@@ -370,6 +371,10 @@ export default function ProjectPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6 pt-4">
+          <CrawlSettingsForm
+            projectId={project.id}
+            initialSettings={project.settings}
+          />
           <BrandingSettingsForm
             projectId={project.id}
             initialBranding={project.branding}

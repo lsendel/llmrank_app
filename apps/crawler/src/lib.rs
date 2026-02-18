@@ -3,6 +3,7 @@ pub mod crawler;
 pub mod jobs;
 pub mod lighthouse;
 pub mod models;
+pub mod renderer;
 pub mod server;
 pub mod storage;
 

@@ -56,6 +56,7 @@ export interface Project {
     maxPages: number;
     maxDepth: number;
     schedule: "manual" | "daily" | "weekly" | "monthly";
+    ignoreRobots?: boolean;
   };
   branding?: {
     logoUrl?: string;
@@ -76,6 +77,7 @@ export interface UpdateProjectInput {
     maxPages?: number;
     maxDepth?: number;
     schedule?: "manual" | "daily" | "weekly" | "monthly";
+    ignoreRobots?: boolean;
   };
   branding?: {
     logoUrl?: string;

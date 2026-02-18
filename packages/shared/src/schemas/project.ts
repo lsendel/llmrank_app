@@ -21,6 +21,7 @@ export const UpdateProjectSchema = z.object({
       maxPages: z.number().int().min(1).optional(),
       maxDepth: z.number().int().min(1).max(10).optional(),
       schedule: z.enum(["manual", "daily", "weekly", "monthly"]).optional(),
+      ignoreRobots: z.boolean().optional(),
     })
     .optional(),
   branding: z

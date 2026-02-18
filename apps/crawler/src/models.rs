@@ -26,6 +26,8 @@ pub struct CrawlConfig {
     pub rate_limit_ms: u32,
     #[serde(default = "default_timeout_s")]
     pub timeout_s: u32,
+    #[serde(default = "default_true")]
+    pub run_js_render: bool,
 }
 
 fn default_true() -> bool {
@@ -161,6 +163,8 @@ pub struct CrawlPageResult {
     pub extracted: ExtractedData,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lighthouse: Option<LighthouseResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub js_rendered_link_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site_context: Option<SiteContext>,
     pub timing_ms: u64,
