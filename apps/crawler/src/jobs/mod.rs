@@ -19,6 +19,41 @@ use crate::storage::{StorageClient, StorageConfig};
 
 type HmacSha256 = Hmac<Sha256>;
 
+/// Matches the API's backlinks ingestion payload shape.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BacklinkEntry {
+    source_url: String,
+    source_domain: String,
+    target_url: String,
+    target_domain: String,
+    anchor_text: String,
+    rel: String,
+}
+
+/// Collect all external link details from a batch of pages into BacklinkEntry list.
+fn collect_backlink_entries(pages: &[CrawlPageResult]) -> Vec<BacklinkEntry> {
+    let mut entries = Vec::new();
+    for page in pages {
+        let source_domain = CrawlEngine::domain_from_url(&page.url).unwrap_or_default();
+        for link in &page.extracted.external_link_details {
+            let target_domain = CrawlEngine::domain_from_url(&link.url).unwrap_or_default();
+            if target_domain.is_empty() {
+                continue;
+            }
+            entries.push(BacklinkEntry {
+                source_url: page.url.clone(),
+                source_domain: source_domain.clone(),
+                target_url: link.url.clone(),
+                target_domain,
+                anchor_text: link.anchor_text.clone(),
+                rel: link.rel.clone(),
+            });
+        }
+    }
+    entries
+}
+
 /// Internal state for a running or completed job.
 #[derive(Debug)]
 struct JobEntry {
@@ -463,6 +498,70 @@ impl JobManager {
                     batch_index = batch.batch_index,
                     "Failed to send callback"
                 );
+            }
+        }
+    }
+
+    /// POST discovered external links to the backlinks ingestion endpoint.
+    /// Fire-and-forget: logs errors but does not fail the crawl job.
+    async fn send_backlinks(
+        client: &reqwest::Client,
+        api_base_url: &str,
+        links: Vec<BacklinkEntry>,
+        secret: &str,
+    ) {
+        if links.is_empty() {
+            return;
+        }
+
+        let link_count = links.len();
+        let url = format!(
+            "{}/api/backlinks/ingest",
+            api_base_url.trim_end_matches('/')
+        );
+
+        let payload = serde_json::json!({
+            "links": links
+        });
+
+        let body = match serde_json::to_string(&payload) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::error!("Failed to serialize backlinks payload: {}", e);
+                return;
+            }
+        };
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .to_string();
+
+        let mut mac =
+            HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+        mac.update(timestamp.as_bytes());
+        mac.update(body.as_bytes());
+        let signature = format!("hmac-sha256={}", hex::encode(mac.finalize().into_bytes()));
+
+        match client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .header("X-Timestamp", &timestamp)
+            .header("X-Signature", &signature)
+            .body(body)
+            .send()
+            .await
+        {
+            Ok(resp) => {
+                tracing::info!(
+                    status = resp.status().as_u16(),
+                    link_count = link_count,
+                    "Backlinks POST sent"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to POST backlinks (non-fatal)");
             }
         }
     }
