@@ -430,6 +430,50 @@ mod tests {
         assert!(page.internal_links.iter().any(|l| l.contains("another")));
         assert_eq!(page.external_links.len(), 1);
         assert!(page.external_links[0].contains("other.com"));
+
+        // Verify external_link_details
+        assert_eq!(page.external_link_details.len(), 1);
+        let detail = &page.external_link_details[0];
+        assert!(detail.url.contains("other.com/page"));
+        assert_eq!(detail.anchor_text, "External Link");
+        assert!(detail.is_external);
+    }
+
+    #[test]
+    fn test_external_link_details_with_rel() {
+        let html = r#"<!DOCTYPE html>
+<html><body>
+    <a href="https://sponsored.com/deal" rel="nofollow sponsored">Great Deal</a>
+    <a href="https://friend.com/page" rel="noopener">Friend Site</a>
+    <a href="https://plain.com/page">Plain Link</a>
+    <a href="/internal">Internal</a>
+</body></html>"#;
+        let page = Parser::parse(html, "https://example.com");
+        assert_eq!(page.external_link_details.len(), 3);
+
+        let sponsored = page
+            .external_link_details
+            .iter()
+            .find(|l| l.url.contains("sponsored.com"))
+            .unwrap();
+        assert_eq!(sponsored.anchor_text, "Great Deal");
+        assert_eq!(sponsored.rel, "nofollow sponsored");
+
+        let friend = page
+            .external_link_details
+            .iter()
+            .find(|l| l.url.contains("friend.com"))
+            .unwrap();
+        assert_eq!(friend.anchor_text, "Friend Site");
+        assert_eq!(friend.rel, "noopener");
+
+        let plain = page
+            .external_link_details
+            .iter()
+            .find(|l| l.url.contains("plain.com"))
+            .unwrap();
+        assert_eq!(plain.anchor_text, "Plain Link");
+        assert_eq!(plain.rel, "");
     }
 
     #[test]
