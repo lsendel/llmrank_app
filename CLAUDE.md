@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Database:** Neon PostgreSQL with Drizzle ORM
 - **Object Storage:** Cloudflare R2
 - **Cache:** Cloudflare KV
-- **Crawler:** Rust (Axum + Tokio) on Hetzner VPS in Docker, with Lighthouse (Node.js + Chromium)
+- **Crawler:** Rust (Axum + Tokio) on Fly.io, with Lighthouse (Node.js + Chromium)
 - **Auth:** Clerk (primary) or Lucia (fallback)
 - **Billing:** Stripe (4 tiers: Free, Starter $79, Pro $149, Agency $299)
 - **LLM:** Anthropic (content scoring) + OpenAI (visibility checks)
@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture
 
 ```
-Cloudflare Edge                         Hetzner VPS (Docker)
+Cloudflare Edge                         Fly.io (iad)
 ┌─────────────────────────┐             ┌──────────────────────┐
 │ Next.js (Pages)         │             │ Axum HTTP Server     │
 │ Hono Workers (API)      │◄──HMAC──►  │ Rust Crawler (Tokio) │
@@ -31,7 +31,7 @@ Cloudflare Edge                         Hetzner VPS (Docker)
 └─────────────────────────┘
 ```
 
-- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs to Hetzner
+- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs to Fly.io
 - Rust crawler posts results back via HMAC-authenticated callbacks
 - Scoring engine (packages/scoring) runs in Workers after crawl data ingestion
 - LLM content scoring caches by content SHA256 hash
@@ -47,7 +47,7 @@ Cloudflare Edge                         Hetzner VPS (Docker)
 ```
 apps/
   web/           → Next.js frontend (Cloudflare Pages, App Router)
-  crawler/       → Rust crawler service (Axum, Hetzner Docker)
+  crawler/       → Rust crawler service (Axum, Fly.io)
 packages/
   api/           → Cloudflare Workers (Hono) REST API
   shared/        → TypeScript interfaces, Zod schemas, error codes
@@ -55,7 +55,7 @@ packages/
   scoring/       → 37-factor scoring engine (Technical 25%, Content 30%, AI Readiness 30%, Performance 15%)
   llm/           → LLM prompt templates, batching, caching, cost tracking
 infra/
-  docker/        → Dockerfile + docker-compose for crawler
+  docker/        → docker-compose for local crawler development
   migrations/    → PostgreSQL migrations (also in packages/db/migrations/)
   scripts/       → Deploy, seed, utility scripts
 ```
@@ -86,8 +86,8 @@ cd packages/db && npx drizzle-kit generate # Generate migration files
 cargo build --release
 cargo test
 
-# Docker crawler
-docker compose -f apps/crawler/docker-compose.yml up -d
+# Deploy crawler to Fly.io (from apps/crawler/)
+flyctl deploy -a llmrank-crawler
 ```
 
 ## Key Design Decisions
@@ -105,7 +105,8 @@ Score = Technical(25%) + Content(30%) + AI Readiness(30%) + Performance(15%). Ea
 
 ## Communication Between Services
 
-Cloudflare Workers ↔ Hetzner Crawler uses HMAC-SHA256 signed payloads:
+Cloudflare Workers ↔ Fly.io Crawler uses HMAC-SHA256 signed payloads:
+
 - `X-Signature: hmac-sha256=<hex(HMAC(secret, timestamp + body))>`
 - `X-Timestamp: <unix_epoch_seconds>`
 - Replay protection: reject timestamps > 5 minutes old
@@ -120,11 +121,11 @@ Neon PostgreSQL tables: `users`, `projects`, `crawl_jobs`, `pages`, `page_scores
 
 ## Plan Limits
 
-| Resource | Free | Starter | Pro | Agency |
-|----------|------|---------|-----|--------|
-| Pages/crawl | 10 | 100 | 500 | 2,000 |
-| Crawls/month | 2 | 10 | 30 | Unlimited |
-| Projects | 1 | 5 | 20 | 50 |
+| Resource     | Free | Starter | Pro | Agency    |
+| ------------ | ---- | ------- | --- | --------- |
+| Pages/crawl  | 10   | 100     | 500 | 2,000     |
+| Crawls/month | 2    | 10      | 30  | Unlimited |
+| Projects     | 1    | 5       | 20  | 50        |
 
 ## Testing
 
