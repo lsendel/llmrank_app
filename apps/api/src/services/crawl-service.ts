@@ -539,7 +539,7 @@ export function buildCrawlConfig(
     seed_urls: [project.domain],
     max_pages: maxPages,
     max_depth: maxDepth,
-    respect_robots: true,
+    respect_robots: !(settings.ignoreRobots as boolean),
     run_lighthouse: true,
     extract_schema: true,
     extract_links: true,

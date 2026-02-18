@@ -56,6 +56,7 @@ export interface Project {
     maxPages: number;
     maxDepth: number;
     schedule: "manual" | "daily" | "weekly" | "monthly";
+    ignoreRobots?: boolean;
   };
   branding?: {
     logoUrl?: string;
@@ -76,6 +77,7 @@ export interface UpdateProjectInput {
     maxPages?: number;
     maxDepth?: number;
     schedule?: "manual" | "daily" | "weekly" | "monthly";
+    ignoreRobots?: boolean;
   };
   branding?: {
     logoUrl?: string;
@@ -1494,6 +1496,99 @@ export const api = {
       async delete(id: string): Promise<void> {
         await apiClient.delete(`/api/visibility/schedules/${id}`);
       },
+    },
+
+    async getAIScore(projectId: string) {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          overall: number;
+          grade: string;
+          breakdown: {
+            llmMentions: number;
+            aiSearch: number;
+            shareOfVoice: number;
+            backlinkAuthority: number;
+          };
+          meta: {
+            totalChecks: number;
+            llmChecks: number;
+            aiModeChecks: number;
+            referringDomains: number;
+          };
+        }>
+      >(`/api/visibility/${projectId}/ai-score`);
+      return res.data;
+    },
+
+    async discoverKeywords(projectId: string) {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          gscKeywords: {
+            keyword: string;
+            source: string;
+            clicks?: number;
+            impressions?: number;
+          }[];
+          llmKeywords: string[];
+        }>
+      >(`/api/visibility/${projectId}/discover-keywords`, {});
+      return res.data;
+    },
+  },
+
+  // ── Backlinks ─────────────────────────────────────────────────
+  backlinks: {
+    async getSummary(projectId: string) {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          domain: string;
+          totalBacklinks: number;
+          referringDomains: number;
+          dofollowRatio: number;
+          topReferringDomains: {
+            domain: string;
+            linkCount: number;
+            latestAnchor: string | null;
+            firstSeen: string;
+          }[];
+        }>
+      >(`/api/backlinks/project/${projectId}`);
+      return res.data;
+    },
+
+    async getLinks(projectId: string, limit = 50, offset = 0) {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          links: {
+            sourceUrl: string;
+            sourceDomain: string;
+            targetUrl: string;
+            anchorText: string | null;
+            rel: string;
+            lastSeenAt: string;
+          }[];
+          total: number;
+          limit: number;
+          offset: number;
+        }>
+      >(
+        `/api/backlinks/project/${projectId}/links?limit=${limit}&offset=${offset}`,
+      );
+      return res.data;
+    },
+
+    async getReferringDomains(projectId: string) {
+      const res = await apiClient.get<
+        ApiEnvelope<
+          {
+            domain: string;
+            linkCount: number;
+            latestAnchor: string | null;
+            firstSeen: string;
+          }[]
+        >
+      >(`/api/backlinks/project/${projectId}/referring-domains`);
+      return res.data;
     },
   },
 

@@ -44,6 +44,7 @@ import { exportRoutes } from "./routes/exports";
 import { generatorRoutes } from "./routes/generators";
 import { teamRoutes } from "./routes/teams";
 import { organizationRoutes } from "./routes/organizations";
+import { backlinkRoutes } from "./routes/backlinks";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -206,6 +207,7 @@ app.route("/api/scoring-profiles", scoringProfileRoutes);
 app.route("/api/projects", generatorRoutes);
 app.route("/api/teams", teamRoutes);
 app.route("/api/orgs", organizationRoutes);
+app.route("/api/backlinks", backlinkRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
@@ -486,6 +488,7 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
           perplexity: env.PERPLEXITY_API_KEY,
           gemini: env.GOOGLE_API_KEY,
           copilot: env.BING_API_KEY,
+          gemini_ai_mode: env.GOOGLE_API_KEY,
         },
       });
 

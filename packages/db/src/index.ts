@@ -38,4 +38,9 @@ export {
   orgInviteQueries,
   auditLogQueries,
 } from "./queries/organizations";
+export {
+  discoveredLinkQueries,
+  type BacklinkSummary,
+  type ReferringDomain,
+} from "./queries/discovered-links";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";

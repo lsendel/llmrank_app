@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7.5", features = ["json"] }
+axum = { version = "0.8.8", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json", "gzip"] }
-scraper = "0.22"
-governor = "0.8"
+reqwest = { version = "0.13", features = ["json", "gzip"] }
+scraper = "0.25"
+governor = "0.10"
 hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
@@ -20,7 +20,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 aws-sdk-s3 = "1"
 aws-config = "1"
 aws-credential-types = { version = "1", features = ["hardcoded-credentials"] }
-tower-http = { version = "0.5.2", features = ["cors", "trace"] }
+tower-http = { version = "0.6.8", features = ["cors", "trace"] }
 tokio-util = "0.7"
 thiserror = "2"
 flate2 = "1"
@@ -30,4 +30,4 @@ regex = "1"
 redis = { version = "1.0.3", features = ["tokio-comp"] }
 
 [dev-dependencies]
-axum-test = "16"
+axum-test = "18"

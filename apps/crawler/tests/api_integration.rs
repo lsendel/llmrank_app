@@ -21,6 +21,10 @@ fn create_test_config() -> Config {
         max_concurrent_jobs: 1,
         max_concurrent_fetches: 1,
         max_concurrent_lighthouse: 1,
+        max_concurrent_renderers: 1,
+        renderer_script_path: "/app/scripts/render-links.mjs".to_string(),
+        batch_page_threshold: 25,
+        batch_interval_secs: 15,
     }
 }
 

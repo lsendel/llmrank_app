@@ -59,6 +59,8 @@ const PROVIDERS = [
   { id: "claude", label: "Claude" },
   { id: "perplexity", label: "Perplexity" },
   { id: "gemini", label: "Gemini" },
+  { id: "copilot", label: "Copilot" },
+  { id: "gemini_ai_mode", label: "AI Search (Gemini)" },
 ] as const;
 
 const FREQUENCY_OPTIONS = [

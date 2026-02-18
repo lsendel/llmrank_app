@@ -18,6 +18,7 @@ import {
   Settings,
   Download,
   AlertTriangle,
+  Radar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +29,7 @@ import { useProject } from "@/hooks/use-project";
 import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
+import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 
 function TabLoadingSkeleton() {
@@ -124,6 +126,13 @@ const IntegrationsTab = dynamic(
 const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
   loading: () => <TabLoadingSkeleton />,
 });
+
+const AIVisibilityTab = dynamic(
+  () => import("@/components/tabs/ai-visibility-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
 
 const CompetitorsTab = dynamic(
   () =>
@@ -275,6 +284,10 @@ export default function ProjectPage() {
             <Trophy className="mr-1.5 h-4 w-4" />
             Competitors
           </TabsTrigger>
+          <TabsTrigger value="ai-visibility">
+            <Radar className="mr-1.5 h-4 w-4" />
+            AI Visibility
+          </TabsTrigger>
           <TabsTrigger value="visibility">
             <Eye className="mr-1.5 h-4 w-4" />
             Visibility
@@ -335,6 +348,12 @@ export default function ProjectPage() {
           <CompetitorsTab projectId={project.id} />
         </TabsContent>
 
+        <TabsContent value="ai-visibility" className="space-y-6 pt-4">
+          <TabErrorBoundary>
+            <AIVisibilityTab projectId={project.id} domain={project.domain} />
+          </TabErrorBoundary>
+        </TabsContent>
+
         <TabsContent value="visibility" className="space-y-6 pt-4">
           <VisibilityTab
             projectId={project.id}
@@ -352,6 +371,10 @@ export default function ProjectPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6 pt-4">
+          <CrawlSettingsForm
+            projectId={project.id}
+            initialSettings={project.settings}
+          />
           <BrandingSettingsForm
             projectId={project.id}
             initialBranding={project.branding}

@@ -3,6 +3,7 @@ pub mod crawler;
 pub mod jobs;
 pub mod lighthouse;
 pub mod models;
+pub mod renderer;
 pub mod server;
 pub mod storage;
 
@@ -36,10 +37,10 @@ pub fn build_app(state: AppState) -> Router {
     let authenticated_routes = Router::new()
         .route("/api/v1/jobs", post(server::routes::create_job))
         .route(
-            "/api/v1/jobs/:id/status",
+            "/api/v1/jobs/{id}/status",
             get(server::routes::get_job_status),
         )
-        .route("/api/v1/jobs/:id/cancel", post(server::routes::cancel_job))
+        .route("/api/v1/jobs/{id}/cancel", post(server::routes::cancel_job))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             server::auth::verify_hmac,

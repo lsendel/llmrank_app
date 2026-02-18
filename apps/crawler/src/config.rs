@@ -12,6 +12,10 @@ pub struct Config {
     pub max_concurrent_jobs: usize,
     pub max_concurrent_fetches: usize,
     pub max_concurrent_lighthouse: usize,
+    pub max_concurrent_renderers: usize,
+    pub renderer_script_path: String,
+    pub batch_page_threshold: usize,
+    pub batch_interval_secs: u64,
 }
 
 impl Config {
@@ -54,6 +58,28 @@ impl Config {
                 ConfigError::InvalidValue("MAX_CONCURRENT_LIGHTHOUSE", "must be a valid usize")
             })?;
 
+        let max_concurrent_renderers = env::var("MAX_CONCURRENT_RENDERERS")
+            .unwrap_or_else(|_| "3".to_string())
+            .parse::<usize>()
+            .map_err(|_| {
+                ConfigError::InvalidValue("MAX_CONCURRENT_RENDERERS", "must be a valid usize")
+            })?;
+
+        let renderer_script_path = env::var("RENDERER_SCRIPT_PATH")
+            .unwrap_or_else(|_| "/app/scripts/render-links.mjs".to_string());
+
+        let batch_page_threshold = env::var("BATCH_PAGE_THRESHOLD")
+            .unwrap_or_else(|_| "25".to_string())
+            .parse::<usize>()
+            .map_err(|_| {
+                ConfigError::InvalidValue("BATCH_PAGE_THRESHOLD", "must be a valid usize")
+            })?;
+
+        let batch_interval_secs = env::var("BATCH_INTERVAL_SECS")
+            .unwrap_or_else(|_| "15".to_string())
+            .parse::<u64>()
+            .map_err(|_| ConfigError::InvalidValue("BATCH_INTERVAL_SECS", "must be a valid u64"))?;
+
         Ok(Config {
             shared_secret,
             api_base_url,
@@ -65,6 +91,10 @@ impl Config {
             max_concurrent_jobs,
             max_concurrent_fetches,
             max_concurrent_lighthouse,
+            max_concurrent_renderers,
+            renderer_script_path,
+            batch_page_threshold,
+            batch_interval_secs,
         })
     }
 }

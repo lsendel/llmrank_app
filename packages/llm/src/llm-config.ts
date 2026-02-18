@@ -12,5 +12,6 @@ export const LLM_MODELS = {
     claude: "claude-sonnet-4-5-20250929",
     chatgpt: "gpt-4o-mini",
     gemini: "gemini-2.0-flash",
+    gemini_ai_mode: "gemini-2.0-flash",
   },
 } as const;

@@ -19,15 +19,16 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install Chromium and runtime deps
-RUN apt-get update && apt-get install -y \
+# Install Chromium, curl (for healthcheck), and runtime deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
     openssl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Lighthouse globally
-RUN npm install -g lighthouse
+# Install Lighthouse globally (pinned version)
+RUN npm install -g lighthouse@13.0.3
 
 # Copy the binary from builder
 COPY --from=builder /usr/src/crawler/target/release/crawler /usr/local/bin/crawler

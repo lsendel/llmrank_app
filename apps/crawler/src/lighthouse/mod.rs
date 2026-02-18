@@ -93,7 +93,7 @@ impl LighthouseRunner {
                 .arg(&url_owned)
                 .arg("--output=json")
                 .arg("--quiet")
-                .arg("--chrome-flags=--headless --no-sandbox")
+                .arg("--chrome-flags=--headless --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-extensions --disable-background-networking --no-first-run")
                 .output(),
         )
         .await

@@ -25,21 +25,25 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Install Chromium and runtime deps
-# We need chromium for Lighthouse.
+# Install Chromium, curl (for healthcheck), and runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
     libssl-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Lighthouse globally
-RUN npm install -g lighthouse
+# Install Lighthouse and puppeteer-core globally (pinned versions)
+RUN npm install -g lighthouse@13.0.3 puppeteer-core
+
+# Copy render scripts
+COPY scripts/ /app/scripts/
 
 # Copy the binary from builder
 COPY --from=builder /usr/src/crawler/target/release/crawler /usr/local/bin/crawler
 
 ENV CHROME_PATH=/usr/bin/chromium
+ENV RENDERER_SCRIPT_PATH=/app/scripts/render-links.mjs
 ENV RUST_LOG=info
 ENV PORT=8080
 

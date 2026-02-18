@@ -68,6 +68,7 @@ export const llmProviderEnum = pgEnum("llm_provider", [
   "perplexity",
   "gemini",
   "copilot",
+  "gemini_ai_mode",
 ]);
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
@@ -484,6 +485,30 @@ export const visibilityChecks = pgTable(
     checkedAt: timestamp("checked_at").notNull().defaultNow(),
   },
   (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)],
+);
+
+// ---------------------------------------------------------------------------
+// Discovered Links (backlinks from own crawler)
+// ---------------------------------------------------------------------------
+
+export const discoveredLinks = pgTable(
+  "discovered_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceUrl: text("source_url").notNull(),
+    sourceDomain: text("source_domain").notNull(),
+    targetUrl: text("target_url").notNull(),
+    targetDomain: text("target_domain").notNull(),
+    anchorText: text("anchor_text"),
+    rel: text("rel").notNull().default("dofollow"),
+    discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("idx_discovered_links_unique").on(t.sourceUrl, t.targetUrl),
+    index("idx_discovered_links_target").on(t.targetDomain, t.discoveredAt),
+    index("idx_discovered_links_source").on(t.sourceDomain),
+  ],
 );
 
 // ---------------------------------------------------------------------------

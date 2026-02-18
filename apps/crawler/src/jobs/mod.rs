@@ -15,9 +15,45 @@ use crate::crawler::robots::RobotsChecker;
 use crate::crawler::{CrawlEngine, CrawlEngineError};
 use crate::lighthouse::LighthouseRunner;
 use crate::models::*;
+use crate::renderer::JsRenderer;
 use crate::storage::{StorageClient, StorageConfig};
 
 type HmacSha256 = Hmac<Sha256>;
+
+/// Matches the API's backlinks ingestion payload shape.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BacklinkEntry {
+    source_url: String,
+    source_domain: String,
+    target_url: String,
+    target_domain: String,
+    anchor_text: String,
+    rel: String,
+}
+
+/// Collect all external link details from a batch of pages into BacklinkEntry list.
+fn collect_backlink_entries(pages: &[CrawlPageResult]) -> Vec<BacklinkEntry> {
+    let mut entries = Vec::new();
+    for page in pages {
+        let source_domain = CrawlEngine::domain_from_url(&page.url).unwrap_or_default();
+        for link in &page.extracted.external_link_details {
+            let target_domain = CrawlEngine::domain_from_url(&link.url).unwrap_or_default();
+            if target_domain.is_empty() {
+                continue;
+            }
+            entries.push(BacklinkEntry {
+                source_url: page.url.clone(),
+                source_domain: source_domain.clone(),
+                target_url: link.url.clone(),
+                target_domain,
+                anchor_text: link.anchor_text.clone(),
+                rel: link.rel.clone(),
+            });
+        }
+    }
+    entries
+}
 
 /// Internal state for a running or completed job.
 #[derive(Debug)]
@@ -174,6 +210,15 @@ impl JobManager {
             None
         };
 
+        let js_renderer = if crawl_config.run_js_render {
+            Some(JsRenderer::new(
+                config.max_concurrent_renderers,
+                config.renderer_script_path.clone(),
+            ))
+        } else {
+            None
+        };
+
         let storage = Arc::new(StorageClient::new(StorageConfig {
             endpoint: config.r2_endpoint.clone(),
             access_key: config.r2_access_key.clone(),
@@ -199,34 +244,66 @@ impl JobManager {
             page_size_bytes: None,
         };
 
-        // Fetch robots.txt if configured
-        let robots = if crawl_config.respect_robots {
-            if let Some(ref d) = domain {
-                if let Ok(checker) = RobotsChecker::new(d).await {
-                    // Check blocked bots
+        // Always fetch robots.txt for sitemap discovery and bot analysis.
+        // Only use it for URL blocking when respect_robots is true.
+        let mut sitemap_urls_from_robots: Vec<String> = Vec::new();
+        let robots = if let Some(ref d) = domain {
+            match RobotsChecker::new(d).await {
+                Ok(checker) => {
                     site_context.ai_crawlers_blocked = checker.blocked_bots("/");
-
-                    // Check sitemaps
-                    if !checker.sitemaps.is_empty() {
-                        site_context.has_sitemap = true;
-                        // For now we just mark as present. Full analysis would require fetching the XML.
-                        site_context.sitemap_analysis = Some(SitemapAnalysis {
-                            is_valid: true,
-                            url_count: 0, // Placeholder
-                            stale_url_count: 0,
-                            discovered_page_count: 0,
-                        });
+                    sitemap_urls_from_robots = checker.sitemaps.clone();
+                    if crawl_config.respect_robots {
+                        Some(checker)
+                    } else {
+                        None
                     }
-                    Some(checker)
-                } else {
-                    None
                 }
-            } else {
-                None
+                Err(_) => None,
             }
         } else {
             None
         };
+
+        // Fetch and parse sitemaps discovered in robots.txt
+        if !sitemap_urls_from_robots.is_empty() {
+            if let Some(ref d) = domain {
+                let sitemap_result = crate::crawler::sitemap::fetch_sitemap_urls(
+                    &sitemap_urls_from_robots,
+                    d,
+                    5, // max child sitemaps to fetch from index
+                )
+                .await;
+
+                tracing::info!(
+                    job_id = %payload.job_id,
+                    sitemap_urls = sitemap_result.urls.len(),
+                    total_in_sitemap = sitemap_result.total_count,
+                    "Sitemap discovery complete"
+                );
+
+                site_context.has_sitemap = true;
+                site_context.sitemap_analysis = Some(SitemapAnalysis {
+                    is_valid: true,
+                    url_count: sitemap_result.total_count,
+                    stale_url_count: 0,
+                    discovered_page_count: sitemap_result.urls.len() as u32,
+                });
+
+                // Filter sitemap URLs through robots.txt if applicable
+                let sitemap_seed_urls: Vec<String> = if let Some(ref checker) = robots {
+                    sitemap_result
+                        .urls
+                        .into_iter()
+                        .filter(|u| checker.is_allowed(u, &crawl_config.user_agent))
+                        .collect()
+                } else {
+                    sitemap_result.urls
+                };
+
+                // These will be added to the frontier below
+                sitemap_urls_from_robots = sitemap_seed_urls;
+            }
+        }
 
         // Check llms.txt
         if crawl_config.check_llms_txt {
@@ -241,6 +318,7 @@ impl JobManager {
         let engine = Arc::new(CrawlEngine::new(
             fetcher,
             lighthouse_runner,
+            js_renderer,
             storage,
             robots,
             crawl_config.clone(),
@@ -253,8 +331,18 @@ impl JobManager {
             .build()
             .expect("Failed to build callback client");
 
-        // Initialize frontier
+        // Initialize frontier with seed URLs + sitemap-discovered URLs
         let mut frontier = Frontier::new(&crawl_config.seed_urls, crawl_config.max_depth);
+        if !sitemap_urls_from_robots.is_empty() {
+            let cap = crawl_config.max_pages as usize;
+            let to_add: Vec<String> = sitemap_urls_from_robots.into_iter().take(cap).collect();
+            tracing::info!(
+                job_id = %payload.job_id,
+                added = to_add.len(),
+                "Adding sitemap URLs to frontier"
+            );
+            frontier.add_discovered(&to_add, 0);
+        }
         let max_workers = config.max_concurrent_fetches;
 
         let mut pages_crawled: u32 = 0;
@@ -335,9 +423,9 @@ impl JobManager {
                         });
                     }
 
-                    // Send batch every 10 pages or 30 seconds
                     let should_send_batch =
-                        batch_pages.len() >= 10 || last_batch_time.elapsed().as_secs() >= 30;
+                        batch_pages.len() >= config.batch_page_threshold
+                            || last_batch_time.elapsed().as_secs() >= config.batch_interval_secs;
 
                     if should_send_batch && !batch_pages.is_empty() {
                         let batch = CrawlResultBatch {
@@ -362,6 +450,17 @@ impl JobManager {
                             &config.shared_secret,
                         )
                         .await;
+
+                        // POST external links to backlinks ingestion endpoint
+                        let backlink_entries = collect_backlink_entries(&batch.pages);
+                        Self::send_backlinks(
+                            &callback_client,
+                            &config.api_base_url,
+                            backlink_entries,
+                            &config.shared_secret,
+                        )
+                        .await;
+
                         batch_index += 1;
                         last_batch_time = Instant::now();
                     }
@@ -389,6 +488,16 @@ impl JobManager {
             &callback_client,
             &payload.callback_url,
             &final_batch,
+            &config.shared_secret,
+        )
+        .await;
+
+        // POST final batch backlinks
+        let backlink_entries = collect_backlink_entries(&final_batch.pages);
+        Self::send_backlinks(
+            &callback_client,
+            &config.api_base_url,
+            backlink_entries,
             &config.shared_secret,
         )
         .await;
@@ -465,5 +574,171 @@ impl JobManager {
                 );
             }
         }
+    }
+
+    /// POST discovered external links to the backlinks ingestion endpoint.
+    /// Fire-and-forget: logs errors but does not fail the crawl job.
+    async fn send_backlinks(
+        client: &reqwest::Client,
+        api_base_url: &str,
+        links: Vec<BacklinkEntry>,
+        secret: &str,
+    ) {
+        if links.is_empty() {
+            return;
+        }
+
+        let link_count = links.len();
+        let url = format!(
+            "{}/api/backlinks/ingest",
+            api_base_url.trim_end_matches('/')
+        );
+
+        let payload = serde_json::json!({
+            "links": links
+        });
+
+        let body = match serde_json::to_string(&payload) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::error!("Failed to serialize backlinks payload: {}", e);
+                return;
+            }
+        };
+
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .to_string();
+
+        let mut mac =
+            HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+        mac.update(timestamp.as_bytes());
+        mac.update(body.as_bytes());
+        let signature = format!("hmac-sha256={}", hex::encode(mac.finalize().into_bytes()));
+
+        match client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .header("X-Timestamp", &timestamp)
+            .header("X-Signature", &signature)
+            .body(body)
+            .send()
+            .await
+        {
+            Ok(resp) => {
+                tracing::info!(
+                    status = resp.status().as_u16(),
+                    link_count = link_count,
+                    "Backlinks POST sent"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to POST backlinks (non-fatal)");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{ExtractedData, ExtractedLink};
+
+    fn make_page(url: &str, external_links: Vec<ExtractedLink>) -> CrawlPageResult {
+        CrawlPageResult {
+            url: url.to_string(),
+            status_code: 200,
+            title: None,
+            meta_description: None,
+            canonical_url: None,
+            word_count: 0,
+            content_hash: "abc".to_string(),
+            html_r2_key: "key".to_string(),
+            extracted: ExtractedData {
+                h1: vec![],
+                h2: vec![],
+                h3: vec![],
+                h4: vec![],
+                h5: vec![],
+                h6: vec![],
+                schema_types: vec![],
+                internal_links: vec![],
+                external_links: vec![],
+                external_link_details: external_links,
+                images_without_alt: 0,
+                has_robots_meta: false,
+                robots_directives: vec![],
+                og_tags: None,
+                structured_data: None,
+                flesch_score: None,
+                flesch_classification: None,
+                text_html_ratio: None,
+                text_length: None,
+                html_length: None,
+                pdf_links: vec![],
+                cors_unsafe_blank_links: 0,
+                cors_mixed_content: 0,
+                cors_has_issues: false,
+                sentence_length_variance: None,
+                top_transition_words: vec![],
+            },
+            lighthouse: None,
+            js_rendered_link_count: None,
+            site_context: None,
+            timing_ms: 100,
+            redirect_chain: vec![],
+        }
+    }
+
+    #[test]
+    fn test_collect_backlink_entries() {
+        let pages = vec![make_page(
+            "https://example.com/blog/post",
+            vec![
+                ExtractedLink {
+                    url: "https://competitor.com/product".to_string(),
+                    anchor_text: "check this out".to_string(),
+                    rel: "nofollow".to_string(),
+                    is_external: true,
+                },
+                ExtractedLink {
+                    url: "https://reference.org/docs".to_string(),
+                    anchor_text: "documentation".to_string(),
+                    rel: "".to_string(),
+                    is_external: true,
+                },
+            ],
+        )];
+
+        let entries = collect_backlink_entries(&pages);
+        assert_eq!(entries.len(), 2);
+
+        assert_eq!(entries[0].source_url, "https://example.com/blog/post");
+        assert_eq!(entries[0].source_domain, "example.com");
+        assert_eq!(entries[0].target_url, "https://competitor.com/product");
+        assert_eq!(entries[0].target_domain, "competitor.com");
+        assert_eq!(entries[0].anchor_text, "check this out");
+        assert_eq!(entries[0].rel, "nofollow");
+
+        assert_eq!(entries[1].target_domain, "reference.org");
+        assert_eq!(entries[1].rel, "");
+    }
+
+    #[test]
+    fn test_collect_backlink_entries_skips_invalid_urls() {
+        let pages = vec![make_page(
+            "https://example.com/page",
+            vec![ExtractedLink {
+                url: "not-a-valid-url".to_string(),
+                anchor_text: "bad".to_string(),
+                rel: "".to_string(),
+                is_external: true,
+            }],
+        )];
+
+        let entries = collect_backlink_entries(&pages);
+        assert_eq!(entries.len(), 0); // Skipped because domain_from_url returns empty
     }
 }

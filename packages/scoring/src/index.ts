@@ -46,3 +46,8 @@ export {
   scoringResultToDimensions,
   dimensionsToLegacyScores,
 } from "./dimension-adapter";
+export {
+  computeAIVisibilityScore,
+  type AIVisibilityInput,
+  type AIVisibilityResult,
+} from "./ai-visibility-score";

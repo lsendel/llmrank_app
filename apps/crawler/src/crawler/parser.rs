@@ -2,6 +2,8 @@ use scraper::{Html, Selector};
 use std::collections::HashMap;
 use url::Url;
 
+use crate::models::ExtractedLink;
+
 /// Complete parsed representation of an HTML page.
 #[derive(Debug, Clone)]
 pub struct ParsedPage {
@@ -11,6 +13,7 @@ pub struct ParsedPage {
     pub headings: Headings,
     pub internal_links: Vec<String>,
     pub external_links: Vec<String>,
+    pub external_link_details: Vec<ExtractedLink>,
     pub total_images: u32,
     pub images_without_alt: u32,
     pub schema_json_ld: Vec<String>,
@@ -54,7 +57,8 @@ impl Parser {
         let meta_description = Self::extract_meta_description(&document);
         let canonical_url = Self::extract_canonical(&document);
         let headings = Self::extract_headings(&document);
-        let (internal_links, external_links) = Self::extract_links(&document, &base);
+        let (internal_links, external_links, external_link_details) =
+            Self::extract_links(&document, &base);
         let (total_images, images_without_alt) = Self::extract_image_stats(&document);
         let schema_json_ld = Self::extract_json_ld(&document);
         let og_tags = Self::extract_og_tags(&document);
@@ -76,6 +80,7 @@ impl Parser {
             headings,
             internal_links,
             external_links,
+            external_link_details,
             total_images,
             images_without_alt,
             schema_json_ld,
@@ -207,10 +212,14 @@ impl Parser {
         headings
     }
 
-    fn extract_links(document: &Html, base: &Option<Url>) -> (Vec<String>, Vec<String>) {
+    fn extract_links(
+        document: &Html,
+        base: &Option<Url>,
+    ) -> (Vec<String>, Vec<String>, Vec<ExtractedLink>) {
         let sel = Selector::parse("a[href]").unwrap();
         let mut internal = Vec::new();
         let mut external = Vec::new();
+        let mut external_details = Vec::new();
 
         let base_host = base
             .as_ref()
@@ -225,7 +234,6 @@ impl Parser {
                 };
 
                 if let Some(resolved_url) = resolved {
-                    // Only include http/https links
                     if resolved_url.scheme() != "http" && resolved_url.scheme() != "https" {
                         continue;
                     }
@@ -235,13 +243,31 @@ impl Parser {
                     if link_host == base_host {
                         internal.push(url_str);
                     } else {
+                        // Capture anchor text (trimmed, max 500 chars)
+                        let anchor_text = el
+                            .text()
+                            .collect::<String>()
+                            .trim()
+                            .chars()
+                            .take(500)
+                            .collect::<String>();
+
+                        // Capture rel attribute
+                        let rel = el.value().attr("rel").unwrap_or("").to_string();
+
+                        external_details.push(ExtractedLink {
+                            url: url_str.clone(),
+                            anchor_text,
+                            rel,
+                            is_external: true,
+                        });
                         external.push(url_str);
                     }
                 }
             }
         }
 
-        (internal, external)
+        (internal, external, external_details)
     }
 
     fn extract_image_stats(document: &Html) -> (u32, u32) {
@@ -404,6 +430,50 @@ mod tests {
         assert!(page.internal_links.iter().any(|l| l.contains("another")));
         assert_eq!(page.external_links.len(), 1);
         assert!(page.external_links[0].contains("other.com"));
+
+        // Verify external_link_details
+        assert_eq!(page.external_link_details.len(), 1);
+        let detail = &page.external_link_details[0];
+        assert!(detail.url.contains("other.com/page"));
+        assert_eq!(detail.anchor_text, "External Link");
+        assert!(detail.is_external);
+    }
+
+    #[test]
+    fn test_external_link_details_with_rel() {
+        let html = r#"<!DOCTYPE html>
+<html><body>
+    <a href="https://sponsored.com/deal" rel="nofollow sponsored">Great Deal</a>
+    <a href="https://friend.com/page" rel="noopener">Friend Site</a>
+    <a href="https://plain.com/page">Plain Link</a>
+    <a href="/internal">Internal</a>
+</body></html>"#;
+        let page = Parser::parse(html, "https://example.com");
+        assert_eq!(page.external_link_details.len(), 3);
+
+        let sponsored = page
+            .external_link_details
+            .iter()
+            .find(|l| l.url.contains("sponsored.com"))
+            .unwrap();
+        assert_eq!(sponsored.anchor_text, "Great Deal");
+        assert_eq!(sponsored.rel, "nofollow sponsored");
+
+        let friend = page
+            .external_link_details
+            .iter()
+            .find(|l| l.url.contains("friend.com"))
+            .unwrap();
+        assert_eq!(friend.anchor_text, "Friend Site");
+        assert_eq!(friend.rel, "noopener");
+
+        let plain = page
+            .external_link_details
+            .iter()
+            .find(|l| l.url.contains("plain.com"))
+            .unwrap();
+        assert_eq!(plain.anchor_text, "Plain Link");
+        assert_eq!(plain.rel, "");
     }
 
     #[test]
