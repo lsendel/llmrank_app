@@ -16,6 +16,7 @@ import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
 import { cn, scoreColor } from "@/lib/utils";
+import { CompetitorDiscoveryBanner } from "@/components/competitor-discovery-banner";
 
 interface Props {
   projectId: string;
@@ -59,6 +60,8 @@ export function CompetitorsTab({ projectId }: Props) {
 
   return (
     <div className="space-y-6">
+      <CompetitorDiscoveryBanner projectId={projectId} />
+
       {/* Add competitor */}
       <Card>
         <CardHeader>
