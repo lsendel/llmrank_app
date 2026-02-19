@@ -18,6 +18,7 @@ export function visibilityQueries(db: Database) {
       projectId: string;
       llmProvider: LLMProvider;
       query: string;
+      keywordId?: string | null;
       responseText?: string | null;
       brandMentioned?: boolean;
       urlCited?: boolean;

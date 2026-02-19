@@ -516,6 +516,9 @@ export const visibilityChecks = pgTable(
     citationPosition: integer("citation_position"),
     competitorMentions: jsonb("competitor_mentions"),
     r2ResponseKey: text("r2_response_key"),
+    keywordId: uuid("keyword_id").references(() => savedKeywords.id, {
+      onDelete: "set null",
+    }),
     checkedAt: timestamp("checked_at").notNull().defaultNow(),
   },
   (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)],
