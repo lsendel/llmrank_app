@@ -70,6 +70,7 @@ export function createMockUserRepo(
     {
       getById: vi.fn().mockResolvedValue(null),
       decrementCrawlCredits: vi.fn().mockResolvedValue(undefined),
+      updatePlan: vi.fn().mockResolvedValue(undefined),
     },
     overrides,
   );

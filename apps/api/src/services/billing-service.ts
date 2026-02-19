@@ -112,6 +112,16 @@ export function createBillingService(deps: BillingServiceDeps) {
         throw new ServiceError("NOT_FOUND", 404, "User not found");
       }
 
+      const subscription = await deps.billing.getActiveSubscription(
+        args.userId,
+      );
+
+      // No Stripe subscription — just update the plan directly
+      if (!subscription?.stripeSubscriptionId) {
+        await deps.users.updatePlan(args.userId, args.targetPlan);
+        return { downgraded: true, targetPlan: args.targetPlan };
+      }
+
       // Downgrade to free = cancel subscription
       if (args.targetPlan === "free") {
         return this.cancelAtPeriodEnd(args.userId, args.stripeSecretKey);
@@ -123,17 +133,6 @@ export function createBillingService(deps: BillingServiceDeps) {
           "VALIDATION_ERROR",
           422,
           `Invalid plan: ${args.targetPlan}`,
-        );
-      }
-
-      const subscription = await deps.billing.getActiveSubscription(
-        args.userId,
-      );
-      if (!subscription?.stripeSubscriptionId) {
-        throw new ServiceError(
-          "VALIDATION_ERROR",
-          422,
-          "No active subscription to downgrade",
         );
       }
 

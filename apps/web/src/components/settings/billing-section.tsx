@@ -200,14 +200,14 @@ export function BillingSection() {
     const planIndex = plans.findIndex((p) => p.tier === planTier);
     const isDowngrade = planIndex < currentTierIndex;
 
-    // Downgrading to Free = cancel subscription
-    if (planTier === "free" && subscription) {
+    // Downgrading to Free
+    if (planTier === "free" && isDowngrade) {
       setDowngradeDialogOpen(true);
       return;
     }
 
-    // Paid-to-paid downgrade = swap price
-    if (isDowngrade && subscription) {
+    // Paid-to-paid downgrade
+    if (isDowngrade) {
       setDowngradingTo(planTier);
       setDowngradeDialogOpen(true);
       return;

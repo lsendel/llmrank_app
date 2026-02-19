@@ -78,6 +78,11 @@ export interface UserRepository {
   decrementCrawlCredits(
     id: string,
   ): ReturnType<ReturnType<typeof userQueries>["decrementCrawlCredits"]>;
+  updatePlan(
+    id: string,
+    plan: string,
+    stripeSubId?: string,
+  ): ReturnType<ReturnType<typeof userQueries>["updatePlan"]>;
 }
 
 export function createUserRepository(db: Database): UserRepository {
@@ -85,6 +90,12 @@ export function createUserRepository(db: Database): UserRepository {
   return {
     getById: (id) => queries.getById(id),
     decrementCrawlCredits: (id) => queries.decrementCrawlCredits(id),
+    updatePlan: (id, plan, stripeSubId) =>
+      queries.updatePlan(
+        id,
+        plan as "free" | "starter" | "pro" | "agency",
+        stripeSubId,
+      ),
   };
 }
 
