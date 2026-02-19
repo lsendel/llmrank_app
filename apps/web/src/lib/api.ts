@@ -52,6 +52,8 @@ export interface Project {
   domain: string;
   createdAt: string;
   updatedAt: string;
+  siteDescription?: string | null;
+  industry?: string | null;
   settings: {
     maxPages: number;
     maxDepth: number;
@@ -1273,6 +1275,20 @@ export const api = {
         `/api/projects/${projectId}/checklist-status`,
       );
       return res.data;
+    },
+
+    async updateSiteContext(
+      projectId: string,
+      data: { siteDescription?: string; industry?: string },
+    ): Promise<void> {
+      await apiClient.patch(`/api/projects/${projectId}/site-context`, data);
+    },
+
+    async rediscoverCompetitors(projectId: string): Promise<void> {
+      await apiClient.post(
+        `/api/projects/${projectId}/rediscover-competitors`,
+        {},
+      );
     },
   },
 
