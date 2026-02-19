@@ -443,6 +443,7 @@ describe("StrategyService", () => {
         id: "comp-1",
         projectId: "proj-1",
         domain: "rival.com",
+        source: "user_added",
         createdAt: new Date("2024-01-01"),
       });
       const service = createStrategyService({
@@ -478,6 +479,7 @@ describe("StrategyService", () => {
         id: "comp-1",
         projectId: "proj-1",
         domain: "rival.com",
+        source: "user_added",
         createdAt: new Date("2024-01-01"),
       });
       projects.getById.mockResolvedValue(
