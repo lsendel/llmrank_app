@@ -169,6 +169,7 @@ export function buildVisibilityCheck(
     citationPosition: null,
     competitorMentions: {},
     r2ResponseKey: null,
+    keywordId: null,
     checkedAt: STATIC_DATE,
     ...overrides,
   };

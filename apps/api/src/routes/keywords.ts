@@ -6,7 +6,7 @@ import {
   userQueries,
   projectQueries,
 } from "@llm-boost/db";
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, validateKeyword } from "@llm-boost/shared";
 import { handleServiceError } from "../services/errors";
 
 export const keywordRoutes = new Hono<AppEnv>();
@@ -62,6 +62,14 @@ keywordRoutes.post("/:projectId", async (c) => {
     }
 
     const body = await c.req.json();
+    const validation = validateKeyword(body.keyword);
+    if (!validation.valid) {
+      return c.json(
+        { error: { code: "VALIDATION_ERROR", message: validation.reason } },
+        422,
+      );
+    }
+
     const keyword = await savedKeywordQueries(db).create({
       projectId,
       keyword: body.keyword,
@@ -96,7 +104,9 @@ keywordRoutes.post("/:projectId/batch", async (c) => {
     const count = await savedKeywordQueries(db).countByProject(projectId);
 
     const body = await c.req.json<{ keywords: string[] }>();
-    const keywords = body.keywords ?? [];
+    const keywords = (body.keywords ?? []).filter(
+      (kw) => validateKeyword(kw).valid,
+    );
 
     // Enforce plan limit
     const remaining = Math.max(0, limits.savedKeywordsPerProject - count);
