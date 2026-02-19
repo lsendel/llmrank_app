@@ -38,46 +38,78 @@ visibilityRoutes.post(
 
     const body = await c.req.json<{
       projectId: string;
-      query: string;
+      keywordIds: string[];
       providers: string[];
     }>();
 
-    if (!body.projectId || !body.query || !body.providers?.length) {
+    if (
+      !body.projectId ||
+      !body.keywordIds?.length ||
+      !body.providers?.length
+    ) {
       return c.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: "projectId, query, and providers are required",
+            message: "projectId, keywordIds, and providers are required",
           },
         },
         422,
       );
     }
 
-    const service = createVisibilityService({
-      projects: createProjectRepository(db),
-      users: createUserRepository(db),
-      visibility: createVisibilityRepository(db),
-      competitors: createCompetitorRepository(db),
-    });
+    // Resolve keyword IDs to text from DB
+    const { savedKeywordQueries: savedKwQueries } =
+      await import("@llm-boost/db");
+    const allKeywords = await savedKwQueries(db).listByProject(body.projectId);
+    const keywordMap = new Map(allKeywords.map((k) => [k.id, k]));
+
+    const resolvedKeywords = body.keywordIds
+      .map((id) => keywordMap.get(id))
+      .filter((k): k is NonNullable<typeof k> => k != null);
+
+    if (resolvedKeywords.length === 0) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "No valid keywords found for the provided IDs",
+          },
+        },
+        422,
+      );
+    }
 
     try {
-      const stored = await service.runCheck({
-        userId,
-        projectId: body.projectId,
-        query: body.query,
-        providers: body.providers,
-        apiKeys: {
-          chatgpt: c.env.OPENAI_API_KEY,
-          claude: c.env.ANTHROPIC_API_KEY,
-          perplexity: c.env.PERPLEXITY_API_KEY,
-          gemini: c.env.GOOGLE_API_KEY,
-          copilot: c.env.BING_API_KEY,
-          gemini_ai_mode: c.env.GOOGLE_API_KEY,
-          grok: c.env.XAI_API_KEY,
-        },
+      const service = createVisibilityService({
+        projects: createProjectRepository(db),
+        users: createUserRepository(db),
+        visibility: createVisibilityRepository(db),
+        competitors: createCompetitorRepository(db),
       });
-      return c.json({ data: stored }, 201);
+
+      const allResults = [];
+      for (const keyword of resolvedKeywords) {
+        const stored = await service.runCheck({
+          userId,
+          projectId: body.projectId,
+          query: keyword.keyword,
+          keywordId: keyword.id,
+          providers: body.providers,
+          apiKeys: {
+            chatgpt: c.env.OPENAI_API_KEY,
+            claude: c.env.ANTHROPIC_API_KEY,
+            perplexity: c.env.PERPLEXITY_API_KEY,
+            gemini: c.env.GOOGLE_API_KEY,
+            copilot: c.env.BING_API_KEY,
+            gemini_ai_mode: c.env.GOOGLE_API_KEY,
+            grok: c.env.XAI_API_KEY,
+          },
+        });
+        allResults.push(...stored);
+      }
+
+      return c.json({ data: allResults }, 201);
     } catch (error) {
       return handleServiceError(c, error);
     }

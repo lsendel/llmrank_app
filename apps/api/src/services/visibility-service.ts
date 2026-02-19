@@ -24,6 +24,7 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
       userId: string;
       projectId: string;
       query: string;
+      keywordId?: string;
       providers: string[];
       competitors?: string[];
       apiKeys: Record<string, string | undefined>;
@@ -79,6 +80,7 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
               | "gemini"
               | "copilot",
             query: result.query,
+            keywordId: args.keywordId ?? null,
             responseText: result.responseText,
             brandMentioned: result.brandMentioned,
             urlCited: result.urlCited,

@@ -69,10 +69,10 @@ const mockSavedKeywordQueries = {
     ]),
 };
 
-vi.mock("@llm-boost/db", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@llm-boost/db")>();
+vi.mock("@llm-boost/db", async () => {
+  const actual = await vi.importActual("@llm-boost/db");
   return {
-    ...actual,
+    ...(actual as Record<string, unknown>),
     savedKeywordQueries: () => mockSavedKeywordQueries,
   };
 });
