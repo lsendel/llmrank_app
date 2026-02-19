@@ -502,9 +502,10 @@ visibilityRoutes.get("/:projectId/recommendations", async (c) => {
       importance: "critical" | "important" | "recommended";
     }> = [];
     const issuePageUrls: Record<string, string[]> = {};
+    const issueCodes = new Set<string>();
     if (latestCrawl) {
       const issues = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
-      const issueCodes = new Set(issues.map((i) => i.code));
+      issues.forEach((i) => issueCodes.add(i.code));
       // Group page URLs by issue code
       for (const issue of issues) {
         const url = (issue as { pageUrl?: string | null }).pageUrl;
@@ -563,8 +564,7 @@ visibilityRoutes.get("/:projectId/recommendations", async (c) => {
     const recommendations = generateRecommendations({
       gaps,
       platformFailures,
-      issueCodesPresent: new Set(),
-      issuePageUrls,
+      issueCodesPresent: issueCodes || new Set(),
       trends: providerTrends,
       providersUsed: providers,
       projectId,
