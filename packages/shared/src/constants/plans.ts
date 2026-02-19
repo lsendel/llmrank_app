@@ -31,6 +31,10 @@ export interface PlanLimits {
   fixesPerMonth: number;
   competitorsPerProject: number;
   keywordDiscoveryPerMonth: number;
+  personasPerProject: number;
+  savedKeywordsPerProject: number;
+  customAvatarsPerMonth: number;
+  personaRefinement: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -58,6 +62,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     fixesPerMonth: 5,
     competitorsPerProject: 0,
     keywordDiscoveryPerMonth: 0,
+    personasPerProject: 2,
+    savedKeywordsPerProject: 10,
+    customAvatarsPerMonth: 0,
+    personaRefinement: false,
   },
   starter: {
     pagesPerCrawl: 100,
@@ -83,6 +91,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     fixesPerMonth: 50,
     competitorsPerProject: 3,
     keywordDiscoveryPerMonth: 1,
+    personasPerProject: 5,
+    savedKeywordsPerProject: 50,
+    customAvatarsPerMonth: 0,
+    personaRefinement: true,
   },
   pro: {
     pagesPerCrawl: 500,
@@ -108,6 +120,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     fixesPerMonth: 200,
     competitorsPerProject: 5,
     keywordDiscoveryPerMonth: 3,
+    personasPerProject: 15,
+    savedKeywordsPerProject: 200,
+    customAvatarsPerMonth: 5,
+    personaRefinement: true,
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -133,5 +149,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     fixesPerMonth: Infinity,
     competitorsPerProject: 10,
     keywordDiscoveryPerMonth: 10,
+    personasPerProject: 999,
+    savedKeywordsPerProject: 999,
+    customAvatarsPerMonth: 999,
+    personaRefinement: true,
   },
 };
