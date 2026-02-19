@@ -25,6 +25,7 @@ import {
   type PageIssue,
   type ProjectProgress,
 } from "@/lib/api";
+import { AiInsightCard } from "@/components/narrative/ai-insight-card";
 import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { PlatformOpportunityCards } from "@/components/platform-opportunity-cards";
@@ -298,6 +299,11 @@ export function OverviewTab({
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* AI Insight Card (Pro/Agency) */}
+      {latestCrawl?.id && (
+        <AiInsightCard crawlJobId={latestCrawl.id} projectId={projectId} />
       )}
 
       {/* Score Trends */}

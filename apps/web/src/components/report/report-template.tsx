@@ -132,12 +132,20 @@ const styles = StyleSheet.create({
   },
 });
 
+export interface NarrativePDFSection {
+  id: string;
+  title: string;
+  content: string;
+  editedContent?: string | null;
+}
+
 export interface ReportProps {
   crawl: CrawlJob;
   quickWins: QuickWin[];
   companyName?: string;
   logoUrl?: string;
   primaryColor?: string;
+  narrativeSections?: NarrativePDFSection[];
 }
 
 export const AIReadinessReport: React.FC<ReportProps> = ({
@@ -146,6 +154,7 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
   companyName = "LLM Boost",
   logoUrl,
   primaryColor = "#6366f1",
+  narrativeSections,
 }) => {
   // Ensure primaryColor is a valid 6-char hex, otherwise fallback
   const safePrimary = /^#[0-9A-F]{6}$/i.test(primaryColor || "")
@@ -250,6 +259,24 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
             </View>
           </View>
         </View>
+
+        {/* AI Narrative Sections */}
+        {narrativeSections &&
+          narrativeSections.length > 0 &&
+          narrativeSections.map((section) => (
+            <View key={section.id} style={styles.section}>
+              <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>
+                {section.title}
+              </Text>
+              <Text style={{ fontSize: 10, lineHeight: 1.5 }}>
+                {(section.editedContent ?? section.content)
+                  .replace(/<[^>]*>/g, "")
+                  .replace(/&amp;/g, "&")
+                  .replace(/&lt;/g, "<")
+                  .replace(/&gt;/g, ">")}
+              </Text>
+            </View>
+          ))}
 
         {/* Quick Wins */}
         {quickWins.length > 0 && (

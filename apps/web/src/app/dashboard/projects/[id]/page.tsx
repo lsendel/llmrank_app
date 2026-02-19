@@ -21,6 +21,7 @@ import {
   Radar,
   User,
   Key,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -158,6 +159,14 @@ const KeywordsTab = dynamic(
   () =>
     import("@/components/tabs/keywords-tab").then((mod) => ({
       default: mod.KeywordsTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const AiAnalysisTab = dynamic(
+  () =>
+    import("@/components/tabs/ai-analysis-tab").then((mod) => ({
+      default: mod.AiAnalysisTab,
     })),
   { loading: () => <TabLoadingSkeleton /> },
 );
@@ -306,6 +315,10 @@ export default function ProjectPage() {
             <Radar className="mr-1.5 h-4 w-4" />
             AI Visibility
           </TabsTrigger>
+          <TabsTrigger value="ai-analysis">
+            <Brain className="mr-1.5 h-4 w-4" />
+            AI Analysis
+          </TabsTrigger>
           <TabsTrigger value="visibility">
             <Eye className="mr-1.5 h-4 w-4" />
             Visibility
@@ -377,6 +390,14 @@ export default function ProjectPage() {
         <TabsContent value="ai-visibility" className="space-y-6 pt-4">
           <TabErrorBoundary>
             <AIVisibilityTab projectId={project.id} domain={project.domain} />
+          </TabErrorBoundary>
+        </TabsContent>
+
+        <TabsContent value="ai-analysis" className="space-y-6 pt-4">
+          <TabErrorBoundary>
+            <AiAnalysisTab
+              crawlJobId={searchParams.get("crawlId") ?? latestCrawlId}
+            />
           </TabErrorBoundary>
         </TabsContent>
 
