@@ -278,6 +278,9 @@ export function useOnboardingWizard(tipsLength: number) {
         if (isActiveCrawlStatus(updated.status as CrawlStatus)) {
           intervalRef.current = Math.min(intervalRef.current * 1.5, 30000);
           pollingRef.current = setTimeout(poll, intervalRef.current);
+        } else if (updated.status === "complete" && state.projectId) {
+          // Non-blocking: trigger auto-discovery after crawl completes
+          api.discovery.run(state.projectId).catch(() => {});
         }
       } catch (_err) {
         console.warn("Crawl polling failed, retrying with backoff:", _err);
