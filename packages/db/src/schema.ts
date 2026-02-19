@@ -293,6 +293,8 @@ export const projects = pgTable(
     scoringProfileId: uuid("scoring_profile_id"),
     leaderboardOptIn: boolean("leaderboard_opt_in").notNull().default(false),
     teamId: uuid("team_id"),
+    siteDescription: text("site_description"),
+    industry: text("industry"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
