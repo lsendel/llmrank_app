@@ -923,6 +923,13 @@ export interface CategoryDelta {
   delta: number;
 }
 
+export interface ChecklistData {
+  visibilityCount: number;
+  personaCount: number;
+  reportCount: number;
+  scheduleCount: number;
+}
+
 export interface ProjectProgress {
   currentCrawlId: string;
   previousCrawlId: string;
@@ -1256,6 +1263,13 @@ export const api = {
     async progress(projectId: string): Promise<ProjectProgress | null> {
       const res = await apiClient.get<ApiEnvelope<ProjectProgress | null>>(
         `/api/projects/${projectId}/progress`,
+      );
+      return res.data;
+    },
+
+    async getChecklistStatus(projectId: string): Promise<ChecklistData> {
+      const res = await apiClient.get<ApiEnvelope<ChecklistData>>(
+        `/api/projects/${projectId}/checklist-status`,
       );
       return res.data;
     },

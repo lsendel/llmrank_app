@@ -21,6 +21,8 @@ import { createDb, outboxEvents } from "@llm-boost/db";
 import { runAutoVisibilityChecks } from "./auto-visibility-service";
 import { runAutoNarrativeRegeneration } from "./auto-narrative-service";
 import { runAutoPersonaGeneration } from "./auto-persona-service";
+import { runAutoReportGeneration } from "./auto-report-service";
+import { runAutoCompetitorDiscovery } from "./auto-competitor-service";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -215,6 +217,30 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
       if (batch.is_final && env.anthropicApiKey) {
         args.executionCtx.waitUntil(
           runAutoPersonaGeneration({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            anthropicApiKey: env.anthropicApiKey,
+          }).catch(() => {}),
+        );
+      }
+
+      // Auto-generate summary report (fire-and-forget)
+      if (batch.is_final && env.reportServiceUrl && env.sharedSecret) {
+        args.executionCtx.waitUntil(
+          runAutoReportGeneration({
+            databaseUrl: env.databaseUrl,
+            projectId,
+            crawlJobId,
+            reportServiceUrl: env.reportServiceUrl,
+            sharedSecret: env.sharedSecret,
+          }).catch(() => {}),
+        );
+      }
+
+      // Auto-discover competitors on first crawl (fire-and-forget)
+      if (batch.is_final && env.anthropicApiKey) {
+        args.executionCtx.waitUntil(
+          runAutoCompetitorDiscovery({
             databaseUrl: env.databaseUrl,
             projectId,
             anthropicApiKey: env.anthropicApiKey,

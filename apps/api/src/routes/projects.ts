@@ -13,6 +13,12 @@ import {
   toProjectDetailResponse,
   toProjectListResponse,
 } from "../dto/project.dto";
+import {
+  visibilityQueries,
+  personaQueries,
+  reportQueries,
+  scheduledVisibilityQueryQueries,
+} from "@llm-boost/db";
 
 export const projectRoutes = new Hono<AppEnv>();
 
@@ -186,3 +192,34 @@ projectRoutes.get("/:id/progress", withOwnership("project"), async (c) => {
     return handleServiceError(c, error);
   }
 });
+
+// ---------------------------------------------------------------------------
+// GET /:id/checklist-status — Onboarding checklist completion data
+// ---------------------------------------------------------------------------
+
+projectRoutes.get(
+  "/:id/checklist-status",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const db = c.get("db");
+
+    const [visChecks, personaCount, reports, scheduleCount] = await Promise.all(
+      [
+        visibilityQueries(db).listByProject(projectId),
+        personaQueries(db).countByProject(projectId),
+        reportQueries(db).listByProject(projectId),
+        scheduledVisibilityQueryQueries(db).countByProject(projectId),
+      ],
+    );
+
+    return c.json({
+      data: {
+        visibilityCount: visChecks.length,
+        personaCount,
+        reportCount: reports.length,
+        scheduleCount,
+      },
+    });
+  },
+);

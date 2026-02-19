@@ -34,6 +34,7 @@ import { OverviewTab } from "@/components/tabs/overview-tab";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
+import { PostCrawlChecklist } from "@/components/post-crawl-checklist";
 
 function TabLoadingSkeleton() {
   return (
@@ -283,6 +284,9 @@ export default function ProjectPage() {
           </div>
         )}
       </div>
+
+      {/* Onboarding Checklist */}
+      <PostCrawlChecklist projectId={project.id} />
 
       {/* Tabs */}
       <Tabs value={currentTab} onValueChange={handleTabChange}>
