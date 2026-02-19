@@ -1629,13 +1629,20 @@ export const api = {
   visibility: {
     async run(data: {
       projectId: string;
-      query: string;
+      keywordIds: string[];
       providers: string[];
-      competitors?: string[];
     }): Promise<VisibilityCheck[]> {
       const res = await apiClient.post<ApiEnvelope<VisibilityCheck[]>>(
         "/api/visibility/check",
         data,
+      );
+      return res.data;
+    },
+
+    async suggestKeywords(projectId: string): Promise<string[]> {
+      const res = await apiClient.post<ApiEnvelope<string[]>>(
+        `/api/visibility/${projectId}/suggest-keywords`,
+        {},
       );
       return res.data;
     },
