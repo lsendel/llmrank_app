@@ -57,6 +57,8 @@ export function buildProject(
     scoringProfileId: null,
     leaderboardOptIn: false,
     teamId: null,
+    siteDescription: null,
+    industry: null,
     createdAt: STATIC_DATE,
     updatedAt: STATIC_DATE,
     ...overrides,
