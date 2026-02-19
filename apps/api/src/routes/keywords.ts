@@ -76,6 +76,67 @@ keywordRoutes.post("/:projectId", async (c) => {
   }
 });
 
+// Batch create keywords (from visibility gaps)
+keywordRoutes.post("/:projectId/batch", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  try {
+    const project = await projectQueries(db).getById(projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
+
+    const user = await userQueries(db).getById(userId);
+    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const count = await savedKeywordQueries(db).countByProject(projectId);
+
+    const body = await c.req.json<{ keywords: string[] }>();
+    const keywords = body.keywords ?? [];
+
+    // Enforce plan limit
+    const remaining = Math.max(0, limits.savedKeywordsPerProject - count);
+    if (remaining === 0) {
+      return c.json(
+        {
+          error: {
+            code: "PLAN_LIMIT_REACHED",
+            message: `Your plan allows ${limits.savedKeywordsPerProject} saved keywords per project.`,
+          },
+        },
+        403,
+      );
+    }
+
+    // Deduplicate against existing keywords
+    const existing = await savedKeywordQueries(db).listByProject(projectId);
+    const existingSet = new Set(existing.map((k) => k.keyword.toLowerCase()));
+    const newKeywords = keywords
+      .filter((kw) => !existingSet.has(kw.toLowerCase()))
+      .slice(0, remaining);
+
+    if (newKeywords.length === 0) {
+      return c.json({ data: [] });
+    }
+
+    const created = await savedKeywordQueries(db).createMany(
+      newKeywords.map((keyword) => ({
+        projectId,
+        keyword,
+        source: "auto_discovered" as const,
+      })),
+    );
+
+    return c.json({ data: created }, 201);
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
 // Delete keyword
 keywordRoutes.delete("/:id", async (c) => {
   const db = c.get("db");

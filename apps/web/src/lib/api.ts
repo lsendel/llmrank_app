@@ -1986,6 +1986,16 @@ export const api = {
     async remove(id: string): Promise<void> {
       await apiClient.delete(`/api/keywords/${id}`);
     },
+    async createBatch(
+      projectId: string,
+      keywords: string[],
+    ): Promise<SavedKeyword[]> {
+      const res = await apiClient.post<ApiEnvelope<SavedKeyword[]>>(
+        `/api/keywords/${projectId}/batch`,
+        { keywords },
+      );
+      return res.data;
+    },
   },
 
   // ── Discovery ────────────────────────────────────────────────────

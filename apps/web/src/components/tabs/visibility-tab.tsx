@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -418,6 +418,16 @@ export default function VisibilityTab({
         </div>
       )}
 
+      {/* Schedule Suggestion Banner */}
+      {results.length > 0 && schedules.length === 0 && (
+        <ScheduleSuggestionBanner
+          projectId={projectId}
+          lastQuery={selectedQueries[0] ?? ""}
+          lastProviders={selectedProviders}
+          onCreated={(schedule) => setSchedules((prev) => [...prev, schedule])}
+        />
+      )}
+
       {/* Scheduled Checks */}
       {schedulesLoaded && (
         <ScheduledChecksSection
@@ -802,6 +812,78 @@ function AddScheduleDialog({
         </Button>
       </DialogFooter>
     </DialogContent>
+  );
+}
+
+// ── Schedule Suggestion Banner ───────────────────────────────────────
+
+const EMPTY_SUB = () => () => {};
+
+function ScheduleSuggestionBanner({
+  projectId,
+  lastQuery,
+  lastProviders,
+  onCreated,
+}: {
+  projectId: string;
+  lastQuery: string;
+  lastProviders: string[];
+  onCreated: (schedule: ScheduledQuery) => void;
+}) {
+  const { withAuth } = useApi();
+  const [creating, setCreating] = useState(false);
+  const storageKey = `schedule-suggestion-dismissed-${projectId}`;
+  const isDismissedFromStorage = useSyncExternalStore(
+    EMPTY_SUB,
+    () => localStorage.getItem(storageKey) === "true",
+    () => true,
+  );
+  const [manuallyDismissed, setManuallyDismissed] = useState(false);
+
+  if (isDismissedFromStorage || manuallyDismissed || !lastQuery) return null;
+
+  async function handleCreateWeeklySchedule() {
+    setCreating(true);
+    try {
+      await withAuth(async () => {
+        const created = await api.visibility.schedules.create({
+          projectId,
+          query: lastQuery,
+          providers: lastProviders,
+          frequency: "weekly",
+        });
+        onCreated(created);
+      });
+    } catch {
+      // Error handled by withAuth toast
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function handleDismiss() {
+    localStorage.setItem(storageKey, "true");
+    setManuallyDismissed(true);
+  }
+
+  return (
+    <Card className="border-primary/20">
+      <CardContent className="flex items-center justify-between py-3">
+        <p className="text-sm">Track your visibility weekly?</p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={handleCreateWeeklySchedule}
+            disabled={creating}
+          >
+            {creating ? "Creating..." : "Enable Weekly"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleDismiss}>
+            Dismiss
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

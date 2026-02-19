@@ -15,6 +15,7 @@ import {
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, type VisibilityGap } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 import { AIVisibilityScoreCard } from "@/components/ai-visibility/score-card";
 import { BacklinkCard } from "@/components/ai-visibility/backlink-card";
 import {
@@ -43,7 +44,9 @@ export default function AIVisibilityTab({
   domain: string;
 }) {
   const { withAuth } = useApi();
+  const { toast } = useToast();
   const [discovering, setDiscovering] = useState(false);
+  const [trackingGaps, setTrackingGaps] = useState(false);
   const [discoveryResult, setDiscoveryResult] = useState<{
     gscKeywords: {
       keyword: string;
@@ -127,6 +130,25 @@ export default function AIVisibilityTab({
       // Error handled by withAuth toast
     } finally {
       setDiscovering(false);
+    }
+  }
+
+  async function handleTrackGapsAsKeywords() {
+    if (!gaps || gaps.length === 0) return;
+    setTrackingGaps(true);
+    try {
+      await withAuth(async () => {
+        const queries = gaps.map((g) => g.query);
+        const created = await api.keywords.createBatch(projectId, queries);
+        toast({
+          title: "Keywords saved",
+          description: `${created.length} gap queries added as tracked keywords.`,
+        });
+      });
+    } catch {
+      // Error handled by withAuth toast
+    } finally {
+      setTrackingGaps(false);
     }
   }
 
@@ -299,6 +321,16 @@ export default function AIVisibilityTab({
                     </p>
                   </div>
                 ))}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTrackGapsAsKeywords}
+                  disabled={trackingGaps}
+                >
+                  {trackingGaps
+                    ? "Saving..."
+                    : `Track ${gaps.length} gap queries as keywords`}
+                </Button>
               </div>
             )}
           </CardContent>
