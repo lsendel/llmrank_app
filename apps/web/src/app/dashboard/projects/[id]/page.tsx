@@ -19,6 +19,8 @@ import {
   Download,
   AlertTriangle,
   Radar,
+  User,
+  Key,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -142,6 +144,22 @@ const CompetitorsTab = dynamic(
   {
     loading: () => <TabLoadingSkeleton />,
   },
+);
+
+const PersonasTab = dynamic(
+  () =>
+    import("@/components/tabs/personas-tab").then((mod) => ({
+      default: mod.PersonasTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const KeywordsTab = dynamic(
+  () =>
+    import("@/components/tabs/keywords-tab").then((mod) => ({
+      default: mod.KeywordsTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
 );
 
 export default function ProjectPage() {
@@ -292,6 +310,14 @@ export default function ProjectPage() {
             <Eye className="mr-1.5 h-4 w-4" />
             Visibility
           </TabsTrigger>
+          <TabsTrigger value="personas" className="gap-1.5">
+            <User className="h-4 w-4" />
+            Personas
+          </TabsTrigger>
+          <TabsTrigger value="keywords" className="gap-1.5">
+            <Key className="h-4 w-4" />
+            Keywords
+          </TabsTrigger>
           <TabsTrigger value="integrations">
             <Plug className="mr-1.5 h-4 w-4" />
             Integrations
@@ -360,6 +386,14 @@ export default function ProjectPage() {
             domain={project.domain}
             latestCrawlId={latestCrawlId}
           />
+        </TabsContent>
+
+        <TabsContent value="personas" className="mt-6">
+          <PersonasTab projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="keywords" className="mt-6">
+          <KeywordsTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 pt-4">
