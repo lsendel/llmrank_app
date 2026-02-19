@@ -584,6 +584,46 @@ export interface VisibilityGap {
   }>;
 }
 
+export interface AIScoreTrend {
+  current: {
+    overall: number;
+    grade: "A" | "B" | "C" | "D" | "F";
+    breakdown: {
+      llmMentions: number;
+      aiSearch: number;
+      shareOfVoice: number;
+      backlinkAuthority: number;
+    };
+  };
+  previous: {
+    overall: number;
+    grade: "A" | "B" | "C" | "D" | "F";
+    breakdown: {
+      llmMentions: number;
+      aiSearch: number;
+      shareOfVoice: number;
+      backlinkAuthority: number;
+    };
+  } | null;
+  delta: number;
+  direction: "up" | "down" | "stable";
+  period: string;
+  meta: {
+    currentChecks: number;
+    previousChecks: number;
+    referringDomains: number;
+  };
+}
+
+export interface VisibilityRecommendation {
+  type: "gap" | "platform" | "issue" | "trend" | "coverage";
+  title: string;
+  description: string;
+  impact: "high" | "medium" | "low";
+  provider?: string;
+  fixUrl?: string;
+}
+
 export interface ScheduledQuery {
   id: string;
   projectId: string;
@@ -1532,6 +1572,22 @@ export const api = {
           llmKeywords: string[];
         }>
       >(`/api/visibility/${projectId}/discover-keywords`, {});
+      return res.data;
+    },
+
+    async getScoreTrend(projectId: string): Promise<AIScoreTrend> {
+      const res = await apiClient.get<ApiEnvelope<AIScoreTrend>>(
+        `/api/visibility/${projectId}/ai-score/trend`,
+      );
+      return res.data;
+    },
+
+    async getRecommendations(
+      projectId: string,
+    ): Promise<VisibilityRecommendation[]> {
+      const res = await apiClient.get<ApiEnvelope<VisibilityRecommendation[]>>(
+        `/api/visibility/${projectId}/recommendations`,
+      );
       return res.data;
     },
   },
