@@ -27,8 +27,9 @@ import {
 } from "@/lib/api";
 import { AiInsightCard } from "@/components/narrative/ai-insight-card";
 import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
-import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
+import { PlatformReadinessBadges } from "@/components/platform-readiness-badges";
 import { PlatformOpportunityCards } from "@/components/platform-opportunity-cards";
+import { IntegrationPromptBanner } from "@/components/integration-prompt-banner";
 import { ScoreTrendChart } from "@/components/charts/score-trend-chart";
 import { ProjectProgressCard } from "@/components/cards/project-progress-card";
 import { RegressionAlert } from "@/components/cards/regression-alert";
@@ -142,6 +143,9 @@ export function OverviewTab({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Integration Prompt */}
+      <IntegrationPromptBanner projectId={projectId} />
 
       {/* Hero section with ScoreCircle */}
       <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
@@ -315,8 +319,8 @@ export function OverviewTab({
       {/* Integration Insights */}
       <IntegrationInsightsCards projectId={projectId} />
 
-      {/* Platform Readiness */}
-      {latestCrawl?.id && <PlatformReadinessMatrix crawlId={latestCrawl.id} />}
+      {/* Platform Readiness (compact badges — full matrix in Visibility tab) */}
+      {latestCrawl?.id && <PlatformReadinessBadges crawlId={latestCrawl.id} />}
 
       {/* Platform Opportunity + Content Health */}
       {latestCrawl?.id && <PlatformOpportunityCards crawlId={latestCrawl.id} />}
