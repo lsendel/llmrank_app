@@ -584,6 +584,31 @@ visibilityRoutes.post(
 
     try {
       const result = await service.discover(userId, projectId);
+
+      // Persist discovered keywords
+      const { savedKeywordQueries: savedKwQueries } =
+        await import("@llm-boost/db");
+      const { PLAN_LIMITS } = await import("@llm-boost/shared");
+      const kwRepo = savedKwQueries(db);
+      const existingCount = await kwRepo.countByProject(projectId);
+      const user = await createUserRepository(db).getById(userId);
+      const limits = PLAN_LIMITS[user?.plan ?? "free"];
+      const remainingSlots = Math.max(
+        0,
+        limits.savedKeywordsPerProject - existingCount,
+      );
+
+      if (remainingSlots > 0 && result.llmKeywords?.length > 0) {
+        const toSave = result.llmKeywords
+          .slice(0, remainingSlots)
+          .map((kw: string) => ({
+            projectId,
+            keyword: kw,
+            source: "auto_discovered" as const,
+          }));
+        await kwRepo.createMany(toSave);
+      }
+
       return c.json({ data: result });
     } catch (error) {
       return handleServiceError(c, error);

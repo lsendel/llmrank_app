@@ -47,6 +47,7 @@ import { teamRoutes } from "./routes/teams";
 import { organizationRoutes } from "./routes/organizations";
 import { backlinkRoutes } from "./routes/backlinks";
 import { personaRoutes } from "./routes/personas";
+import { keywordRoutes } from "./routes/keywords";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -212,6 +213,7 @@ app.route("/api/teams", teamRoutes);
 app.route("/api/orgs", organizationRoutes);
 app.route("/api/backlinks", backlinkRoutes);
 app.route("/api/personas", personaRoutes);
+app.route("/api/keywords", keywordRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
