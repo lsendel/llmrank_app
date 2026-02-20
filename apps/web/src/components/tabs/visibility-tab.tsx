@@ -36,7 +36,9 @@ import { CompetitorComparison } from "@/components/visibility/competitor-compari
 import { AIVisibilityScoreHeader } from "@/components/visibility/ai-visibility-score-header";
 import { RecommendationsCard } from "@/components/visibility/recommendations-card";
 import { KeywordPicker } from "@/components/visibility/keyword-picker";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/components/ui/use-toast";
+import { usePlan } from "@/hooks/use-plan";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -83,6 +85,7 @@ export default function VisibilityTab({
 }) {
   const { withAuth } = useApi();
   const { toast } = useToast();
+  const { isFree } = usePlan();
   const [selectedKeywordIds, setSelectedKeywordIds] = useState<string[]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
@@ -262,6 +265,15 @@ export default function VisibilityTab({
     <div className="space-y-6">
       {/* AI Visibility Score Header */}
       <AIVisibilityScoreHeader projectId={projectId} />
+
+      {isFree && (
+        <UpgradePrompt
+          feature="AI Visibility Tracking"
+          description="Track how LLMs mention your brand across 25+ queries with scheduled monitoring."
+          nextTier="Starter ($79/mo)"
+          nextTierUnlocks="25 visibility checks, 5 scheduled queries, keyword discovery"
+        />
+      )}
 
       {/* Actionable Recommendations */}
       <RecommendationsCard projectId={projectId} />

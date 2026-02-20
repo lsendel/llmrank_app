@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IssueCard } from "@/components/issue-card";
 import { IssueHeatmap } from "@/components/charts/issue-heatmap";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { usePlan } from "@/hooks/use-plan";
 import type { PageIssue } from "@/lib/api";
 
 export function IssuesTab({
@@ -16,6 +18,7 @@ export function IssuesTab({
   crawlId?: string;
   projectId?: string;
 }) {
+  const { isFree } = usePlan();
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
@@ -32,6 +35,15 @@ export function IssuesTab({
       {/* Issue Heatmap */}
       {crawlId && projectId && (
         <IssueHeatmap crawlId={crawlId} projectId={projectId} />
+      )}
+
+      {isFree && (
+        <UpgradePrompt
+          feature="AI-Powered Issue Priority"
+          description="Sort issues by AI-estimated impact to fix the most important problems first."
+          nextTier="Starter ($79/mo)"
+          nextTierUnlocks="AI priority sorting, 100 pages/crawl, 10 crawls/month"
+        />
       )}
 
       {/* Filters */}
