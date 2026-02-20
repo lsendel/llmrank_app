@@ -2975,6 +2975,39 @@ export const api = {
     },
   },
 
+  // ── Trial ──────────────────────────────────────────────────────
+  trial: {
+    async status(): Promise<{
+      eligible: boolean;
+      active: boolean;
+      daysRemaining?: number;
+    }> {
+      const res = await apiClient.get<
+        ApiEnvelope<{
+          eligible: boolean;
+          active: boolean;
+          daysRemaining?: number;
+        }>
+      >("/api/trial/status");
+      return res.data;
+    },
+
+    async start(): Promise<{
+      trialStartedAt: string;
+      trialEndsAt: string;
+      daysRemaining: number;
+    }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          trialStartedAt: string;
+          trialEndsAt: string;
+          daysRemaining: number;
+        }>
+      >("/api/trial/start", {});
+      return res.data;
+    },
+  },
+
   // ── Narratives ─────────────────────────────────────────────────
   narratives: {
     async generate(

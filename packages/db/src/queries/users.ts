@@ -107,6 +107,15 @@ export function userQueries(db: Database) {
         .where(eq(users.plan, plan));
     },
 
+    async startTrial(id: string, trialStartedAt: Date, trialEndsAt: Date) {
+      const [updated] = await db
+        .update(users)
+        .set({ trialStartedAt, trialEndsAt, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return updated;
+    },
+
     async updateStatus(
       id: string,
       status: "active" | "suspended" | "banned",

@@ -37,6 +37,7 @@ import { ScoringProfileSection } from "@/components/settings/scoring-profile-sec
 import { SiteContextSection } from "@/components/settings/site-context-section";
 import { PostCrawlChecklist } from "@/components/post-crawl-checklist";
 import { AlertBanner } from "@/components/alert-banner";
+import { TrialBanner } from "@/components/trial-banner";
 import { UsageMeter } from "@/components/usage-meter";
 
 function TabLoadingSkeleton() {
@@ -293,6 +294,9 @@ export default function ProjectPage() {
 
       {/* Score change alerts */}
       <AlertBanner projectId={project.id} />
+
+      {/* Pro trial banner */}
+      <TrialBanner />
 
       {/* Onboarding Checklist */}
       <PostCrawlChecklist projectId={project.id} />

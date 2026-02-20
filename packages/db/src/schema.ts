@@ -208,6 +208,8 @@ export const users = pgTable("users", {
   digestFrequency: text("digest_frequency").notNull().default("off"),
   digestDay: integer("digest_day").notNull().default(1),
   lastDigestSentAt: timestamp("last_digest_sent_at"),
+  trialStartedAt: timestamp("trial_started_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
   lastSignedIn: timestamp("last_signed_in"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

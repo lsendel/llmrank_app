@@ -37,6 +37,20 @@ export interface PlanLimits {
   personaRefinement: boolean;
 }
 
+export function resolveEffectivePlan(user: {
+  plan: PlanTier;
+  trialEndsAt?: Date | string | null;
+}): PlanTier {
+  if (user.trialEndsAt) {
+    const expires =
+      typeof user.trialEndsAt === "string"
+        ? new Date(user.trialEndsAt)
+        : user.trialEndsAt;
+    if (expires > new Date()) return "pro";
+  }
+  return user.plan;
+}
+
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   free: {
     pagesPerCrawl: 10,

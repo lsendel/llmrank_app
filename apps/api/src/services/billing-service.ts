@@ -1,4 +1,8 @@
-import { PLAN_LIMITS, ERROR_CODES } from "@llm-boost/shared";
+import {
+  PLAN_LIMITS,
+  ERROR_CODES,
+  resolveEffectivePlan,
+} from "@llm-boost/shared";
 import type { BillingRepository, UserRepository } from "../repositories";
 import { StripeGateway, priceIdFromPlanCode } from "@llm-boost/billing";
 import { promoQueries } from "@llm-boost/db";
@@ -66,9 +70,11 @@ export function createBillingService(deps: BillingServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "User not found");
       }
-      const limits = PLAN_LIMITS[user.plan];
+      const effectivePlan = resolveEffectivePlan(user);
+      const limits = PLAN_LIMITS[effectivePlan];
       return {
         plan: user.plan,
+        effectivePlan,
         crawlCreditsRemaining: user.crawlCreditsRemaining,
         crawlCreditsTotal: limits.crawlsPerMonth,
         maxPagesPerCrawl: limits.pagesPerCrawl,
