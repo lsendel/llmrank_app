@@ -254,6 +254,8 @@ export interface PageIssue {
   message: string;
   recommendation: string;
   data?: Record<string, unknown>;
+  pageId?: string;
+  pageUrl?: string | null;
 }
 
 export interface VisibilityCheck {
@@ -1094,6 +1096,40 @@ export interface Benchmarks {
   p90: number;
   count: number;
   updatedAt: string;
+}
+
+// ─── Action Items ───────────────────────────────────────────────────
+
+export type ActionItemStatus =
+  | "pending"
+  | "in_progress"
+  | "fixed"
+  | "dismissed";
+
+export interface ActionItem {
+  id: string;
+  projectId: string;
+  issueCode: string;
+  status: ActionItemStatus;
+  severity: "critical" | "warning" | "info";
+  category: string;
+  scoreImpact: number;
+  title: string;
+  description: string | null;
+  assigneeId: string | null;
+  verifiedAt: string | null;
+  verifiedByCrawlId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActionItemStats {
+  total: number;
+  fixed: number;
+  inProgress: number;
+  dismissed: number;
+  pending: number;
+  fixRate: number;
 }
 
 // ─── Request helpers ────────────────────────────────────────────────
@@ -2846,14 +2882,15 @@ export const api = {
             crawledAt: string;
           }>;
         }>
-      >(`/api/projects/${projectId}/benchmarks`);
+      >(`/api/competitors?projectId=${projectId}`);
       return res.data;
     },
     async trigger(data: {
       projectId: string;
       competitorDomain: string;
     }): Promise<void> {
-      await apiClient.post(`/api/projects/${data.projectId}/benchmarks`, {
+      await apiClient.post(`/api/competitors/benchmark`, {
+        projectId: data.projectId,
         competitorDomain: data.competitorDomain,
       });
     },
@@ -2870,6 +2907,34 @@ export const api = {
       return apiClient.get<PaginatedResponse<CrawlJobSummary>>(
         `/api/queue${qs}`,
       );
+    },
+  },
+
+  // ── Action Items ───────────────────────────────────────────────
+  actionItems: {
+    async list(projectId: string): Promise<ActionItem[]> {
+      const res = await apiClient.get<ApiEnvelope<ActionItem[]>>(
+        `/api/action-items?projectId=${projectId}`,
+      );
+      return res.data;
+    },
+
+    async updateStatus(
+      id: string,
+      status: ActionItemStatus,
+    ): Promise<ActionItem> {
+      const res = await apiClient.patch<ApiEnvelope<ActionItem>>(
+        `/api/action-items/${id}/status`,
+        { status },
+      );
+      return res.data;
+    },
+
+    async stats(projectId: string): Promise<ActionItemStats> {
+      const res = await apiClient.get<ApiEnvelope<ActionItemStats>>(
+        `/api/action-items/stats?projectId=${projectId}`,
+      );
+      return res.data;
     },
   },
 
