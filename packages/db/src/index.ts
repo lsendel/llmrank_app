@@ -51,4 +51,5 @@ export {
   actionItemQueries,
   type ActionItemStatus,
 } from "./queries/action-items";
+export { alertQueries } from "./queries/alerts";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";

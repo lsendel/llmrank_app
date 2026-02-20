@@ -36,6 +36,7 @@ import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 import { SiteContextSection } from "@/components/settings/site-context-section";
 import { PostCrawlChecklist } from "@/components/post-crawl-checklist";
+import { AlertBanner } from "@/components/alert-banner";
 import { UsageMeter } from "@/components/usage-meter";
 
 function TabLoadingSkeleton() {
@@ -289,6 +290,9 @@ export default function ProjectPage() {
           </div>
         )}
       </div>
+
+      {/* Score change alerts */}
+      <AlertBanner projectId={project.id} />
 
       {/* Onboarding Checklist */}
       <PostCrawlChecklist projectId={project.id} />

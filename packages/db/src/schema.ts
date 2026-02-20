@@ -1353,3 +1353,33 @@ export const teamInvitations = pgTable(
   },
   (t) => [index("idx_team_invitations_team").on(t.teamId)],
 );
+
+// ---------------------------------------------------------------------------
+// Alerts (score change notifications)
+// ---------------------------------------------------------------------------
+
+export const alertSeverityEnum = pgEnum("alert_severity", [
+  "critical",
+  "warning",
+  "info",
+]);
+
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    severity: alertSeverityEnum("severity").notNull(),
+    message: text("message").notNull(),
+    data: jsonb("data").default({}),
+    acknowledgedAt: timestamp("acknowledged_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_alerts_project").on(t.projectId),
+    index("idx_alerts_unacked").on(t.projectId, t.acknowledgedAt),
+  ],
+);

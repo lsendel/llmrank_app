@@ -51,6 +51,7 @@ import { keywordRoutes } from "./routes/keywords";
 import { discoveryRoutes } from "./routes/discovery";
 import { narrativeRoutes } from "./routes/narratives";
 import { actionItemRoutes } from "./routes/action-items";
+import { alertRoutes } from "./routes/alerts";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -220,6 +221,7 @@ app.route("/api/keywords", keywordRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/narratives", narrativeRoutes);
 app.route("/api/action-items", actionItemRoutes);
+app.route("/api/alerts", alertRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {

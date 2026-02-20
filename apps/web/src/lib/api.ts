@@ -2938,6 +2938,43 @@ export const api = {
     },
   },
 
+  // ── Alerts ─────────────────────────────────────────────────────
+  alerts: {
+    async list(projectId: string) {
+      const res = await apiClient.get<
+        ApiEnvelope<
+          {
+            id: string;
+            projectId: string;
+            type: string;
+            severity: "critical" | "warning" | "info";
+            message: string;
+            data: unknown;
+            acknowledgedAt: string | null;
+            createdAt: string;
+          }[]
+        >
+      >(`/api/alerts?projectId=${projectId}`);
+      return res.data;
+    },
+
+    async acknowledge(id: string) {
+      const res = await apiClient.post<ApiEnvelope<unknown>>(
+        `/api/alerts/${id}/acknowledge`,
+        {},
+      );
+      return res.data;
+    },
+
+    async acknowledgeAll(projectId: string) {
+      const res = await apiClient.post<ApiEnvelope<{ success: boolean }>>(
+        `/api/alerts/acknowledge-all?projectId=${projectId}`,
+        {},
+      );
+      return res.data;
+    },
+  },
+
   // ── Narratives ─────────────────────────────────────────────────
   narratives: {
     async generate(
