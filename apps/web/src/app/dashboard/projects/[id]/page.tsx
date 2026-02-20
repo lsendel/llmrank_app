@@ -36,6 +36,7 @@ import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 import { SiteContextSection } from "@/components/settings/site-context-section";
 import { PostCrawlChecklist } from "@/components/post-crawl-checklist";
+import { UsageMeter } from "@/components/usage-meter";
 
 function TabLoadingSkeleton() {
   return (
@@ -274,10 +275,13 @@ export default function ProjectPage() {
               {project.domain}
             </p>
           </div>
-          <Button onClick={handleStartCrawl} disabled={startingCrawl}>
-            <Play className="h-4 w-4" />
-            {startingCrawl ? "Starting..." : "Run Crawl"}
-          </Button>
+          <div className="flex items-center gap-3">
+            <UsageMeter />
+            <Button onClick={handleStartCrawl} disabled={startingCrawl}>
+              <Play className="h-4 w-4" />
+              {startingCrawl ? "Starting..." : "Run Crawl"}
+            </Button>
+          </div>
         </div>
         {crawlError && (
           <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
