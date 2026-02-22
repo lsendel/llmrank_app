@@ -17,6 +17,8 @@ import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
 import { cn, scoreColor } from "@/lib/utils";
 import { CompetitorDiscoveryBanner } from "@/components/competitor-discovery-banner";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { usePlan } from "@/hooks/use-plan";
 
 interface Props {
   projectId: string;
@@ -24,6 +26,7 @@ interface Props {
 
 export function CompetitorsTab({ projectId }: Props) {
   const { withAuth } = useApi();
+  const { isStarter } = usePlan();
   const [newDomain, setNewDomain] = useState("");
   const [benchmarking, setBenchmarking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +64,15 @@ export function CompetitorsTab({ projectId }: Props) {
   return (
     <div className="space-y-6">
       <CompetitorDiscoveryBanner projectId={projectId} />
+
+      {isStarter && (
+        <UpgradePrompt
+          feature="Extended Competitor Analysis"
+          description="Compare with up to 5 competitors and get AI-generated gap analysis."
+          nextTier="Pro ($149/mo)"
+          nextTierUnlocks="5 competitors, content gap analysis, scheduled crawls"
+        />
+      )}
 
       {/* Add competitor */}
       <Card>

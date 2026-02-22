@@ -1,0 +1,32 @@
+{
+  "name": "@llm-boost/mcp",
+  "version": "1.0.0",
+  "description": "LLM Boost MCP Server — SEO optimization tools for AI agents",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "llm-boost-mcp": "./bin/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@llm-boost/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24"
+  },
+  "devDependencies": {
+    "typescript": "^5.7",
+    "vitest": "^3",
+    "tsx": "^4"
+  },
+  "keywords": [
+    "mcp",
+    "seo",
+    "ai-readiness",
+    "llm-boost"
+  ],
+  "license": "MIT"
+}

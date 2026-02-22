@@ -35,6 +35,24 @@ export interface PlanLimits {
   savedKeywordsPerProject: number;
   customAvatarsPerMonth: number;
   personaRefinement: boolean;
+  mcpAccess: boolean;
+  mcpCallsPerHour: number;
+  mcpWriteOpsPerHour: number;
+  mcpConcurrentSessions: number;
+}
+
+export function resolveEffectivePlan(user: {
+  plan: PlanTier;
+  trialEndsAt?: Date | string | null;
+}): PlanTier {
+  if (user.trialEndsAt) {
+    const expires =
+      typeof user.trialEndsAt === "string"
+        ? new Date(user.trialEndsAt)
+        : user.trialEndsAt;
+    if (expires > new Date()) return "pro";
+  }
+  return user.plan;
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -66,6 +84,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     savedKeywordsPerProject: 10,
     customAvatarsPerMonth: 0,
     personaRefinement: false,
+    mcpAccess: false,
+    mcpCallsPerHour: 0,
+    mcpWriteOpsPerHour: 0,
+    mcpConcurrentSessions: 0,
   },
   starter: {
     pagesPerCrawl: 100,
@@ -95,6 +117,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     savedKeywordsPerProject: 50,
     customAvatarsPerMonth: 0,
     personaRefinement: true,
+    mcpAccess: false,
+    mcpCallsPerHour: 0,
+    mcpWriteOpsPerHour: 0,
+    mcpConcurrentSessions: 0,
   },
   pro: {
     pagesPerCrawl: 500,
@@ -124,6 +150,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     savedKeywordsPerProject: 200,
     customAvatarsPerMonth: 5,
     personaRefinement: true,
+    mcpAccess: true,
+    mcpCallsPerHour: 100,
+    mcpWriteOpsPerHour: 20,
+    mcpConcurrentSessions: 2,
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -153,5 +183,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     savedKeywordsPerProject: 999,
     customAvatarsPerMonth: 999,
     personaRefinement: true,
+    mcpAccess: true,
+    mcpCallsPerHour: 1000,
+    mcpWriteOpsPerHour: 200,
+    mcpConcurrentSessions: 10,
   },
 };

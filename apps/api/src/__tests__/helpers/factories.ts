@@ -88,6 +88,8 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
     suspendedAt: null,
     suspendedReason: null,
     onboardingComplete: false,
+    trialStartedAt: null,
+    trialEndsAt: null,
     lastSignedIn: null,
     digestFrequency: "off",
     digestDay: 1,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -10,14 +11,57 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useApi } from "@/lib/use-api";
 import { api } from "@/lib/api";
+import { usePlan } from "@/hooks/use-plan";
+
+type CrawlSchedule = "manual" | "daily" | "weekly" | "monthly";
 
 interface CrawlSettingsFormProps {
   projectId: string;
   initialSettings?: {
     ignoreRobots?: boolean;
+    schedule?: CrawlSchedule;
   };
+}
+
+function getNextCrawlDate(schedule: CrawlSchedule): string | null {
+  if (schedule === "manual") return null;
+
+  const now = new Date();
+
+  if (schedule === "monthly") {
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+    return next.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  if (schedule === "weekly") {
+    const dayOfWeek = now.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7;
+    const next = new Date(now);
+    next.setDate(now.getDate() + daysUntilMonday);
+    next.setHours(0, 0, 0, 0);
+    return next.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  return null;
 }
 
 export function CrawlSettingsForm({
@@ -25,9 +69,13 @@ export function CrawlSettingsForm({
   initialSettings,
 }: CrawlSettingsFormProps) {
   const { withAuth } = useApi();
+  const { isFree, isStarter } = usePlan();
   const [loading, setLoading] = useState(false);
   const [ignoreRobots, setIgnoreRobots] = useState(
     initialSettings?.ignoreRobots ?? false,
+  );
+  const [schedule, setSchedule] = useState<CrawlSchedule>(
+    initialSettings?.schedule ?? "manual",
   );
 
   async function handleSave() {
@@ -35,7 +83,7 @@ export function CrawlSettingsForm({
     try {
       await withAuth(() =>
         api.projects.update(projectId, {
-          settings: { ignoreRobots },
+          settings: { ignoreRobots, schedule },
         }),
       );
     } catch (err) {
@@ -45,6 +93,8 @@ export function CrawlSettingsForm({
     }
   }
 
+  const nextCrawlDate = getNextCrawlDate(schedule);
+
   return (
     <Card>
       <CardHeader>
@@ -53,7 +103,34 @@ export function CrawlSettingsForm({
           Configure how the crawler discovers and accesses pages on your site.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label>Crawl Schedule</Label>
+          <Select
+            value={schedule}
+            onValueChange={(value) => setSchedule(value as CrawlSchedule)}
+          >
+            <SelectTrigger className="w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="manual">Manual only</SelectItem>
+              <SelectItem value="monthly" disabled={isFree}>
+                Monthly (1st of each month) {isFree && "\u2014 Starter+"}
+              </SelectItem>
+              <SelectItem value="weekly" disabled={isFree || isStarter}>
+                Weekly (every Monday) {(isFree || isStarter) && "\u2014 Pro+"}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {nextCrawlDate && (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              Next scheduled crawl: {nextCrawlDate}
+            </p>
+          )}
+        </div>
+
         <div className="flex items-start gap-3">
           <input
             type="checkbox"

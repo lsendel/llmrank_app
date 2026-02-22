@@ -1,13 +1,13 @@
-import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
+import { PLAN_LIMITS, type PlanTier, type TokenScope } from "@llm-boost/shared";
 import type { ProjectRepository } from "../repositories";
 import { ServiceError } from "./errors";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
+export type { TokenScope };
+
 // ---------------------------------------------------------------------------
 // Domain Types
 // ---------------------------------------------------------------------------
-
-export type TokenScope = "metrics:read" | "scores:read" | "visibility:read";
 
 export interface ApiToken {
   id: string;

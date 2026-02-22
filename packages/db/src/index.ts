@@ -47,4 +47,9 @@ export {
 export { personaQueries } from "./queries/personas";
 export { savedKeywordQueries } from "./queries/saved-keywords";
 export { promoQueries } from "./queries/promos";
+export {
+  actionItemQueries,
+  type ActionItemStatus,
+} from "./queries/action-items";
+export { alertQueries } from "./queries/alerts";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";

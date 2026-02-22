@@ -208,6 +208,8 @@ export const users = pgTable("users", {
   digestFrequency: text("digest_frequency").notNull().default("off"),
   digestDay: integer("digest_day").notNull().default(1),
   lastDigestSentAt: timestamp("last_digest_sent_at"),
+  trialStartedAt: timestamp("trial_started_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
   lastSignedIn: timestamp("last_signed_in"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -1352,4 +1354,34 @@ export const teamInvitations = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_team_invitations_team").on(t.teamId)],
+);
+
+// ---------------------------------------------------------------------------
+// Alerts (score change notifications)
+// ---------------------------------------------------------------------------
+
+export const alertSeverityEnum = pgEnum("alert_severity", [
+  "critical",
+  "warning",
+  "info",
+]);
+
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    severity: alertSeverityEnum("severity").notNull(),
+    message: text("message").notNull(),
+    data: jsonb("data").default({}),
+    acknowledgedAt: timestamp("acknowledged_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_alerts_project").on(t.projectId),
+    index("idx_alerts_unacked").on(t.projectId, t.acknowledgedAt),
+  ],
 );

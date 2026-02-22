@@ -1,0 +1,37 @@
+export interface OAuthClient {
+  clientId: string;
+  clientSecret?: string; // Optional for public clients (PKCE)
+  redirectUris: string[];
+  scopes: string[];
+  name: string;
+}
+
+export interface AuthorizationCode {
+  code: string;
+  clientId: string;
+  userId: string;
+  scopes: string[];
+  redirectUri: string;
+  codeChallenge: string;
+  codeChallengeMethod: "S256";
+  expiresAt: number; // Unix timestamp
+}
+
+export interface AccessToken {
+  token: string;
+  userId: string;
+  clientId: string;
+  scopes: string[];
+  expiresAt: number; // Unix timestamp (1 hour)
+}
+
+export interface RefreshToken {
+  token: string;
+  userId: string;
+  clientId: string;
+  scopes: string[];
+  expiresAt: number; // Unix timestamp (30 days)
+}
+
+// Re-export from shared — single source of truth for scope definitions
+export { MCP_SCOPES, type McpScope } from "@llm-boost/shared";
