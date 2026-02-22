@@ -60,8 +60,22 @@ const mcpSetupSnippets = {
   "Claude Code": `claude mcp add llm-boost \\
   --env LLM_BOOST_API_TOKEN=__VALUE__ \\
   -- npx -y @llmrank.app/mcp`,
+  "Claude Code (team)": `claude mcp add llm-boost --scope project \\
+  --env LLM_BOOST_API_TOKEN \\
+  -- npx -y @llmrank.app/mcp`,
   "Cursor / Claude Desktop / Windsurf": `{
   "mcpServers": {
+    "llm-boost": {
+      "command": "npx",
+      "args": ["-y", "@llmrank.app/mcp"],
+      "env": {
+        "LLM_BOOST_API_TOKEN": "__VALUE__"
+      }
+    }
+  }
+}`,
+  "VS Code (Copilot)": `{
+  "servers": {
     "llm-boost": {
       "command": "npx",
       "args": ["-y", "@llmrank.app/mcp"],
@@ -314,6 +328,17 @@ export function ApiTokensSection() {
                                 <pre className="rounded-lg bg-muted p-3 text-xs font-mono overflow-x-auto">
                                   {resolved}
                                 </pre>
+                                {name === "Claude Code (team)" && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Creates a shared .mcp.json in your repo.
+                                    Each team member sets{" "}
+                                    <code className="text-xs">
+                                      export LLM_BOOST_API_TOKEN=
+                                      {createdToken.plaintext}
+                                    </code>{" "}
+                                    in their shell.
+                                  </p>
+                                )}
                               </div>
                             );
                           },

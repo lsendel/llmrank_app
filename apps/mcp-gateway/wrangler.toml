@@ -1,13 +1,19 @@
 name = "llm-boost-mcp-gateway"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
-API_BASE_URL = "https://api.llmboost.io"
+API_BASE_URL = "https://api.llmrank.app"
 
 [[kv_namespaces]]
 binding = "KV"
-id = ""  # TODO: Create KV namespace via `wrangler kv namespace create KV`
+id = "1253976636c64d6c83ad2e936ac97c75"
+
+# Custom domain — requires DNS CNAME: mcp.llmrank.app → llm-boost-mcp-gateway.luis-diaz-s.workers.dev
+[[routes]]
+pattern = "mcp.llmrank.app/*"
+zone_name = "llmrank.app"
 
 # Secrets (via wrangler secret put):
 # DATABASE_URL — for OAuth token storage (future)

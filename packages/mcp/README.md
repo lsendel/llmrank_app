@@ -17,6 +17,16 @@ claude mcp add llm-boost \
   -- npx -y @llmrank.app/mcp
 ```
 
+**Team setup** — share the config with your team via `.mcp.json` (committed to git):
+
+```bash
+claude mcp add llm-boost --scope project \
+  --env LLM_BOOST_API_TOKEN \
+  -- npx -y @llmrank.app/mcp
+```
+
+Each team member sets `LLM_BOOST_API_TOKEN` in their shell environment (e.g. `.env`, `.zshrc`). The `.mcp.json` config is shared via git — no tokens in source control.
+
 ### Cursor
 
 Add to `~/.cursor/mcp.json`:
@@ -88,6 +98,21 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
   }
 }
 ```
+
+### HTTP Transport (ChatGPT, remote clients)
+
+For clients that support Streamable HTTP (e.g. ChatGPT, OpenAI Agents SDK), use the hosted endpoint:
+
+```
+Endpoint: https://mcp.llmrank.app/v1/mcp
+Auth: Bearer <your_llmb_token>
+```
+
+The endpoint also supports OAuth 2.1 with PKCE — see `/.well-known/oauth-authorization-server` for discovery.
+
+### Perplexity
+
+Perplexity supports local MCP servers on macOS. Add via **Settings > Connectors** using the same JSON config as Cursor above.
 
 ## Environment Variables
 

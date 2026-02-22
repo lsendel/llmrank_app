@@ -5,6 +5,7 @@ import { AccessToken } from "./types";
 declare module "hono" {
   interface ContextVariableMap {
     oauthToken: AccessToken;
+    mcpUser: import("../mcp-handler").AuthenticatedUser;
   }
 }
 

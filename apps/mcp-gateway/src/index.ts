@@ -4,7 +4,7 @@ import { createOAuthStorage } from "./oauth/storage";
 import { handleAuthorize } from "./oauth/authorization";
 import { handleToken } from "./oauth/token";
 import { oauthMiddleware } from "./oauth/middleware";
-import { handleMcpRequest } from "./mcp-handler";
+import { handleMcpRequest, type AuthenticatedUser } from "./mcp-handler";
 
 type Bindings = {
   KV: KVNamespace;
@@ -76,17 +76,58 @@ app.post("/oauth/token", async (c) => {
   return handleToken(c, storage);
 });
 
-// MCP Streamable HTTP endpoint (protected by OAuth)
+// ---------------------------------------------------------------------------
+// MCP Streamable HTTP endpoint
+// Supports two auth methods:
+//   1. OAuth Bearer token (from /oauth/token flow)
+//   2. Direct API token (Bearer llmb_xxx) for dev/testing
+// ---------------------------------------------------------------------------
+
 const mcpRoute = new Hono<{ Bindings: Bindings }>();
 
 mcpRoute.use("*", async (c, next) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json(
+      { error: "invalid_token", error_description: "Bearer token required" },
+      401,
+    );
+  }
+
+  const tokenStr = authHeader.slice(7);
+
+  // Direct API token (llmb_ prefix) — bypass OAuth, use token directly
+  if (tokenStr.startsWith("llmb_")) {
+    const user: AuthenticatedUser = {
+      apiToken: tokenStr,
+      scopes: ["*"],
+    };
+    c.set("mcpUser", user);
+    return next();
+  }
+
+  // Otherwise treat as OAuth access token
   const storage = createOAuthStorage(c.env.KV);
   return oauthMiddleware(storage)(c, next);
 });
 
 mcpRoute.all("/", async (c) => {
-  const token = c.get("oauthToken");
-  return handleMcpRequest(c, token, c.env.API_BASE_URL);
+  const user = c.get("mcpUser") as AuthenticatedUser | undefined;
+
+  if (!user) {
+    // OAuth flow — resolve user from OAuth token
+    const oauthToken = c.get("oauthToken");
+    if (!oauthToken) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+    const oauthUser: AuthenticatedUser = {
+      apiToken: oauthToken.userId, // userId stores the API token in current OAuth impl
+      scopes: oauthToken.scopes,
+    };
+    return handleMcpRequest(c, oauthUser, c.env.API_BASE_URL);
+  }
+
+  return handleMcpRequest(c, user, c.env.API_BASE_URL);
 });
 
 app.route("/v1/mcp", mcpRoute);
