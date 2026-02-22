@@ -1,9 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ToolContext } from "./types";
+import { registerProjectTools } from "./projects";
+import { registerCrawlTools } from "./crawls";
+import { registerPageTools } from "./pages";
+import { registerScoreTools } from "./scores";
 
-// Tool registration functions will be imported as tool files are created
-// import { registerProjectTools } from "./projects";
-
-export function registerAllTools(_server: McpServer, _ctx: ToolContext): void {
-  // Tools will be registered here as they are implemented
+export function registerAllTools(server: McpServer, ctx: ToolContext): void {
+  registerProjectTools(server, ctx);
+  registerCrawlTools(server, ctx);
+  registerPageTools(server, ctx);
+  registerScoreTools(server, ctx);
 }
