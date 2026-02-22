@@ -1,12 +1,12 @@
 {
-  "name": "@llm-boost/mcp",
-  "version": "1.0.0",
+  "name": "@llmrank.app/mcp",
+  "version": "1.0.1",
   "description": "LLM Boost MCP Server — SEO optimization tools for AI agents",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "llm-boost-mcp": "./dist/cli.js"
+    "llm-boost-mcp": "dist/cli.js"
   },
   "files": [
     "dist"
