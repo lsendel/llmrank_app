@@ -105,7 +105,8 @@ app.get("/.well-known/oauth-authorization-server", (c) => {
 // OAuth 2.1 endpoints
 // ---------------------------------------------------------------------------
 app.get("/oauth/authorize", async (c) => {
-  return handleAuthorizeGet(c);
+  const storage = createOAuthStorage(c.env.KV);
+  return handleAuthorizeGet(c, storage);
 });
 
 app.post("/oauth/authorize", async (c) => {

@@ -47,14 +47,60 @@ function extractOAuthParams(
 }
 
 /**
+ * Validate redirect_uri against the client's registered URIs (RFC 7591 / OAuth 2.1).
+ * If the client was registered via DCR, the redirect_uri MUST exactly match one of
+ * the registered values. Unregistered clients (pre-DCR) are allowed through.
+ */
+async function validateRedirectUri(
+  storage: OAuthStorage,
+  clientId: string,
+  redirectUri: string,
+): Promise<string | null> {
+  const client = await storage.getClient(clientId);
+  if (!client) {
+    // Client not registered via DCR — allow (backwards compat for stdio clients)
+    return null;
+  }
+
+  const registeredUris = client.redirect_uris as string[] | undefined;
+  if (!registeredUris || registeredUris.length === 0) {
+    // Client registered without redirect_uris — allow any HTTPS URI
+    return null;
+  }
+
+  // Exact match required (OAuth 2.1 Section 7.12)
+  if (!registeredUris.includes(redirectUri)) {
+    return `redirect_uri does not match any registered URIs for this client`;
+  }
+
+  return null;
+}
+
+/**
  * GET /oauth/authorize — render the login + consent page.
  */
-export async function handleAuthorizeGet(c: Context): Promise<Response> {
+export async function handleAuthorizeGet(
+  c: Context,
+  storage: OAuthStorage,
+): Promise<Response> {
   const params = extractOAuthParams((k) => c.req.query(k));
   const error = validateParams(params);
 
   if (error) {
     return c.json({ error: "invalid_request", error_description: error }, 400);
+  }
+
+  // Validate redirect_uri against registered client
+  const redirectError = await validateRedirectUri(
+    storage,
+    params.client_id,
+    params.redirect_uri,
+  );
+  if (redirectError) {
+    return c.json(
+      { error: "invalid_request", error_description: redirectError },
+      400,
+    );
   }
 
   const html = renderConsentPage({
@@ -74,11 +120,16 @@ export async function handleAuthorizeGet(c: Context): Promise<Response> {
  *
  * The form includes hidden OAuth fields + email/password.
  * Flow:
- *   1. Validate OAuth params
+ *   1. Validate OAuth params + redirect_uri against registered client
  *   2. Sign in via Better Auth (api.llmrank.app)
- *   3. Create an MCP API token for the user
+ *   3. Create an MCP API token for the user (separate from OAuth token)
  *   4. Generate auth code, store in KV
  *   5. Redirect to client with auth code
+ *
+ * Note on token passthrough (MCP spec compliance):
+ * The OAuth access token issued to the client is NOT passed to the upstream API.
+ * Instead, the gateway creates a separate internal `llmb_` API token during
+ * authorization and uses that for upstream calls. This avoids confused deputy.
  */
 export async function handleAuthorizePost(
   c: Context,
@@ -96,6 +147,19 @@ export async function handleAuthorizePost(
   if (paramError) {
     return c.json(
       { error: "invalid_request", error_description: paramError },
+      400,
+    );
+  }
+
+  // Validate redirect_uri against registered client
+  const redirectError = await validateRedirectUri(
+    storage,
+    params.client_id,
+    params.redirect_uri,
+  );
+  if (redirectError) {
+    return c.json(
+      { error: "invalid_request", error_description: redirectError },
       400,
     );
   }
@@ -153,7 +217,7 @@ export async function handleAuthorizePost(
   ).getSetCookie?.() ?? [signInRes.headers.get("set-cookie") ?? ""];
   const sessionCookie = setCookies
     .filter(Boolean)
-    .find((c: string) => c.startsWith("better-auth.session_token="));
+    .find((ck: string) => ck.startsWith("better-auth.session_token="));
 
   if (sessionCookie) {
     const cookieValue = sessionCookie.split(";")[0];
@@ -186,6 +250,10 @@ export async function handleAuthorizePost(
 
 /**
  * Create MCP token, generate auth code, redirect.
+ *
+ * The internal `llmb_` token created here is a SEPARATE credential from the
+ * OAuth access token the client will receive. The gateway never passes the
+ * client's OAuth token to the upstream API (no token passthrough).
  */
 async function completeAuthorization(
   c: Context,
@@ -236,7 +304,7 @@ async function completeAuthorization(
   const authCode = {
     code,
     clientId: params.client_id,
-    userId: apiToken, // Store the MCP token as userId — used by token exchange
+    userId: apiToken, // Store the internal API token — used by token exchange
     scopes: requestedScopes,
     redirectUri: params.redirect_uri,
     codeChallenge: params.code_challenge,
