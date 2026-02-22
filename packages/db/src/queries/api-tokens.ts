@@ -6,7 +6,8 @@ export function apiTokenQueries(db: Database) {
   return {
     async create(data: {
       userId: string;
-      projectId: string;
+      projectId: string | null;
+      type: string;
       name: string;
       tokenHash: string;
       tokenPrefix: string;
@@ -36,6 +37,7 @@ export function apiTokenQueries(db: Database) {
           name: apiTokens.name,
           tokenPrefix: apiTokens.tokenPrefix,
           scopes: apiTokens.scopes,
+          type: apiTokens.type,
           projectId: apiTokens.projectId,
           lastUsedAt: apiTokens.lastUsedAt,
           expiresAt: apiTokens.expiresAt,

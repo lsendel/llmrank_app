@@ -38,18 +38,37 @@ function buildService(c: {
 tokenRoutes.post("/", async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json<{
-    projectId: string;
+    projectId?: string;
     name: string;
-    scopes: TokenScope[];
+    type?: "api" | "mcp";
+    scopes?: TokenScope[];
     expiresAt?: string;
   }>();
 
-  if (!body.projectId || !body.name || !body.scopes?.length) {
+  const tokenType = body.type ?? "api";
+
+  if (!body.name || !["api", "mcp"].includes(tokenType)) {
     return c.json(
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: "projectId, name, and scopes are required",
+          message: "name is required and type must be 'api' or 'mcp'",
+        },
+      },
+      422,
+    );
+  }
+
+  // For MCP tokens, auto-assign all scopes; for API tokens, use provided scopes
+  const scopes: TokenScope[] =
+    tokenType === "mcp" ? [...ALL_TOKEN_SCOPES] : (body.scopes ?? []);
+
+  if (tokenType === "api" && scopes.length === 0) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "scopes are required for API tokens",
         },
       },
       422,
@@ -57,7 +76,7 @@ tokenRoutes.post("/", async (c) => {
   }
 
   // Validate scopes
-  const invalidScopes = body.scopes.filter(
+  const invalidScopes = scopes.filter(
     (s) => !(ALL_TOKEN_SCOPES as readonly string[]).includes(s),
   );
   if (invalidScopes.length > 0) {
@@ -89,9 +108,10 @@ tokenRoutes.post("/", async (c) => {
     const result = await service.create({
       userId,
       userPlan: user.plan as PlanTier,
-      projectId: body.projectId,
+      projectId: body.projectId ?? null,
+      type: tokenType,
       name: body.name,
-      scopes: body.scopes,
+      scopes,
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
     });
 

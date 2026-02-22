@@ -1038,9 +1038,10 @@ export const apiTokens = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    type: text("type").notNull().default("api"),
     name: text("name").notNull(),
     tokenHash: text("token_hash").notNull(),
     tokenPrefix: text("token_prefix").notNull(),

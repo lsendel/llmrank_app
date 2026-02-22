@@ -12,7 +12,8 @@ export type { TokenScope };
 export interface ApiToken {
   id: string;
   userId: string;
-  projectId: string;
+  projectId: string | null;
+  type: string;
   name: string;
   tokenHash: string;
   tokenPrefix: string;
@@ -26,14 +27,15 @@ export interface ApiToken {
 export interface TokenContext {
   tokenId: string;
   userId: string;
-  projectId: string;
+  projectId: string | null;
   scopes: TokenScope[];
 }
 
 export interface CreateTokenInput {
   userId: string;
   userPlan: PlanTier;
-  projectId: string;
+  projectId: string | null;
+  type: string;
   name: string;
   scopes: TokenScope[];
   expiresAt?: Date;
@@ -45,7 +47,10 @@ export interface CreateTokenInput {
 
 export interface ApiTokenRepository {
   create(
-    data: Omit<ApiToken, "id" | "lastUsedAt" | "revokedAt" | "createdAt">,
+    data: Omit<ApiToken, "id" | "lastUsedAt" | "revokedAt" | "createdAt"> & {
+      projectId: string | null;
+      type: string;
+    },
   ): Promise<ApiToken>;
   findByHash(tokenHash: string): Promise<ApiToken | null>;
   listByUser(userId: string): Promise<Omit<ApiToken, "tokenHash">[]>;
@@ -109,12 +114,14 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     async create(
       input: CreateTokenInput,
     ): Promise<{ plainToken: string; token: ApiToken }> {
-      // 1. Verify project ownership
-      await assertProjectOwnership(
-        deps.projects,
-        input.userId,
-        input.projectId,
-      );
+      // 1. Verify project ownership (only for project-scoped tokens)
+      if (input.projectId) {
+        await assertProjectOwnership(
+          deps.projects,
+          input.userId,
+          input.projectId,
+        );
+      }
 
       // 2. Enforce plan limits
       const limits = PLAN_LIMITS[input.userPlan];
@@ -144,6 +151,7 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
       const token = await deps.apiTokens.create({
         userId: input.userId,
         projectId: input.projectId,
+        type: input.type,
         name: input.name,
         tokenHash,
         tokenPrefix,
