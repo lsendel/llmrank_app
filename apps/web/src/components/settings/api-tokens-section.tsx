@@ -56,6 +56,23 @@ const allScopes = [
   { value: "visibility:read", label: "Visibility (read)" },
 ];
 
+const mcpSetupSnippets = {
+  "Claude Code": `claude mcp add llm-boost \\
+  --env LLM_BOOST_API_TOKEN=TOKEN \\
+  -- npx -y @llmrank.app/mcp`,
+  "Cursor / Claude Desktop / Windsurf": `{
+  "mcpServers": {
+    "llm-boost": {
+      "command": "npx",
+      "args": ["-y", "@llmrank.app/mcp"],
+      "env": {
+        "LLM_BOOST_API_TOKEN": "TOKEN"
+      }
+    }
+  }
+}`,
+};
+
 export function ApiTokensSection() {
   const { withAuth } = useApi();
 
@@ -83,6 +100,7 @@ export function ApiTokensSection() {
   const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
   const [revokingToken, setRevokingToken] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
+  const [tokenType, setTokenType] = useState<"api" | "mcp">("mcp");
 
   const maxTokens = tokenLimits[billing?.plan ?? "free"] ?? 0;
   const canUseTokens = billing?.plan === "pro" || billing?.plan === "agency";
@@ -99,7 +117,7 @@ export function ApiTokensSection() {
       setTokenError("Token name is required.");
       return;
     }
-    if (tokenScopes.length === 0) {
+    if (tokenType === "api" && tokenScopes.length === 0) {
       setTokenError("Select at least one scope.");
       return;
     }
@@ -107,11 +125,12 @@ export function ApiTokensSection() {
     try {
       const result = await api.tokens.create({
         name: tokenName.trim(),
+        type: tokenType,
         projectId:
-          tokenProjectId && tokenProjectId !== "all"
+          tokenType === "api" && tokenProjectId && tokenProjectId !== "all"
             ? tokenProjectId
             : undefined,
-        scopes: tokenScopes,
+        scopes: tokenType === "api" ? tokenScopes : undefined,
       });
       setCreatedToken(result);
       await mutateTokens();
@@ -143,6 +162,7 @@ export function ApiTokensSection() {
     setTokenName("");
     setTokenProjectId("");
     setTokenScopes(["metrics:read"]);
+    setTokenType("mcp");
     setTokenError(null);
     setTokenCopied(false);
   }
@@ -261,6 +281,26 @@ export function ApiTokensSection() {
                         </Button>
                       </div>
                     </div>
+                    {tokenType === "mcp" && (
+                      <div className="space-y-3">
+                        <Label>Setup Instructions</Label>
+                        {Object.entries(mcpSetupSnippets).map(
+                          ([name, snippet]) => (
+                            <div key={name} className="space-y-1">
+                              <p className="text-xs font-medium text-muted-foreground">
+                                {name}
+                              </p>
+                              <pre className="rounded-lg bg-muted p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                                {snippet.replace(
+                                  /TOKEN/g,
+                                  createdToken.plaintext,
+                                )}
+                              </pre>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    )}
                   </div>
                   <DialogFooter>
                     <Button onClick={resetTokenDialog}>Done</Button>
@@ -276,11 +316,39 @@ export function ApiTokensSection() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
+                    {/* Token type */}
+                    <div className="space-y-2">
+                      <Label>Token Type</Label>
+                      <Select
+                        value={tokenType}
+                        onValueChange={(v) => setTokenType(v as "api" | "mcp")}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mcp">
+                            MCP Server (recommended)
+                          </SelectItem>
+                          <SelectItem value="api">API Token</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {tokenType === "mcp"
+                          ? "Full access for Claude Code, Cursor, and other AI coding tools."
+                          : "Limited scopes for custom API integrations."}
+                      </p>
+                    </div>
+
                     {/* Token name */}
                     <div className="space-y-2">
                       <Label>Name</Label>
                       <Input
-                        placeholder="e.g. CI pipeline, Dashboard integration"
+                        placeholder={
+                          tokenType === "mcp"
+                            ? "e.g. Claude Code, Cursor"
+                            : "e.g. CI pipeline, Dashboard integration"
+                        }
                         value={tokenName}
                         onChange={(e) => {
                           setTokenName(e.target.value);
@@ -289,47 +357,51 @@ export function ApiTokensSection() {
                       />
                     </div>
 
-                    {/* Project selector */}
-                    <div className="space-y-2">
-                      <Label>Project (optional)</Label>
-                      <Select
-                        value={tokenProjectId}
-                        onValueChange={setTokenProjectId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="All projects" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All projects</SelectItem>
-                          {projectsData?.data.map((project) => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name} ({project.domain})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Scopes */}
-                    <div className="space-y-2">
-                      <Label>Scopes</Label>
+                    {/* Project selector — API tokens only */}
+                    {tokenType === "api" && (
                       <div className="space-y-2">
-                        {allScopes.map((scope) => (
-                          <label
-                            key={scope.value}
-                            className="flex items-center gap-2 text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={tokenScopes.includes(scope.value)}
-                              onChange={() => toggleScope(scope.value)}
-                              className="rounded border-input"
-                            />
-                            {scope.label}
-                          </label>
-                        ))}
+                        <Label>Project (optional)</Label>
+                        <Select
+                          value={tokenProjectId}
+                          onValueChange={setTokenProjectId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="All projects" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All projects</SelectItem>
+                            {projectsData?.data.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name} ({project.domain})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Scopes — API tokens only */}
+                    {tokenType === "api" && (
+                      <div className="space-y-2">
+                        <Label>Scopes</Label>
+                        <div className="space-y-2">
+                          {allScopes.map((scope) => (
+                            <label
+                              key={scope.value}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={tokenScopes.includes(scope.value)}
+                                onChange={() => toggleScope(scope.value)}
+                                className="rounded border-input"
+                              />
+                              {scope.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {tokenError && (
                       <p className="text-sm text-destructive">{tokenError}</p>
@@ -379,6 +451,12 @@ export function ApiTokensSection() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium">{token.name}</p>
+                      <Badge
+                        variant={token.type === "mcp" ? "default" : "outline"}
+                        className="text-xs"
+                      >
+                        {token.type === "mcp" ? "MCP" : "API"}
+                      </Badge>
                       <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
                         {token.prefix}...
                       </code>

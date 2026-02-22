@@ -9,7 +9,7 @@ import { createMonitoringService } from "../services/monitoring-service";
 import { createNotificationService } from "../services/notification-service";
 import { handleServiceError } from "../services/errors";
 import { StripeGateway } from "@llm-boost/billing";
-import { promoQueries, billingQueries } from "@llm-boost/db";
+import { promoQueries, billingQueries, apiTokenQueries } from "@llm-boost/db";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -240,6 +240,47 @@ adminRoutes.post("/customers/:id/cancel-subscription", async (c) => {
   } catch (error) {
     return handleServiceError(c, error);
   }
+});
+
+// ─── GET /customers/:id/tokens — List user's API tokens ─────
+
+adminRoutes.get("/customers/:id/tokens", async (c) => {
+  const targetId = c.req.param("id");
+  const db = c.get("db");
+  const tokens = await apiTokenQueries(db).listByUser(targetId);
+  return c.json({ data: tokens });
+});
+
+// ─── DELETE /customers/:id/tokens/:tokenId — Admin revoke token ─
+
+adminRoutes.delete("/customers/:id/tokens/:tokenId", async (c) => {
+  const adminId = c.get("userId");
+  const targetId = c.req.param("id");
+  const tokenId = c.req.param("tokenId");
+  const db = c.get("db");
+
+  // Verify token belongs to this user
+  const tokens = await apiTokenQueries(db).listByUser(targetId);
+  const owned = tokens.some((t) => t.id === tokenId);
+  if (!owned) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Token not found" } },
+      404,
+    );
+  }
+
+  const revoked = await apiTokenQueries(db).revoke(tokenId);
+
+  const service = buildAdminService(c);
+  await service.recordAction({
+    actorId: adminId,
+    action: "revoke_token",
+    targetType: "api_token",
+    targetId: tokenId,
+    reason: `Admin revoked token for user ${targetId}`,
+  });
+
+  return c.json({ data: revoked });
 });
 
 // ─── GET /promos — List all promo codes ─────────────────────────

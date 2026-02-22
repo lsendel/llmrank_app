@@ -1032,6 +1032,7 @@ export interface ApiTokenInfo {
   id: string;
   name: string;
   prefix: string;
+  type: string;
   scopes: string[];
   projectId: string | null;
   lastUsedAt: string | null;
@@ -1045,8 +1046,9 @@ export interface ApiTokenWithPlaintext extends ApiTokenInfo {
 
 export interface CreateTokenInput {
   name: string;
+  type?: "api" | "mcp";
   projectId?: string;
-  scopes: string[];
+  scopes?: string[];
 }
 
 export interface ScoringProfile {
