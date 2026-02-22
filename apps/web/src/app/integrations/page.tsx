@@ -12,7 +12,7 @@ import {
 export const metadata: Metadata = {
   title: "SEO Integrations & Connections",
   description:
-    "Connect LLM Boost with Google Search Console, Google Analytics, WordPress, Slack, and more to supercharge your AI SEO strategy.",
+    "Connect LLM Boost with Google Search Console, Google Analytics, MCP for AI coding agents, WordPress, Slack, and more to supercharge your AI SEO strategy.",
   alternates: { canonical: "/integrations" },
   openGraph: {
     title: "Integrations | LLM Boost",
@@ -46,6 +46,19 @@ const INTEGRATIONS = [
       "Compare AI vs. organic traffic quality",
     ],
     status: "Available",
+  },
+  {
+    name: "MCP Server",
+    description:
+      "Connect your AI coding agent to LLM Boost via the Model Context Protocol (MCP). Get 27 SEO tools — crawl sites, score pages, check AI visibility, and generate fixes — directly from Claude Code, Cursor, VS Code, Windsurf, or ChatGPT. Install from npm and configure in under 2 minutes.",
+    features: [
+      "27 tools for AI-readiness analysis from your IDE",
+      "Works with Claude Code, Cursor, VS Code, Windsurf, ChatGPT",
+      "HTTP transport with OAuth 2.1 for cloud-based agents",
+      "Pre-built prompts for site audits, fix plans, and competitor analysis",
+    ],
+    status: "Available",
+    link: "/mcp",
   },
   {
     name: "WordPress Plugin",
@@ -171,15 +184,23 @@ export default function IntegrationsPage() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  variant={
-                    integration.status === "Available" ? "default" : "outline"
-                  }
-                  disabled={integration.status !== "Available"}
-                  className="w-full"
-                >
-                  {integration.status === "Available" ? "Connect" : "Notify Me"}
-                </Button>
+                {"link" in integration && integration.link ? (
+                  <Link href={integration.link as string}>
+                    <Button className="w-full">View Setup Guide</Button>
+                  </Link>
+                ) : (
+                  <Button
+                    variant={
+                      integration.status === "Available" ? "default" : "outline"
+                    }
+                    disabled={integration.status !== "Available"}
+                    className="w-full"
+                  >
+                    {integration.status === "Available"
+                      ? "Connect"
+                      : "Notify Me"}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}

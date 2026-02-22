@@ -29,11 +29,26 @@ The scoring engine evaluates four categories:
 - Integrations with Google Search Console, Google Analytics, WordPress
 - Score trend tracking over time
 
+## MCP Server
+
+LLM Boost provides a Model Context Protocol (MCP) server with 27 tools for AI coding agents. Install via npm:
+
+```
+npm install @llmrank.app/mcp
+```
+
+Available tools: list_projects, get_project, create_project, start_crawl, get_crawl_status, list_crawls, get_site_score, compare_scores, get_score_history, list_pages, get_page_details, list_issues, get_fix_recommendation, generate_fix, check_visibility, list_visibility_history, suggest_queries, analyze_content, suggest_meta_tags, check_llms_txt, validate_schema, get_recommendations, get_content_gaps, discover_keywords, list_competitors, compare_competitor, generate_report.
+
+Supported IDEs: Claude Code, Cursor, Claude Desktop, VS Code, Windsurf, Perplexity.
+HTTP transport: https://mcp.llmrank.app/v1/mcp (OAuth 2.1 with PKCE).
+
 ## Links
 
 - [Homepage](https://llmrank.app)
 - [Pricing](https://llmrank.app/pricing)
 - [Integrations](https://llmrank.app/integrations)
 - [Free Scan](https://llmrank.app/scan)
+- [MCP Server](https://llmrank.app/mcp)
+- [npm Package](https://www.npmjs.com/package/@llmrank.app/mcp)
 - [Terms of Service](https://llmrank.app/terms)
 - [Privacy Policy](https://llmrank.app/privacy)
