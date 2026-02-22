@@ -1,0 +1,13 @@
+name = "llm-boost-mcp-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[vars]
+API_BASE_URL = "https://api.llmboost.io"
+
+[[kv_namespaces]]
+binding = "KV"
+id = ""  # TODO: Create KV namespace via `wrangler kv namespace create KV`
+
+# Secrets (via wrangler secret put):
+# DATABASE_URL — for OAuth token storage (future)
