@@ -8,15 +8,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@llmrank.app/mcp": "workspace:*",
     "@llm-boost/shared": "workspace:*",
+    "@llmrank.app/mcp": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "hono": "^4.12.1",
     "zod": "^3.24"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4",
+    "@cloudflare/workers-types": "^4.20260228.0",
     "typescript": "^5.7",
-    "wrangler": "^3"
+    "wrangler": "^4.67.0"
   }
 }

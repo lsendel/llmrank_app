@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createOAuthStorage } from "./oauth/storage";
-import { handleAuthorize } from "./oauth/authorization";
+import { handleAuthorizeGet, handleAuthorizePost } from "./oauth/authorization";
 import { handleToken } from "./oauth/token";
 import { oauthMiddleware } from "./oauth/middleware";
 import { handleMcpRequest, type AuthenticatedUser } from "./mcp-handler";
@@ -67,8 +67,12 @@ app.get("/.well-known/oauth-authorization-server", (c) => {
 
 // OAuth 2.1 endpoints
 app.get("/oauth/authorize", async (c) => {
+  return handleAuthorizeGet(c);
+});
+
+app.post("/oauth/authorize", async (c) => {
   const storage = createOAuthStorage(c.env.KV);
-  return handleAuthorize(c, storage);
+  return handleAuthorizePost(c, storage, c.env.API_BASE_URL);
 });
 
 app.post("/oauth/token", async (c) => {
