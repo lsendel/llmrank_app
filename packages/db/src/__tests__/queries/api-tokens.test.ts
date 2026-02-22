@@ -79,6 +79,7 @@ describe("apiTokenQueries", () => {
     const result = await queries.create({
       userId: "u1",
       projectId: "p1",
+      type: "api",
       name: "My Token",
       tokenHash: "hash123",
       tokenPrefix: "llmb_",
