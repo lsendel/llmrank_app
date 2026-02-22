@@ -13,6 +13,11 @@ export function registerScoreTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId }) => {
       try {
@@ -44,6 +49,11 @@ export function registerScoreTools(server: McpServer, ctx: ToolContext): void {
         crawlIdA: z.string().uuid().describe("Earlier crawl ID (baseline)"),
         crawlIdB: z.string().uuid().describe("Later crawl ID (comparison)"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId: _projectId, crawlIdA, crawlIdB }) => {
       try {
@@ -81,6 +91,11 @@ export function registerScoreTools(server: McpServer, ctx: ToolContext): void {
           .default(10)
           .describe("Number of historical data points"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, limit }) => {
       try {

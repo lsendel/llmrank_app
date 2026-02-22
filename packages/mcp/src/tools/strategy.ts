@@ -16,6 +16,11 @@ export function registerStrategyTools(
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId }) => {
       try {
@@ -45,6 +50,11 @@ export function registerStrategyTools(
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId }) => {
       try {

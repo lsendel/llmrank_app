@@ -27,6 +27,11 @@ export function registerCrawlTools(server: McpServer, ctx: ToolContext): void {
           .optional()
           .describe("Maximum crawl depth from homepage"),
       }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, maxPages, maxDepth }) => {
       try {
@@ -58,6 +63,11 @@ export function registerCrawlTools(server: McpServer, ctx: ToolContext): void {
         projectId: z.string().uuid().describe("Project ID"),
         crawlId: z.string().uuid().describe("Crawl job ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId: _projectId, crawlId }) => {
       try {
@@ -95,6 +105,11 @@ export function registerCrawlTools(server: McpServer, ctx: ToolContext): void {
           .default(10)
           .describe("Number of crawls to return"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, limit }) => {
       try {

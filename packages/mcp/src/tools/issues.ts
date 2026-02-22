@@ -21,6 +21,11 @@ export function registerIssueTools(server: McpServer, ctx: ToolContext): void {
           .optional()
           .describe("Filter by category"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, severity, category }) => {
       try {
@@ -55,6 +60,11 @@ export function registerIssueTools(server: McpServer, ctx: ToolContext): void {
         projectId: z.string().uuid().describe("Project ID"),
         issueId: z.string().uuid().describe("Issue ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, issueId }) => {
       try {

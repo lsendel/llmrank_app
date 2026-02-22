@@ -16,6 +16,11 @@ export function registerCompetitorTools(
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId }) => {
       try {
@@ -46,6 +51,11 @@ export function registerCompetitorTools(
         projectId: z.string().uuid().describe("Project ID"),
         competitorId: z.string().uuid().describe("Competitor ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, competitorId: _competitorId }) => {
       try {

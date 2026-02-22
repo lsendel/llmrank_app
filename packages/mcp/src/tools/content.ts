@@ -17,6 +17,11 @@ export function registerContentTools(
         projectId: z.string().uuid().describe("Project ID"),
         pageId: z.string().uuid().describe("Page ID to analyze"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId: _projectId, pageId }) => {
       try {
@@ -47,6 +52,11 @@ export function registerContentTools(
         projectId: z.string().uuid().describe("Project ID"),
         pageId: z.string().uuid().describe("Page ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, pageId }) => {
       try {

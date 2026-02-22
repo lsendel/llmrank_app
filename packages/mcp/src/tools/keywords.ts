@@ -16,6 +16,11 @@ export function registerKeywordTools(
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project ID"),
       }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId }) => {
       try {

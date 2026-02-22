@@ -14,6 +14,11 @@ export function registerProjectTools(
       description:
         "List all projects in the user's account with their domains and latest scores",
       inputSchema: z.object({}),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async () => {
       try {
@@ -46,6 +51,11 @@ export function registerProjectTools(
           .uuid()
           .describe("The UUID of the project to retrieve"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId }) => {
       try {
@@ -79,6 +89,11 @@ export function registerProjectTools(
           .min(1)
           .describe("Domain to crawl (e.g., example.com)"),
       }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ name, domain }) => {
       try {

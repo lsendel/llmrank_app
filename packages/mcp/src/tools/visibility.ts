@@ -34,6 +34,11 @@ export function registerVisibilityTools(
           .optional()
           .describe("Platforms to check (defaults to all)"),
       }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: true,
+      },
     },
     async ({ projectId, query, platforms }) => {
       try {
@@ -65,6 +70,11 @@ export function registerVisibilityTools(
         projectId: z.string().uuid().describe("Project ID"),
         limit: z.number().int().min(1).max(100).optional().default(20),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, limit }) => {
       try {

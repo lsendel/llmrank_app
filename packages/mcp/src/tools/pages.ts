@@ -21,6 +21,11 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
           .describe("Sort field"),
         order: z.enum(["asc", "desc"]).optional().default("desc"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, page, limit, sortBy, order }) => {
       try {
@@ -57,6 +62,11 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
         projectId: z.string().uuid().describe("Project ID"),
         pageId: z.string().uuid().describe("Page ID"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId: _projectId, pageId }) => {
       try {

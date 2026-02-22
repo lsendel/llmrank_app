@@ -21,6 +21,11 @@ export function registerQueryTools(server: McpServer, ctx: ToolContext): void {
           .default(5)
           .describe("Number of queries to suggest"),
       }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, count }) => {
       try {

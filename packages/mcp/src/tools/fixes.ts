@@ -17,6 +17,11 @@ export function registerFixTools(server: McpServer, ctx: ToolContext): void {
           .string()
           .describe("Issue code (e.g., MISSING_LLMS_TXT, THIN_CONTENT)"),
       }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, pageId, issueCode }) => {
       try {

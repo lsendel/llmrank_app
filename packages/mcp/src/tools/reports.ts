@@ -18,6 +18,11 @@ export function registerReportTools(server: McpServer, ctx: ToolContext): void {
           .default("markdown")
           .describe("Report output format"),
       }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
     },
     async ({ projectId, format }) => {
       try {
