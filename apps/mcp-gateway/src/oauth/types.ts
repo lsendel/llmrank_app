@@ -33,24 +33,5 @@ export interface RefreshToken {
   expiresAt: number; // Unix timestamp (30 days)
 }
 
-export const MCP_SCOPES = [
-  "projects:read",
-  "projects:write",
-  "crawls:read",
-  "crawls:write",
-  "pages:read",
-  "scores:read",
-  "issues:read",
-  "visibility:read",
-  "visibility:write",
-  "fixes:write",
-  "strategy:read",
-  "competitors:read",
-  "keywords:write",
-  "queries:write",
-  "reports:write",
-  "content:read",
-  "technical:read",
-] as const;
-
-export type McpScope = (typeof MCP_SCOPES)[number];
+// Re-export from shared — single source of truth for scope definitions
+export { MCP_SCOPES, type McpScope } from "@llm-boost/shared";

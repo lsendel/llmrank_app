@@ -2,11 +2,14 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { apiTokenQueries, userQueries, projectQueries } from "@llm-boost/db";
-import type { PlanTier } from "@llm-boost/shared";
+import {
+  type PlanTier,
+  ALL_TOKEN_SCOPES,
+  type TokenScope,
+} from "@llm-boost/shared";
 import {
   createApiTokenService,
   type ApiTokenRepository,
-  type TokenScope,
 } from "../services/api-token-service";
 import { handleServiceError } from "../services/errors";
 
@@ -54,12 +57,9 @@ tokenRoutes.post("/", async (c) => {
   }
 
   // Validate scopes
-  const validScopes: TokenScope[] = [
-    "metrics:read",
-    "scores:read",
-    "visibility:read",
-  ];
-  const invalidScopes = body.scopes.filter((s) => !validScopes.includes(s));
+  const invalidScopes = body.scopes.filter(
+    (s) => !(ALL_TOKEN_SCOPES as readonly string[]).includes(s),
+  );
   if (invalidScopes.length > 0) {
     return c.json(
       {
