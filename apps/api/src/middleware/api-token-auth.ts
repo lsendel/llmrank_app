@@ -78,6 +78,22 @@ export const apiTokenAuth = createMiddleware<AppEnv>(async (c, next) => {
     );
   }
 
+  // Check user status
+  if (user.status !== "active") {
+    return c.json(
+      {
+        error: {
+          code: "ACCOUNT_SUSPENDED",
+          message:
+            user.status === "banned"
+              ? "Your account has been permanently banned."
+              : "Your account has been suspended.",
+        },
+      },
+      403,
+    );
+  }
+
   const plan = user.plan as PlanTier;
   const limits = PLAN_LIMITS[plan];
   const rateLimit = limits.apiRateLimit;

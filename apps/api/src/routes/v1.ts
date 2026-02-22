@@ -22,6 +22,10 @@ function requireProjectAccess(
   tokenCtx: TokenContext,
   projectId: string,
 ): string | null {
+  // Account-wide tokens (null projectId) can access any project
+  if (tokenCtx.projectId === null) {
+    return null;
+  }
   if (tokenCtx.projectId !== projectId) {
     return "Token is not authorized for this project";
   }
