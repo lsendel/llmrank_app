@@ -1,6 +1,6 @@
 {
   "name": "@llmrank.app/mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "LLM Boost MCP Server — SEO optimization tools for AI agents",
   "type": "module",
   "main": "./dist/index.js",
@@ -9,7 +9,8 @@
     "llm-boost-mcp": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
