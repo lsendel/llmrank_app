@@ -10,10 +10,5 @@ API_BASE_URL = "https://api.llmrank.app"
 binding = "KV"
 id = "1253976636c64d6c83ad2e936ac97c75"
 
-# Custom domain — requires DNS CNAME: mcp.llmrank.app → llm-boost-mcp-gateway.luis-diaz-s.workers.dev
-[[routes]]
-pattern = "mcp.llmrank.app/*"
-zone_name = "llmrank.app"
-
-# Secrets (via wrangler secret put):
-# DATABASE_URL — for OAuth token storage (future)
+# Custom domain: mcp.llmrank.app (managed via Cloudflare Workers Custom Domains API)
+# DNS + SSL auto-provisioned by Cloudflare
