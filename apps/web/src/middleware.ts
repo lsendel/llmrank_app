@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 const PROTECTED_ROUTES = ["/dashboard", "/onboarding"];
 const AUTH_ROUTES = ["/sign-in", "/sign-up"];
+const ALWAYS_ALLOWED = ["/sign-out"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -12,6 +13,11 @@ export function middleware(request: NextRequest) {
     request.cookies.get("better-auth.session_token") ??
     request.cookies.get("__Secure-better-auth.session_token");
   const hasSession = !!sessionCookie?.value;
+
+  // Always allow sign-out
+  if (ALWAYS_ALLOWED.some((route) => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
 
   // Redirect unauthenticated users away from protected routes
   const isProtected = PROTECTED_ROUTES.some((route) =>
@@ -38,5 +44,6 @@ export const config = {
     "/onboarding/:path*",
     "/sign-in/:path*",
     "/sign-up/:path*",
+    "/sign-out",
   ],
 };

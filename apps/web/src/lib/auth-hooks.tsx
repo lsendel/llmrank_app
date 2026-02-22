@@ -3,6 +3,15 @@
 import React, { type ReactNode } from "react";
 import { useSession, signOut as betterSignOut } from "./auth-client";
 import { useRouter } from "next/navigation";
+import { LogOut, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -61,18 +70,41 @@ export function UserButton() {
   if (!user) return null;
 
   return (
-    <div
-      className="flex items-center gap-2 cursor-pointer"
-      onClick={async () => {
-        await betterSignOut();
-        router.push("/sign-in");
-      }}
-    >
-      <img
-        src={user.image}
-        alt={user.name ?? "User"}
-        className="h-8 w-8 rounded-full border"
-      />
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <img
+            src={user.image}
+            alt={user.name ?? "User"}
+            className="h-8 w-8 rounded-full border"
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+          <Settings className="mr-2 h-4 w-4" />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={async () => {
+            await betterSignOut();
+            window.location.href = "/sign-in";
+          }}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
