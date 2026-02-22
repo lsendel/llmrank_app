@@ -31,8 +31,8 @@ export function registerCrawlTools(server: McpServer, ctx: ToolContext): void {
     async ({ projectId, maxPages, maxDepth }) => {
       try {
         const result = await ctx.client.post<{ data: unknown }>(
-          `/api/projects/${projectId}/crawls`,
-          { maxPages, maxDepth },
+          `/api/crawls/`,
+          { projectId, maxPages, maxDepth },
         );
         return {
           content: [
@@ -59,10 +59,10 @@ export function registerCrawlTools(server: McpServer, ctx: ToolContext): void {
         crawlId: z.string().uuid().describe("Crawl job ID"),
       }),
     },
-    async ({ projectId, crawlId }) => {
+    async ({ projectId: _projectId, crawlId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/crawls/${crawlId}`,
+          `/api/crawls/${crawlId}`,
         );
         return {
           content: [
@@ -99,7 +99,7 @@ export function registerCrawlTools(server: McpServer, ctx: ToolContext): void {
     async ({ projectId, limit }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/crawls?limit=${limit}`,
+          `/api/crawls/project/${projectId}?limit=${limit}`,
         );
         return {
           content: [

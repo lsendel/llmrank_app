@@ -31,7 +31,7 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
           order,
         });
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/pages?${params}`,
+          `/api/v1/projects/${projectId}/pages?${params}`,
         );
         return {
           content: [
@@ -58,10 +58,10 @@ export function registerPageTools(server: McpServer, ctx: ToolContext): void {
         pageId: z.string().uuid().describe("Page ID"),
       }),
     },
-    async ({ projectId, pageId }) => {
+    async ({ projectId: _projectId, pageId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/pages/${pageId}`,
+          `/api/pages/${pageId}`,
         );
         return {
           content: [

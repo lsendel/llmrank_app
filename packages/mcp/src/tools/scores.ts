@@ -45,10 +45,10 @@ export function registerScoreTools(server: McpServer, ctx: ToolContext): void {
         crawlIdB: z.string().uuid().describe("Later crawl ID (comparison)"),
       }),
     },
-    async ({ projectId, crawlIdA, crawlIdB }) => {
+    async ({ projectId: _projectId, crawlIdA, crawlIdB }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/crawls/compare?crawlA=${crawlIdA}&crawlB=${crawlIdB}`,
+          `/api/crawls/${crawlIdA}/compare/${crawlIdB}`,
         );
         return {
           content: [
@@ -85,7 +85,7 @@ export function registerScoreTools(server: McpServer, ctx: ToolContext): void {
     async ({ projectId, limit }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/scores/history?limit=${limit}`,
+          `/api/crawls/project/${projectId}/history?limit=${limit}`,
         );
         return {
           content: [

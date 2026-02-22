@@ -54,13 +54,9 @@ function createGatewayMcpServer(
   };
 
   // Helper to proxy API calls
-  async function apiCall<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
+  async function apiCall<T>(path: string, body?: unknown): Promise<T> {
     const response = await fetch(`${apiBaseUrl}${path}`, {
-      method,
+      method: body ? "POST" : "GET",
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -148,10 +144,10 @@ function createGatewayMcpServer(
     },
     async ({ projectId, maxPages }) => {
       try {
-        const result = await apiCall<{ data: unknown }>(
-          `/api/projects/${projectId}/crawls`,
-          { maxPages },
-        );
+        const result = await apiCall<{ data: unknown }>(`/api/crawls/`, {
+          projectId,
+          maxPages,
+        });
         return formatResult(result.data);
       } catch (e) {
         return formatError(e);
@@ -194,7 +190,7 @@ function createGatewayMcpServer(
       try {
         const qs = severity ? `?severity=${severity}` : "";
         const result = await apiCall<{ data: unknown }>(
-          `/api/projects/${projectId}/issues${qs}`,
+          `/api/v1/projects/${projectId}/issues${qs}`,
         );
         return formatResult(result.data);
       } catch (e) {
@@ -216,8 +212,8 @@ function createGatewayMcpServer(
     async ({ projectId, query }) => {
       try {
         const result = await apiCall<{ data: unknown }>(
-          `/api/projects/${projectId}/visibility/check`,
-          { query },
+          `/api/visibility/check`,
+          { projectId, query },
         );
         return formatResult(result.data);
       } catch (e) {

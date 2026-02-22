@@ -18,10 +18,10 @@ export function registerContentTools(
         pageId: z.string().uuid().describe("Page ID to analyze"),
       }),
     },
-    async ({ projectId, pageId }) => {
+    async ({ projectId: _projectId, pageId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/pages/${pageId}/content-analysis`,
+          `/api/scores/page/${pageId}`,
         );
         return {
           content: [

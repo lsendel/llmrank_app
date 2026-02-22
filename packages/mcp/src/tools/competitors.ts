@@ -20,7 +20,7 @@ export function registerCompetitorTools(
     async ({ projectId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/competitors`,
+          `/api/competitors?projectId=${projectId}`,
         );
         return {
           content: [
@@ -47,10 +47,10 @@ export function registerCompetitorTools(
         competitorId: z.string().uuid().describe("Competitor ID"),
       }),
     },
-    async ({ projectId, competitorId }) => {
+    async ({ projectId, competitorId: _competitorId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/competitors/${competitorId}/compare`,
+          `/api/competitors/comparison/${projectId}`,
         );
         return {
           content: [

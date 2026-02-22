@@ -25,7 +25,7 @@ export function registerQueryTools(server: McpServer, ctx: ToolContext): void {
     async ({ projectId, count }) => {
       try {
         const result = await ctx.client.post<{ data: unknown }>(
-          `/api/projects/${projectId}/visibility/suggest-queries`,
+          `/api/visibility/${projectId}/suggest-keywords`,
           { count },
         );
         return {

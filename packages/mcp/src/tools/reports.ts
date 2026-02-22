@@ -22,8 +22,8 @@ export function registerReportTools(server: McpServer, ctx: ToolContext): void {
     async ({ projectId, format }) => {
       try {
         const result = await ctx.client.post<{ data: unknown }>(
-          `/api/projects/${projectId}/reports/generate`,
-          { format },
+          `/api/reports/generate`,
+          { projectId, format },
         );
         return {
           content: [

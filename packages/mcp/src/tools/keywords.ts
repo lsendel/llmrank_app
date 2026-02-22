@@ -20,7 +20,7 @@ export function registerKeywordTools(
     async ({ projectId }) => {
       try {
         const result = await ctx.client.post<{ data: unknown }>(
-          `/api/projects/${projectId}/keywords/discover`,
+          `/api/visibility/${projectId}/discover-keywords`,
           {},
         );
         return {

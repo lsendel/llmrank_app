@@ -20,7 +20,7 @@ export function registerStrategyTools(
     async ({ projectId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/strategy/recommendations`,
+          `/api/visibility/${projectId}/recommendations`,
         );
         return {
           content: [
@@ -49,7 +49,7 @@ export function registerStrategyTools(
     async ({ projectId }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/strategy/content-gaps`,
+          `/api/visibility/${projectId}/gaps`,
         );
         return {
           content: [

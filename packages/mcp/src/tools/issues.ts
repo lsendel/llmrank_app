@@ -29,7 +29,7 @@ export function registerIssueTools(server: McpServer, ctx: ToolContext): void {
         if (category) params.set("category", category);
         const qs = params.toString() ? `?${params}` : "";
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/issues${qs}`,
+          `/api/v1/projects/${projectId}/issues${qs}`,
         );
         return {
           content: [

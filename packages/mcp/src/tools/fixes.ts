@@ -21,8 +21,8 @@ export function registerFixTools(server: McpServer, ctx: ToolContext): void {
     async ({ projectId, pageId, issueCode }) => {
       try {
         const result = await ctx.client.post<{ data: unknown }>(
-          `/api/projects/${projectId}/fixes/generate`,
-          { pageId, issueCode },
+          `/api/fixes/generate`,
+          { projectId, pageId, issueCode },
         );
         return {
           content: [

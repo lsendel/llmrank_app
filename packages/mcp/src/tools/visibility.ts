@@ -38,8 +38,8 @@ export function registerVisibilityTools(
     async ({ projectId, query, platforms }) => {
       try {
         const result = await ctx.client.post<{ data: unknown }>(
-          `/api/projects/${projectId}/visibility/check`,
-          { query, platforms },
+          `/api/visibility/check`,
+          { projectId, query, platforms },
         );
         return {
           content: [
@@ -69,7 +69,7 @@ export function registerVisibilityTools(
     async ({ projectId, limit }) => {
       try {
         const result = await ctx.client.get<{ data: unknown }>(
-          `/api/projects/${projectId}/visibility?limit=${limit}`,
+          `/api/visibility/${projectId}?limit=${limit}`,
         );
         return {
           content: [
