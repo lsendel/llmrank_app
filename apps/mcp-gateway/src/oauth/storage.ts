@@ -48,6 +48,20 @@ export function createOAuthStorage(kv: KVNamespace) {
     async deleteRefreshToken(token: string): Promise<void> {
       await kv.delete(`oauth:refresh:${token}`);
     },
+
+    // Dynamic Client Registration (RFC 7591)
+    async storeClient(
+      clientId: string,
+      client: Record<string, unknown>,
+    ): Promise<void> {
+      await kv.put(`oauth:client:${clientId}`, JSON.stringify(client));
+    },
+
+    async getClient(clientId: string): Promise<Record<string, unknown> | null> {
+      const data = await kv.get(`oauth:client:${clientId}`);
+      if (!data) return null;
+      return JSON.parse(data) as Record<string, unknown>;
+    },
   };
 }
 
