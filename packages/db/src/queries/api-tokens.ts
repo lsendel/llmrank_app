@@ -45,7 +45,7 @@ export function apiTokenQueries(db: Database) {
           createdAt: apiTokens.createdAt,
         })
         .from(apiTokens)
-        .where(eq(apiTokens.userId, userId))
+        .where(and(eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt)))
         .orderBy(apiTokens.createdAt);
     },
 

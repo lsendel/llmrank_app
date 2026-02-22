@@ -58,7 +58,7 @@ const allScopes = [
 
 const mcpSetupSnippets = {
   "Claude Code": `claude mcp add llm-boost \\
-  --env LLM_BOOST_API_TOKEN=TOKEN \\
+  --env LLM_BOOST_API_TOKEN=__VALUE__ \\
   -- npx -y @llmrank.app/mcp`,
   "Cursor / Claude Desktop / Windsurf": `{
   "mcpServers": {
@@ -66,7 +66,7 @@ const mcpSetupSnippets = {
       "command": "npx",
       "args": ["-y", "@llmrank.app/mcp"],
       "env": {
-        "LLM_BOOST_API_TOKEN": "TOKEN"
+        "LLM_BOOST_API_TOKEN": "__VALUE__"
       }
     }
   }
@@ -292,7 +292,7 @@ export function ApiTokensSection() {
                               </p>
                               <pre className="rounded-lg bg-muted p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
                                 {snippet.replace(
-                                  /TOKEN/g,
+                                  /__VALUE__/g,
                                   createdToken.plaintext,
                                 )}
                               </pre>

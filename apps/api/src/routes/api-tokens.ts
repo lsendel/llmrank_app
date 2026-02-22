@@ -115,10 +115,19 @@ tokenRoutes.post("/", async (c) => {
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
     });
 
+    const t = result.token;
     return c.json(
       {
         data: {
-          ...result.token,
+          id: t.id,
+          name: t.name,
+          prefix: t.tokenPrefix,
+          type: t.type,
+          scopes: t.scopes,
+          projectId: t.projectId,
+          lastUsedAt: t.lastUsedAt,
+          createdAt: t.createdAt,
+          expiresAt: t.expiresAt,
           plaintext: result.plainToken,
         },
       },
@@ -139,7 +148,19 @@ tokenRoutes.get("/", async (c) => {
 
   try {
     const tokens = await service.list(userId);
-    return c.json({ data: tokens });
+    return c.json({
+      data: tokens.map((t) => ({
+        id: t.id,
+        name: t.name,
+        prefix: t.tokenPrefix,
+        type: t.type,
+        scopes: t.scopes,
+        projectId: t.projectId,
+        lastUsedAt: t.lastUsedAt,
+        createdAt: t.createdAt,
+        expiresAt: t.expiresAt,
+      })),
+    });
   } catch (error) {
     return handleServiceError(c, error);
   }
