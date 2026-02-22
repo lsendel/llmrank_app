@@ -242,7 +242,11 @@ export function ApiTokensSection() {
                 Create Token
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent
+              className={
+                createdToken ? "sm:max-w-2xl max-h-[85vh] overflow-y-auto" : ""
+              }
+            >
               {createdToken ? (
                 <>
                   <DialogHeader>
@@ -264,11 +268,12 @@ export function ApiTokensSection() {
                         <Input
                           readOnly
                           value={createdToken.plaintext}
-                          className="font-mono text-sm"
+                          className="min-w-0 font-mono text-xs"
                         />
                         <Button
                           variant="outline"
-                          size="sm"
+                          size="icon"
+                          className="shrink-0"
                           onClick={() =>
                             copyToClipboard(createdToken.plaintext)
                           }
@@ -285,19 +290,33 @@ export function ApiTokensSection() {
                       <div className="space-y-3">
                         <Label>Setup Instructions</Label>
                         {Object.entries(mcpSetupSnippets).map(
-                          ([name, snippet]) => (
-                            <div key={name} className="space-y-1">
-                              <p className="text-xs font-medium text-muted-foreground">
-                                {name}
-                              </p>
-                              <pre className="rounded-lg bg-muted p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
-                                {snippet.replace(
-                                  /__VALUE__/g,
-                                  createdToken.plaintext,
-                                )}
-                              </pre>
-                            </div>
-                          ),
+                          ([name, snippet]) => {
+                            const resolved = snippet.replace(
+                              /__VALUE__/g,
+                              createdToken.plaintext,
+                            );
+                            return (
+                              <div key={name} className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-medium text-muted-foreground">
+                                    {name}
+                                  </p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs text-muted-foreground"
+                                    onClick={() => copyToClipboard(resolved)}
+                                  >
+                                    <Copy className="mr-1 h-3 w-3" />
+                                    Copy
+                                  </Button>
+                                </div>
+                                <pre className="rounded-lg bg-muted p-3 text-xs font-mono overflow-x-auto">
+                                  {resolved}
+                                </pre>
+                              </div>
+                            );
+                          },
                         )}
                       </div>
                     )}
@@ -462,15 +481,24 @@ export function ApiTokensSection() {
                       </code>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {token.scopes.map((scope) => (
+                      {token.type === "mcp" ? (
                         <Badge
-                          key={scope}
                           variant="secondary"
                           className="text-xs font-normal"
                         >
-                          {scope}
+                          Full access
                         </Badge>
-                      ))}
+                      ) : (
+                        token.scopes.map((scope) => (
+                          <Badge
+                            key={scope}
+                            variant="secondary"
+                            className="text-xs font-normal"
+                          >
+                            {scope}
+                          </Badge>
+                        ))
+                      )}
                       <span className="text-xs text-muted-foreground">
                         Created {new Date(token.createdAt).toLocaleDateString()}
                       </span>
