@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Settings,
   ShieldCheck,
+  Receipt,
 } from "lucide-react";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
@@ -17,6 +18,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 const baseSidebarLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
+  { href: "/dashboard/billing", label: "Billing", icon: Receipt },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
