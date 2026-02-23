@@ -17,14 +17,9 @@ import {
 import { createNotificationService } from "./notification-service";
 import { createRegressionService } from "./regression-service";
 import { createFrontierService } from "./frontier-service";
-import { createDb, outboxEvents } from "@llm-boost/db";
-import { runAutoVisibilityChecks } from "./auto-visibility-service";
-import { runAutoNarrativeRegeneration } from "./auto-narrative-service";
-import { runAutoPersonaGeneration } from "./auto-persona-service";
-import { runAutoReportGeneration } from "./auto-report-service";
-import { runAutoCompetitorDiscovery } from "./auto-competitor-service";
-import { runAutoKeywordGeneration } from "./auto-keyword-service";
-import { runAutoSiteDescription } from "./auto-site-description-service";
+import { createDb, outboxEvents, projectQueries } from "@llm-boost/db";
+import { createPipelineService } from "./pipeline-service";
+import { createAuditService } from "./audit-service";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -184,96 +179,30 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         }
       }
 
-      // Auto-run visibility checks (fire-and-forget)
-      if (batch.is_final) {
-        args.executionCtx.waitUntil(
-          runAutoVisibilityChecks({
-            databaseUrl: env.databaseUrl,
-            projectId,
-            apiKeys: {
-              chatgpt: env.openaiApiKey ?? "",
-              claude: env.anthropicApiKey ?? "",
-              perplexity: env.perplexityApiKey ?? "",
-              gemini: env.googleApiKey ?? "",
-              copilot: env.bingApiKey ?? "",
-              gemini_ai_mode: env.googleApiKey ?? "",
-              grok: env.xaiApiKey ?? "",
-            },
-          }).catch(() => {}),
-        );
-      }
-
-      // Auto-regenerate narrative (fire-and-forget)
+      // Run AI intelligence pipeline (replaces individual auto-service calls)
       if (batch.is_final && env.anthropicApiKey) {
-        args.executionCtx.waitUntil(
-          runAutoNarrativeRegeneration({
-            databaseUrl: env.databaseUrl,
-            projectId,
-            crawlJobId,
-            anthropicApiKey: env.anthropicApiKey,
-          }).catch(() => {}),
-        );
-      }
+        const db = createDb(env.databaseUrl);
+        const project = await projectQueries(db).getById(projectId);
+        const settings = (project?.pipelineSettings ?? {}) as Record<
+          string,
+          unknown
+        >;
 
-      // Auto-generate personas on first crawl (fire-and-forget)
-      if (batch.is_final && env.anthropicApiKey) {
-        args.executionCtx.waitUntil(
-          runAutoPersonaGeneration({
+        if (settings.autoRunOnCrawl !== false) {
+          const audit = createAuditService(db);
+          const pipeline = createPipelineService(db, audit, {
             databaseUrl: env.databaseUrl,
-            projectId,
-            anthropicApiKey: env.anthropicApiKey,
-          }).catch(() => {}),
-        );
-      }
-
-      // Auto-generate summary report (fire-and-forget)
-      if (batch.is_final && env.reportServiceUrl && env.sharedSecret) {
-        args.executionCtx.waitUntil(
-          runAutoReportGeneration({
-            databaseUrl: env.databaseUrl,
-            projectId,
-            crawlJobId,
-            reportServiceUrl: env.reportServiceUrl,
-            sharedSecret: env.sharedSecret,
-          }).catch(() => {}),
-        );
-      }
-
-      // Auto-detect site description and industry (fire-and-forget)
-      if (batch.is_final && env.anthropicApiKey) {
-        args.executionCtx.waitUntil(
-          runAutoSiteDescription({
-            databaseUrl: env.databaseUrl,
-            projectId,
-            crawlJobId,
-            anthropicApiKey: env.anthropicApiKey,
-          }).catch(() => {}),
-        );
-      }
-
-      // Auto-discover competitors on first crawl (fire-and-forget)
-      if (batch.is_final && env.anthropicApiKey) {
-        args.executionCtx.waitUntil(
-          runAutoCompetitorDiscovery({
-            databaseUrl: env.databaseUrl,
-            projectId,
             anthropicApiKey: env.anthropicApiKey,
             perplexityApiKey: env.perplexityApiKey,
             grokApiKey: env.xaiApiKey,
-          }).catch(() => {}),
-        );
-      }
+            reportServiceUrl: env.reportServiceUrl,
+            sharedSecret: env.sharedSecret,
+          });
 
-      // Auto-generate seed keywords on first crawl (fire-and-forget)
-      if (batch.is_final && env.anthropicApiKey) {
-        args.executionCtx.waitUntil(
-          runAutoKeywordGeneration({
-            databaseUrl: env.databaseUrl,
-            projectId,
-            crawlJobId,
-            anthropicApiKey: env.anthropicApiKey,
-          }).catch(() => {}),
-        );
+          args.executionCtx.waitUntil(
+            pipeline.start(projectId, crawlJobId).catch(() => {}),
+          );
+        }
       }
 
       // New: Recursive Link Discovery (Infinite Scaling)

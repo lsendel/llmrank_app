@@ -277,72 +277,24 @@ projectRoutes.post(
       );
     }
 
-    const jobId = latestCrawl.id;
-    const promises: Promise<unknown>[] = [];
+    const { createPipelineService } =
+      await import("../services/pipeline-service");
+    const { createAuditService } = await import("../services/audit-service");
 
-    // Auto site description
-    if (c.env.ANTHROPIC_API_KEY) {
-      const { runAutoSiteDescription } =
-        await import("../services/auto-site-description-service");
-      promises.push(
-        runAutoSiteDescription({
-          databaseUrl: c.env.DATABASE_URL,
-          projectId,
-          crawlJobId: jobId,
-          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
-        }).catch((e) => console.error("auto-site-description failed:", e)),
-      );
-    }
+    const audit = createAuditService(db);
+    const pipeline = createPipelineService(db, audit, {
+      databaseUrl: c.env.DATABASE_URL,
+      anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+      perplexityApiKey: c.env.PERPLEXITY_API_KEY,
+      grokApiKey: c.env.XAI_API_KEY,
+      reportServiceUrl: c.env.REPORT_SERVICE_URL,
+      sharedSecret: c.env.CRAWLER_SHARED_SECRET,
+    });
 
-    // Auto personas
-    if (c.env.ANTHROPIC_API_KEY) {
-      const { runAutoPersonaGeneration } =
-        await import("../services/auto-persona-service");
-      promises.push(
-        runAutoPersonaGeneration({
-          databaseUrl: c.env.DATABASE_URL,
-          projectId,
-          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
-        }).catch((e) => console.error("auto-persona failed:", e)),
-      );
-    }
-
-    // Auto keywords
-    if (c.env.ANTHROPIC_API_KEY) {
-      const { runAutoKeywordGeneration } =
-        await import("../services/auto-keyword-service");
-      promises.push(
-        runAutoKeywordGeneration({
-          databaseUrl: c.env.DATABASE_URL,
-          projectId,
-          crawlJobId: jobId,
-          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
-        }).catch((e) => console.error("auto-keyword failed:", e)),
-      );
-    }
-
-    // Auto competitors (runs after site description, give it a head start)
-    if (c.env.ANTHROPIC_API_KEY) {
-      const { runAutoCompetitorDiscovery } =
-        await import("../services/auto-competitor-service");
-      promises.push(
-        runAutoCompetitorDiscovery({
-          databaseUrl: c.env.DATABASE_URL,
-          projectId,
-          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
-          perplexityApiKey: c.env.PERPLEXITY_API_KEY,
-          grokApiKey: c.env.XAI_API_KEY,
-        }).catch((e) => console.error("auto-competitor failed:", e)),
-      );
-    }
-
-    const results = await Promise.allSettled(promises);
-    const summary = results.map((r, i) => ({
-      service: ["site-description", "personas", "keywords", "competitors"][i],
-      status: r.status,
-      error: r.status === "rejected" ? String(r.reason) : undefined,
-    }));
-    return c.json({ data: { status: "complete", services: summary } });
+    const run = await pipeline.start(projectId, latestCrawl.id);
+    return c.json({
+      data: { pipelineRunId: run?.id, status: run?.status },
+    });
   },
 );
 
