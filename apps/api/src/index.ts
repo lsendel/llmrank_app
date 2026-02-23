@@ -53,6 +53,7 @@ import { narrativeRoutes } from "./routes/narratives";
 import { actionItemRoutes } from "./routes/action-items";
 import { alertRoutes } from "./routes/alerts";
 import { trialRoutes } from "./routes/trial";
+import { appRoutes } from "./routes/app";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -106,6 +107,9 @@ export type Variables = {
   // Ownership middleware sets these
   project?: any; // Set by withOwnership("project")
   crawl?: any; // Set by withOwnership("crawl")
+  // HTMX middleware
+  isHtmx: boolean;
+  hxTarget: string | null;
 };
 
 export type AppEnv = {
@@ -224,6 +228,9 @@ app.route("/api/narratives", narrativeRoutes);
 app.route("/api/action-items", actionItemRoutes);
 app.route("/api/alerts", alertRoutes);
 app.route("/api/trial", trialRoutes);
+
+// HTMX app routes (server-rendered HTML pages)
+app.route("/app", appRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
