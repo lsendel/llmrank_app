@@ -145,6 +145,48 @@ describe("BillingService", () => {
     ).rejects.toThrow("No active subscription");
   });
 
+  // ---- downgrade (paid-to-paid) ----
+
+  it("updates local plan immediately on paid-to-paid downgrade", async () => {
+    billing.getActiveSubscription.mockResolvedValue({
+      id: "sub-1",
+      stripeSubscriptionId: "sub_stripe_1",
+    } as any);
+
+    const mockGetSubscription = vi.fn().mockResolvedValue({
+      id: "sub_stripe_1",
+      items: { data: [{ id: "si_item1" }] },
+    });
+    const mockUpdatePrice = vi.fn().mockResolvedValue(undefined);
+
+    // Re-mock gateway with getSubscription + updateSubscriptionPrice
+    const { StripeGateway } = await import("@llm-boost/billing");
+    (StripeGateway as any).mockImplementation(() => ({
+      ...mockGateway,
+      getSubscription: mockGetSubscription,
+      updateSubscriptionPrice: mockUpdatePrice,
+    }));
+
+    const service = createBillingService({ billing, users });
+    const result = await service.downgrade({
+      userId: "user-1",
+      targetPlan: "starter",
+      stripeSecretKey: "sk_test_key",
+    });
+
+    expect(result).toEqual({ downgraded: true, targetPlan: "starter" });
+    expect(mockUpdatePrice).toHaveBeenCalledWith(
+      "sub_stripe_1",
+      "si_item1",
+      "price_starter",
+    );
+    expect(users.updatePlan).toHaveBeenCalledWith(
+      "user-1",
+      "starter",
+      "sub_stripe_1",
+    );
+  });
+
   // ---- portal ----
 
   it("creates portal session for user with Stripe customer ID", async () => {

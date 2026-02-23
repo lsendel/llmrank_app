@@ -267,7 +267,18 @@ billingRoutes.post("/webhook", async (c) => {
   }
 
   const db = c.get("db");
-  await handleWebhook(event, db, c.env.STRIPE_SECRET_KEY);
+  try {
+    await handleWebhook(event, db, c.env.STRIPE_SECRET_KEY);
+  } catch (err) {
+    const log = c.get("logger");
+    log.error("Stripe webhook handler failed", {
+      eventType: event.type,
+      eventId: event.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // Return 200 to prevent Stripe retry storms for application errors.
+    // The error is logged for investigation.
+  }
 
   return c.json({ received: true });
 });

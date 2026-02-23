@@ -23,9 +23,15 @@ const mockUsers = {
   updateProfile: vi.fn().mockResolvedValue(undefined),
 };
 
+const mockPromos = {
+  list: vi.fn().mockResolvedValue([]),
+  incrementRedeemed: vi.fn().mockResolvedValue(undefined),
+};
+
 vi.mock("@llm-boost/db", () => ({
   billingQueries: () => mockBilling,
   userQueries: () => mockUsers,
+  promoQueries: () => mockPromos,
 }));
 
 // Mock the StripeGateway that webhooks.ts instantiates
@@ -129,6 +135,89 @@ describe("handleWebhook", () => {
       await expect(handleWebhook(event, fakeDb, fakeKey)).rejects.toThrow(
         "missing subscription",
       );
+    });
+
+    it("persists stripeCustomerId on first checkout", async () => {
+      mockUsers.getById.mockResolvedValue({
+        id: "user-1",
+        stripeCustomerId: null,
+      });
+
+      const event = makeEvent("checkout.session.completed", {
+        client_reference_id: "user-1",
+        subscription: "sub_stripe_1",
+        customer: "cus_new_123",
+      });
+
+      await handleWebhook(event, fakeDb, fakeKey);
+
+      expect(mockUsers.updateProfile).toHaveBeenCalledWith("user-1", {
+        stripeCustomerId: "cus_new_123",
+      });
+    });
+
+    it("increments promo timesRedeemed when discount present", async () => {
+      mockPromos.list.mockResolvedValue([
+        { id: "promo-1", stripeCouponId: "coupon_abc", code: "SAVE20" },
+        { id: "promo-2", stripeCouponId: "coupon_xyz", code: "SAVE50" },
+      ]);
+
+      const event = makeEvent("checkout.session.completed", {
+        client_reference_id: "user-1",
+        subscription: "sub_stripe_1",
+        customer: "cus_1",
+        discount: { coupon: { id: "coupon_abc" } },
+      });
+
+      await handleWebhook(event, fakeDb, fakeKey);
+
+      expect(mockPromos.incrementRedeemed).toHaveBeenCalledWith("promo-1");
+    });
+
+    it("skips promo increment when no discount applied", async () => {
+      const event = makeEvent("checkout.session.completed", {
+        client_reference_id: "user-1",
+        subscription: "sub_stripe_1",
+        customer: "cus_1",
+      });
+
+      await handleWebhook(event, fakeDb, fakeKey);
+
+      expect(mockPromos.incrementRedeemed).not.toHaveBeenCalled();
+    });
+
+    it("skips promo increment when coupon ID has no matching promo", async () => {
+      mockPromos.list.mockResolvedValue([
+        { id: "promo-1", stripeCouponId: "coupon_other", code: "OTHER" },
+      ]);
+
+      const event = makeEvent("checkout.session.completed", {
+        client_reference_id: "user-1",
+        subscription: "sub_stripe_1",
+        customer: "cus_1",
+        discount: { coupon: { id: "coupon_nonexistent" } },
+      });
+
+      await handleWebhook(event, fakeDb, fakeKey);
+
+      expect(mockPromos.incrementRedeemed).not.toHaveBeenCalled();
+    });
+
+    it("skips updateProfile when stripeCustomerId already set", async () => {
+      mockUsers.getById.mockResolvedValue({
+        id: "user-1",
+        stripeCustomerId: "cus_existing",
+      });
+
+      const event = makeEvent("checkout.session.completed", {
+        client_reference_id: "user-1",
+        subscription: "sub_stripe_1",
+        customer: "cus_existing",
+      });
+
+      await handleWebhook(event, fakeDb, fakeKey);
+
+      expect(mockUsers.updateProfile).not.toHaveBeenCalled();
     });
 
     it("handles upgrade from existing subscription", async () => {

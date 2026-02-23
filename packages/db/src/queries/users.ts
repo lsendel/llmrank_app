@@ -51,6 +51,7 @@ export function userQueries(db: Database) {
         phone?: string;
         onboardingComplete?: boolean;
         persona?: Persona;
+        stripeCustomerId?: string;
       },
     ) {
       const [updated] = await db

@@ -1,4 +1,4 @@
-import { billingQueries, userQueries } from "@llm-boost/db";
+import { billingQueries, userQueries, promoQueries } from "@llm-boost/db";
 import { type PlanTier } from "@llm-boost/shared";
 import type { Database } from "@llm-boost/db";
 import { StripeGateway, type StripeEvent } from "./gateway";
@@ -24,6 +24,7 @@ export async function handleWebhook(
         billing,
         usersQ,
         gateway,
+        db,
       );
       break;
     case "invoice.payment_succeeded":
@@ -60,6 +61,7 @@ async function handleCheckoutCompleted(
   billing: BillingQ,
   usersQ: UsersQ,
   gateway: StripeGateway,
+  db: Database,
 ): Promise<void> {
   const userId = data.client_reference_id as string | undefined;
   if (!userId) {
@@ -103,10 +105,23 @@ async function handleCheckoutCompleted(
   // Update user plan and crawl credits
   await usersQ.updatePlan(userId, planCode as PlanTier, stripeSubId);
 
-  // Update Stripe customer ID on user if needed
+  // Persist Stripe customer ID on user for portal access
   const user = await usersQ.getById(userId);
   if (user && !user.stripeCustomerId) {
-    await usersQ.updateProfile(userId, {});
+    await usersQ.updateProfile(userId, { stripeCustomerId: customerId });
+  }
+
+  // Increment promo redemption if a discount was applied
+  const discount = data.discount as { coupon?: { id?: string } } | null;
+  if (discount?.coupon?.id) {
+    const promosQ = promoQueries(db);
+    const allPromos = await promosQ.list();
+    const matchingPromo = allPromos.find(
+      (p) => p.stripeCouponId === discount.coupon!.id,
+    );
+    if (matchingPromo) {
+      await promosQ.incrementRedeemed(matchingPromo.id);
+    }
   }
 }
 

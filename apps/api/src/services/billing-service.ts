@@ -161,6 +161,13 @@ export function createBillingService(deps: BillingServiceDeps) {
         targetPriceId,
       );
 
+      // Update local plan immediately (webhook will also fire, but idempotent)
+      await deps.users.updatePlan(
+        args.userId,
+        args.targetPlan,
+        subscription.stripeSubscriptionId,
+      );
+
       return { downgraded: true, targetPlan: args.targetPlan };
     },
 
