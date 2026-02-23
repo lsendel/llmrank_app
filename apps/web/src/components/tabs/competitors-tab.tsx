@@ -17,6 +17,7 @@ import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
 import { cn, scoreColor } from "@/lib/utils";
 import { CompetitorDiscoveryBanner } from "@/components/competitor-discovery-banner";
+import { ContentGapAnalysis } from "@/components/content-gap-analysis";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { usePlan } from "@/hooks/use-plan";
 
@@ -227,6 +228,9 @@ export function CompetitorsTab({ projectId }: Props) {
           </CardContent>
         </Card>
       ))}
+
+      {/* Content Gap Analysis */}
+      {competitors.length > 0 && <ContentGapAnalysis projectId={projectId} />}
     </div>
   );
 }
