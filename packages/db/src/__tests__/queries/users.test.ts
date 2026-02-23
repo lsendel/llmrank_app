@@ -177,14 +177,40 @@ describe("userQueries", () => {
   });
 
   // --- updatePlan ---
-  it("updatePlan sets plan and stripeSubId", async () => {
+  it("updatePlan sets plan, stripeSubId, and resets crawl credits", async () => {
     await queries.updatePlan("u8", "pro", "sub_123");
 
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith(
-      expect.objectContaining({ plan: "pro", stripeSubId: "sub_123" }),
+      expect.objectContaining({
+        plan: "pro",
+        stripeSubId: "sub_123",
+        crawlCreditsRemaining: 30,
+      }),
     );
     expect(mock.chain.where).toHaveBeenCalled();
+  });
+
+  it("updatePlan uses 999999 for unlimited (agency) crawl credits", async () => {
+    await queries.updatePlan("u8", "agency", "sub_456");
+
+    expect(mock.chain.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: "agency",
+        crawlCreditsRemaining: 999999,
+      }),
+    );
+  });
+
+  it("updatePlan resets credits to 2 for free plan", async () => {
+    await queries.updatePlan("u8", "free");
+
+    expect(mock.chain.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: "free",
+        crawlCreditsRemaining: 2,
+      }),
+    );
   });
 
   // --- decrementCrawlCredits ---

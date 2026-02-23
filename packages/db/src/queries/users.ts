@@ -1,4 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
+import { PLAN_LIMITS } from "@llm-boost/shared";
 import type { Database } from "../client";
 import { users, planEnum, personaEnum } from "../schema";
 
@@ -63,9 +64,13 @@ export function userQueries(db: Database) {
     },
 
     async updatePlan(id: string, plan: Plan, stripeSubId?: string) {
+      const limits = PLAN_LIMITS[plan];
+      const crawlCreditsRemaining = Number.isFinite(limits.crawlsPerMonth)
+        ? limits.crawlsPerMonth
+        : 999999;
       await db
         .update(users)
-        .set({ plan, stripeSubId, updatedAt: new Date() })
+        .set({ plan, stripeSubId, crawlCreditsRemaining, updatedAt: new Date() })
         .where(eq(users.id, id));
     },
 
