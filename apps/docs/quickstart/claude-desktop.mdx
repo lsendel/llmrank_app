@@ -1,0 +1,66 @@
+---
+title: Claude Desktop
+description: Set up LLM Boost MCP with Claude Desktop
+---
+
+# Claude Desktop Setup
+
+Get LLM Boost tools running in Claude Desktop in under 2 minutes.
+
+## Prerequisites
+
+- [Claude Desktop](https://claude.ai/download) installed
+- An LLM Boost account with an API token
+
+## Step 1: Get Your API Token
+
+1. Go to [llmrank.app/dashboard/settings](https://llmrank.app/dashboard/settings)
+2. Click the **API Tokens** tab
+3. Click **Create Token**
+4. Copy the token (starts with `llmb_`)
+
+## Step 2: Configure Claude Desktop
+
+Open your Claude Desktop config file:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the LLM Boost MCP server:
+
+```json
+{
+  "mcpServers": {
+    "llm-boost": {
+      "command": "npx",
+      "args": ["-y", "@llmrank.app/mcp"],
+      "env": {
+        "LLM_BOOST_API_TOKEN": "llmb_your_token_here"
+      }
+    }
+  }
+}
+```
+
+## Step 3: Restart Claude Desktop
+
+Quit and reopen Claude Desktop. You should see the MCP tools icon in the chat input area.
+
+## Step 4: Try It
+
+Ask Claude:
+
+> "Audit the AI readiness of my site at example.com"
+
+Claude will use the LLM Boost tools to create a project, start a crawl, and analyze results.
+
+## Example Conversations
+
+**Full site audit:**
+> "Create a project for docs.example.com, crawl it, and give me a full AI readiness report"
+
+**Check AI visibility:**
+> "How visible is my site in ChatGPT responses for 'best project management tools'?"
+
+**Fix issues:**
+> "Show me the critical issues on my site and generate fixes for the top 3"

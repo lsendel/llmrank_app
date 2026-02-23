@@ -1,0 +1,61 @@
+---
+title: Programmatic Usage
+description: Use LLM Boost MCP server in custom applications
+---
+
+# Programmatic Usage
+
+Integrate LLM Boost MCP tools into your own AI applications using the MCP SDK.
+
+## Claude Code (CLI)
+
+```bash
+claude mcp add llm-boost \
+  --env LLM_BOOST_API_TOKEN=llmb_xxx \
+  -- npx -y @llmrank.app/mcp
+```
+
+**Team setup** — share config via `.mcp.json` (committed to git):
+
+```bash
+claude mcp add llm-boost --scope project \
+  --env LLM_BOOST_API_TOKEN \
+  -- npx -y @llmrank.app/mcp
+```
+
+Each team member sets `LLM_BOOST_API_TOKEN` in their shell environment.
+
+## VS Code
+
+Add to `.vscode/mcp.json` in your project:
+
+```json
+{
+  "servers": {
+    "llm-boost": {
+      "command": "npx",
+      "args": ["-y", "@llmrank.app/mcp"],
+      "env": {
+        "LLM_BOOST_API_TOKEN": "llmb_xxx"
+      }
+    }
+  }
+}
+```
+
+## Remote (Streamable HTTP)
+
+For remote connections without local Node.js, use the hosted gateway:
+
+```
+https://mcp.llmrank.app/mcp
+```
+
+This endpoint supports OAuth 2.1 with PKCE for authentication. Compatible with ChatGPT and other remote MCP clients.
+
+## Environment Variables
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `LLM_BOOST_API_TOKEN` | Yes | API token from your dashboard |
+| `LLM_BOOST_API_URL` | No | Custom API URL (default: `https://api.llmrank.app`) |

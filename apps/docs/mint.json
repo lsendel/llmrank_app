@@ -1,0 +1,71 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "LLM Boost MCP",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#2563EB",
+    "light": "#3B82F6",
+    "dark": "#1D4ED8"
+  },
+  "topbarLinks": [
+    { "name": "Dashboard", "url": "https://llmrank.app/dashboard" }
+  ],
+  "topbarCtaButton": {
+    "name": "Get API Key",
+    "url": "https://llmrank.app/dashboard/settings"
+  },
+  "tabs": [
+    { "name": "Tools", "url": "tools" },
+    { "name": "Guides", "url": "guides" }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "quickstart/claude-desktop",
+        "quickstart/cursor",
+        "quickstart/programmatic"
+      ]
+    },
+    {
+      "group": "Tools",
+      "pages": [
+        "tools/overview",
+        "tools/projects",
+        "tools/crawls",
+        "tools/pages",
+        "tools/scores",
+        "tools/issues",
+        "tools/visibility",
+        "tools/fixes",
+        "tools/strategy",
+        "tools/competitors",
+        "tools/reports",
+        "tools/content",
+        "tools/technical",
+        "tools/keywords",
+        "tools/queries"
+      ]
+    },
+    {
+      "group": "Resources",
+      "pages": [
+        "resources/scoring-factors",
+        "resources/issue-codes",
+        "resources/platform-requirements"
+      ]
+    },
+    {
+      "group": "Guides",
+      "pages": ["guides/agentic-seo-workflow", "guides/ci-cd-integration"]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/nicholasgriffintn/llmrank-app"
+  }
+}

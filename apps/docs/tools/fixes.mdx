@@ -1,0 +1,29 @@
+---
+title: Fixes
+description: Generate AI-powered fixes for issues
+---
+
+# Fix Tools
+
+## generate_fix
+
+Generate an AI-powered fix for a specific page issue. Returns code snippets, content suggestions, or configuration changes.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `pageId` | string (UUID) | Yes | Page ID |
+| `issueCode` | string | Yes | Issue code (e.g., `MISSING_LLMS_TXT`, `THIN_CONTENT`) |
+
+**Example:**
+```
+"Generate a fix for the MISSING_META_DESC issue on my homepage"
+```
+
+**Common issue codes:**
+- `MISSING_LLMS_TXT` — No llms.txt file found
+- `THIN_CONTENT` — Page content too short
+- `MISSING_TITLE` — No title tag
+- `MISSING_META_DESC` — No meta description
+- `MISSING_SCHEMA` — No structured data
+- `AI_CRAWLER_BLOCKED` — Robots.txt blocks AI crawlers

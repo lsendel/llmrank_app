@@ -1,0 +1,61 @@
+---
+title: CI/CD Integration
+description: Integrate AI-readiness checks into your deployment pipeline
+---
+
+# CI/CD Integration
+
+Run AI-readiness checks as part of your deployment pipeline to catch regressions before they go live.
+
+## Overview
+
+Use the LLM Boost REST API (via API tokens) or MCP server to:
+1. Trigger a crawl after each deployment
+2. Compare scores against the previous crawl
+3. Fail the build if scores drop below a threshold
+
+## API Token Setup
+
+1. Go to [llmrank.app/dashboard/settings](https://llmrank.app/dashboard/settings)
+2. Create an API token with `crawl:write` and `scores:read` scopes
+3. Add `LLM_BOOST_API_TOKEN` to your CI secrets
+
+## GitHub Actions Example
+
+```yaml
+name: AI Readiness Check
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger crawl
+        run: |
+          curl -X POST https://api.llmrank.app/api/crawls/ \
+            -H "Authorization: Bearer ${{ secrets.LLM_BOOST_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"projectId": "${{ vars.PROJECT_ID }}", "maxPages": 50}'
+
+      - name: Wait and check score
+        run: |
+          # Poll for completion, then check score
+          sleep 120
+          SCORE=$(curl -s https://api.llmrank.app/api/v1/projects/${{ vars.PROJECT_ID }}/metrics \
+            -H "Authorization: Bearer ${{ secrets.LLM_BOOST_API_TOKEN }}" \
+            | jq '.data.overallScore')
+          echo "AI Readiness Score: $SCORE"
+          if [ $(echo "$SCORE < 70" | bc) -eq 1 ]; then
+            echo "Score below threshold!"
+            exit 1
+          fi
+```
+
+## Best Practices
+
+- Run checks on staging before production
+- Set score thresholds appropriate for your site maturity
+- Focus on critical issues (AI crawler blocks, missing llms.txt) as hard gates
+- Use score comparisons to catch regressions

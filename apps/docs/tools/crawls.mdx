@@ -1,0 +1,41 @@
+---
+title: Crawls
+description: Start and monitor site crawls
+---
+
+# Crawl Tools
+
+## start_crawl
+
+Start a new crawl for a project. Crawls the domain's pages and scores them for AI-readiness across 37 factors.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project to crawl |
+| `maxPages` | number | No | Maximum pages to crawl (1-2000, limited by plan) |
+| `maxDepth` | number | No | Maximum crawl depth from homepage (1-10) |
+
+**Example:**
+```
+"Start a crawl for my project, limit to 50 pages"
+```
+
+## get_crawl_status
+
+Check the progress of a crawl job.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `crawlId` | string (UUID) | Yes | Crawl job ID |
+
+**Status values:** `pending`, `queued`, `crawling`, `scoring`, `complete`, `failed`
+
+## list_crawls
+
+Get crawl history for a project. Useful for tracking improvements over time.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `limit` | number | No | Number of crawls to return (1-50, default: 10) |

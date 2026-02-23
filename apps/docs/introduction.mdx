@@ -1,0 +1,84 @@
+---
+title: Introduction
+description: AI-readiness SEO tools for your coding agent
+---
+
+# LLM Boost MCP Server
+
+The LLM Boost MCP server gives your AI coding agent direct access to 27 SEO tools purpose-built for AI readiness. Crawl sites, score pages across 37 factors, track AI visibility, and get actionable fixes — all from within your editor.
+
+## What is MCP?
+
+The [Model Context Protocol](https://modelcontextprotocol.io) (MCP) is an open standard that lets AI assistants connect to external tools and data sources. LLM Boost provides an MCP server that exposes SEO analysis capabilities to any MCP-compatible client.
+
+## Capabilities
+
+<CardGroup cols={2}>
+  <Card title="27 Tools" icon="wrench">
+    Crawl sites, analyze pages, check visibility, generate fixes, compare competitors, and more.
+  </Card>
+  <Card title="3 Resources" icon="database">
+    Access scoring factor definitions, issue catalogs, and platform requirements as structured data.
+  </Card>
+  <Card title="3 Prompts" icon="message">
+    Pre-built workflows for site audits, fix plans, and competitor analysis.
+  </Card>
+  <Card title="37 Scoring Factors" icon="chart-bar">
+    Technical (25%), Content (30%), AI Readiness (30%), Performance (15%).
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+Install the MCP server in under a minute:
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add llm-boost \
+      --env LLM_BOOST_API_TOKEN=llmb_xxx \
+      -- npx -y @llmrank.app/mcp
+    ```
+  </Tab>
+  <Tab title="Cursor">
+    Add to `~/.cursor/mcp.json`:
+    ```json
+    {
+      "mcpServers": {
+        "llm-boost": {
+          "command": "npx",
+          "args": ["-y", "@llmrank.app/mcp"],
+          "env": { "LLM_BOOST_API_TOKEN": "llmb_xxx" }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Claude Desktop">
+    Add to `claude_desktop_config.json`:
+    ```json
+    {
+      "mcpServers": {
+        "llm-boost": {
+          "command": "npx",
+          "args": ["-y", "@llmrank.app/mcp"],
+          "env": { "LLM_BOOST_API_TOKEN": "llmb_xxx" }
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+Then try: *"Audit the AI readiness of example.com"*
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Claude Desktop Setup" icon="desktop" href="/quickstart/claude-desktop">
+    Step-by-step guide for Claude Desktop
+  </Card>
+  <Card title="Browse Tools" icon="list" href="/tools/overview">
+    See all 27 available tools
+  </Card>
+</CardGroup>

@@ -1,0 +1,31 @@
+---
+title: Issues
+description: View issues and get fix recommendations
+---
+
+# Issue Tools
+
+## list_issues
+
+List all issues found during a crawl, grouped by severity.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `crawlId` | string (UUID) | Yes | Crawl job ID |
+| `severity` | string | No | Filter: `critical`, `warning`, or `info` |
+| `category` | string | No | Filter: `technical`, `content`, `ai_readiness`, `performance` |
+
+**Severity levels:**
+- **Critical** — Directly blocks AI crawlers or prevents indexing
+- **Warning** — Reduces AI readiness score significantly
+- **Info** — Optimization opportunities
+
+## get_fix_recommendation
+
+Get a detailed fix recommendation for a specific issue, including any AI-generated fix content.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `issueId` | string (UUID) | Yes | Issue ID |

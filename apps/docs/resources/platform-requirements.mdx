@@ -1,0 +1,53 @@
+---
+title: Platform Requirements
+description: AI platform-specific requirements for visibility
+---
+
+# Platform Requirements
+
+Each AI platform has specific requirements for content to be crawled, indexed, and cited in responses.
+
+## ChatGPT (OpenAI)
+
+- **Crawler:** GPTBot
+- **User-Agent:** `GPTBot/1.0`
+- **Robots.txt:** Must not block GPTBot
+- **Key factors:** Content clarity, authoritative sources, structured data
+
+## Claude (Anthropic)
+
+- **Crawler:** ClaudeBot
+- **User-Agent:** `ClaudeBot/1.0`
+- **Robots.txt:** Must not block ClaudeBot
+- **Key factors:** Detailed, well-structured content, citation-worthy prose
+
+## Perplexity
+
+- **Crawler:** PerplexityBot
+- **User-Agent:** `PerplexityBot`
+- **Robots.txt:** Must not block PerplexityBot
+- **Key factors:** FAQ content, direct answers, recent publication dates
+
+## Google Gemini
+
+- **Crawler:** Google-Extended
+- **User-Agent:** `Google-Extended`
+- **Robots.txt:** Must not block Google-Extended
+- **Key factors:** Schema markup, Knowledge Graph entities, E-E-A-T signals
+
+## Microsoft Copilot
+
+- **Crawler:** Bingbot (shared with Bing)
+- **Key factors:** Bing index inclusion, structured data, web markup
+
+## Grok (xAI)
+
+- **Platform:** X/Twitter ecosystem
+- **Key factors:** Social signals, real-time content, authoritative domains
+
+## Accessing via MCP
+
+Use the `platform-requirements` resource:
+```
+Resource URI: llmboost://platform-requirements
+```

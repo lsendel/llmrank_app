@@ -1,0 +1,34 @@
+---
+title: Pages
+description: View and analyze crawled pages
+---
+
+# Page Tools
+
+## list_pages
+
+List crawled pages with their AI-readiness scores. Sortable by score, filterable by grade.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `page` | number | No | Page number (default: 1) |
+| `limit` | number | No | Results per page (1-100, default: 20) |
+| `sortBy` | string | No | Sort field: `score`, `url`, or `issues` (default: `score`) |
+| `order` | string | No | Sort order: `asc` or `desc` (default: `desc`) |
+
+**Example:**
+```
+"Show me the lowest-scoring pages on my site"
+```
+
+## get_page_details
+
+Get full analysis for a specific page: scores per category, all issues with severity, and fix recommendations.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `pageId` | string (UUID) | Yes | Page ID |
+
+**Returns:** Overall score, category scores (technical, content, AI readiness, performance), issues list with recommendations.

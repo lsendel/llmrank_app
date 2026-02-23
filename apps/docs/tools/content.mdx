@@ -1,0 +1,29 @@
+---
+title: Content
+description: Analyze content and get meta tag suggestions
+---
+
+# Content Tools
+
+## analyze_content
+
+Analyze page content for AI readiness. Evaluates content depth, structure, and optimization for AI citation.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `pageId` | string (UUID) | Yes | Page ID |
+
+## suggest_meta_tags
+
+Generate optimized meta tags (title, description, Open Graph) for a page based on its content and AI-readiness best practices.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `pageId` | string (UUID) | Yes | Page ID |
+
+**Example:**
+```
+"Suggest better meta tags for my homepage to improve AI visibility"
+```

@@ -1,0 +1,44 @@
+---
+title: Cursor
+description: Set up LLM Boost MCP with Cursor
+---
+
+# Cursor Setup
+
+Add LLM Boost SEO tools to Cursor for AI-powered code editing with SEO awareness.
+
+## Step 1: Get Your API Token
+
+1. Go to [llmrank.app/dashboard/settings](https://llmrank.app/dashboard/settings)
+2. Click **API Tokens** → **Create Token**
+3. Copy the token (starts with `llmb_`)
+
+## Step 2: Configure Cursor
+
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "llm-boost": {
+      "command": "npx",
+      "args": ["-y", "@llmrank.app/mcp"],
+      "env": {
+        "LLM_BOOST_API_TOKEN": "llmb_your_token_here"
+      }
+    }
+  }
+}
+```
+
+## Step 3: Restart Cursor
+
+Restart Cursor to pick up the new MCP configuration.
+
+## Usage
+
+In Cursor's AI chat, you can now ask:
+
+> "Crawl my site and show me what needs fixing for AI readiness"
+
+> "Check if my blog posts are visible in ChatGPT"

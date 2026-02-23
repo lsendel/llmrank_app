@@ -1,0 +1,32 @@
+---
+title: Strategy
+description: Get recommendations and find content gaps
+---
+
+# Strategy Tools
+
+## get_recommendations
+
+Get a prioritized action plan to improve AI-readiness score. Recommendations are ranked by effort and impact.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+
+**Example:**
+```
+"What should I fix first to improve my AI readiness score?"
+```
+
+## get_content_gaps
+
+Identify content gaps — topics and questions that competitors cover but your site doesn't.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+
+**Example:**
+```
+"What content gaps do I have compared to my competitors?"
+```

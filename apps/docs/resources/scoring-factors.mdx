@@ -1,0 +1,71 @@
+---
+title: Scoring Factors
+description: 37 factors that determine your AI-readiness score
+---
+
+# Scoring Factors
+
+LLM Boost evaluates pages across 37 factors in 4 categories. Each category contributes a weighted percentage to the overall score.
+
+## Score Formula
+
+**Overall = Technical (25%) + Content (30%) + AI Readiness (30%) + Performance (15%)**
+
+Each category starts at 100 and applies deductions per factor found.
+
+## Letter Grades
+
+| Grade | Score Range |
+| --- | --- |
+| A | 90-100 |
+| B | 80-89 |
+| C | 70-79 |
+| D | 60-69 |
+| F | 0-59 |
+
+## Categories
+
+### Technical (25% weight)
+
+Covers site structure, crawlability, and technical SEO fundamentals:
+- Robots.txt configuration
+- Sitemap.xml presence and validity
+- Canonical URL setup
+- HTTP status codes
+- SSL/HTTPS
+- Mobile responsiveness
+
+### Content (30% weight)
+
+Evaluates content quality and optimization:
+- Title tag presence and length
+- Meta description quality
+- Content depth and word count
+- Heading structure (H1, H2, H3)
+- Internal linking
+- Image alt text
+
+### AI Readiness (30% weight)
+
+Specific to AI crawler and LLM citation optimization:
+- llms.txt file presence and validity
+- AI crawler access (not blocked in robots.txt)
+- Structured data (JSON-LD/Schema.org)
+- Content clarity and citation-worthiness
+- FAQ and Q&A content patterns
+- Entity definitions
+
+### Performance (15% weight)
+
+Page load speed and user experience:
+- Core Web Vitals (LCP, CLS, FID)
+- Page load time
+- Resource optimization
+- Image compression
+
+## Accessing via MCP
+
+Use the `scoring-factors` resource:
+```
+Resource URI: llmboost://scoring-factors
+```

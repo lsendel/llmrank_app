@@ -1,0 +1,51 @@
+---
+title: Issue Codes
+description: Complete catalog of issue codes and their meanings
+---
+
+# Issue Codes
+
+Every issue found during a crawl has a unique code, severity level, and category.
+
+## Severity Levels
+
+| Severity | Description |
+| --- | --- |
+| `critical` | Directly blocks AI crawlers or prevents indexing |
+| `warning` | Reduces AI readiness score significantly |
+| `info` | Optimization opportunities |
+
+## Critical Issues
+
+| Code | Description |
+| --- | --- |
+| `MISSING_LLMS_TXT` | No llms.txt file found at site root |
+| `AI_CRAWLER_BLOCKED` | Robots.txt blocks AI crawlers (GPTBot, ClaudeBot, etc.) |
+| `NOINDEX_SET` | Page has noindex meta tag or header |
+| `MISSING_TITLE` | No title tag on the page |
+| `HTTP_STATUS_ERROR` | Page returns 4xx or 5xx status code |
+
+## Warning Issues
+
+| Code | Description |
+| --- | --- |
+| `TITLE_TOO_SHORT` | Title tag under 30 characters |
+| `TITLE_TOO_LONG` | Title tag over 60 characters |
+| `MISSING_META_DESC` | No meta description tag |
+| `META_DESC_TOO_SHORT` | Meta description under 70 characters |
+| `META_DESC_TOO_LONG` | Meta description over 160 characters |
+| `THIN_CONTENT` | Page has less than 300 words |
+| `MISSING_SCHEMA` | No structured data found |
+| `MISSING_OG_TAGS` | Missing Open Graph tags |
+| `INVALID_LLMS_TXT` | llms.txt exists but has format errors |
+| `INCOMPLETE_LLMS_TXT` | llms.txt missing required fields |
+| `MISSING_STRUCTURED_DATA` | No JSON-LD or structured data markup |
+| `INVALID_SCHEMA` | Structured data has validation errors |
+| `INCOMPLETE_SCHEMA` | Structured data missing required properties |
+
+## Accessing via MCP
+
+Use the `issue-catalog` resource:
+```
+Resource URI: llmboost://issue-catalog
+```

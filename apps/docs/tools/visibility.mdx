@@ -1,0 +1,32 @@
+---
+title: Visibility
+description: Check AI search visibility across platforms
+---
+
+# Visibility Tools
+
+## check_visibility
+
+Check if your brand/domain is mentioned or cited in AI search results across 6 platforms.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `query` | string | Yes | Search query to test (3-500 chars) |
+| `platforms` | string[] | No | Platforms to check (defaults to all) |
+
+**Supported platforms:** `chatgpt`, `claude`, `perplexity`, `gemini`, `copilot`, `grok`
+
+**Example:**
+```
+"Check if my site is mentioned when people ask ChatGPT about 'best SEO tools'"
+```
+
+## list_visibility_history
+
+Get historical visibility check results and trends.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `limit` | number | No | Results to return (1-100, default: 20) |

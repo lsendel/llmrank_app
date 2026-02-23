@@ -1,0 +1,44 @@
+---
+title: Projects
+description: Manage projects for site tracking
+---
+
+# Project Tools
+
+## list_projects
+
+List all projects in your account with their domains and latest scores.
+
+**Parameters:** None
+
+**Example:**
+```
+"List all my projects"
+```
+
+## get_project
+
+Get detailed information about a specific project including latest crawl score, domain, and settings.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | The UUID of the project to retrieve |
+
+**Example:**
+```
+"Show me the details for project abc-123"
+```
+
+## create_project
+
+Create a new project by providing a domain to track. The domain will be validated and a project created for crawling.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | Yes | Project display name (1-100 chars) |
+| `domain` | string | Yes | Domain to crawl (e.g., example.com) |
+
+**Example:**
+```
+"Create a new project for docs.example.com called 'Example Docs'"
+```

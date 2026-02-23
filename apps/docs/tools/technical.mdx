@@ -1,0 +1,35 @@
+---
+title: Technical
+description: Validate llms.txt and schema markup
+---
+
+# Technical Tools
+
+## check_llms_txt
+
+Validate a site's llms.txt file — the standard for declaring AI crawler permissions and site information. Checks existence, format compliance, and content completeness.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+
+llms.txt is one of the highest-impact AI-readiness factors. A well-configured llms.txt file tells AI crawlers what your site is about and how to use it.
+
+**Example:**
+```
+"Check if my site has a valid llms.txt file"
+```
+
+## validate_schema
+
+Validate structured data (JSON-LD, Schema.org) on a page. Checks for correct schema types, required properties, and AI-readiness best practices.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `pageId` | string (UUID) | Yes | Page ID |
+
+**Example:**
+```
+"Validate the schema markup on my product pages"
+```

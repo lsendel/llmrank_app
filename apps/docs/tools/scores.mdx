@@ -1,0 +1,41 @@
+---
+title: Scores
+description: View and compare AI-readiness scores
+---
+
+# Score Tools
+
+## get_site_score
+
+Get the overall AI-readiness score for a project. Returns score breakdown across 4 categories.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+
+**Score categories:**
+- **Technical** (25% weight) — Site structure, crawlability, robots.txt
+- **Content** (30% weight) — Quality, depth, meta tags
+- **AI Readiness** (30% weight) — llms.txt, structured data, schema markup
+- **Performance** (15% weight) — Core Web Vitals, load speed
+
+**Grading:** A (90+), B (80-89), C (70-79), D (60-69), F (<60)
+
+## compare_scores
+
+Compare scores between two crawls to see improvements or regressions.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `crawlIdA` | string (UUID) | Yes | Earlier crawl ID (baseline) |
+| `crawlIdB` | string (UUID) | Yes | Later crawl ID (comparison) |
+
+## get_score_history
+
+Get score trends over time for a project.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectId` | string (UUID) | Yes | Project ID |
+| `limit` | number | No | Number of data points (1-50, default: 10) |

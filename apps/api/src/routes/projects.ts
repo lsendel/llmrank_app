@@ -20,6 +20,10 @@ import {
   scheduledVisibilityQueryQueries,
   projectQueries,
   competitorQueries,
+  pageQueries,
+  scoreQueries,
+  contentFixQueries,
+  crawlQueries,
 } from "@llm-boost/db";
 
 export const projectRoutes = new Hono<AppEnv>();
@@ -379,5 +383,213 @@ projectRoutes.post(
 
     await promise;
     return c.json({ data: { status: "complete" } });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /:id/fixes/:issueId/recommendation — Fix recommendation for an issue
+// (Used by MCP tool: get_fix_recommendation)
+// ---------------------------------------------------------------------------
+
+projectRoutes.get(
+  "/:id/fixes/:issueId/recommendation",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const issueId = c.req.param("issueId");
+    const db = c.get("db");
+
+    // Find the issue and its existing recommendation
+    const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+    if (!latestCrawl) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "No crawl data available" } },
+        404,
+      );
+    }
+
+    const jobIssues = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
+    const issue = jobIssues.find((i) => i.id === issueId);
+    if (!issue) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Issue not found" } },
+        404,
+      );
+    }
+
+    // Check for a generated content fix
+    const fixes = await contentFixQueries(db).listByProject(projectId);
+    const generatedFix = fixes.find((f) => f.issueCode === issue.code);
+
+    return c.json({
+      data: {
+        issueId: issue.id,
+        code: issue.code,
+        severity: issue.severity,
+        message: issue.message,
+        recommendation: issue.recommendation,
+        pageUrl: issue.pageUrl,
+        generatedFix: generatedFix
+          ? {
+              id: generatedFix.id,
+              content: generatedFix.generatedFix,
+              status: generatedFix.status,
+              createdAt: generatedFix.createdAt,
+            }
+          : null,
+      },
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:id/pages/:pageId/suggest-meta — AI meta tag suggestions
+// (Used by MCP tool: suggest_meta_tags)
+// ---------------------------------------------------------------------------
+
+projectRoutes.post(
+  "/:id/pages/:pageId/suggest-meta",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const pageId = c.req.param("pageId");
+    const db = c.get("db");
+
+    const page = await pageQueries(db).getById(pageId);
+    if (!page || page.projectId !== projectId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Page not found" } },
+        404,
+      );
+    }
+
+    const project = await projectQueries(db).getById(projectId);
+    const { issues } = await scoreQueries(db).getByPageWithIssues(pageId);
+
+    const metaIssues = issues.filter(
+      (i) =>
+        i.code === "MISSING_TITLE" ||
+        i.code === "TITLE_TOO_SHORT" ||
+        i.code === "TITLE_TOO_LONG" ||
+        i.code === "MISSING_META_DESC" ||
+        i.code === "META_DESC_TOO_SHORT" ||
+        i.code === "META_DESC_TOO_LONG" ||
+        i.code === "MISSING_OG_TAGS",
+    );
+
+    return c.json({
+      data: {
+        pageId,
+        url: page.url,
+        current: {
+          title: page.title,
+          metaDescription: page.metaDesc,
+        },
+        issues: metaIssues.map((i) => ({
+          code: i.code,
+          message: i.message,
+          recommendation: i.recommendation,
+        })),
+        context: {
+          domain: project?.domain,
+          siteDescription: project?.siteDescription,
+          industry: project?.industry,
+          wordCount: page.wordCount,
+        },
+      },
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /:id/technical/llms-txt — llms.txt validation status
+// (Used by MCP tool: check_llms_txt)
+// ---------------------------------------------------------------------------
+
+projectRoutes.get(
+  "/:id/technical/llms-txt",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const db = c.get("db");
+
+    const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+    if (!latestCrawl) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "No crawl data available" } },
+        404,
+      );
+    }
+
+    const jobIssues = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
+    const llmsTxtIssues = jobIssues.filter(
+      (i) =>
+        i.code === "MISSING_LLMS_TXT" ||
+        i.code === "INVALID_LLMS_TXT" ||
+        i.code === "INCOMPLETE_LLMS_TXT",
+    );
+
+    const project = await projectQueries(db).getById(projectId);
+
+    return c.json({
+      data: {
+        domain: project?.domain,
+        hasLlmsTxt: llmsTxtIssues.length === 0,
+        issues: llmsTxtIssues.map((i) => ({
+          code: i.code,
+          severity: i.severity,
+          message: i.message,
+          recommendation: i.recommendation,
+        })),
+      },
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /:id/pages/:pageId/schema-validation — Schema markup validation
+// (Used by MCP tool: validate_schema)
+// ---------------------------------------------------------------------------
+
+projectRoutes.get(
+  "/:id/pages/:pageId/schema-validation",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const pageId = c.req.param("pageId");
+    const db = c.get("db");
+
+    const page = await pageQueries(db).getById(pageId);
+    if (!page || page.projectId !== projectId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Page not found" } },
+        404,
+      );
+    }
+
+    const { issues } = await scoreQueries(db).getByPageWithIssues(pageId);
+
+    const schemaIssues = issues.filter(
+      (i) =>
+        i.code === "MISSING_SCHEMA" ||
+        i.code === "INVALID_SCHEMA" ||
+        i.code === "INCOMPLETE_SCHEMA" ||
+        i.code === "MISSING_STRUCTURED_DATA",
+    );
+
+    return c.json({
+      data: {
+        pageId,
+        url: page.url,
+        hasStructuredData: schemaIssues.length === 0,
+        issues: schemaIssues.map((i) => ({
+          code: i.code,
+          severity: i.severity,
+          message: i.message,
+          recommendation: i.recommendation,
+          data: i.data,
+        })),
+      },
+    });
   },
 );
