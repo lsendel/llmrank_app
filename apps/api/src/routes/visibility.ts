@@ -691,11 +691,31 @@ visibilityRoutes.post(
         ? `Existing keywords (avoid duplicates): ${existing.map((k) => k.keyword).join(", ")}`
         : "";
 
-    const suggestions = await suggestKeywords(
-      c.env.ANTHROPIC_API_KEY,
-      project.domain,
-      context,
-    );
+    let suggestions: string[];
+    try {
+      suggestions = await suggestKeywords(
+        c.env.ANTHROPIC_API_KEY,
+        project.domain,
+        context,
+      );
+    } catch (err) {
+      console.error(
+        "suggestKeywords failed:",
+        err instanceof Error ? err.message : String(err),
+      );
+      return c.json(
+        {
+          error: {
+            code: "LLM_ERROR",
+            message:
+              err instanceof Error
+                ? err.message
+                : "Failed to generate keyword suggestions",
+          },
+        },
+        500,
+      );
+    }
 
     // Filter out duplicates and invalid keywords
     const fresh = suggestions

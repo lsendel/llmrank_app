@@ -11,7 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useApiSWR } from "@/lib/use-api-swr";
-import { api } from "@/lib/api";
+import { api, type DigestPreferences } from "@/lib/api";
+import { Mail } from "lucide-react";
 
 const FREQUENCY_OPTIONS = [
   { value: "off", label: "Off", description: "No email digests" },
@@ -24,20 +25,22 @@ const FREQUENCY_OPTIONS = [
 ] as const;
 
 export function DigestPreferencesSection() {
-  const { data: me, mutate } = useApiSWR(
-    "me",
-    useCallback(() => api.account.getMe(), []),
+  const { data: prefs, mutate } = useApiSWR<DigestPreferences>(
+    "digest-prefs",
+    useCallback(() => api.account.getDigestPreferences(), []),
   );
   const [saving, setSaving] = useState(false);
   const [frequency, setFrequency] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const currentFreq = frequency ?? me?.digestFrequency ?? "off";
+  const currentFreq = frequency ?? prefs?.digestFrequency ?? "off";
 
   async function handleSave() {
     setSaving(true);
     try {
-      await api.account.updateProfile({ digestFrequency: currentFreq });
+      await api.account.updateDigestPreferences({
+        digestFrequency: currentFreq,
+      });
       await mutate();
       toast({ title: "Digest preferences saved" });
     } catch (err: unknown) {
@@ -56,7 +59,10 @@ export function DigestPreferencesSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Email Digests</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Mail className="h-5 w-5" />
+          Email Digests
+        </CardTitle>
         <CardDescription>
           Receive periodic score reports and improvement summaries for all your
           projects.

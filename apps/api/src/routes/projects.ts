@@ -254,6 +254,95 @@ projectRoutes.patch(
 );
 
 // ---------------------------------------------------------------------------
+// POST /:id/rerun-auto-generation — Re-trigger all auto-generation services
+// ---------------------------------------------------------------------------
+
+projectRoutes.post(
+  "/:id/rerun-auto-generation",
+  withOwnership("project"),
+  async (c) => {
+    const projectId = c.req.param("id");
+    const db = c.get("db");
+    const { crawlQueries } = await import("@llm-boost/db");
+    const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+
+    if (!latestCrawl || latestCrawl.status !== "complete") {
+      return c.json(
+        { error: { code: "NO_CRAWL", message: "No completed crawl found" } },
+        400,
+      );
+    }
+
+    const jobId = latestCrawl.id;
+    const promises: Promise<unknown>[] = [];
+
+    // Auto site description
+    if (c.env.ANTHROPIC_API_KEY) {
+      const { runAutoSiteDescription } =
+        await import("../services/auto-site-description-service");
+      promises.push(
+        runAutoSiteDescription({
+          databaseUrl: c.env.DATABASE_URL,
+          projectId,
+          crawlJobId: jobId,
+          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+        }).catch((e) => console.error("auto-site-description failed:", e)),
+      );
+    }
+
+    // Auto personas
+    if (c.env.ANTHROPIC_API_KEY) {
+      const { runAutoPersonaGeneration } =
+        await import("../services/auto-persona-service");
+      promises.push(
+        runAutoPersonaGeneration({
+          databaseUrl: c.env.DATABASE_URL,
+          projectId,
+          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+        }).catch((e) => console.error("auto-persona failed:", e)),
+      );
+    }
+
+    // Auto keywords
+    if (c.env.ANTHROPIC_API_KEY) {
+      const { runAutoKeywordGeneration } =
+        await import("../services/auto-keyword-service");
+      promises.push(
+        runAutoKeywordGeneration({
+          databaseUrl: c.env.DATABASE_URL,
+          projectId,
+          crawlJobId: jobId,
+          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+        }).catch((e) => console.error("auto-keyword failed:", e)),
+      );
+    }
+
+    // Auto competitors (runs after site description, give it a head start)
+    if (c.env.ANTHROPIC_API_KEY) {
+      const { runAutoCompetitorDiscovery } =
+        await import("../services/auto-competitor-service");
+      promises.push(
+        runAutoCompetitorDiscovery({
+          databaseUrl: c.env.DATABASE_URL,
+          projectId,
+          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+          perplexityApiKey: c.env.PERPLEXITY_API_KEY,
+          grokApiKey: c.env.XAI_API_KEY,
+        }).catch((e) => console.error("auto-competitor failed:", e)),
+      );
+    }
+
+    const results = await Promise.allSettled(promises);
+    const summary = results.map((r, i) => ({
+      service: ["site-description", "personas", "keywords", "competitors"][i],
+      status: r.status,
+      error: r.status === "rejected" ? String(r.reason) : undefined,
+    }));
+    return c.json({ data: { status: "complete", services: summary } });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // POST /:id/rediscover-competitors — Re-run competitor discovery
 // ---------------------------------------------------------------------------
 

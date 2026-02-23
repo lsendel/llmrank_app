@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { PdfDownloadButton } from "@/components/report/pdf-download-button";
 import { ShareModal } from "@/components/share/share-modal";
+import { IssuesTab } from "@/components/tabs/issues-tab";
 
 export default function CrawlDetailPage() {
   const params = useParams<{ id: string }>();
@@ -68,6 +69,12 @@ export default function CrawlDetailPage() {
   const { data: quickWins, isLoading: quickWinsLoading } = useApiSWR(
     `quick-wins-${params.id}`,
     useCallback(() => api.quickWins.get(params.id), [params.id]),
+  );
+
+  const isComplete = crawl?.status === "complete";
+  const { data: issuesData } = useApiSWR(
+    isComplete ? `issues-${params.id}` : null,
+    useCallback(() => api.issues.listForCrawl(params.id), [params.id]),
   );
 
   const branding = (project?.branding ?? {}) as {
@@ -298,6 +305,17 @@ export default function CrawlDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Issues */}
+      {crawl.status === "complete" &&
+        issuesData?.data &&
+        issuesData.data.length > 0 && (
+          <IssuesTab
+            issues={issuesData.data}
+            crawlId={params.id}
+            projectId={crawl.projectId}
+          />
+        )}
 
       {/* What's Next actions */}
       {crawl.status === "complete" && (

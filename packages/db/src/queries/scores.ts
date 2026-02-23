@@ -71,7 +71,15 @@ export function scoreQueries(db: Database) {
     },
 
     async getIssuesByJob(jobId: string) {
-      return db.query.issues.findMany({ where: eq(issues.jobId, jobId) });
+      const [jobIssues, pageRows] = await Promise.all([
+        db.query.issues.findMany({ where: eq(issues.jobId, jobId) }),
+        db.query.pages.findMany({ where: eq(pages.jobId, jobId) }),
+      ]);
+      const pageMap = new Map(pageRows.map((p) => [p.id, p]));
+      return jobIssues.map((issue) => ({
+        ...issue,
+        pageUrl: pageMap.get(issue.pageId)?.url ?? null,
+      }));
     },
 
     async getByPageWithIssues(pageId: string) {

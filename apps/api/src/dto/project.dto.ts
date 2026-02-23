@@ -10,6 +10,8 @@ export function toProjectResponse(entity: Record<string, any>) {
     domain: entity.domain,
     settings: entity.settings ?? null,
     branding: entity.branding ?? null,
+    siteDescription: entity.siteDescription ?? null,
+    industry: entity.industry ?? null,
     plan: entity.plan ?? null,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt ?? null,
