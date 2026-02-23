@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { handleServiceError } from "../services/errors";
+import { createAuditService } from "../services/audit-service";
 import { createCompetitorBenchmarkService } from "../services/competitor-benchmark-service";
 import {
   competitorBenchmarkQueries,
@@ -91,6 +92,16 @@ competitorRoutes.post("/benchmark", async (c) => {
       competitorDomain: domain,
       competitorLimit: limits.competitorsPerProject,
     });
+
+    createAuditService(db)
+      .emitEvent({
+        action: "competitor.added",
+        actorId: userId,
+        resourceType: "competitor",
+        resourceId: benchmark.id,
+        metadata: { projectId: body.projectId, domain },
+      })
+      .catch(() => {});
 
     return c.json({ data: benchmark }, 201);
   } catch (error) {

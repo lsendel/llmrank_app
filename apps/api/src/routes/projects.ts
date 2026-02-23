@@ -8,6 +8,7 @@ import {
   PaginationSchema,
 } from "@llm-boost/shared";
 import { handleServiceError } from "../services/errors";
+import { createAuditService } from "../services/audit-service";
 import {
   toProjectResponse,
   toProjectDetailResponse,
@@ -95,6 +96,14 @@ projectRoutes.post("/", async (c) => {
 
   try {
     const project = await projectService.createProject(userId, parsed.data);
+    createAuditService(c.get("db"))
+      .emitEvent({
+        action: "project.created",
+        actorId: userId,
+        resourceType: "project",
+        resourceId: project.id,
+      })
+      .catch(() => {});
     return c.json({ data: toProjectResponse(project) }, 201);
   } catch (error) {
     return handleServiceError(c, error);
@@ -150,6 +159,14 @@ projectRoutes.put("/:id", withOwnership("project"), async (c) => {
       projectId,
       parsed.data,
     );
+    createAuditService(c.get("db"))
+      .emitEvent({
+        action: "project.updated",
+        actorId: userId,
+        resourceType: "project",
+        resourceId: projectId,
+      })
+      .catch(() => {});
     return c.json({ data: toProjectResponse(updated) });
   } catch (error) {
     return handleServiceError(c, error);
@@ -168,6 +185,14 @@ projectRoutes.delete("/:id", withOwnership("project"), async (c) => {
 
   try {
     const result = await projectService.deleteProject(userId, projectId);
+    createAuditService(c.get("db"))
+      .emitEvent({
+        action: "project.deleted",
+        actorId: userId,
+        resourceType: "project",
+        resourceId: projectId,
+      })
+      .catch(() => {});
     return c.json({ data: result });
   } catch (error) {
     return handleServiceError(c, error);

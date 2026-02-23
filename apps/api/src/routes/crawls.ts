@@ -3,6 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { withOwnership } from "../middleware/ownership";
 import { handleServiceError } from "../services/errors";
+import { createAuditService } from "../services/audit-service";
 import { toCrawlResponse, toCrawlListResponse } from "../dto/crawl.dto";
 import { rateLimit } from "../middleware/rate-limit";
 import {
@@ -84,6 +85,15 @@ crawlRoutes.post(
           kv: c.env.KV,
         },
       });
+      createAuditService(c.get("db"))
+        .emitEvent({
+          action: "crawl.started",
+          actorId: userId,
+          resourceType: "crawl_job",
+          resourceId: crawlJob.id,
+          metadata: { projectId },
+        })
+        .catch(() => {});
       return c.json({ data: toCrawlResponse(crawlJob) }, 201);
     } catch (error) {
       return handleServiceError(c, error);

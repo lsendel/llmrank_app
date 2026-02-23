@@ -8,6 +8,7 @@ import {
 } from "@llm-boost/db";
 import { PLAN_LIMITS, validateKeyword } from "@llm-boost/shared";
 import { handleServiceError } from "../services/errors";
+import { createAuditService } from "../services/audit-service";
 
 export const keywordRoutes = new Hono<AppEnv>();
 keywordRoutes.use("*", authMiddleware);
@@ -77,6 +78,16 @@ keywordRoutes.post("/:projectId", async (c) => {
       funnelStage: body.funnelStage,
       personaId: body.personaId,
     });
+
+    createAuditService(db)
+      .emitEvent({
+        action: "keyword.added",
+        actorId: userId,
+        resourceType: "keyword",
+        resourceId: keyword.id,
+        metadata: { projectId, keyword: body.keyword },
+      })
+      .catch(() => {});
 
     return c.json({ data: keyword }, 201);
   } catch (error) {
@@ -160,6 +171,15 @@ keywordRoutes.delete("/:id", async (c) => {
         404,
       );
     }
+    const userId = c.get("userId");
+    createAuditService(db)
+      .emitEvent({
+        action: "keyword.removed",
+        actorId: userId,
+        resourceType: "keyword",
+        resourceId: id,
+      })
+      .catch(() => {});
     return c.body(null, 204);
   } catch (error) {
     return handleServiceError(c, error);
