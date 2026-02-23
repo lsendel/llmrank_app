@@ -14,6 +14,8 @@ import {
   scoreQueries,
   crawlQueries,
   projectQueries,
+  competitorBenchmarkQueries,
+  visibilityQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 
@@ -1289,6 +1291,1171 @@ appRoutes.get("/projects/:id/issues/list", async (c) => {
           ))}
         </div>
       )}
+    </div>,
+  );
+});
+
+// =====================================================================
+// Project Detail Page (Tab Container)
+// =====================================================================
+
+const PROJECT_TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "pages", label: "Pages" },
+  { key: "issues", label: "Issues" },
+  { key: "competitors", label: "Competitors" },
+  { key: "visibility", label: "Visibility" },
+  { key: "history", label: "History" },
+  { key: "settings", label: "Settings" },
+] as const;
+
+type ProjectTab = (typeof PROJECT_TABS)[number]["key"];
+
+function ProjectTabNav({
+  projectId,
+  active,
+}: {
+  projectId: string;
+  active: ProjectTab;
+}) {
+  return (
+    <div class="mb-6 flex gap-1 overflow-x-auto border-b" role="tablist">
+      {PROJECT_TABS.map((t) => (
+        <button
+          hx-get={`/app/projects/${projectId}/tab/${t.key}`}
+          hx-target="#tab-content"
+          hx-push-url={`/app/projects/${projectId}?tab=${t.key}`}
+          class={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
+            t.key === active
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+          role="tab"
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ScoreBar({
+  label,
+  score,
+  weight,
+}: {
+  label: string;
+  score: number | null;
+  weight: string;
+}) {
+  const s = score ?? 0;
+  return (
+    <div>
+      <div class="flex justify-between text-sm">
+        <span class="font-medium">
+          {label}{" "}
+          <span class="text-xs font-normal text-gray-400">({weight})</span>
+        </span>
+        <span class={`font-bold ${gradeColor(s)}`}>{score ?? "—"}</span>
+      </div>
+      <div class="mt-1 h-2 w-full rounded-full bg-gray-200">
+        <div
+          class={`h-2 rounded-full ${s >= 80 ? "bg-green-500" : s >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
+          style={`width: ${Math.min(s, 100)}%`}
+        ></div>
+      </div>
+    </div>
+  );
+}
+
+appRoutes.get("/projects/:id", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user) return c.redirect("/sign-in");
+
+  const projectId = c.req.param("id");
+  if (projectId === "new") return c.redirect("/app/projects/new");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.text("Not found", 404);
+  }
+
+  const rawTab = c.req.query("tab") ?? "overview";
+  const tab = PROJECT_TABS.find((t) => t.key === rawTab)
+    ? (rawTab as ProjectTab)
+    : "overview";
+
+  const content = (
+    <div>
+      <PageHeader
+        title={project.name}
+        description={project.domain}
+        actions={
+          <div class="flex items-center gap-3">
+            <button
+              hx-post={`/api/projects/${projectId}/crawls`}
+              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Run Crawl
+            </button>
+            <a
+              href="/app/projects"
+              class="text-sm text-gray-500 hover:underline"
+            >
+              Back to projects
+            </a>
+          </div>
+        }
+      />
+      <ProjectTabNav projectId={projectId} active={tab} />
+      <div
+        id="tab-content"
+        hx-get={`/app/projects/${projectId}/tab/${tab}`}
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <p class="py-8 text-center text-sm text-gray-400">Loading...</p>
+      </div>
+    </div>
+  );
+
+  if (c.get("isHtmx")) return c.html(content);
+
+  return c.html(
+    <Layout
+      title={project.name}
+      user={{ email: user.email ?? "", plan: user.plan }}
+    >
+      {content}
+    </Layout>,
+  );
+});
+
+// ─── Overview tab ─────────────────────────────────────
+appRoutes.get("/projects/:id/tab/overview", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+  const project = await projectQueries(db).getById(projectId);
+  if (!project) return c.text("Not found", 404);
+
+  const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+
+  if (!latestCrawl || latestCrawl.status !== "complete") {
+    return c.html(
+      <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
+        <p class="text-gray-500">
+          {latestCrawl
+            ? `Crawl in progress (${latestCrawl.status})...`
+            : "No crawls yet. Run a crawl to see your scores."}
+        </p>
+        {latestCrawl && (
+          <a
+            href={`/app/crawl/${latestCrawl.id}`}
+            class="mt-2 inline-block text-sm text-blue-600 hover:underline"
+          >
+            View crawl progress
+          </a>
+        )}
+      </div>,
+    );
+  }
+
+  const scores = await scoreQueries(db).listByJob(latestCrawl.id);
+  const issuesByJob = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
+
+  const avgOf = (arr: (number | null)[]) => {
+    const valid = arr.filter((n): n is number => n !== null);
+    return valid.length > 0
+      ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length)
+      : null;
+  };
+
+  const overall = avgOf(scores.map((s) => s.overallScore));
+  const technical = avgOf(scores.map((s) => s.technicalScore));
+  const contentScore = avgOf(scores.map((s) => s.contentScore));
+  const aiReadiness = avgOf(scores.map((s) => s.aiReadinessScore));
+  const perfScore = avgOf(scores.map((s) => s.lighthousePerf));
+
+  const issueBySeverity = { critical: 0, warning: 0, info: 0 };
+  for (const issue of issuesByJob) {
+    if (issue.severity in issueBySeverity) {
+      issueBySeverity[issue.severity as keyof typeof issueBySeverity]++;
+    }
+  }
+
+  const topIssues = issuesByJob
+    .filter((i) => i.severity === "critical" || i.severity === "warning")
+    .slice(0, 5);
+
+  return c.html(
+    <div class="space-y-6">
+      <div class="grid gap-6 lg:grid-cols-3">
+        <div class="flex flex-col items-center justify-center rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <span class={`text-5xl font-bold ${gradeColor(overall ?? 0)}`}>
+            {overall ?? "—"}
+          </span>
+          <span
+            class={`mt-2 rounded px-3 py-1 text-sm font-medium ${gradeBadgeColor(overall ?? 0)}`}
+          >
+            {overall !== null ? gradeLabel(overall) : "N/A"}
+          </span>
+          <p class="mt-2 text-xs text-gray-500">Overall Score</p>
+          <p class="text-xs text-gray-400">
+            {scores.length} pages &middot;{" "}
+            {latestCrawl.completedAt
+              ? new Date(latestCrawl.completedAt).toLocaleDateString()
+              : ""}
+          </p>
+        </div>
+
+        <div class="col-span-2 space-y-4 rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="text-sm font-semibold text-gray-500">
+            Category Breakdown
+          </h3>
+          <ScoreBar label="Technical" score={technical} weight="25%" />
+          <ScoreBar label="Content" score={contentScore} weight="30%" />
+          <ScoreBar label="AI Readiness" score={aiReadiness} weight="30%" />
+          <ScoreBar label="Performance" score={perfScore} weight="15%" />
+        </div>
+      </div>
+
+      {latestCrawl.summary && (
+        <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-2 text-sm font-semibold text-gray-500">
+            Executive Summary
+          </h3>
+          <p class="text-sm leading-relaxed text-gray-700">
+            {latestCrawl.summary}
+          </p>
+        </div>
+      )}
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-4 text-sm font-semibold text-gray-500">
+            Issue Distribution
+          </h3>
+          <div class="flex gap-4">
+            <div class="flex items-center gap-2">
+              <span class="h-3 w-3 rounded-full bg-red-500"></span>
+              <span class="text-sm">Critical: {issueBySeverity.critical}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-3 w-3 rounded-full bg-yellow-500"></span>
+              <span class="text-sm">Warning: {issueBySeverity.warning}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-3 w-3 rounded-full bg-blue-500"></span>
+              <span class="text-sm">Info: {issueBySeverity.info}</span>
+            </div>
+          </div>
+          <div
+            id="issue-dist-chart"
+            class="mt-4 h-48"
+            data-chart-type="issue-distribution"
+            data-chart-data={JSON.stringify(issueBySeverity)}
+          ></div>
+        </div>
+
+        <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-4 text-sm font-semibold text-gray-500">Score Trend</h3>
+          <div
+            id="score-trend-chart"
+            class="h-48"
+            data-chart-type="score-trend"
+            data-project-id={projectId}
+          >
+            <p class="flex h-full items-center justify-center text-xs text-gray-400">
+              Chart loads after multiple crawls
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {topIssues.length > 0 && (
+        <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-4 text-sm font-semibold text-gray-500">
+            Top Issues ({issuesByJob.length} total)
+          </h3>
+          <div class="space-y-3">
+            {topIssues.map((issue) => (
+              <div class="flex items-start gap-3 border-b pb-3 last:border-0 last:pb-0">
+                <span
+                  class={`mt-0.5 rounded px-2 py-0.5 text-xs font-medium ${SEVERITY_COLORS[issue.severity] ?? "bg-gray-100 text-gray-700"}`}
+                >
+                  {issue.severity}
+                </span>
+                <div class="flex-1">
+                  <p class="text-sm">{issue.message}</p>
+                  {issue.pageUrl && (
+                    <p class="mt-0.5 text-xs text-gray-400">{issue.pageUrl}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <a
+            href={`/app/projects/${projectId}/issues`}
+            class="mt-3 inline-block text-sm text-blue-600 hover:underline"
+          >
+            View all issues
+          </a>
+        </div>
+      )}
+    </div>,
+  );
+});
+
+// ─── Pages tab ────────────────────────────────────────
+appRoutes.get("/projects/:id/tab/pages", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+  const sort = c.req.query("sort") ?? "score";
+  const dir = c.req.query("dir") ?? "asc";
+
+  const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+  if (!latestCrawl || latestCrawl.status !== "complete") {
+    return c.html(
+      <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
+        <p class="text-sm text-gray-500">No completed crawl data yet.</p>
+      </div>,
+    );
+  }
+
+  const pagesWithScores = await scoreQueries(db).listByJobWithPages(
+    latestCrawl.id,
+  );
+
+  const sorted = [...pagesWithScores].sort((a, b) => {
+    let cmp = 0;
+    if (sort === "score") cmp = a.overallScore - b.overallScore;
+    else if (sort === "issues") cmp = a.issueCount - b.issueCount;
+    else if (sort === "url")
+      cmp = (a.page?.url ?? "").localeCompare(b.page?.url ?? "");
+    else if (sort === "status")
+      cmp = (a.page?.statusCode ?? 0) - (b.page?.statusCode ?? 0);
+    return dir === "desc" ? -cmp : cmp;
+  });
+
+  const nextDir = dir === "asc" ? "desc" : "asc";
+  const sortLink = (col: string) =>
+    `/app/projects/${projectId}/tab/pages?sort=${col}&dir=${sort === col ? nextDir : "asc"}`;
+  const sortIcon = (col: string) =>
+    sort === col ? (dir === "asc" ? " ^" : " v") : "";
+
+  return c.html(
+    <div class="overflow-x-auto rounded-lg border bg-white dark:bg-gray-900">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b text-left text-gray-500">
+            <th class="px-4 py-3 font-medium">
+              <button
+                hx-get={sortLink("url")}
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                class="hover:text-gray-800"
+              >
+                URL{sortIcon("url")}
+              </button>
+            </th>
+            <th class="px-4 py-3 font-medium">
+              <button
+                hx-get={sortLink("status")}
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                class="hover:text-gray-800"
+              >
+                Status{sortIcon("status")}
+              </button>
+            </th>
+            <th class="px-4 py-3 font-medium">Title</th>
+            <th class="px-4 py-3 font-medium">
+              <button
+                hx-get={sortLink("score")}
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                class="hover:text-gray-800"
+              >
+                Score{sortIcon("score")}
+              </button>
+            </th>
+            <th class="px-4 py-3 font-medium">
+              <button
+                hx-get={sortLink("issues")}
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                class="hover:text-gray-800"
+              >
+                Issues{sortIcon("issues")}
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row) => (
+            <tr class="border-b last:border-0 hover:bg-gray-50">
+              <td class="max-w-xs truncate px-4 py-3 font-mono text-xs">
+                {row.page?.url ?? "—"}
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  class={`rounded px-2 py-0.5 text-xs font-medium ${
+                    (row.page?.statusCode ?? 0) < 300
+                      ? "bg-green-100 text-green-700"
+                      : (row.page?.statusCode ?? 0) < 400
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {row.page?.statusCode ?? "—"}
+                </span>
+              </td>
+              <td class="max-w-xs truncate px-4 py-3 text-gray-700">
+                {row.page?.title ?? "—"}
+              </td>
+              <td class="px-4 py-3">
+                <span class={`font-bold ${gradeColor(row.overallScore)}`}>
+                  {row.overallScore}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                {row.issueCount > 0 ? (
+                  <span class="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                    {row.issueCount}
+                  </span>
+                ) : (
+                  <span class="text-xs text-gray-400">0</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sorted.length === 0 && (
+        <p class="py-8 text-center text-sm text-gray-500">No pages found.</p>
+      )}
+    </div>,
+  );
+});
+
+// ─── Issues tab (delegates to existing issues partial) ──
+appRoutes.get("/projects/:id/tab/issues", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+
+  const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+  if (!latestCrawl) {
+    return c.html(
+      <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
+        <p class="text-sm text-gray-500">
+          No crawls found. Run a crawl to discover issues.
+        </p>
+      </div>,
+    );
+  }
+
+  return c.html(
+    <div
+      id="issue-list"
+      hx-get={`/app/projects/${projectId}/issues/list?jobId=${latestCrawl.id}`}
+      hx-trigger="load"
+      hx-swap="innerHTML"
+    >
+      <p class="py-8 text-center text-sm text-gray-400">Loading issues...</p>
+    </div>,
+  );
+});
+
+// ─── Competitors tab ──────────────────────────────────
+appRoutes.get("/projects/:id/tab/competitors", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project) return c.text("Not found", 404);
+
+  const benchmarks =
+    await competitorBenchmarkQueries(db).listByProject(projectId);
+
+  const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+  let projScores = {
+    overall: 0,
+    technical: 0,
+    content: 0,
+    aiReadiness: 0,
+    performance: 0,
+  };
+  if (latestCrawl?.status === "complete") {
+    const scores = await scoreQueries(db).listByJob(latestCrawl.id);
+    const avg = (arr: (number | null)[]) => {
+      const v = arr.filter((n): n is number => n !== null);
+      return v.length > 0
+        ? Math.round(v.reduce((a, b) => a + b, 0) / v.length)
+        : 0;
+    };
+    projScores = {
+      overall: avg(scores.map((s) => s.overallScore)),
+      technical: avg(scores.map((s) => s.technicalScore)),
+      content: avg(scores.map((s) => s.contentScore)),
+      aiReadiness: avg(scores.map((s) => s.aiReadinessScore)),
+      performance: avg(scores.map((s) => s.lighthousePerf)),
+    };
+  }
+
+  const byDomain = new Map<string, (typeof benchmarks)[number]>();
+  for (const b of benchmarks) {
+    if (!byDomain.has(b.competitorDomain)) {
+      byDomain.set(b.competitorDomain, b);
+    }
+  }
+
+  return c.html(
+    <div class="space-y-6">
+      <section class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <h3 class="mb-4 text-sm font-semibold text-gray-500">
+          Benchmark Competitor
+        </h3>
+        <form
+          hx-post={`/api/projects/${projectId}/competitors/benchmark`}
+          hx-target="#competitor-list"
+          hx-swap="beforeend"
+          class="flex gap-2"
+        >
+          <input
+            type="text"
+            name="domain"
+            placeholder="competitor.com"
+            required
+            class="flex-1 rounded border px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Benchmark
+          </button>
+        </form>
+      </section>
+
+      <div id="competitor-list" class="space-y-4">
+        {byDomain.size === 0 ? (
+          <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
+            <p class="text-sm text-gray-500">
+              No competitor benchmarks yet. Add a competitor domain above.
+            </p>
+          </div>
+        ) : (
+          Array.from(byDomain.entries()).map(([domain, b]) => {
+            const delta = (b.overallScore ?? 0) - projScores.overall;
+            const deltaLabel =
+              delta > 0 ? "They lead" : delta < 0 ? "You lead" : "Tied";
+            const deltaColor =
+              delta > 0
+                ? "bg-red-100 text-red-700"
+                : delta < 0
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-700";
+
+            return (
+              <div class="rounded-lg border bg-white p-5 dark:bg-gray-900">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h4 class="font-semibold">{domain}</h4>
+                    <p class="text-xs text-gray-500">
+                      Benchmarked{" "}
+                      {b.crawledAt
+                        ? new Date(b.crawledAt).toLocaleDateString()
+                        : "—"}
+                    </p>
+                  </div>
+                  <span
+                    class={`rounded px-2 py-0.5 text-xs font-medium ${deltaColor}`}
+                  >
+                    {deltaLabel}
+                  </span>
+                </div>
+                <div class="mt-4 grid grid-cols-5 gap-2 text-center text-xs">
+                  {(
+                    [
+                      ["Overall", projScores.overall, b.overallScore],
+                      ["Technical", projScores.technical, b.technicalScore],
+                      ["Content", projScores.content, b.contentScore],
+                      ["AI Ready", projScores.aiReadiness, b.aiReadinessScore],
+                      ["Perf", projScores.performance, b.performanceScore],
+                    ] as [string, number, number | null][]
+                  ).map(([label, yours, theirs]) => {
+                    const d = (theirs ?? 0) - yours;
+                    return (
+                      <div>
+                        <p class="text-gray-500">{label}</p>
+                        <p class="font-bold">
+                          {yours} vs {theirs ?? "—"}
+                        </p>
+                        {d !== 0 && (
+                          <p
+                            class={`text-xs ${d > 0 ? "text-red-500" : "text-green-500"}`}
+                          >
+                            {d > 0 ? "+" : ""}
+                            {d}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>,
+  );
+});
+
+// ─── Visibility tab ───────────────────────────────────
+appRoutes.get("/projects/:id/tab/visibility", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+
+  const checks = await visibilityQueries(db).listByProject(projectId);
+  const recent = checks.slice(0, 20);
+
+  return c.html(
+    <div class="space-y-6">
+      <section class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <h3 class="mb-4 text-sm font-semibold text-gray-500">
+          Manual Visibility Check
+        </h3>
+        <form
+          hx-post={`/api/projects/${projectId}/visibility/check`}
+          hx-target="#visibility-results"
+          hx-swap="afterbegin"
+          class="flex flex-wrap gap-2"
+        >
+          <input
+            type="text"
+            name="query"
+            placeholder="Enter a search query..."
+            required
+            class="flex-1 rounded border px-3 py-2 text-sm"
+          />
+          <select name="provider" class="rounded border px-3 py-2 text-sm">
+            <option value="chatgpt">ChatGPT</option>
+            <option value="claude">Claude</option>
+            <option value="perplexity">Perplexity</option>
+            <option value="gemini">Gemini</option>
+            <option value="copilot">Copilot</option>
+          </select>
+          <button
+            type="submit"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Check
+          </button>
+        </form>
+      </section>
+
+      <section class="rounded-lg border bg-white dark:bg-gray-900">
+        <div class="border-b px-6 py-4">
+          <h3 class="text-sm font-semibold text-gray-500">
+            Recent Checks ({checks.length})
+          </h3>
+        </div>
+        <div id="visibility-results">
+          {recent.length === 0 ? (
+            <p class="px-6 py-8 text-center text-sm text-gray-500">
+              No visibility checks yet. Run one above.
+            </p>
+          ) : (
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b text-left text-gray-500">
+                  <th class="px-4 py-3 font-medium">Date</th>
+                  <th class="px-4 py-3 font-medium">Query</th>
+                  <th class="px-4 py-3 font-medium">Provider</th>
+                  <th class="px-4 py-3 font-medium">Mentioned</th>
+                  <th class="px-4 py-3 font-medium">Cited</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((check) => (
+                  <tr class="border-b last:border-0">
+                    <td class="px-4 py-3 text-gray-500">
+                      {new Date(check.checkedAt).toLocaleDateString()}
+                    </td>
+                    <td class="max-w-xs truncate px-4 py-3">{check.query}</td>
+                    <td class="px-4 py-3">
+                      <span class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        {check.llmProvider}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span
+                        class={`rounded px-2 py-0.5 text-xs font-medium ${
+                          check.brandMentioned
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {check.brandMentioned ? "Yes" : "No"}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span
+                        class={`rounded px-2 py-0.5 text-xs font-medium ${
+                          check.urlCited
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {check.urlCited ? "Yes" : "No"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    </div>,
+  );
+});
+
+// ─── History tab ──────────────────────────────────────
+appRoutes.get("/projects/:id/tab/history", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+
+  const crawls = await crawlQueries(db).listByProject(projectId);
+
+  const completedIds = crawls
+    .filter((cr) => cr.status === "complete")
+    .map((cr) => cr.id);
+
+  const scoreMap = new Map<string, number>();
+  for (const id of completedIds) {
+    const scores = await scoreQueries(db).listByJob(id);
+    if (scores.length > 0) {
+      const avg = Math.round(
+        scores.reduce((sum, s) => sum + s.overallScore, 0) / scores.length,
+      );
+      scoreMap.set(id, avg);
+    }
+  }
+
+  const STATUS_BADGE: Record<string, string> = {
+    complete: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+    crawling: "bg-blue-100 text-blue-700",
+    scoring: "bg-purple-100 text-purple-700",
+    pending: "bg-gray-100 text-gray-600",
+    queued: "bg-yellow-100 text-yellow-700",
+  };
+
+  return c.html(
+    <div class="overflow-x-auto rounded-lg border bg-white dark:bg-gray-900">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b text-left text-gray-500">
+            <th class="px-4 py-3 font-medium">Date</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+            <th class="px-4 py-3 font-medium">Pages</th>
+            <th class="px-4 py-3 font-medium">Score</th>
+            <th class="px-4 py-3 font-medium">Grade</th>
+            <th class="px-4 py-3 text-right font-medium">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {crawls.map((crawl) => {
+            const score = scoreMap.get(crawl.id) ?? null;
+            let grade: string | null = null;
+            if (score !== null) {
+              if (score >= 90) grade = "A";
+              else if (score >= 80) grade = "B";
+              else if (score >= 70) grade = "C";
+              else if (score >= 60) grade = "D";
+              else grade = "F";
+            }
+
+            return (
+              <tr class="border-b last:border-0 hover:bg-gray-50">
+                <td class="px-4 py-3 text-gray-500">
+                  {crawl.startedAt
+                    ? new Date(crawl.startedAt).toLocaleDateString()
+                    : new Date(crawl.createdAt).toLocaleDateString()}
+                </td>
+                <td class="px-4 py-3">
+                  <span
+                    class={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[crawl.status] ?? "bg-gray-100 text-gray-600"}`}
+                  >
+                    {crawl.status}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  {crawl.pagesCrawled ?? crawl.pagesScored ?? "—"}
+                </td>
+                <td class="px-4 py-3">
+                  {score !== null ? (
+                    <span class={`font-bold ${gradeColor(score)}`}>
+                      {score}
+                    </span>
+                  ) : (
+                    <span class="text-gray-400">—</span>
+                  )}
+                </td>
+                <td class="px-4 py-3">
+                  {grade ? (
+                    <span
+                      class={`rounded px-2 py-0.5 text-xs font-medium ${gradeBadgeColor(score ?? 0)}`}
+                    >
+                      {grade}
+                    </span>
+                  ) : (
+                    <span class="text-gray-400">—</span>
+                  )}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <a
+                    href={`/app/crawl/${crawl.id}`}
+                    class="text-sm text-blue-600 hover:underline"
+                  >
+                    View
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {crawls.length === 0 && (
+        <p class="py-8 text-center text-sm text-gray-500">
+          No crawl history yet.
+        </p>
+      )}
+    </div>,
+  );
+});
+
+// ─── Project settings tab ─────────────────────────────
+appRoutes.get("/projects/:id/tab/settings", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) return c.text("Not found", 404);
+
+  return c.html(
+    <div class="max-w-lg space-y-6">
+      <section class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <h3 class="mb-4 text-lg font-semibold">Project Settings</h3>
+        <form
+          hx-patch={`/api/projects/${projectId}`}
+          hx-target="#project-settings-status"
+          hx-swap="innerHTML"
+          class="space-y-4"
+        >
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="projectName">
+              Project Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              id="projectName"
+              value={project.name}
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium">Domain</label>
+            <p class="text-sm text-gray-500">{project.domain}</p>
+            <p class="text-xs text-gray-400">
+              Domain cannot be changed after creation.
+            </p>
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="siteDescription">
+              Site Description
+            </label>
+            <textarea
+              name="siteDescription"
+              id="siteDescription"
+              rows={3}
+              class="w-full rounded border px-3 py-2 text-sm"
+              placeholder="Brief description of what this site does..."
+            >
+              {project.siteDescription ?? ""}
+            </textarea>
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="industry">
+              Industry
+            </label>
+            <input
+              type="text"
+              name="industry"
+              id="industry"
+              value={project.industry ?? ""}
+              placeholder="e.g. SaaS, E-commerce, Healthcare"
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+          </div>
+          <div class="flex items-center gap-3">
+            <button
+              type="submit"
+              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Save
+            </button>
+            <span id="project-settings-status"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="rounded-lg border border-red-200 bg-white p-6 dark:bg-gray-900">
+        <h3 class="mb-2 text-lg font-semibold text-red-600">Danger Zone</h3>
+        <p class="mb-4 text-sm text-gray-500">
+          Permanently delete this project and all its data.
+        </p>
+        <button
+          hx-delete={`/api/projects/${projectId}`}
+          hx-confirm={`Delete "${project.name}"? This will permanently remove all crawl data, scores, and reports.`}
+          class="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+        >
+          Delete Project
+        </button>
+      </section>
+    </div>,
+  );
+});
+
+// =====================================================================
+// Crawl Detail Page (Live Progress)
+// =====================================================================
+
+appRoutes.get("/crawl/:id", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user) return c.redirect("/sign-in");
+
+  const crawlId = c.req.param("id");
+  const job = await crawlQueries(db).getById(crawlId);
+  if (!job) return c.text("Crawl not found", 404);
+
+  const project = await projectQueries(db).getById(job.projectId);
+  if (!project || project.userId !== userId) return c.text("Not found", 404);
+
+  const content = (
+    <div>
+      <PageHeader
+        title={`Crawl — ${project.domain}`}
+        description={`Started ${job.startedAt ? new Date(job.startedAt).toLocaleString() : new Date(job.createdAt).toLocaleString()}`}
+        actions={
+          <a
+            href={`/app/projects/${project.id}?tab=history`}
+            class="text-sm text-gray-500 hover:underline"
+          >
+            Back to project
+          </a>
+        }
+      />
+      <div
+        id="crawl-progress"
+        hx-get={`/app/crawl/${crawlId}/progress`}
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <p class="py-8 text-center text-sm text-gray-400">Loading...</p>
+      </div>
+    </div>
+  );
+
+  if (c.get("isHtmx")) return c.html(content);
+
+  return c.html(
+    <Layout title="Crawl" user={{ email: user.email ?? "", plan: user.plan }}>
+      {content}
+    </Layout>,
+  );
+});
+
+// ─── Crawl progress partial (polls during active crawl) ──
+appRoutes.get("/crawl/:id/progress", async (c) => {
+  const db = c.get("db");
+  const crawlId = c.req.param("id");
+  const job = await crawlQueries(db).getById(crawlId);
+  if (!job) return c.text("Not found", 404);
+
+  const isActive = ["pending", "queued", "crawling", "scoring"].includes(
+    job.status,
+  );
+  const pct =
+    job.pagesFound && job.pagesFound > 0
+      ? Math.round(((job.pagesCrawled ?? 0) / job.pagesFound) * 100)
+      : 0;
+
+  const STATUS_BADGE: Record<string, string> = {
+    complete: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+    crawling: "bg-blue-100 text-blue-700",
+    scoring: "bg-purple-100 text-purple-700",
+    pending: "bg-gray-100 text-gray-600",
+    queued: "bg-yellow-100 text-yellow-700",
+  };
+
+  if (isActive) {
+    // Still running — return with hx-trigger to continue polling
+    return c.html(
+      <div
+        hx-get={`/app/crawl/${crawlId}/progress`}
+        hx-trigger="every 3s"
+        hx-swap="outerHTML"
+      >
+        <div class="space-y-4 rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <div class="flex items-center gap-3">
+            <span
+              class={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[job.status] ?? "bg-gray-100 text-gray-600"}`}
+            >
+              {job.status}
+            </span>
+            <span class="text-sm text-gray-500">
+              {job.pagesCrawled ?? 0} / {job.pagesFound ?? "?"} pages
+            </span>
+          </div>
+          <div class="h-3 w-full rounded-full bg-gray-200">
+            <div
+              class="h-3 rounded-full bg-blue-500 transition-all"
+              style={`width: ${pct}%`}
+            ></div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 text-center text-sm">
+            <div>
+              <p class="text-2xl font-bold">{job.pagesFound ?? 0}</p>
+              <p class="text-xs text-gray-500">Found</p>
+            </div>
+            <div>
+              <p class="text-2xl font-bold">{job.pagesCrawled ?? 0}</p>
+              <p class="text-xs text-gray-500">Crawled</p>
+            </div>
+            <div>
+              <p class="text-2xl font-bold">{job.pagesScored ?? 0}</p>
+              <p class="text-xs text-gray-500">Scored</p>
+            </div>
+          </div>
+        </div>
+      </div>,
+    );
+  }
+
+  // Completed or failed — no more polling
+  if (job.status === "failed") {
+    return c.html(
+      <div class="space-y-4 rounded-lg border border-red-200 bg-white p-6 dark:bg-gray-900">
+        <div class="flex items-center gap-3">
+          <span class="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+            Failed
+          </span>
+        </div>
+        {job.errorMessage && (
+          <p class="text-sm text-red-600">{job.errorMessage}</p>
+        )}
+        <a
+          href={`/app/projects/${job.projectId}`}
+          class="inline-block text-sm text-blue-600 hover:underline"
+        >
+          Back to project
+        </a>
+      </div>,
+    );
+  }
+
+  // Complete — show score summary
+  const scores = await scoreQueries(db).listByJob(crawlId);
+  const avgScore =
+    scores.length > 0
+      ? Math.round(
+          scores.reduce((sum, s) => sum + s.overallScore, 0) / scores.length,
+        )
+      : null;
+
+  const avgOf = (arr: (number | null)[]) => {
+    const valid = arr.filter((n): n is number => n !== null);
+    return valid.length > 0
+      ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length)
+      : null;
+  };
+
+  const technical = avgOf(scores.map((s) => s.technicalScore));
+  const contentScore = avgOf(scores.map((s) => s.contentScore));
+  const aiReadiness = avgOf(scores.map((s) => s.aiReadinessScore));
+  const perfScore = avgOf(scores.map((s) => s.lighthousePerf));
+
+  return c.html(
+    <div class="space-y-6">
+      <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <div class="flex items-center gap-3">
+          <span class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+            Complete
+          </span>
+          <span class="text-sm text-gray-500">
+            {scores.length} pages scored
+          </span>
+        </div>
+      </div>
+
+      {avgScore !== null && (
+        <div class="grid gap-6 sm:grid-cols-5">
+          <div class="flex flex-col items-center rounded-lg border bg-white p-4 dark:bg-gray-900">
+            <span class={`text-3xl font-bold ${gradeColor(avgScore)}`}>
+              {avgScore}
+            </span>
+            <span class="mt-1 text-xs text-gray-500">Overall</span>
+          </div>
+          {(
+            [
+              ["Technical", technical],
+              ["Content", contentScore],
+              ["AI Ready", aiReadiness],
+              ["Performance", perfScore],
+            ] as [string, number | null][]
+          ).map(([label, score]) => (
+            <div class="flex flex-col items-center rounded-lg border bg-white p-4 dark:bg-gray-900">
+              <span class={`text-3xl font-bold ${gradeColor(score ?? 0)}`}>
+                {score ?? "—"}
+              </span>
+              <span class="mt-1 text-xs text-gray-500">{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {job.summary && (
+        <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-2 text-sm font-semibold text-gray-500">
+            Executive Summary
+          </h3>
+          <p class="text-sm leading-relaxed text-gray-700">{job.summary}</p>
+        </div>
+      )}
+
+      <div class="flex gap-3">
+        <a
+          href={`/app/projects/${job.projectId}`}
+          class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          View Full Project
+        </a>
+        <a
+          href={`/app/projects/${job.projectId}?tab=issues`}
+          class="rounded border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Review Issues
+        </a>
+      </div>
     </div>,
   );
 });
