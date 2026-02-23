@@ -1489,6 +1489,28 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
     .filter((i) => i.severity === "critical" || i.severity === "warning")
     .slice(0, 5);
 
+  // Fetch score trend data from completed crawls
+  const completedCrawls = await crawlQueries(db).listCompletedByProject(
+    projectId,
+    10,
+  );
+  const trendData: { labels: string[]; scores: number[] } = {
+    labels: [],
+    scores: [],
+  };
+  for (const cr of completedCrawls.reverse()) {
+    const crScores = await scoreQueries(db).listByJob(cr.id);
+    if (crScores.length > 0) {
+      const avg = Math.round(
+        crScores.reduce((sum, s) => sum + s.overallScore, 0) / crScores.length,
+      );
+      trendData.labels.push(
+        new Date(cr.completedAt ?? cr.createdAt).toLocaleDateString(),
+      );
+      trendData.scores.push(avg);
+    }
+  }
+
   return c.html(
     <div class="space-y-6">
       <div class="grid gap-6 lg:grid-cols-3">
@@ -1561,16 +1583,19 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
 
         <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
           <h3 class="mb-4 text-sm font-semibold text-gray-500">Score Trend</h3>
-          <div
-            id="score-trend-chart"
-            class="h-48"
-            data-chart-type="score-trend"
-            data-project-id={projectId}
-          >
-            <p class="flex h-full items-center justify-center text-xs text-gray-400">
-              Chart loads after multiple crawls
+          {trendData.scores.length >= 2 ? (
+            <div
+              id="score-trend-chart"
+              class="h-48"
+              data-chart-data={JSON.stringify(trendData)}
+            >
+              <canvas id="score-trend-canvas"></canvas>
+            </div>
+          ) : (
+            <p class="flex h-48 items-center justify-center text-xs text-gray-400">
+              Score trend requires at least 2 completed crawls
             </p>
-          </div>
+          )}
         </div>
       </div>
 
@@ -1604,8 +1629,50 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
           </a>
         </div>
       )}
+      {/* Chart init — loaded after DOM renders */}
+      <script src="/app/static/charts.js"></script>
     </div>,
   );
+});
+
+// ─── Chart islands JS (served as static asset) ───────
+appRoutes.get("/static/charts.js", (c) => {
+  // Safe: chart data comes from server-rendered data-* attributes, not user input
+  const js = [
+    "(function(){",
+    "if(typeof Chart==='undefined')return;",
+    "var distEl=document.getElementById('issue-dist-chart');",
+    "if(distEl){",
+    "  var d=JSON.parse(distEl.getAttribute('data-chart-data')||'{}');",
+    "  var cv=document.createElement('canvas');",
+    "  while(distEl.firstChild)distEl.removeChild(distEl.firstChild);",
+    "  distEl.appendChild(cv);",
+    "  new Chart(cv,{type:'doughnut',data:{",
+    "    labels:['Critical','Warning','Info'],",
+    "    datasets:[{data:[d.critical||0,d.warning||0,d.info||0],",
+    "      backgroundColor:['#ef4444','#eab308','#3b82f6']}]},",
+    "    options:{responsive:true,maintainAspectRatio:false,",
+    "      plugins:{legend:{position:'bottom',labels:{padding:16}}}}});",
+    "}",
+    "var trendEl=document.getElementById('score-trend-chart');",
+    "if(trendEl){",
+    "  var td=JSON.parse(trendEl.getAttribute('data-chart-data')||'null');",
+    "  if(td){",
+    "    var cv2=document.getElementById('score-trend-canvas');",
+    "    if(cv2){new Chart(cv2,{type:'line',data:{labels:td.labels,",
+    "      datasets:[{label:'Overall Score',data:td.scores,",
+    "        borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',",
+    "        fill:true,tension:0.3,pointRadius:4}]},",
+    "      options:{responsive:true,maintainAspectRatio:false,",
+    "        scales:{y:{min:0,max:100}},plugins:{legend:{display:false}}}});}",
+    "  }",
+    "}",
+    "})();",
+  ].join("\n");
+  return c.body(js, 200, {
+    "Content-Type": "application/javascript",
+    "Cache-Control": "public, max-age=3600",
+  });
 });
 
 // ─── Pages tab ────────────────────────────────────────

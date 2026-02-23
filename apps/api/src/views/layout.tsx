@@ -18,6 +18,7 @@ export const Layout: FC<
         href="https://cdn.jsdelivr.net/npm/tailwindcss@4/dist/tailwind.min.css"
         rel="stylesheet"
       />
+      <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     </head>
     <body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <nav class="border-b bg-white px-6 py-3 dark:bg-gray-900">
