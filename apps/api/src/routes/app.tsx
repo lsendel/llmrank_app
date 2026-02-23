@@ -11,6 +11,9 @@ import {
   organizationQueries,
   orgMemberQueries,
   orgInviteQueries,
+  scoreQueries,
+  crawlQueries,
+  projectQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 
@@ -883,5 +886,198 @@ appRoutes.get("/projects/new", async (c) => {
     >
       {content}
     </Layout>,
+  );
+});
+
+// =====================================================================
+// Project Issues Page
+// =====================================================================
+
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: "bg-red-100 text-red-700",
+  warning: "bg-yellow-100 text-yellow-700",
+  info: "bg-blue-100 text-blue-700",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  technical: "Technical",
+  content: "Content",
+  ai_readiness: "AI Readiness",
+  performance: "Performance",
+  schema: "Schema",
+  llm_visibility: "LLM Visibility",
+};
+
+appRoutes.get("/projects/:id/issues", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user) return c.redirect("/sign-in");
+
+  const projectId = c.req.param("id");
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.text("Not found", 404);
+  }
+
+  // Get latest crawl for this project
+  const crawls = await crawlQueries(db).listByProject(projectId, 1);
+  const latestCrawl = crawls[0];
+
+  const content = (
+    <div>
+      <PageHeader
+        title={`Issues — ${project.domain}`}
+        description="Issues found during the latest crawl"
+        actions={
+          <a
+            href={`/app/projects/${projectId}`}
+            class="text-sm text-blue-600 hover:underline"
+          >
+            Back to project
+          </a>
+        }
+      />
+      {latestCrawl ? (
+        <div
+          id="issue-list"
+          hx-get={`/app/projects/${projectId}/issues/list?jobId=${latestCrawl.id}`}
+          hx-trigger="load"
+          hx-swap="innerHTML"
+        >
+          <p class="py-8 text-center text-sm text-gray-400">
+            Loading issues...
+          </p>
+        </div>
+      ) : (
+        <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
+          <p class="text-sm text-gray-500">
+            No crawls found. Run a crawl to discover issues.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  if (c.get("isHtmx")) return c.html(content);
+
+  return c.html(
+    <Layout title="Issues" user={{ email: user.email ?? "", plan: user.plan }}>
+      {content}
+    </Layout>,
+  );
+});
+
+// ─── Issues list partial (with server-side filtering) ──
+appRoutes.get("/projects/:id/issues/list", async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("id");
+  const jobId = c.req.query("jobId");
+  const severity = c.req.query("severity") ?? "all";
+  const category = c.req.query("category") ?? "all";
+
+  if (!jobId) return c.text("Missing jobId", 400);
+
+  const allIssues = await scoreQueries(db).getIssuesByJob(jobId);
+
+  const filtered = allIssues.filter((issue) => {
+    if (severity !== "all" && issue.severity !== severity) return false;
+    if (category !== "all" && issue.category !== category) return false;
+    return true;
+  });
+
+  const severities = ["all", "critical", "warning", "info"];
+  const categories = [
+    "all",
+    "technical",
+    "content",
+    "ai_readiness",
+    "performance",
+  ];
+
+  return c.html(
+    <div class="space-y-4">
+      {/* Filters */}
+      <div class="flex flex-wrap gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-gray-500">Severity:</span>
+          {severities.map((sev) => (
+            <button
+              hx-get={`/app/projects/${projectId}/issues/list?jobId=${jobId}&severity=${sev}&category=${category}`}
+              hx-target="#issue-list"
+              hx-swap="innerHTML"
+              class={`rounded px-3 py-1 text-sm font-medium ${
+                severity === sev
+                  ? "bg-blue-600 text-white"
+                  : "border bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {sev === "all"
+                ? `All (${allIssues.length})`
+                : `${sev.charAt(0).toUpperCase() + sev.slice(1)} (${allIssues.filter((i) => i.severity === sev).length})`}
+            </button>
+          ))}
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-gray-500">Category:</span>
+          {categories.map((cat) => (
+            <button
+              hx-get={`/app/projects/${projectId}/issues/list?jobId=${jobId}&severity=${severity}&category=${cat}`}
+              hx-target="#issue-list"
+              hx-swap="innerHTML"
+              class={`rounded px-3 py-1 text-sm font-medium ${
+                category === cat
+                  ? "bg-blue-600 text-white"
+                  : "border bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {cat === "all" ? "All" : (CATEGORY_LABELS[cat] ?? cat)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Issue cards */}
+      {filtered.length === 0 ? (
+        <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
+          <p class="text-sm text-gray-500">
+            {allIssues.length === 0
+              ? "No issues found."
+              : "No issues match the selected filters."}
+          </p>
+        </div>
+      ) : (
+        <div class="space-y-3">
+          {filtered.map((issue) => (
+            <div class="rounded-lg border bg-white p-4 dark:bg-gray-900">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span
+                      class={`rounded px-2 py-0.5 text-xs font-medium ${SEVERITY_COLORS[issue.severity] ?? "bg-gray-100 text-gray-700"}`}
+                    >
+                      {issue.severity}
+                    </span>
+                    <span class="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                      {CATEGORY_LABELS[issue.category] ?? issue.category}
+                    </span>
+                    <code class="text-xs text-gray-400">{issue.code}</code>
+                  </div>
+                  <p class="mt-2 text-sm font-medium">{issue.message}</p>
+                  {issue.pageUrl && (
+                    <p class="mt-1 text-xs text-gray-500">{issue.pageUrl}</p>
+                  )}
+                  {issue.recommendation && (
+                    <p class="mt-1 text-xs text-gray-500">
+                      {issue.recommendation}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>,
   );
 });
