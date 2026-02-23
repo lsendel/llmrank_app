@@ -796,3 +796,92 @@ appRoutes.get("/team/:orgId/members", async (c) => {
     </div>,
   );
 });
+
+// =====================================================================
+// New Project Page
+// =====================================================================
+
+appRoutes.get("/projects/new", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user) return c.redirect("/sign-in");
+
+  const content = (
+    <div class="mx-auto max-w-lg">
+      <PageHeader
+        title="New Project"
+        description="Add a website to audit for AI-readiness."
+      />
+      <section class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <form
+          hx-post="/api/projects"
+          hx-target="#form-error"
+          hx-swap="innerHTML"
+          class="space-y-5"
+        >
+          <div id="form-error"></div>
+
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="name">
+              Project Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              id="name"
+              placeholder="My Website"
+              required
+              maxlength={100}
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="domain">
+              Domain
+            </label>
+            <input
+              type="text"
+              name="domain"
+              id="domain"
+              placeholder="example.com"
+              required
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Enter the root domain to audit. https:// will be added
+              automatically if omitted.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button
+              type="submit"
+              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Create Project
+            </button>
+            <a
+              href="/app/projects"
+              class="rounded border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </a>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+
+  if (c.get("isHtmx")) return c.html(content);
+
+  return c.html(
+    <Layout
+      title="New Project"
+      user={{ email: user.email ?? "", plan: user.plan }}
+    >
+      {content}
+    </Layout>,
+  );
+});
