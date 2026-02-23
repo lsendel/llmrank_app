@@ -59,7 +59,7 @@ export function monthlyDigestHtml(data: MonthlyDigestData): string {
 <body style="margin: 0; padding: 0; background: #f4f4f5; font-family: system-ui, -apple-system, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
     <div style="text-align: center; padding: 24px 0;">
-      <h1 style="margin: 0; font-size: 20px; color: #6366f1; font-weight: 700;">LLM Boost</h1>
+      <h1 style="margin: 0; font-size: 20px; color: #6366f1; font-weight: 700;">LLM Rank</h1>
       <p style="margin: 4px 0 0; font-size: 13px; color: #999;">Monthly AI-Readiness Report</p>
     </div>
 

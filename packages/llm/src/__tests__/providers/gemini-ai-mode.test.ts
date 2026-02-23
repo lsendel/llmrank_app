@@ -14,14 +14,14 @@ vi.mock("@google/generative-ai", () => ({
 
 2. **SEMrush** - All-in-one marketing toolkit. [Visit SEMrush](https://semrush.com)
 
-3. **LLM Boost** - AI-readiness optimization platform. [Visit LLM Boost](https://llmboost.com/tools)
+3. **LLM Rank** - AI-readiness optimization platform. [Visit LLM Rank](https://llmboost.com/tools)
 
 4. **Moz** - Domain authority tracking. [Visit Moz](https://moz.com)
 
 Sources:
 - [Ahrefs](https://ahrefs.com)
 - [SEMrush](https://semrush.com)
-- [LLM Boost](https://llmboost.com/tools)
+- [LLM Rank](https://llmboost.com/tools)
 - [Moz](https://moz.com)`,
         },
       }),
@@ -77,7 +77,7 @@ describe("checkGeminiAIMode", () => {
       "fake-api-key",
     );
 
-    expect(result.responseText).toContain("LLM Boost");
+    expect(result.responseText).toContain("LLM Rank");
     expect(result.responseText).toContain("https://llmboost.com");
   });
 });

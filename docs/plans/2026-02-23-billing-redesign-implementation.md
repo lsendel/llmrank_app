@@ -196,7 +196,7 @@ git commit -m "feat(billing): add upgrade endpoint with Stripe proration"
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Billing | LLM Boost",
+  title: "Billing | LLM Rank",
   description: "Manage your subscription, plan, and payment history.",
 };
 

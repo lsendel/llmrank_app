@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add 7 data visualization components inspired by RustySEO's charting patterns, adapted for LLM Boost's AI-first SEO platform. Full-stack: new API endpoints + Recharts-based frontend components.
+Add 7 data visualization components inspired by RustySEO's charting patterns, adapted for LLM Rank's AI-first SEO platform. Full-stack: new API endpoints + Recharts-based frontend components.
 
 ## Architecture Decision
 

@@ -42,7 +42,7 @@ function renderBadgeSvg(data: {
   <text x="${68 + String(data.score).length * 12}" y="50" font-family="system-ui,sans-serif" font-size="12" fill="#666"> / 100</text>
   <text x="16" y="90" font-family="system-ui,sans-serif" font-size="10" fill="#888">Tech ${data.technical}  ·  Content ${data.content}  ·  AI ${data.aiReadiness}  ·  Perf ${data.performance}</text>
   <text x="16" y="108" font-family="system-ui,sans-serif" font-size="10" fill="#555">${data.domain}  ·  Scanned ${dateStr}</text>
-  <text x="304" y="108" font-family="system-ui,sans-serif" font-size="9" fill="#444" text-anchor="end">LLM Boost</text>
+  <text x="304" y="108" font-family="system-ui,sans-serif" font-size="9" fill="#444" text-anchor="end">LLM Rank</text>
 </svg>`;
 }
 

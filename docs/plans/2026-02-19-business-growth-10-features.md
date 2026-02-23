@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Ship 10 features that drive user engagement, conversion, and retention across the LLM Boost platform.
+**Goal:** Ship 10 features that drive user engagement, conversion, and retention across the LLM Rank platform.
 
 **Architecture:** Each feature follows the API-first pattern: add/extend API routes in `apps/api`, then build frontend components in `apps/web`. Many features have existing backend infrastructure (digest service, regression service, crawl comparison queries, action items table) that just needs frontend wiring.
 

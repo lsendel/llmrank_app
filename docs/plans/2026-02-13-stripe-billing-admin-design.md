@@ -2,7 +2,7 @@
 
 ## Goal
 
-Integrate comprehensive Stripe subscription billing and admin analytics into LLM Boost, reusing patterns from the llmrank FastAPI project adapted to our TypeScript/Drizzle/Workers stack.
+Integrate comprehensive Stripe subscription billing and admin analytics into LLM Rank, reusing patterns from the llmrank FastAPI project adapted to our TypeScript/Drizzle/Workers stack.
 
 ## Current State
 

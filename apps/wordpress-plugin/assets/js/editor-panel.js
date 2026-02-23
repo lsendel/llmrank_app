@@ -254,13 +254,13 @@
         el(
           PluginSidebarMoreMenuItem,
           { target: "llm-boost-sidebar" },
-          "LLM Boost",
+          "LLM Rank",
         ),
         el(
           PluginSidebar,
           {
             name: "llm-boost-sidebar",
-            title: "LLM Boost",
+            title: "LLM Rank",
             icon: "chart-bar",
           },
           el(LLMBoostPanel, null),

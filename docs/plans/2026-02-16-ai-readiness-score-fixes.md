@@ -36,8 +36,8 @@ In `apps/web/src/app/layout.tsx`, update the `openGraph` and `twitter` sections:
 openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "LLM Boost",
-    title: "LLM Boost - AI-Readiness SEO Platform",
+    siteName: "LLM Rank",
+    title: "LLM Rank - AI-Readiness SEO Platform",
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
     url: BASE_URL,
@@ -46,13 +46,13 @@ openGraph: {
         url: `${BASE_URL}/og-default.png`,
         width: 1200,
         height: 630,
-        alt: "LLM Boost — AI-Readiness SEO Platform",
+        alt: "LLM Rank — AI-Readiness SEO Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LLM Boost - AI-Readiness SEO Platform",
+    title: "LLM Rank - AI-Readiness SEO Platform",
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
     images: [`${BASE_URL}/og-default.png`],
@@ -77,7 +77,7 @@ git commit -m "fix(seo): add default og:image to root layout metadata"
 
 **Issue:** MISSING_TITLE — 3 pages have titles outside 30-60 chars (-8 pts each, -24 total)
 
-The root layout template is `"%s | LLM Boost"` (adds 12 chars). Pages must set titles between 18-48 chars (so rendered title is 30-60).
+The root layout template is `"%s | LLM Rank"` (adds 12 chars). Pages must set titles between 18-48 chars (so rendered title is 30-60).
 
 **Files:**
 
@@ -98,7 +98,7 @@ title: "Pricing",
 title: "AI-Readiness SEO Pricing Plans",
 ```
 
-Rendered: "AI-Readiness SEO Pricing Plans | LLM Boost" = 44 chars ✓
+Rendered: "AI-Readiness SEO Pricing Plans | LLM Rank" = 44 chars ✓
 
 **Step 2: Fix integrations title**
 
@@ -112,7 +112,7 @@ title: "Integrations",
 title: "SEO Integrations & Connections",
 ```
 
-Rendered: "SEO Integrations & Connections | LLM Boost" = 43 chars ✓
+Rendered: "SEO Integrations & Connections | LLM Rank" = 43 chars ✓
 
 **Step 3: Fix terms title (use absolute to bypass template)**
 
@@ -120,14 +120,14 @@ In `apps/web/src/app/terms/page.tsx`, change:
 
 ```typescript
 // OLD
-title: "Terms of Service — LLM Boost AI-Readiness Platform",
+title: "Terms of Service — LLM Rank AI-Readiness Platform",
 
 // NEW
-title: "Terms of Service — LLM Boost",
+title: "Terms of Service — LLM Rank",
 ```
 
-Rendered: "Terms of Service — LLM Boost | LLM Boost" = 41 chars ✓
-(Or use `title: { absolute: "Terms of Service — LLM Boost" }` if you want no template = 29 chars, slightly short)
+Rendered: "Terms of Service — LLM Rank | LLM Rank" = 41 chars ✓
+(Or use `title: { absolute: "Terms of Service — LLM Rank" }` if you want no template = 29 chars, slightly short)
 
 Better approach:
 
@@ -135,7 +135,7 @@ Better approach:
 title: "Terms of Service",
 ```
 
-Rendered: "Terms of Service | LLM Boost" = 28 chars — still too short.
+Rendered: "Terms of Service | LLM Rank" = 28 chars — still too short.
 
 Best:
 
@@ -143,7 +143,7 @@ Best:
 title: "Terms of Service — AI-Readiness",
 ```
 
-Rendered: "Terms of Service — AI-Readiness | LLM Boost" = 44 chars ✓
+Rendered: "Terms of Service — AI-Readiness | LLM Rank" = 44 chars ✓
 
 **Step 4: Fix privacy title**
 
@@ -151,13 +151,13 @@ In `apps/web/src/app/privacy/page.tsx`, change:
 
 ```typescript
 // OLD
-title: "Privacy Policy — LLM Boost AI-Readiness Platform",
+title: "Privacy Policy — LLM Rank AI-Readiness Platform",
 
 // NEW
 title: "Privacy Policy — AI-Readiness",
 ```
 
-Rendered: "Privacy Policy — AI-Readiness | LLM Boost" = 42 chars ✓
+Rendered: "Privacy Policy — AI-Readiness | LLM Rank" = 42 chars ✓
 
 **Step 5: Verify build**
 
@@ -234,7 +234,7 @@ export const metadata: Metadata = {
     "View your website's AI-readiness score across 37 factors with actionable recommendations to improve visibility in ChatGPT, Claude, and Perplexity.",
   alternates: { canonical: "/scan/results" },
   openGraph: {
-    title: "AI-Readiness Scan Results | LLM Boost",
+    title: "AI-Readiness Scan Results | LLM Rank",
     description:
       "See how your website scores for AI search visibility across 37 factors.",
     url: "https://llmrank.app/scan/results",
@@ -282,7 +282,7 @@ export const metadata: Metadata = {
     "See which websites score highest for AI-readiness. Compare domains across 37 factors and find out who leads in AI search visibility.",
   alternates: { canonical: "/leaderboard" },
   openGraph: {
-    title: "AI-Readiness Leaderboard | LLM Boost",
+    title: "AI-Readiness Leaderboard | LLM Rank",
     description:
       "Compare websites by AI-readiness score. See who leads in visibility across ChatGPT, Claude, and Perplexity.",
     url: "https://llmrank.app/leaderboard",
@@ -321,7 +321,7 @@ After the hero `<p>` tag (line 121), add a direct-answer paragraph:
 
 ```tsx
 <p className="mt-4 text-base leading-7 text-muted-foreground">
-  LLM Boost is an AI-readiness SEO platform that crawls your website and scores
+  LLM Rank is an AI-readiness SEO platform that crawls your website and scores
   every page across 37 factors in four categories: Technical SEO, Content
   Quality, AI Readiness, and Performance. Each page gets a letter grade from A
   to F, along with prioritized quick wins sorted by impact and effort. The
@@ -341,7 +341,7 @@ const STEPS = [
     step: "1",
     title: "Enter your URL",
     description:
-      "Paste any website URL into the scanner. LLM Boost crawls your pages, checks technical SEO factors like meta tags and structured data, runs Lighthouse performance audits, and extracts content signals. The free scan covers up to 10 pages. Paid plans handle up to 2,000 pages per crawl.",
+      "Paste any website URL into the scanner. LLM Rank crawls your pages, checks technical SEO factors like meta tags and structured data, runs Lighthouse performance audits, and extracts content signals. The free scan covers up to 10 pages. Paid plans handle up to 2,000 pages per crawl.",
   },
   {
     step: "2",
@@ -441,7 +441,7 @@ const FAQ_ITEMS = [
   {
     question: "Which AI search engines do you track?",
     answer:
-      "LLM Boost tracks your brand visibility across four major AI platforms: OpenAI ChatGPT, Anthropic Claude, Perplexity, and Google Gemini. Visibility checks monitor whether your brand is mentioned, whether your URLs are cited, and where you rank relative to competitors in AI-generated responses.",
+      "LLM Rank tracks your brand visibility across four major AI platforms: OpenAI ChatGPT, Anthropic Claude, Perplexity, and Google Gemini. Visibility checks monitor whether your brand is mentioned, whether your URLs are cited, and where you rank relative to competitors in AI-generated responses.",
   },
   {
     question: "How often should I run a crawl?",
@@ -476,7 +476,7 @@ Update the section intro paragraph to include authoritative links:
 
 ```tsx
 <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-  Traditional SEO tools optimize for Google. LLM Boost optimizes for the next
+  Traditional SEO tools optimize for Google. LLM Rank optimizes for the next
   generation of search: large language models that synthesize answers from
   across the web. Our scoring methodology is built on{" "}
   <a
@@ -742,7 +742,7 @@ After the existing `<p>` subtitle, add:
 
 ```tsx
 <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-  LLM Boost integrations connect your AI-readiness workflow with the tools your
+  LLM Rank integrations connect your AI-readiness workflow with the tools your
   team already uses. Import search analytics from Google Search Console to
   correlate traditional rankings with AI visibility scores. Track conversions
   from AI-driven traffic with Google Analytics 4. Our upcoming WordPress plugin

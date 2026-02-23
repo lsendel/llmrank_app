@@ -139,7 +139,7 @@ Select queries:
 │ From Keywords:                                │
 │  ☑ "best AI SEO tools"         [comparison]  │
 │  ☑ "how to optimize for ChatGPT" [education] │
-│  ☐ "LLM Boost vs Profound"    [comparison]   │
+│  ☐ "LLM Rank vs Profound"    [comparison]   │
 │                                               │
 │ From Personas:                                │
 │  ☐ "AI readiness audit tool"  (Mkt Director) │

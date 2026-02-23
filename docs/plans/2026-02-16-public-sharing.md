@@ -501,7 +501,7 @@ function renderBadgeSvg(data: {
   <text x="16" y="108" font-family="system-ui,sans-serif" font-size="10" fill="#555">${data.domain}  ·  Scanned ${dateStr}</text>
 
   <!-- Branding -->
-  <text x="304" y="108" font-family="system-ui,sans-serif" font-size="9" fill="#444" text-anchor="end">LLM Boost</text>
+  <text x="304" y="108" font-family="system-ui,sans-serif" font-size="9" fill="#444" text-anchor="end">LLM Rank</text>
 </svg>`;
 }
 
@@ -798,7 +798,7 @@ This is a Next.js App Router page at `apps/web/src/app/share/[token]/page.tsx`. 
    - **Summary:** Hero card with grade, score ring, 4 category bars
    - **Issues:** Summary + issue list grouped by severity
    - **Full:** Summary + issues + page table + quick wins + score history
-4. Include "Powered by LLM Boost" footer and "Get your free scan" CTA
+4. Include "Powered by LLM Rank" footer and "Get your free scan" CTA
 
 > **User contribution opportunity:** The visual design of the public page is a creative decision — color scheme, layout, animations. This is where the `frontend-design` skill should be invoked.
 

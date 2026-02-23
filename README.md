@@ -1,14 +1,14 @@
-# LLM Boost
+# LLM Rank
 
 AI-Readiness SEO Platform — crawl websites, score pages across 37 factors, and get actionable recommendations to increase visibility in AI-generated responses.
 
-## Why LLM Boost?
+## Why LLM Rank?
 
-AI assistants are becoming the primary way people find information. When ChatGPT, Claude, Perplexity, Gemini 3, Codex, or Meta AI generate answers, they pull from web content — but not all content is equally visible. LLM Boost analyzes your site and tells you exactly what to fix.
+AI assistants are becoming the primary way people find information. When ChatGPT, Claude, Perplexity, Gemini 3, Codex, or Meta AI generate answers, they pull from web content — but not all content is equally visible. LLM Rank analyzes your site and tells you exactly what to fix.
 
 ## Supported AI Platforms
 
-LLM Boost monitors and optimizes your visibility across:
+LLM Rank monitors and optimizes your visibility across:
 
 - **ChatGPT** — OpenAI's conversational assistant
 - **Claude** — Anthropic's AI assistant

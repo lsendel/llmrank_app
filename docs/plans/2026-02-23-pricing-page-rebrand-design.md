@@ -5,13 +5,13 @@
 
 ## Summary
 
-Rebrand "LLM Boost" to "LLM Rank" across the entire web app, and enhance the pricing page with a monthly/annual toggle, score history on plan cards, and a stronger final CTA.
+Rebrand "LLM Rank" to "LLM Rank" across the entire web app, and enhance the pricing page with a monthly/annual toggle, score history on plan cards, and a stronger final CTA.
 
 ## Changes
 
-### 1. Global Rebrand: "LLM Boost" → "LLM Rank"
+### 1. Global Rebrand: "LLM Rank" → "LLM Rank"
 
-Find-and-replace all ~80 instances of "LLM Boost" with "LLM Rank" across `apps/web/src/`. This covers:
+Find-and-replace all ~80 instances of "LLM Rank" with "LLM Rank" across `apps/web/src/`. This covers:
 
 - **Metadata:** `<title>`, `description`, OpenGraph, Twitter cards
 - **JSON-LD:** Organization, SoftwareApplication, Product, WebSite schemas
@@ -53,7 +53,7 @@ Replace the current small text paragraph with a more prominent section:
 ## Files Modified
 
 - `apps/web/src/app/pricing/page.tsx` — toggle, score history, CTA
-- ~25 files across `apps/web/src/` for "LLM Boost" → "LLM Rank" rename
+- ~25 files across `apps/web/src/` for "LLM Rank" → "LLM Rank" rename
 - `apps/web/src/components/seo/json-ld.tsx` — organization/brand name
 
 ## Out of Scope

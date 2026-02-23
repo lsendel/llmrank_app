@@ -293,7 +293,7 @@ describe("NotificationService", () => {
 
       expect(resendSendMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          from: expect.stringContaining("LLM Boost"),
+          from: expect.stringContaining("LLM Rank"),
           to: ["user@test.com"],
         }),
       );

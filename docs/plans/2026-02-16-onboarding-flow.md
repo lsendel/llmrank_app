@@ -224,7 +224,7 @@ Replace `apps/web/src/app/onboarding/page.tsx` with a wizard that has 3 steps:
 **Step 1 — Welcome + Profile:**
 
 - State: `name` (string), `error` (string | null)
-- Headline: "Welcome to LLM Boost"
+- Headline: "Welcome to LLM Rank"
 - Subtext: "Let's get your first AI-readiness score in under 2 minutes."
 - Field: Name (required)
 - "Continue" button validates name is non-empty, advances to step 2 (no API call)

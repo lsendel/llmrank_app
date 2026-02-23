@@ -6,7 +6,7 @@
 
 ## Overview
 
-Comprehensive report generation system for LLM Boost that produces expert-level SEO/AI-readiness reports in PDF and Word formats. Two report types (Executive Summary and Detailed Technical), stored on Cloudflare R2, generated via a dedicated Queue Worker.
+Comprehensive report generation system for LLM Rank that produces expert-level SEO/AI-readiness reports in PDF and Word formats. Two report types (Executive Summary and Detailed Technical), stored on Cloudflare R2, generated via a dedicated Queue Worker.
 
 ## Goals
 
@@ -15,7 +15,7 @@ Comprehensive report generation system for LLM Boost that produces expert-level 
 3. Output PDF and DOCX formats
 4. Store reports on Cloudflare R2 with signed download URLs
 5. Include historical trend analysis across crawls
-6. Support branding customization (default LLM Boost + optional custom logo/colors)
+6. Support branding customization (default LLM Rank + optional custom logo/colors)
 7. Include competitor analysis and integration data (GSC/GA4/Clarity)
 8. Provide ROI estimates for each recommendation
 
@@ -222,16 +222,16 @@ For DOCX: render SVG charts to PNG via `sharp` or `resvg-js`, embed as images.
 
 ### Default (All Plans)
 
-- LLM Boost logo in header
+- LLM Rank logo in header
 - Indigo/blue color scheme
-- "Powered by LLM Boost" footer
+- "Powered by LLM Rank" footer
 
 ### Custom (Pro: logo, Agency: full)
 
 - Upload logo → stored in R2 at `branding/{projectId}/logo.{png|svg}`
 - Primary color override (used in headers, score colors, chart accents)
 - "Prepared for [Client Name]" on cover page
-- Optional: remove "Powered by LLM Boost" (Agency only)
+- Optional: remove "Powered by LLM Rank" (Agency only)
 
 Configuration stored in project settings (`projects.settings` JSONB field or new `report_config` JSONB column).
 

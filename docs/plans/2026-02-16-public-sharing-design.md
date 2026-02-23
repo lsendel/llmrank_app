@@ -71,7 +71,7 @@ Existing columns used: `shareToken` (UUID), `shareEnabled` (boolean), `sharedAt`
 
 Renders based on `shareLevel`. All modes include:
 
-- "Powered by LLM Boost" footer
+- "Powered by LLM Rank" footer
 - OG / Twitter meta tags with score + grade in og:image
 - Lead capture gate (optional email wall before full access)
 - CTA: "Get your free AI-readiness scan"
@@ -89,7 +89,7 @@ Renders based on `shareLevel`. All modes include:
 |  +---+                               |
 |  Tech 88 . Content 96 . AI 98 . Perf 91 |
 |  example.com . Scanned Feb 2026     |
-|  --- Powered by LLM Boost ---       |
+|  --- Powered by LLM Rank ---       |
 +-------------------------------------+
 ```
 

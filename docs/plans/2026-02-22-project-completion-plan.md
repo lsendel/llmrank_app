@@ -265,7 +265,7 @@ export const Layout: FC<
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>{title} — LLM Boost</title>
+      <title>{title} — LLM Rank</title>
       <script src="https://unpkg.com/htmx.org@2.0.4"></script>
       <script
         src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"
@@ -280,7 +280,7 @@ export const Layout: FC<
       <nav class="border-b bg-white px-6 py-3 dark:bg-gray-900">
         <div class="mx-auto flex max-w-7xl items-center justify-between">
           <a href="/app" class="text-lg font-bold">
-            LLM Boost
+            LLM Rank
           </a>
           {user && (
             <div class="flex items-center gap-4 text-sm">

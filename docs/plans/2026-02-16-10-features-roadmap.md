@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add 10 high-value features to LLM Boost, ordered by impact and effort, to transform the product from an audit tool into an action-oriented AI-readiness platform.
+**Goal:** Add 10 high-value features to LLM Rank, ordered by impact and effort, to transform the product from an audit tool into an action-oriented AI-readiness platform.
 
 **Architecture:** Each feature follows existing patterns — factory-function services, repository interfaces, Hono routes with auth middleware, SWR-based React components, and Drizzle ORM queries. New DB tables use pgEnum + UUID + timestamp conventions. All features respect plan limits via PLAN_LIMITS.
 
@@ -961,7 +961,7 @@ Test team CRUD, invitations, role permissions, middleware. Commit: `test: team c
 apps/wordpress-plugin/
   llm-boost.php           # Main plugin file (hooks, admin menu)
   includes/
-    class-api-client.php  # REST client to LLM Boost API
+    class-api-client.php  # REST client to LLM Rank API
     class-editor-panel.php # Gutenberg sidebar panel
     class-settings.php    # Settings page (API key)
   assets/
@@ -985,7 +985,7 @@ apps/wordpress-plugin/
 **Step 1:** Build React sidebar panel that:
 
 1. Extracts post title, content, meta description from editor
-2. Sends to LLM Boost API `POST /api/v1/score` for real-time scoring
+2. Sends to LLM Rank API `POST /api/v1/score` for real-time scoring
 3. Displays score circle, top 3 issues, and AI fix suggestions
 4. Debounced scoring on content change (5-second delay)
 

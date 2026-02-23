@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deploy all LLM Boost services in dependency order.
+# Deploy all LLM Rank services in dependency order.
 # Usage: bash infra/scripts/deploy-all.sh
 #
 # Prerequisites:

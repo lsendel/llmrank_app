@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Integrate three DataForSEO APIs (LLM Mentions, SERP AI Mode, Backlinks) to add real indexed AI visibility data, Google AI Mode tracking, and domain authority signals to LLM Boost.
+**Goal:** Integrate three DataForSEO APIs (LLM Mentions, SERP AI Mode, Backlinks) to add real indexed AI visibility data, Google AI Mode tracking, and domain authority signals to LLM Rank.
 
 **Architecture:** Create a shared `packages/dataforseo` API client package. LLM Mentions and SERP AI Mode extend the existing visibility system (`packages/llm` + `apps/api/src/routes/visibility.ts`). Backlinks plugs into the existing integration/enrichment pipeline (`packages/integrations`). New DB tables store DataForSEO-specific data alongside existing `visibility_checks` and `pageEnrichments`.
 

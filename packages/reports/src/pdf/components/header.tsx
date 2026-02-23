@@ -32,7 +32,7 @@ export function ReportHeader({
   data: ReportData;
   compact?: boolean;
 }) {
-  const brandName = data.project.branding?.companyName || "LLM Boost";
+  const brandName = data.project.branding?.companyName || "LLM Rank";
   const brandColor = data.project.branding?.primaryColor || "#4f46e5";
   const logoUrl = data.project.branding?.logoUrl;
 

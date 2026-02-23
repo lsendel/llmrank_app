@@ -2,7 +2,7 @@
 
 ## Context
 
-LLM Boost has strong technical infrastructure but leaves revenue on the table through:
+LLM Rank has strong technical infrastructure but leaves revenue on the table through:
 
 - No engagement loops (users don't come back without logging in)
 - No visible usage limits or upgrade prompts (free users don't know what they're missing)

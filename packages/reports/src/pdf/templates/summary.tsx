@@ -236,7 +236,7 @@ export function SummaryReportPdf({ data }: { data: ReportData }) {
             }}
           >
             <Text style={{ color: "#ffffff", opacity: 0.6, fontSize: 8 }}>
-              Powered by LLM Boost
+              Powered by LLM Rank
             </Text>
           </View>
         </Page>

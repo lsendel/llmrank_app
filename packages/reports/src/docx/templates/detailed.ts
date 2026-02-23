@@ -72,7 +72,7 @@ function buildActionPlan(issues: ReportIssue[]): ActionTier[] {
 // ---------------------------------------------------------------------------
 
 export function buildDetailedDocx(data: ReportData): Document {
-  const brandName = data.project.branding?.companyName ?? "LLM Boost";
+  const brandName = data.project.branding?.companyName ?? "LLM Rank";
   const date = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",

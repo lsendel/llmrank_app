@@ -5,7 +5,7 @@
 
 ## Context
 
-LLM Boost currently has visibility checks across 7 AI providers with competitor mention tracking, but:
+LLM Rank currently has visibility checks across 7 AI providers with competitor mention tracking, but:
 
 - Competitors must be added manually (Pro+ only, no auto-discovery)
 - Personas exist only as a generation endpoint (`POST /strategy/:projectId/personas`) — results are not persisted
@@ -13,7 +13,7 @@ LLM Boost currently has visibility checks across 7 AI providers with competitor 
 - No persona-driven prompt generation for visibility tracking
 - No competitor benchmarking comparison view
 
-Modern GEO platforms (Conductor, Profound, Otterly, Scrunch) treat personas as prompt-generation engines and auto-discover competitors from AI responses. This design brings LLM Boost to parity.
+Modern GEO platforms (Conductor, Profound, Otterly, Scrunch) treat personas as prompt-generation engines and auto-discover competitors from AI responses. This design brings LLM Rank to parity.
 
 ## Approach: Smart Onboarding Pipeline
 

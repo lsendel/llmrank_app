@@ -52,7 +52,7 @@ export function createDigestService(
             if (!data) continue;
 
             await resend.emails.send({
-              from: "LLM Boost <digest@llmboost.io>",
+              from: "LLM Rank <digest@llmboost.io>",
               to: [user.email],
               subject: `Weekly Digest: ${project.name}`,
               html: weeklyDigestHtml(data),
@@ -91,7 +91,7 @@ export function createDigestService(
           const data = await buildMonthlyData(user, projects);
 
           await resend.emails.send({
-            from: "LLM Boost <digest@llmboost.io>",
+            from: "LLM Rank <digest@llmboost.io>",
             to: [user.email],
             subject: "Monthly AI-Readiness Report",
             html: monthlyDigestHtml(data),

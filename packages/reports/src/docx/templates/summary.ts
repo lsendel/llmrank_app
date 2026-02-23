@@ -21,7 +21,7 @@ import {
 import { gradeColor, BRAND_COLOR, GRAY_400, GRAY_600 } from "../styles";
 
 export function buildSummaryDocx(data: ReportData): Document {
-  const brandName = data.project.branding?.companyName ?? "LLM Boost";
+  const brandName = data.project.branding?.companyName ?? "LLM Rank";
   const date = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",

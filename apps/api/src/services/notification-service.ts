@@ -232,7 +232,7 @@ export function createNotificationService(
             const { to, data } = event.payload as any;
 
             await resend.emails.send({
-              from: "LLM Boost <notifications@llmboost.io>",
+              from: "LLM Rank <notifications@llmboost.io>",
               to: [to],
               subject: getSubject(event.type),
               html: renderTemplate(event.type, data),
@@ -483,7 +483,7 @@ function renderTemplate(type: string, data: any): string {
             <a href="${reportUrl}">View All Quick Wins</a>`;
   }
 
-  return `<p>New updates in your LLM Boost dashboard.</p>`;
+  return `<p>New updates in your LLM Rank dashboard.</p>`;
 }
 
 function resolveReportUrl(data: any) {
@@ -566,7 +566,7 @@ async function sendSlackIncoming(
         type: "header",
         text: {
           type: "plain_text",
-          text: `LLM Boost: ${event.eventType}`,
+          text: `LLM Rank: ${event.eventType}`,
         },
       },
       {

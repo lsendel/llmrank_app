@@ -1,8 +1,8 @@
-# LLM Boost Full Implementation Plan
+# LLM Rank Full Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build the complete LLM Boost platform — crawl websites, score pages for AI-readiness across 37 factors, track AI visibility across 5 LLM providers, full Stripe billing with 4 tiers, scheduled crawls, competitor tracking, PDF reports, agency white-labeling, marketing site, and launch-ready production deployment.
+**Goal:** Build the complete LLM Rank platform — crawl websites, score pages for AI-readiness across 37 factors, track AI visibility across 5 LLM providers, full Stripe billing with 4 tiers, scheduled crawls, competitor tracking, PDF reports, agency white-labeling, marketing site, and launch-ready production deployment.
 
 **Architecture:** Turborepo monorepo with Next.js frontend on Cloudflare Pages, Hono API on Cloudflare Workers (D1/R2/KV), Rust crawler on Hetzner VPS with Lighthouse. Clerk auth, Stripe billing, Anthropic/OpenAI for LLM scoring. PostHog analytics, Sentry error tracking.
 
@@ -20,6 +20,7 @@
 ### Task 1: Scaffold Turborepo Monorepo
 
 **Files:**
+
 - Create: `package.json` (workspace root)
 - Create: `pnpm-workspace.yaml`
 - Create: `turbo.json`
@@ -150,6 +151,7 @@ git commit -m "feat: scaffold Turborepo monorepo with pnpm workspaces"
 ### Task 2: Create packages/shared — Types, Schemas, Constants
 
 **Files:**
+
 - Create: `packages/shared/package.json`
 - Create: `packages/shared/tsconfig.json`
 - Create: `packages/shared/src/index.ts`
@@ -252,7 +254,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "technical",
     severity: "warning",
     scoreImpact: -10,
-    message: "Page is missing a meta description or it is outside 120-160 characters",
+    message:
+      "Page is missing a meta description or it is outside 120-160 characters",
     recommendation:
       "Add a meta description of 120-160 characters that summarizes this page's key topic.",
   },
@@ -289,7 +292,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     severity: "warning",
     scoreImpact: -5, // per broken link, max -20
     message: "Page contains broken internal links",
-    recommendation: "Fix or remove broken internal links to improve crawlability.",
+    recommendation:
+      "Fix or remove broken internal links to improve crawlability.",
   },
   MISSING_CANONICAL: {
     code: "MISSING_CANONICAL",
@@ -332,7 +336,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "technical",
     severity: "info",
     scoreImpact: -5,
-    message: "Page is missing Open Graph tags (og:title, og:description, og:image)",
+    message:
+      "Page is missing Open Graph tags (og:title, og:description, og:image)",
     recommendation:
       "Add og:title, og:description, and og:image meta tags for better social and AI sharing.",
   },
@@ -351,7 +356,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     severity: "info",
     scoreImpact: -5,
     message: "No valid sitemap.xml found",
-    recommendation: "Create and submit a sitemap.xml to help crawlers discover all pages.",
+    recommendation:
+      "Create and submit a sitemap.xml to help crawlers discover all pages.",
   },
 
   // --- Content Quality (9 factors) ---
@@ -387,7 +393,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "content",
     severity: "warning",
     scoreImpact: 0,
-    message: "Content lacks authority signals (citations, data, expert language)",
+    message:
+      "Content lacks authority signals (citations, data, expert language)",
     recommendation:
       "Add citations, statistics, expert quotes, and authoritative sources to build credibility.",
   },
@@ -452,7 +459,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "ai_readiness",
     severity: "critical",
     scoreImpact: -25,
-    message: "robots.txt blocks one or more AI crawlers (GPTBot, ClaudeBot, PerplexityBot)",
+    message:
+      "robots.txt blocks one or more AI crawlers (GPTBot, ClaudeBot, PerplexityBot)",
     recommendation:
       "Remove Disallow rules for AI user agents (GPTBot, ClaudeBot, PerplexityBot) in robots.txt.",
   },
@@ -488,7 +496,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "ai_readiness",
     severity: "warning",
     scoreImpact: -10,
-    message: "Content does not contain direct, concise answers to likely queries",
+    message:
+      "Content does not contain direct, concise answers to likely queries",
     recommendation:
       "Add clear, concise answer paragraphs at the top of sections that directly address likely user questions.",
   },
@@ -515,7 +524,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "ai_readiness",
     severity: "warning",
     scoreImpact: -10,
-    message: "Content does not adequately address likely search queries for this topic",
+    message:
+      "Content does not adequately address likely search queries for this topic",
     recommendation:
       "Research common questions about this topic and ensure your content addresses them directly.",
   },
@@ -525,7 +535,8 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     severity: "warning",
     scoreImpact: -8,
     message: "JSON-LD structured data contains parse errors",
-    recommendation: "Fix JSON-LD syntax errors. Validate at schema.org or Google Rich Results Test.",
+    recommendation:
+      "Fix JSON-LD syntax errors. Validate at schema.org or Google Rich Results Test.",
   },
 
   // --- Performance (5 factors) ---
@@ -833,7 +844,9 @@ export const PaginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
+export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(
+  itemSchema: T,
+) =>
   z.object({
     data: z.array(itemSchema),
     pagination: z.object({
@@ -853,9 +866,18 @@ export const ERROR_CODES = {
   FORBIDDEN: { status: 403, message: "Insufficient permissions" },
   NOT_FOUND: { status: 404, message: "Resource does not exist" },
   PLAN_LIMIT_REACHED: { status: 403, message: "Feature requires higher plan" },
-  CRAWL_LIMIT_REACHED: { status: 429, message: "Monthly crawl credits exhausted" },
-  CRAWL_IN_PROGRESS: { status: 409, message: "Another crawl is already running" },
-  INVALID_DOMAIN: { status: 422, message: "Domain URL is unreachable or invalid" },
+  CRAWL_LIMIT_REACHED: {
+    status: 429,
+    message: "Monthly crawl credits exhausted",
+  },
+  CRAWL_IN_PROGRESS: {
+    status: 409,
+    message: "Another crawl is already running",
+  },
+  INVALID_DOMAIN: {
+    status: 422,
+    message: "Domain URL is unreachable or invalid",
+  },
   HMAC_INVALID: { status: 401, message: "HMAC signature verification failed" },
   RATE_LIMITED: { status: 429, message: "Too many requests" },
 } as const;
@@ -906,7 +928,7 @@ describe("CreateProjectSchema", () => {
 
   it("rejects empty name", () => {
     expect(() =>
-      CreateProjectSchema.parse({ name: "", domain: "example.com" })
+      CreateProjectSchema.parse({ name: "", domain: "example.com" }),
     ).toThrow();
   });
 });
@@ -933,7 +955,7 @@ describe("PageScoreSchema", () => {
         ai_readiness_score: 85,
         performance_score: 75,
         letter_grade: "A",
-      })
+      }),
     ).toThrow();
   });
 });
@@ -952,6 +974,7 @@ git commit -m "feat: add shared package with Zod schemas, issue codes, and plan 
 ### Task 3: Create packages/db — Drizzle Schema & Migrations
 
 **Files:**
+
 - Create: `packages/db/package.json`
 - Create: `packages/db/tsconfig.json`
 - Create: `packages/db/src/schema.ts`
@@ -1000,7 +1023,13 @@ Reference: `ai-seo-requirements.md` Section 10 (Database Schema).
 Create `packages/db/src/schema.ts`:
 
 ```typescript
-import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  index,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 const id = () =>
@@ -1029,7 +1058,9 @@ export const users = sqliteTable("users", {
     .default("free"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubId: text("stripe_sub_id"),
-  crawlCreditsRemaining: integer("crawl_credits_remaining").notNull().default(100),
+  crawlCreditsRemaining: integer("crawl_credits_remaining")
+    .notNull()
+    .default(100),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -1048,7 +1079,7 @@ export const projects = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("idx_projects_user").on(t.userId)]
+  (t) => [index("idx_projects_user").on(t.userId)],
 );
 
 // --- Crawl Jobs ---
@@ -1060,7 +1091,15 @@ export const crawlJobs = sqliteTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     status: text("status", {
-      enum: ["pending", "queued", "crawling", "scoring", "complete", "failed", "cancelled"],
+      enum: [
+        "pending",
+        "queued",
+        "crawling",
+        "scoring",
+        "complete",
+        "failed",
+        "cancelled",
+      ],
     })
       .notNull()
       .default("pending"),
@@ -1077,7 +1116,7 @@ export const crawlJobs = sqliteTable(
   (t) => [
     index("idx_jobs_project").on(t.projectId),
     index("idx_jobs_status").on(t.status),
-  ]
+  ],
 );
 
 // --- Pages ---
@@ -1106,7 +1145,7 @@ export const pages = sqliteTable(
   (t) => [
     index("idx_pages_job").on(t.jobId),
     index("idx_pages_url").on(t.projectId, t.url),
-  ]
+  ],
 );
 
 // --- Page Scores ---
@@ -1140,9 +1179,18 @@ export const issues = sqliteTable(
       .notNull()
       .references(() => crawlJobs.id, { onDelete: "cascade" }),
     category: text("category", {
-      enum: ["technical", "content", "ai_readiness", "performance", "schema", "llm_visibility"],
+      enum: [
+        "technical",
+        "content",
+        "ai_readiness",
+        "performance",
+        "schema",
+        "llm_visibility",
+      ],
     }).notNull(),
-    severity: text("severity", { enum: ["critical", "warning", "info"] }).notNull(),
+    severity: text("severity", {
+      enum: ["critical", "warning", "info"],
+    }).notNull(),
     code: text("code").notNull(),
     message: text("message").notNull(),
     recommendation: text("recommendation"),
@@ -1152,7 +1200,7 @@ export const issues = sqliteTable(
   (t) => [
     index("idx_issues_page").on(t.pageId),
     index("idx_issues_severity").on(t.jobId, t.severity),
-  ]
+  ],
 );
 
 // --- Visibility Checks ---
@@ -1168,7 +1216,9 @@ export const visibilityChecks = sqliteTable(
     }).notNull(),
     query: text("query").notNull(),
     responseText: text("response_text"),
-    brandMentioned: integer("brand_mentioned", { mode: "boolean" }).default(false),
+    brandMentioned: integer("brand_mentioned", { mode: "boolean" }).default(
+      false,
+    ),
     urlCited: integer("url_cited", { mode: "boolean" }).default(false),
     citationPosition: integer("citation_position"),
     competitorMentions: text("competitor_mentions", { mode: "json" }),
@@ -1177,7 +1227,7 @@ export const visibilityChecks = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
   },
-  (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)]
+  (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)],
 );
 ```
 
@@ -1280,6 +1330,7 @@ git commit -m "feat: add database package with Drizzle schema, migrations, and q
 ### Task 4: Create packages/scoring — 37-Factor Scoring Engine
 
 **Files:**
+
 - Create: `packages/scoring/package.json`
 - Create: `packages/scoring/tsconfig.json`
 - Create: `packages/scoring/src/index.ts`
@@ -1328,7 +1379,12 @@ This is TDD-heavy. Target: 90%+ coverage, 50+ test cases.
 Create `packages/scoring/src/types.ts`:
 
 ```typescript
-import type { ExtractedData, LighthouseResult, LLMContentScores, Issue } from "@llm-boost/shared";
+import type {
+  ExtractedData,
+  LighthouseResult,
+  LLMContentScores,
+  Issue,
+} from "@llm-boost/shared";
 
 export interface PageData {
   url: string;
@@ -1377,24 +1433,37 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
     url: "https://example.com/test",
     statusCode: 200,
     title: "Test Page Title - Example",
-    metaDescription: "A valid meta description that is between 120 and 160 characters long for testing purposes and validation of the scoring engine",
+    metaDescription:
+      "A valid meta description that is between 120 and 160 characters long for testing purposes and validation of the scoring engine",
     canonicalUrl: "https://example.com/test",
     wordCount: 800,
     contentHash: "abc123",
     extracted: {
       h1: ["Main Heading"],
       h2: ["Section 1", "Section 2"],
-      h3: [], h4: [], h5: [], h6: [],
+      h3: [],
+      h4: [],
+      h5: [],
+      h6: [],
       schema_types: ["WebPage"],
       internal_links: ["/about", "/contact", "/blog"],
       external_links: ["https://external.com"],
       images_without_alt: 0,
       has_robots_meta: false,
       robots_directives: [],
-      og_tags: { "og:title": "Test", "og:description": "Desc", "og:image": "/img.png" },
+      og_tags: {
+        "og:title": "Test",
+        "og:description": "Desc",
+        "og:image": "/img.png",
+      },
       structured_data: [{ "@type": "WebPage" }],
     },
-    lighthouse: { performance: 0.9, seo: 0.95, accessibility: 0.88, best_practices: 0.92 },
+    lighthouse: {
+      performance: 0.9,
+      seo: 0.95,
+      accessibility: 0.88,
+      best_practices: 0.92,
+    },
     llmScores: null,
     siteContext: {
       hasLlmsTxt: true,
@@ -1417,7 +1486,7 @@ describe("Technical SEO Factors", () => {
     const result = scoreTechnicalFactors(makePageData({ title: null }));
     expect(result.score).toBe(85);
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "MISSING_TITLE", severity: "critical" })
+      expect.objectContaining({ code: "MISSING_TITLE", severity: "critical" }),
     );
   });
 
@@ -1427,10 +1496,12 @@ describe("Technical SEO Factors", () => {
   });
 
   it("MISSING_META_DESC: deducts 10 for missing meta description", () => {
-    const result = scoreTechnicalFactors(makePageData({ metaDescription: null }));
+    const result = scoreTechnicalFactors(
+      makePageData({ metaDescription: null }),
+    );
     expect(result.score).toBe(90);
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "MISSING_META_DESC" })
+      expect.objectContaining({ code: "MISSING_META_DESC" }),
     );
   });
 
@@ -1452,7 +1523,7 @@ describe("Technical SEO Factors", () => {
     const result = scoreTechnicalFactors(makePageData({ statusCode: 404 }));
     expect(result.score).toBe(75);
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "HTTP_STATUS", severity: "critical" })
+      expect.objectContaining({ code: "HTTP_STATUS", severity: "critical" }),
     );
   });
 
@@ -1502,7 +1573,11 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   let score = 100;
   const issues: Issue[] = [];
 
-  function deduct(code: string, amount: number, data?: Record<string, unknown>) {
+  function deduct(
+    code: string,
+    amount: number,
+    data?: Record<string, unknown>,
+  ) {
     const def = ISSUE_DEFINITIONS[code];
     if (!def) return;
     score = Math.max(0, score + amount); // amount is negative
@@ -1527,7 +1602,9 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
     page.metaDescription.length < 120 ||
     page.metaDescription.length > 160
   ) {
-    deduct("MISSING_META_DESC", -10, { descLength: page.metaDescription?.length ?? 0 });
+    deduct("MISSING_META_DESC", -10, {
+      descLength: page.metaDescription?.length ?? 0,
+    });
   }
 
   // MISSING_H1
@@ -1591,8 +1668,13 @@ export function scoreTechnicalFactors(page: PageData): FactorResult {
   }
 
   // SLOW_RESPONSE
-  if (page.siteContext?.responseTimeMs && page.siteContext.responseTimeMs > 2000) {
-    deduct("SLOW_RESPONSE", -10, { responseTimeMs: page.siteContext.responseTimeMs });
+  if (
+    page.siteContext?.responseTimeMs &&
+    page.siteContext.responseTimeMs > 2000
+  ) {
+    deduct("SLOW_RESPONSE", -10, {
+      responseTimeMs: page.siteContext.responseTimeMs,
+    });
   }
 
   // MISSING_SITEMAP
@@ -1681,7 +1763,7 @@ export function scorePage(page: PageData): ScoringResult {
     technical.score * WEIGHTS.technical +
       content.score * WEIGHTS.content +
       aiReadiness.score * WEIGHTS.ai_readiness +
-      performance.score * WEIGHTS.performance
+      performance.score * WEIGHTS.performance,
   );
 
   const allIssues: Issue[] = [
@@ -1693,7 +1775,9 @@ export function scorePage(page: PageData): ScoringResult {
 
   // Sort: critical > warning > info, then by score impact
   const severityOrder = { critical: 0, warning: 1, info: 2 };
-  allIssues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  allIssues.sort(
+    (a, b) => severityOrder[a.severity] - severityOrder[b.severity],
+  );
 
   return {
     overallScore,
@@ -1729,6 +1813,7 @@ git commit -m "feat: add 37-factor scoring engine with 50+ test cases"
 ### Task 5: Create packages/llm — LLM Orchestration
 
 **Files:**
+
 - Create: `packages/llm/package.json`
 - Create: `packages/llm/src/index.ts`
 - Create: `packages/llm/src/prompts.ts`
@@ -1765,6 +1850,7 @@ git commit -m "feat: add 37-factor scoring engine with 50+ test cases"
 Create `packages/llm/src/prompts.ts`:
 
 Build the prompt that asks the LLM to score a page's content on 5 dimensions (Clarity, Authority, Comprehensiveness, Structure, Citation Worthiness) each 0-100. The prompt should:
+
 - Accept extracted page text (truncated to ~4000 tokens)
 - Request JSON output with the 5 scores and brief reasoning
 - Include scoring rubric for each dimension
@@ -1801,7 +1887,7 @@ export class LLMScorer {
 
   async scoreContent(
     pageText: string,
-    contentHash: string
+    contentHash: string,
   ): Promise<LLMContentScores | null> {
     // Check cache first
     if (this.kv) {
@@ -1820,7 +1906,8 @@ export class LLMScorer {
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
     const scores = JSON.parse(text) as LLMContentScores;
 
     // Cache result
@@ -1850,6 +1937,7 @@ git commit -m "feat: add LLM scoring package with caching and tiered models"
 ### Task 6: Create packages/api — Hono Worker
 
 **Files:**
+
 - Create: `packages/api/package.json`
 - Create: `packages/api/tsconfig.json`
 - Create: `packages/api/src/index.ts`
@@ -1978,13 +2066,19 @@ export const hmacAuth = createMiddleware<{
   const timestamp = c.req.header("X-Timestamp");
 
   if (!signature || !timestamp) {
-    return c.json({ error: { code: "HMAC_INVALID", message: "Missing signature headers" } }, 401);
+    return c.json(
+      { error: { code: "HMAC_INVALID", message: "Missing signature headers" } },
+      401,
+    );
   }
 
   // Replay protection: reject timestamps > 5 minutes old
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - parseInt(timestamp)) > 300) {
-    return c.json({ error: { code: "HMAC_INVALID", message: "Timestamp too old" } }, 401);
+    return c.json(
+      { error: { code: "HMAC_INVALID", message: "Timestamp too old" } },
+      401,
+    );
   }
 
   const body = await c.req.text();
@@ -1994,13 +2088,22 @@ export const hmacAuth = createMiddleware<{
     encoder.encode(c.env.SHARED_SECRET),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
-  const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(timestamp + body));
-  const expected = `hmac-sha256=${Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(timestamp + body),
+  );
+  const expected = `hmac-sha256=${Array.from(new Uint8Array(mac))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}`;
 
   if (signature !== expected) {
-    return c.json({ error: { code: "HMAC_INVALID", message: "Invalid signature" } }, 401);
+    return c.json(
+      { error: { code: "HMAC_INVALID", message: "Invalid signature" } },
+      401,
+    );
   }
 
   await next();
@@ -2010,6 +2113,7 @@ export const hmacAuth = createMiddleware<{
 **Step 5: Implement routes**
 
 Build each route file following Hono patterns:
+
 - `routes/health.ts` — simple `GET /` returning `{ status: "ok" }`
 - `routes/projects.ts` — CRUD using `projectQueries` from db package, Clerk auth middleware
 - `routes/crawls.ts` — Start crawl (POST), get status (GET), dispatches to Hetzner via fetch
@@ -2018,6 +2122,7 @@ Build each route file following Hono patterns:
 - `routes/billing.ts` — Stripe checkout session creation, webhook handler
 
 The ingest route is the critical data pipeline — when a batch arrives from the crawler:
+
 1. Validate HMAC signature
 2. Parse batch with `CrawlResultBatchSchema`
 3. Insert pages into D1
@@ -2041,6 +2146,7 @@ git commit -m "feat: add Hono Worker API with routes, HMAC auth, and ingest pipe
 ### Task 7: Scaffold Rust Crawler Project
 
 **Files:**
+
 - Create: `apps/crawler/Cargo.toml`
 - Create: `apps/crawler/src/main.rs`
 - Create: `apps/crawler/src/config.rs`
@@ -2090,6 +2196,7 @@ axum-test = "16"
 **Step 2: Create config module**
 
 `apps/crawler/src/config.rs` — reads from environment variables:
+
 - `SHARED_SECRET` — for HMAC verification
 - `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`, `R2_BUCKET` — for R2 uploads
 - `PORT` — HTTP server port (default 8080)
@@ -2104,6 +2211,7 @@ axum-test = "16"
 **Step 4: Create Axum HTTP server with HMAC auth**
 
 `apps/crawler/src/main.rs` — Axum app with routes:
+
 - `POST /api/v1/jobs` — accept new crawl job
 - `GET /api/v1/jobs/:id/status` — return job progress
 - `POST /api/v1/jobs/:id/cancel` — cancel a running job
@@ -2123,6 +2231,7 @@ git commit -m "feat: scaffold Rust crawler with Axum server, config, and models"
 ### Task 8: Implement Crawler Engine
 
 **Files:**
+
 - Create: `apps/crawler/src/crawler/mod.rs`
 - Create: `apps/crawler/src/crawler/frontier.rs`
 - Create: `apps/crawler/src/crawler/fetcher.rs`
@@ -2135,6 +2244,7 @@ git commit -m "feat: scaffold Rust crawler with Axum server, config, and models"
 **Step 1: Implement URL frontier**
 
 `frontier.rs` — BFS queue with:
+
 - `BinaryHeap` sorted by depth (shallow pages first)
 - `HashSet` for URL dedup (normalize URLs before adding)
 - `crawled_count()` to check against `max_pages`
@@ -2168,6 +2278,7 @@ mod tests {
 **Step 3: Implement HTML parser**
 
 `parser.rs` — Uses `scraper` crate to extract:
+
 - Title tag, meta description, canonical URL
 - H1-H6 headings
 - Internal vs external links
@@ -2184,6 +2295,7 @@ Create test HTML strings and verify correct extraction.
 **Step 5: Implement robots.txt + llms.txt parser**
 
 `robots.rs`:
+
 - Fetch and parse robots.txt for the domain
 - Check if GPTBot, ClaudeBot, PerplexityBot are blocked
 - Fetch /llms.txt and check if it exists with valid content
@@ -2191,6 +2303,7 @@ Create test HTML strings and verify correct extraction.
 **Step 6: Implement fetcher with rate limiting**
 
 `fetcher.rs` — Uses `reqwest` with `governor::RateLimiter`:
+
 - One token bucket per domain
 - Configurable rate (default: 1 request per second)
 - Timeout per request (configurable, default 30s)
@@ -2199,6 +2312,7 @@ Create test HTML strings and verify correct extraction.
 **Step 7: Implement Lighthouse integration**
 
 `lighthouse/mod.rs`:
+
 - Shell out to `lighthouse` CLI: `lighthouse <url> --output=json --chrome-flags="--headless --no-sandbox"`
 - Parse JSON output for performance, SEO, accessibility, best_practices scores
 - Semaphore limiting to 2 concurrent audits
@@ -2207,6 +2321,7 @@ Create test HTML strings and verify correct extraction.
 **Step 8: Implement R2 storage and callback POST**
 
 `storage/mod.rs`:
+
 - Upload raw HTML to R2 (gzipped) using S3-compatible API
 - Upload Lighthouse JSON to R2 (gzipped)
 - POST `CrawlResultBatch` to callback URL with HMAC signature
@@ -2214,6 +2329,7 @@ Create test HTML strings and verify correct extraction.
 **Step 9: Implement job manager**
 
 `jobs/mod.rs`:
+
 - `tokio::sync::mpsc` channel for job queue (bounded, default capacity 5)
 - Each job spawns the crawl loop from requirements Section 12.2
 - `CancellationToken` for cooperative cancellation
@@ -2222,6 +2338,7 @@ Create test HTML strings and verify correct extraction.
 **Step 10: Wire everything into main.rs and test**
 
 Connect the Axum routes to the job manager. When `POST /api/v1/jobs` is received:
+
 1. Parse and validate the CrawlJobPayload
 2. Send to job queue via mpsc
 3. Return 202 Accepted with job_id
@@ -2239,6 +2356,7 @@ git commit -m "feat: implement Rust crawler with frontier, parser, Lighthouse, R
 ### Task 9: Create Dockerfile and Docker Compose
 
 **Files:**
+
 - Create: `apps/crawler/Dockerfile`
 - Create: `apps/crawler/docker-compose.yml`
 
@@ -2305,6 +2423,7 @@ git commit -m "feat: add Dockerfile and docker-compose for crawler service"
 ### Task 10: Scaffold Next.js App
 
 **Files:**
+
 - Create: `apps/web/` (via create-next-app with Cloudflare Pages adapter)
 - Modify: `apps/web/package.json`
 - Create: `apps/web/tailwind.config.ts`
@@ -2352,6 +2471,7 @@ git commit -m "feat: scaffold Next.js dashboard with Tailwind, shadcn/ui, and Cl
 ### Task 11: Build Dashboard Pages
 
 **Files:**
+
 - Create: `apps/web/app/(dashboard)/layout.tsx` (sidebar nav + auth guard)
 - Create: `apps/web/app/(dashboard)/page.tsx` (project cards overview)
 - Create: `apps/web/app/(dashboard)/projects/new/page.tsx`
@@ -2512,6 +2632,7 @@ Set `CRAWLER_URL` to `http://<hetzner-ip>:8080` (or set up a domain with HTTPS).
 ### Task 14: Create GitHub Actions CI/CD
 
 **Files:**
+
 - Create: `.github/workflows/deploy-cloudflare.yml`
 - Create: `.github/workflows/deploy-crawler.yml`
 - Create: `.github/workflows/ci.yml`
@@ -2697,11 +2818,13 @@ Task 15 (E2E integration) ──── requires all above
 ```
 
 **Parallelizable tracks (MVP):**
+
 - Track A: Tasks 1-2-3-4-5-6-12 (TypeScript backend)
 - Track B: Tasks 7-8-9-13 (Rust crawler, can start after Task 2)
 - Track C: Tasks 10-11 (Next.js frontend, can start after Task 2)
 
 ---
+
 ---
 
 # FULL PLATFORM — Tasks 16-28
@@ -2715,6 +2838,7 @@ Everything below extends the MVP (Tasks 1-15) into the complete launch-ready pro
 ### Task 16: Crawl History & Score Comparison
 
 **Files:**
+
 - Create: `apps/web/app/(dashboard)/projects/[id]/history/page.tsx`
 - Create: `apps/web/components/crawl-comparison.tsx`
 - Create: `apps/web/components/score-trend-chart.tsx`
@@ -2748,6 +2872,7 @@ Also add `listCompletedByProject(projectId)` to return all completed crawls with
 **Step 4: Build history page**
 
 `apps/web/app/(dashboard)/projects/[id]/history/page.tsx`:
+
 - Timeline of all completed crawls
 - Score trend chart (Recharts line chart: date on x-axis, overall score on y-axis)
 - Select two crawls to compare
@@ -2761,6 +2886,7 @@ cd apps/web && pnpm add recharts && cd ../..
 **Step 5: Build comparison component**
 
 `crawl-comparison.tsx`:
+
 - Two columns showing crawl date + overall score
 - Per-page table: URL, old score, new score, delta (color-coded)
 - Summary: issues resolved, new issues, unchanged
@@ -2781,6 +2907,7 @@ git commit -m "feat: add crawl history timeline and score comparison views"
 ### Task 17: Stripe Products, Pricing Page & Checkout
 
 **Files:**
+
 - Create: `apps/web/app/(marketing)/pricing/page.tsx`
 - Create: `apps/web/components/pricing-table.tsx`
 - Modify: `packages/api/src/routes/billing.ts` — full Stripe integration
@@ -2791,9 +2918,10 @@ git commit -m "feat: add crawl history timeline and score comparison views"
 **Step 1: Create Stripe products and prices**
 
 In Stripe Dashboard (or via API), create:
-- Product: "LLM Boost Starter" — $79/mo
-- Product: "LLM Boost Pro" — $149/mo
-- Product: "LLM Boost Agency" — $299/mo
+
+- Product: "LLM Rank Starter" — $79/mo
+- Product: "LLM Rank Pro" — $149/mo
+- Product: "LLM Rank Agency" — $299/mo
 
 Store price IDs as constants in `packages/shared/src/constants/plans.ts`:
 
@@ -2821,7 +2949,7 @@ export async function createCheckoutSession(
   userId: string,
   priceId: string,
   successUrl: string,
-  cancelUrl: string
+  cancelUrl: string,
 ) {
   return stripe.checkout.sessions.create({
     mode: "subscription",
@@ -2850,6 +2978,7 @@ export async function createCheckoutSession(
 **Step 4: Build pricing page**
 
 `apps/web/app/(marketing)/pricing/page.tsx`:
+
 - 4-column comparison table (Free, Starter, Pro, Agency)
 - Feature rows: pages/crawl, crawls/month, projects, AI scoring tier, visibility checks, history retention, API access
 - CTA buttons: "Start Free" (free), "Subscribe" (paid tiers)
@@ -2859,6 +2988,7 @@ export async function createCheckoutSession(
 **Step 5: Build billing settings page**
 
 In `apps/web/app/(dashboard)/settings/page.tsx`:
+
 - Current plan with badge
 - Usage bars (crawls used / limit, projects used / limit)
 - Next billing date
@@ -2886,6 +3016,7 @@ git commit -m "feat: full Stripe billing with checkout, webhooks, usage metering
 ### Task 18: Usage Metering & Plan Limit Enforcement
 
 **Files:**
+
 - Create: `packages/api/src/middleware/planLimits.ts`
 - Modify: `packages/api/src/routes/crawls.ts` — enforce crawl credits
 - Modify: `packages/api/src/routes/projects.ts` — enforce project limits
@@ -2895,6 +3026,7 @@ git commit -m "feat: full Stripe billing with checkout, webhooks, usage metering
 **Step 1: Write failing tests for limit enforcement**
 
 Test cases:
+
 - Free user with 0 crawl credits → 429 CRAWL_LIMIT_REACHED
 - Free user with 1 project tries to create another → 403 PLAN_LIMIT_REACHED
 - Free user crawl capped at 10 pages, depth 2
@@ -2910,7 +3042,9 @@ Test cases:
 import { createMiddleware } from "hono/factory";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 
-export const enforcePlanLimit = (resource: "crawl" | "project" | "visibility") =>
+export const enforcePlanLimit = (
+  resource: "crawl" | "project" | "visibility",
+) =>
   createMiddleware(async (c, next) => {
     const user = c.get("user"); // Set by auth middleware
     const limits = PLAN_LIMITS[user.plan];
@@ -2956,6 +3090,7 @@ git commit -m "feat: add usage metering, plan limit enforcement, and monthly cre
 ### Task 19: Multi-LLM Visibility Checker
 
 **Files:**
+
 - Create: `packages/llm/src/visibility.ts`
 - Create: `packages/llm/src/providers/chatgpt.ts`
 - Create: `packages/llm/src/providers/claude.ts`
@@ -2982,18 +3117,23 @@ interface VisibilityCheckResult {
   brandMentioned: boolean;
   urlCited: boolean;
   citationPosition: number | null;
-  competitorMentions: { domain: string; mentioned: boolean; position: number | null }[];
+  competitorMentions: {
+    domain: string;
+    mentioned: boolean;
+    position: number | null;
+  }[];
 }
 
 async function checkVisibility(
   query: string,
   targetDomain: string,
   competitors: string[],
-  apiKey: string
+  apiKey: string,
 ): Promise<VisibilityCheckResult>;
 ```
 
 Implementation for each provider:
+
 - **ChatGPT** (`providers/chatgpt.ts`): Use OpenAI SDK, send query, parse response for domain/brand mentions
 - **Claude** (`providers/claude.ts`): Use Anthropic SDK, same pattern
 - **Perplexity** (`providers/perplexity.ts`): Use Perplexity API (OpenAI-compatible), parse citations
@@ -3010,7 +3150,7 @@ export class VisibilityChecker {
     targetDomain: string,
     competitors: string[],
     providers: string[], // which LLMs to check
-    apiKeys: Record<string, string>
+    apiKeys: Record<string, string>,
   ): Promise<VisibilityCheckResult[]> {
     // Run all provider checks in parallel
     // Cache results in KV by query+provider (24h TTL)
@@ -3035,6 +3175,7 @@ git commit -m "feat: add multi-LLM visibility checker for ChatGPT, Claude, Perpl
 ### Task 20: Visibility API Routes & Dashboard
 
 **Files:**
+
 - Modify: `packages/api/src/routes/` — create `visibility.ts`
 - Modify: `packages/api/src/index.ts` — register visibility routes
 - Create: `apps/web/app/(dashboard)/projects/[id]/visibility/page.tsx`
@@ -3050,6 +3191,7 @@ git commit -m "feat: add multi-LLM visibility checker for ChatGPT, Claude, Perpl
 **Step 2: Build visibility setup page**
 
 `apps/web/app/(dashboard)/projects/[id]/visibility/page.tsx`:
+
 - "Add Query" form: search query text + checkbox for which LLM providers to check
 - Pro/Agency: competitor domain input (up to 5)
 - "Run Check" button → triggers POST, shows loading state
@@ -3058,6 +3200,7 @@ git commit -m "feat: add multi-LLM visibility checker for ChatGPT, Claude, Perpl
 **Step 3: Build results table**
 
 `visibility-table.tsx`:
+
 - Rows: one per query
 - Columns: Query, then one column per provider with green check/red X for brand mentioned
 - Expandable row shows: full response text excerpt, citation position, competitor mentions
@@ -3066,6 +3209,7 @@ git commit -m "feat: add multi-LLM visibility checker for ChatGPT, Claude, Perpl
 **Step 4: Build trend chart**
 
 `visibility-trend-chart.tsx`:
+
 - Recharts line chart: date on x-axis, mention rate (%) on y-axis
 - One line per provider (color-coded)
 - Tooltip showing specific check results on hover
@@ -3084,6 +3228,7 @@ git commit -m "feat: add AI visibility tracking dashboard with multi-LLM results
 ### Task 21: Scheduled Crawls (Cron Triggers)
 
 **Files:**
+
 - Modify: `packages/db/src/schema.ts` — add `schedule` field to projects
 - Create: `packages/db/migrations/0002_add_schedule.sql`
 - Modify: `packages/api/src/index.ts` — add scheduled crawl handler
@@ -3110,6 +3255,7 @@ crons = ["0 0 1 * *", "0 6 * * *"] # Credit reset + daily crawl check at 6am UTC
 **Step 3: Implement scheduled handler**
 
 In the `scheduled` export:
+
 - Query projects where `crawl_schedule != 'manual'` and `next_crawl_at <= now()`
 - For each: check user has crawl credits, create crawl job, POST to Hetzner
 - Update `next_crawl_at` based on schedule (daily: +1 day, weekly: +7 days, monthly: +30 days)
@@ -3117,6 +3263,7 @@ In the `scheduled` export:
 **Step 4: Add schedule UI to project settings**
 
 In `apps/web/app/(dashboard)/projects/[id]/settings/page.tsx`:
+
 - Dropdown: Manual, Daily, Weekly, Monthly
 - Show next crawl date
 - Starter+ plans only (free users see upgrade prompt)
@@ -3133,6 +3280,7 @@ git commit -m "feat: add scheduled crawls with Cron Triggers (daily/weekly/month
 ### Task 22: Email Notifications
 
 **Files:**
+
 - Create: `packages/api/src/lib/email.ts`
 - Modify: `packages/api/src/routes/ingest.ts` — send email on crawl complete
 - Modify: `packages/db/src/schema.ts` — add notification preferences to users
@@ -3147,7 +3295,7 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  apiKey: string
+  apiKey: string,
 ) {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -3156,7 +3304,7 @@ export async function sendEmail(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "LLM Boost <notifications@llmboost.com>",
+      from: "LLM Rank <notifications@llmboost.com>",
       to,
       subject,
       html,
@@ -3168,6 +3316,7 @@ export async function sendEmail(
 **Step 2: Send crawl completion email**
 
 In the ingest route, when `is_final: true`:
+
 - Look up user email from project → user
 - Send email: "Your crawl is complete! Score: X/100 (Grade). Y issues found. [View Results →]"
 
@@ -3187,6 +3336,7 @@ git commit -m "feat: add email notifications for crawl completion"
 ### Task 23: PostHog Analytics Integration
 
 **Files:**
+
 - Create: `apps/web/lib/analytics.ts`
 - Modify: `apps/web/app/layout.tsx` — add PostHog provider
 - Modify relevant pages to track events from requirements Section 16.3
@@ -3213,7 +3363,10 @@ export function initAnalytics(apiKey: string) {
   }
 }
 
-export function trackEvent(event: string, properties?: Record<string, unknown>) {
+export function trackEvent(
+  event: string,
+  properties?: Record<string, unknown>,
+) {
   posthog.capture(event, properties);
 }
 ```
@@ -3221,6 +3374,7 @@ export function trackEvent(event: string, properties?: Record<string, unknown>) 
 **Step 3: Add tracking calls**
 
 Instrument all events from requirements Section 16.3:
+
 - `user_signed_up` — after Clerk signup
 - `project_created` — after project creation
 - `crawl_started` — after crawl initiation
@@ -3245,6 +3399,7 @@ git commit -m "feat: add PostHog analytics with full event tracking plan"
 ### Task 24: Sentry Error Tracking
 
 **Files:**
+
 - Modify: `apps/web/` — add Sentry Next.js SDK
 - Modify: `packages/api/src/index.ts` — add Sentry for Workers
 - Modify: `apps/crawler/Cargo.toml` — add sentry crate
@@ -3274,7 +3429,10 @@ import { Toucan } from "toucan-js";
 app.onError((err, c) => {
   const sentry = new Toucan({ dsn: c.env.SENTRY_DSN, context: c.executionCtx });
   sentry.captureException(err);
-  return c.json({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } }, 500);
+  return c.json(
+    { error: { code: "INTERNAL_ERROR", message: "Internal server error" } },
+    500,
+  );
 });
 ```
 
@@ -3300,6 +3458,7 @@ git commit -m "feat: add Sentry error tracking to frontend, API, and crawler"
 ### Task 25: PDF Report Export
 
 **Files:**
+
 - Create: `apps/web/app/api/reports/[jobId]/route.ts` — Next.js API route for PDF generation
 - Create: `apps/web/components/report/report-template.tsx`
 - Create: `apps/web/components/report/report-header.tsx`
@@ -3315,6 +3474,7 @@ cd apps/web && pnpm add @react-pdf/renderer && cd ../..
 **Step 2: Build report template**
 
 `report-template.tsx` — React PDF document with:
+
 - Executive summary: overall score, letter grade, category breakdown
 - Top 10 critical issues with recommendations
 - Page-by-page score table (sorted worst first)
@@ -3336,6 +3496,7 @@ interface ReportOptions {
 **Step 4: Create PDF API route**
 
 `apps/web/app/api/reports/[jobId]/route.ts`:
+
 - Fetch crawl data from API
 - Render React PDF to buffer
 - Return as `application/pdf` with `Content-Disposition: attachment`
@@ -3357,6 +3518,7 @@ git commit -m "feat: add PDF report export with white-label support for agency t
 ### Task 26: Competitor Tracking
 
 **Files:**
+
 - Modify: `packages/db/src/schema.ts` — add `competitors` table
 - Create: `packages/db/migrations/0003_add_competitors.sql`
 - Modify: `packages/api/src/routes/visibility.ts` — integrate competitor data
@@ -3377,6 +3539,7 @@ CREATE INDEX idx_competitors_project ON competitors(project_id);
 **Step 2: Add competitor management UI**
 
 In visibility settings:
+
 - "Add Competitor" form (domain input, up to 5 per project)
 - Delete button per competitor
 - Pro/Agency tiers only
@@ -3388,6 +3551,7 @@ When running visibility checks, also check if competitor domains are mentioned. 
 **Step 4: Build comparison table**
 
 In visibility dashboard, add "Competitor Comparison" section:
+
 - Table: Query | Your Domain | Competitor 1 | Competitor 2 | ...
 - Cells: green check (mentioned + cited), yellow (mentioned), red X (not mentioned)
 - Per-provider breakdown on expand
@@ -3404,6 +3568,7 @@ git commit -m "feat: add competitor tracking with visibility comparison"
 ### Task 27: Onboarding Flow & User Settings
 
 **Files:**
+
 - Create: `apps/web/app/(dashboard)/onboarding/page.tsx`
 - Create: `apps/web/components/onboarding-wizard.tsx`
 - Modify: `apps/web/app/(dashboard)/settings/page.tsx` — full settings page
@@ -3422,6 +3587,7 @@ Show onboarding on first login (check if user has any projects). "Skip" button d
 **Step 2: Build full settings page**
 
 Tabs:
+
 - **Profile:** Name, email (from Clerk), avatar
 - **Billing:** Current plan, usage, upgrade/manage subscription
 - **Notifications:** Toggle email preferences (crawl complete, weekly summary, visibility alerts)
@@ -3430,6 +3596,7 @@ Tabs:
 **Step 3: Add API key management**
 
 For Pro/Agency tiers:
+
 - `POST /api/settings/api-keys` — generate new API key (store hashed in D1)
 - `DELETE /api/settings/api-keys/:id` — revoke key
 - `GET /api/settings/api-keys` — list active keys (masked)
@@ -3447,6 +3614,7 @@ git commit -m "feat: add onboarding wizard, user settings, and API key managemen
 ### Task 28: Marketing Site & Launch Preparation
 
 **Files:**
+
 - Create: `apps/web/app/(marketing)/page.tsx` — landing page
 - Create: `apps/web/app/(marketing)/layout.tsx` — marketing layout (no sidebar)
 - Modify: `apps/web/app/(marketing)/pricing/page.tsx` — already built in Task 17
@@ -3458,8 +3626,9 @@ git commit -m "feat: add onboarding wizard, user settings, and API key managemen
 **Step 1: Build landing page**
 
 Sections:
+
 1. **Hero:** "See How AI Search Engines View Your Content" — headline, subhead, CTA (Start Free), hero screenshot
-2. **Problem/Solution:** Pain points → LLM Boost solution (3 columns)
+2. **Problem/Solution:** Pain points → LLM Rank solution (3 columns)
 3. **How It Works:** 3-step visual flow (Enter URL → Get Scored → Fix Issues)
 4. **Feature Highlights:** Score dashboard screenshot, issue recommendations, visibility tracking
 5. **Pricing:** Embed pricing table from Task 17
@@ -3487,6 +3656,7 @@ Separate layout from dashboard — no sidebar, top nav with: Logo, Features, Pri
 Reference: `ai-seo-requirements.md` Section 20.
 
 Verify all items:
+
 - [ ] All P0 features functional
 - [ ] Scoring engine correct for 50+ test cases
 - [ ] Full crawl pipeline works end-to-end
@@ -3536,6 +3706,7 @@ FINAL E2E VALIDATION — do this AFTER all 28 tasks
 ```
 
 **Parallelizable work after MVP (Tasks 1-15):**
+
 - Track D: Tasks 16 + 17 + 18 (History + Billing)
 - Track E: Tasks 19 + 20 (Visibility)
 - Track F: Tasks 21 + 22 + 23 + 24 (Scheduled, Email, Analytics, Sentry — all independent)

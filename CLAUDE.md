@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**LLM Boost** (AI-Readiness SEO Platform) — a SaaS that crawls websites, scores pages for AI-readiness across 37 factors, and provides actionable recommendations to increase visibility in AI-generated responses (ChatGPT, Claude, Perplexity, Gemini).
+**LLM Rank** (AI-Readiness SEO Platform) — a SaaS that crawls websites, scores pages for AI-readiness across 37 factors, and provides actionable recommendations to increase visibility in AI-generated responses (ChatGPT, Claude, Perplexity, Gemini).
 
 ## Tech Stack
 

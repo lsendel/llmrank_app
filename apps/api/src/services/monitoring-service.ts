@@ -206,7 +206,7 @@ async function sendCrawlerDownAlerts(
       const { Resend } = await import("resend");
       const resend = new Resend(config.resendApiKey);
       await resend.emails.send({
-        from: "LLM Boost Alerts <alerts@llmboost.io>",
+        from: "LLM Rank Alerts <alerts@llmboost.io>",
         to: [config.adminEmail],
         subject: "🚨 Crawler Service DOWN",
         html: `<h2>Crawler Service Alert</h2>
@@ -268,7 +268,7 @@ async function sendCrawlerRecoveryAlerts(
       const { Resend } = await import("resend");
       const resend = new Resend(config.resendApiKey);
       await resend.emails.send({
-        from: "LLM Boost Alerts <alerts@llmboost.io>",
+        from: "LLM Rank Alerts <alerts@llmboost.io>",
         to: [config.adminEmail],
         subject: "✅ Crawler Service RECOVERED",
         html: `<h2>Crawler Service Recovered</h2>

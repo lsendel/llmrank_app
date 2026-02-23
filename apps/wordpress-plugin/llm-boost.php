@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: LLM Boost — AI SEO Optimization
+ * Plugin Name: LLM Rank — AI SEO Optimization
  * Plugin URI: https://llmboost.com/wordpress
  * Description: Optimize your WordPress site for AI search engines (ChatGPT, Claude, Perplexity). Generates llms.txt and provides AI-readiness insights.
  * Version: 1.0.0
- * Author: LLM Boost Team
+ * Author: LLM Rank Team
  * License: GPL2
  */
 

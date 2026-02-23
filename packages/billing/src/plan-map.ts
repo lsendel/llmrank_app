@@ -1,9 +1,9 @@
 export const STRIPE_PLAN_MAP: Record<string, string> = {
-  // Starter: $79/mo (LLM Boost Starter)
+  // Starter: $79/mo (LLM Rank Starter)
   price_1T16hoD3d5rDMnf2CwobvPH7: "starter",
-  // Pro: $149/mo (LLM Boost Pro)
+  // Pro: $149/mo (LLM Rank Pro)
   price_1T16htD3d5rDMnf22eTUcu98: "pro",
-  // Agency: $299/mo (LLM Boost Agency)
+  // Agency: $299/mo (LLM Rank Agency)
   price_1T16hyD3d5rDMnf2h6Syzk8d: "agency",
 };
 

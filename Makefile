@@ -1,4 +1,4 @@
-# LLM Boost — Production Deployment
+# LLM Rank — Production Deployment
 # Usage:
 #   make deploy              — deploy all services in dependency order
 #   make deploy-cloudflare   — deploy all Cloudflare services (db → api + report-worker → web)

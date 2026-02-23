@@ -10,8 +10,8 @@ class Settings {
 
     public function add_menu() {
         add_menu_page(
-            'LLM Boost',
-            'LLM Boost',
+            'LLM Rank',
+            'LLM Rank',
             'manage_options',
             'llm-boost',
             [$this, 'render_page'],
@@ -26,7 +26,7 @@ class Settings {
     public function render_page() {
         ?>
         <div class="wrap">
-            <h1>LLM Boost — AI SEO Settings</h1>
+            <h1>LLM Rank — AI SEO Settings</h1>
             <form method="post" action="options.php">
                 <?php settings_fields('llm_boost_options'); ?>
                 <?php do_settings_sections('llm_boost_options'); ?>

@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a dual-transport MCP server (stdio + Streamable HTTP) that exposes LLM Boost's 25 SEO tools to AI agents, with OAuth 2.1 security, Mintlify documentation portal, landing page marketing section, and agentic SEO strategy.
+**Goal:** Build a dual-transport MCP server (stdio + Streamable HTTP) that exposes LLM Rank's 25 SEO tools to AI agents, with OAuth 2.1 security, Mintlify documentation portal, landing page marketing section, and agentic SEO strategy.
 
 **Architecture:** Thin MCP proxy (`packages/mcp`) translates MCP tool calls into authenticated HTTPS requests to the existing Hono API (`apps/api`). A separate Cloudflare Worker (`apps/mcp-gateway`) handles remote Streamable HTTP connections with OAuth 2.1. Both transports share the same tool definitions.
 
@@ -28,7 +28,7 @@
 {
   "name": "@llm-boost/mcp",
   "version": "1.0.0",
-  "description": "LLM Boost MCP Server — SEO optimization tools for AI agents",
+  "description": "LLM Rank MCP Server — SEO optimization tools for AI agents",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "bin": {
@@ -2531,7 +2531,7 @@ Run: `npx mintlify@latest init apps/docs`
 ```json
 {
   "$schema": "https://mintlify.com/schema.json",
-  "name": "LLM Boost MCP",
+  "name": "LLM Rank MCP",
   "logo": { "dark": "/logo/dark.svg", "light": "/logo/light.svg" },
   "favicon": "/favicon.svg",
   "colors": { "primary": "#0D9373", "light": "#07C983", "dark": "#0D9373" },
@@ -2742,9 +2742,9 @@ These should be content-managed through the CMS or static MDX pages.
 
 ```typescript
 export const metadata: Metadata = {
-  title: "MCP Server for SEO | AI-Readiness Tools for AI Agents | LLM Boost",
+  title: "MCP Server for SEO | AI-Readiness Tools for AI Agents | LLM Rank",
   description:
-    "Connect your AI agent to LLM Boost's SEO tools via Model Context Protocol. 25 tools, 37 scoring factors, 6 AI platforms. Claude Desktop, Cursor, and custom app support.",
+    "Connect your AI agent to LLM Rank's SEO tools via Model Context Protocol. 25 tools, 37 scoring factors, 6 AI platforms. Claude Desktop, Cursor, and custom app support.",
   keywords: [
     "mcp server",
     "seo mcp",
@@ -2754,7 +2754,7 @@ export const metadata: Metadata = {
     "ai agents",
   ],
   openGraph: {
-    title: "LLM Boost MCP — SEO Optimization for Your AI Agent",
+    title: "LLM Rank MCP — SEO Optimization for Your AI Agent",
     description:
       "25 SEO tools for AI agents. Score, optimize, and monitor AI search visibility.",
     url: "https://llmboost.io/mcp",
@@ -2768,7 +2768,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "LLM Boost MCP Server",
+  name: "LLM Rank MCP Server",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Cross-platform",
   offers: {

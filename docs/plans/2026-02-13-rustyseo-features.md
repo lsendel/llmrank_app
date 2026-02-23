@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Port the highest-value features from RustySEO into LLM Boost across all tiers — readability scoring, text-to-HTML ratio, redirect chain analysis, PDF detection, CORS analysis, topic clustering, server log analysis with AI bot tracking, and custom data extractors.
+**Goal:** Port the highest-value features from RustySEO into LLM Rank across all tiers — readability scoring, text-to-HTML ratio, redirect chain analysis, PDF detection, CORS analysis, topic clustering, server log analysis with AI bot tracking, and custom data extractors.
 
 **Architecture:** DDD with bounded contexts. New extraction happens in the Rust crawler (same layer). New domain types as value objects in `packages/shared`. Scoring factors in `packages/scoring`. Server log analysis as a new domain in `packages/shared` + `packages/db` + API routes. Custom extractors configured via API, executed in Rust.
 

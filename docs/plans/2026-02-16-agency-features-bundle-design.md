@@ -89,9 +89,9 @@ Queries reference schema symbols that don't exist yet — may need minor import 
 1. Create `POST /api/projects/:id/branding/logo` — Upload to R2 (max 2MB, PNG/SVG/JPG), return URL
 2. Create `PUT /api/projects/:id/branding` — Save branding config (companyName, primaryColor, logoUrl)
 3. Modify PDF report templates to consume branding:
-   - Header: custom logo (or LLM Boost logo if none), company name
+   - Header: custom logo (or LLM Rank logo if none), company name
    - Accent color for headings and borders
-   - Footer: company name instead of "LLM Boost"
+   - Footer: company name instead of "LLM Rank"
 4. Wire `BrandingSection` component to call correct API endpoints
 5. Plan gating: Agency = full branding, Pro = logo only, Starter/Free = none
 

@@ -264,7 +264,7 @@ React sidebar panel that:
 
 ### Dashboard Sync
 
-WP plugin settings connect to LLM Boost project via API key. Syncs page scores back to the project.
+WP plugin settings connect to LLM Rank project via API key. Syncs page scores back to the project.
 
 **Files:**
 

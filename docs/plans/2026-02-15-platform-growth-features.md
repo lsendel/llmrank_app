@@ -1368,7 +1368,7 @@ async function sendSlackIncoming(
     blocks: [
       {
         type: "header",
-        text: { type: "plain_text", text: `LLM Boost: ${event.eventType}` },
+        text: { type: "plain_text", text: `LLM Rank: ${event.eventType}` },
       },
       {
         type: "section",

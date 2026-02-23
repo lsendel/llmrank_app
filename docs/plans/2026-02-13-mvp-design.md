@@ -1,4 +1,4 @@
-# LLM Boost MVP Design (Phase 1)
+# LLM Rank MVP Design (Phase 1)
 
 **Date:** 2026-02-13
 **Scope:** Phase 1 MVP — Core Crawler + Technical Audit + All 37 Scoring Factors + Dashboard
@@ -6,14 +6,14 @@
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Build sequence | API-first, bottom-up | Tackle riskiest parts (crawler, scoring) first |
-| Auth | Clerk from day 1 | User accounts from the start, fastest to integrate |
-| Scoring scope | All 37 factors | Full scoring including Lighthouse + LLM content scoring |
-| UI library | shadcn/ui + Tailwind | Best dashboard component ecosystem for Next.js |
-| Package manager | pnpm | Fast installs, strict dependency resolution |
-| Hetzner | Include full setup | VPS provisioning, Docker, SSH deploy pipeline |
+| Decision        | Choice               | Rationale                                               |
+| --------------- | -------------------- | ------------------------------------------------------- |
+| Build sequence  | API-first, bottom-up | Tackle riskiest parts (crawler, scoring) first          |
+| Auth            | Clerk from day 1     | User accounts from the start, fastest to integrate      |
+| Scoring scope   | All 37 factors       | Full scoring including Lighthouse + LLM content scoring |
+| UI library      | shadcn/ui + Tailwind | Best dashboard component ecosystem for Next.js          |
+| Package manager | pnpm                 | Fast installs, strict dependency resolution             |
+| Hetzner         | Include full setup   | VPS provisioning, Docker, SSH deploy pipeline           |
 
 ## Architecture
 
@@ -62,6 +62,7 @@ Query helpers grouped by domain (users, projects, crawls, pages, scores).
 ## Shared Types (packages/shared)
 
 Single source of truth for all data shapes:
+
 - Zod schemas for every API payload (crawl, project, scoring, error envelope)
 - Inferred TypeScript types from Zod
 - Constants: all 37 issue codes with metadata, plan tier limits
@@ -71,6 +72,7 @@ Imported by both packages/api and apps/web.
 ## Worker API (packages/api)
 
 Hono framework with middleware stack:
+
 - `auth.ts` — Clerk session verification
 - `hmac.ts` — HMAC-SHA256 verification for crawler callbacks
 - `rateLimit.ts` — Per-user rate limiting via KV
@@ -82,6 +84,7 @@ After ingesting crawl results, triggers scoring engine + LLM scoring.
 ## Rust Crawler (apps/crawler)
 
 Axum HTTP server with:
+
 - **Frontier:** BFS URL queue with depth tracking and dedup (HashSet)
 - **Fetcher:** reqwest with governor rate limiter (1 req/sec per domain)
 - **Parser:** scraper crate for HTML extraction (meta, headings, links, schema, images)
@@ -98,6 +101,7 @@ Docker container: Rust binary + Node.js + Chromium + Lighthouse CLI.
 ## Scoring Engine (packages/scoring)
 
 37 factors across 4 categories (weighted):
+
 - Technical SEO (25%): 13 factors — meta tags, headings, links, status codes, robots
 - Content Quality (30%): 9 factors — word count, depth, clarity, authority (LLM), links
 - AI Readiness (30%): 10 factors — schema, llms.txt, citation worthiness (LLM)
@@ -120,6 +124,7 @@ Input: PageData (extracted HTML + Lighthouse + LLM scores). Output: PageScore + 
 Next.js 15 App Router with shadcn/ui + Tailwind:
 
 Pages:
+
 - (auth): Clerk login/signup
 - (dashboard): Project list, project detail, page list, issues, crawl progress, settings
 - (marketing): Landing page, pricing
@@ -135,5 +140,6 @@ Crawl progress via polling. Server components where possible, client for interac
 **Cloudflare:** Workers (API), Pages (frontend), D1, R2, KV. All configured in wrangler.toml.
 
 **CI/CD:** Two GitHub Actions workflows:
+
 1. Cloudflare deploy on packages/ or apps/web/ changes
 2. Hetzner crawler deploy on apps/crawler/ changes (SSH + Docker pull)

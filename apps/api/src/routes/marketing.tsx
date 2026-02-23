@@ -19,7 +19,7 @@ const MarketingHeader = () => (
   <header class="border-b border-gray-200 bg-white">
     <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
       <a href="/" class="text-xl font-bold tracking-tight text-blue-600">
-        LLM Boost
+        LLM Rank
       </a>
       <nav class="flex items-center gap-6">
         <a
@@ -55,7 +55,7 @@ const MarketingFooter = () => (
   <footer class="border-t border-gray-200 bg-gray-50 py-12">
     <div class="mx-auto grid max-w-7xl gap-8 px-6 text-sm md:grid-cols-4">
       <div class="col-span-1 md:col-span-2">
-        <span class="mb-4 text-lg font-bold">LLM Boost</span>
+        <span class="mb-4 text-lg font-bold">LLM Rank</span>
         <p class="mt-2 max-w-xs text-gray-500">
           The first B2B platform for AI Search Optimization (AISO). Helping
           brands become the cited source for the world's knowledge models.
@@ -103,7 +103,7 @@ const MarketingFooter = () => (
       </div>
     </div>
     <div class="mx-auto mt-12 max-w-7xl border-t border-gray-200 px-6 pt-8 text-center text-sm text-gray-500">
-      &copy; {new Date().getFullYear()} LLM Boost. All rights reserved.
+      &copy; {new Date().getFullYear()} LLM Rank. All rights reserved.
     </div>
   </footer>
 );
@@ -119,7 +119,7 @@ const MarketingPage = ({
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>{title} — LLM Boost</title>
+      <title>{title} — LLM Rank</title>
       <script src="https://unpkg.com/htmx.org@2.0.4"></script>
       <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     </head>
@@ -148,7 +148,7 @@ marketingRoutes.get("/", (c) => {
             Rank in ChatGPT, Claude &amp; Perplexity
           </h1>
           <p class="mx-auto mt-6 max-w-2xl text-lg text-gray-500">
-            LLM Boost analyzes your website across{" "}
+            LLM Rank analyzes your website across{" "}
             <strong class="text-gray-900">37 AI ranking factors</strong> and
             shows you exactly how to improve visibility in AI-powered search
             engines.
@@ -401,7 +401,7 @@ marketingRoutes.get("/", (c) => {
             },
             {
               q: "What is an AI-Readiness score?",
-              a: "It is a proprietary metric from LLM Boost that evaluates a page across 37 factors including Technical SEO, Content Quality, AI Readiness, and Performance into a single 0-100 score.",
+              a: "It is a proprietary metric from LLM Rank that evaluates a page across 37 factors including Technical SEO, Content Quality, AI Readiness, and Performance into a single 0-100 score.",
             },
           ].map((item) => (
             <details class="group rounded-lg border border-gray-200 bg-white p-6">
@@ -489,7 +489,7 @@ const PRICING_FAQ = [
   },
   {
     q: "Can I export reports for my clients?",
-    a: "Absolutely. The Agency plan includes white-labeled PDF and DOCX reporting. You can upload your own agency logo, set custom colors, and remove all LLM Boost branding.",
+    a: "Absolutely. The Agency plan includes white-labeled PDF and DOCX reporting. You can upload your own agency logo, set custom colors, and remove all LLM Rank branding.",
   },
 ];
 
@@ -1156,7 +1156,7 @@ marketingRoutes.get("/chatgpt-seo", (c) => {
             </p>
           </div>
           <div>
-            <h3 class="text-2xl font-bold">What LLM Boost checks</h3>
+            <h3 class="text-2xl font-bold">What LLM Rank checks</h3>
             <p class="mt-4 leading-relaxed text-gray-500">
               We simulate an AI crawler on your site immediately. We check for
               Open Graph tags, schema markup, semantic HTML tags, and answer
@@ -1179,7 +1179,7 @@ marketingRoutes.get("/chatgpt-seo", (c) => {
               },
               {
                 q: "How do I get cited in ChatGPT answers?",
-                a: "You need comprehensive coverage of your topic, clear logical structure, and avoiding 'fluff'. LLM Boost identifies the exact content gaps preventing you from being cited.",
+                a: "You need comprehensive coverage of your topic, clear logical structure, and avoiding 'fluff'. LLM Rank identifies the exact content gaps preventing you from being cited.",
               },
               {
                 q: "Can I block ChatGPT from my site?",
@@ -1288,8 +1288,8 @@ marketingRoutes.get("/ai-seo-tool", (c) => {
           <div>
             <h3 class="text-2xl font-bold">Optimization beyond keywords</h3>
             <p class="mt-4 leading-relaxed text-gray-500">
-              LLM Boost checks for things Google might ignore but AI loves:
-              clear semantic HTML, direct answer formatting, logical content
+              LLM Rank checks for things Google might ignore but AI loves: clear
+              semantic HTML, direct answer formatting, logical content
               hierarchy, and authoritative entity coverage.
             </p>
           </div>
@@ -1313,7 +1313,7 @@ marketingRoutes.get("/ai-seo-tool", (c) => {
               },
               {
                 q: "Does this tool work for any website?",
-                a: "Yes. LLM Boost can audit any publicly accessible URL. It is particularly effective for content-heavy sites, SaaS documentation, and blogs.",
+                a: "Yes. LLM Rank can audit any publicly accessible URL. It is particularly effective for content-heavy sites, SaaS documentation, and blogs.",
               },
             ].map((item) => (
               <div class="rounded-lg border border-gray-200 bg-white p-6">
@@ -1534,7 +1534,7 @@ marketingRoutes.get("/terms", (c) => {
           <section>
             <h2 class="text-xl font-semibold">1. Acceptance of Terms</h2>
             <p class="mt-4 text-gray-500">
-              By using LLM Boost ("the Service"), you agree to these Terms. LLM
+              By using LLM Rank ("the Service"), you agree to these Terms. LLM
               Boost Inc. operates the Service. If you do not agree, please do
               not use the Service.
             </p>
@@ -1543,7 +1543,7 @@ marketingRoutes.get("/terms", (c) => {
           <section>
             <h2 class="text-xl font-semibold">2. Service Description</h2>
             <p class="mt-4 text-gray-500">
-              LLM Boost provides website crawling, AI-readiness scoring, and
+              LLM Rank provides website crawling, AI-readiness scoring, and
               visibility analysis tools. The Service crawls publicly accessible
               web pages you authorize, scores them across 37 factors, and
               provides recommendations.

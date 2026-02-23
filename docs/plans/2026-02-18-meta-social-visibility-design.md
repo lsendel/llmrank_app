@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add a Meta-focused "visibility layer" to LLM Boost with three modules:
+Add a Meta-focused "visibility layer" to LLM Rank with three modules:
 
 1. **OG Health Scoring** — Enhanced Open Graph validation with 5 new scoring factors feeding into the existing per-page scoring engine
 2. **Meta AI Readiness Scorecard** — Claude-powered project-level analysis of entity clarity, topical focus, FAQ content, citeability, and social signals

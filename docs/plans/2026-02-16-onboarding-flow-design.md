@@ -12,7 +12,7 @@ A single client-side wizard component at `/onboarding` with 3 steps managed via 
 
 ### Step 1 — Welcome + Profile
 
-- Headline: "Welcome to LLM Boost"
+- Headline: "Welcome to LLM Rank"
 - Subtext: "Let's get your first AI-readiness score in under 2 minutes."
 - Fields: Name (required), Company (optional)
 - Step indicator: 1 of 3

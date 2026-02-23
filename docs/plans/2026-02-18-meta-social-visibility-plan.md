@@ -351,7 +351,7 @@ describe("OG Health Scoring", () => {
       extracted: {
         ...makePage().extracted,
         og_tags: {
-          "og:title": "SEO Best Practices Guide | LLM Boost",
+          "og:title": "SEO Best Practices Guide | LLM Rank",
           "og:description": "Valid description for social sharing clicks.",
           "og:image": "https://example.com/image.jpg",
           "og:url": "https://example.com/page",

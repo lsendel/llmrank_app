@@ -1121,7 +1121,7 @@ Using `@wordpress/plugins`, `@wordpress/edit-post`, `@wordpress/data` to:
 
 1. Register a PluginSidebar component
 2. Extract post title, content, excerpt via editor selectors
-3. Debounce (5s) and send to LLM Boost API for scoring
+3. Debounce (5s) and send to LLM Rank API for scoring
 4. Display score circle, category breakdown, top 3 issues
 
 **Step 2: Register in main plugin file**

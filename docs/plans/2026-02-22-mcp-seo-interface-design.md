@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-Build a Model Context Protocol (MCP) server that exposes LLM Boost's AI-readiness SEO platform to AI agents (Claude, Cursor, Copilot, custom apps). Dual transport: local stdio for desktop clients + remote Streamable HTTP with OAuth 2.1 for app-to-app integration.
+Build a Model Context Protocol (MCP) server that exposes LLM Rank's AI-readiness SEO platform to AI agents (Claude, Cursor, Copilot, custom apps). Dual transport: local stdio for desktop clients + remote Streamable HTTP with OAuth 2.1 for app-to-app integration.
 
 **Positioning:** "SEO Optimization for Your AI Agent" — the only MCP that scores AI-readiness AND provides agent-driven fixes.
 
@@ -19,7 +19,7 @@ Build a Model Context Protocol (MCP) server that exposes LLM Boost's AI-readines
 ### Dual Transport Model
 
 ```
-User's Machine                          LLM Boost Cloud
+User's Machine                          LLM Rank Cloud
 ┌─────────────────────┐                 ┌──────────────────────────┐
 │ Claude / Cursor      │                 │                          │
 │   ↕ stdio            │                 │  apps/mcp-gateway/       │
@@ -200,7 +200,7 @@ technical:read
 
 ```
 docs/
-  introduction.mdx              → What is LLM Boost MCP?
+  introduction.mdx              → What is LLM Rank MCP?
   quickstart/
     claude-desktop.mdx           → 5-min setup with Claude Desktop
     cursor.mdx                   → Setup with Cursor IDE
@@ -315,7 +315,7 @@ Add a dedicated MCP section to the existing homepage highlighting:
 
 ### B. Agentic SEO Positioning
 
-LLM Boost is uniquely positioned in two layers:
+LLM Rank is uniquely positioned in two layers:
 
 1. **Optimizing FOR agents** — scoring how agent-ready sites are (existing platform)
 2. **Optimizing WITH agents** — MCP tools so agents can fix sites (new capability)
@@ -334,7 +334,7 @@ Developer installs MCP → Agent analyzes site → Finds issues
 
 ### D. Competitive Differentiation
 
-| Feature              | LLM Boost MCP  | DataForSEO MCP | Nightwatch | Ahrefs/SEMrush |
+| Feature              | LLM Rank MCP   | DataForSEO MCP | Nightwatch | Ahrefs/SEMrush |
 | -------------------- | -------------- | -------------- | ---------- | -------------- |
 | AI-readiness scoring | 37 factors     | No             | No         | No             |
 | llms.txt validation  | Yes            | No             | No         | No             |
@@ -358,7 +358,7 @@ Developer installs MCP → Agent analyzes site → Finds issues
 
 - Freemium MCP access with 10 calls/day (taste of value)
 - GitHub-first distribution (README is the first doc)
-- "Built with LLM Boost MCP" badge program
+- "Built with LLM Rank MCP" badge program
 - Official listings in AI coding tool marketplaces
 - Developer advocate tutorial content
 

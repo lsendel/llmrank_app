@@ -1,8 +1,8 @@
-# LLM Boost Production Deployment Plan
+# LLM Rank Production Deployment Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Deploy LLM Boost to production at https://llmrank.app with working frontend, API, and database.
+**Goal:** Deploy LLM Rank to production at https://llmrank.app with working frontend, API, and database.
 
 **Architecture:** Next.js 15 frontend deployed via @opennextjs/cloudflare as a Cloudflare Worker. Hono API deployed as a separate Cloudflare Worker at api.llmrank.app. Neon PostgreSQL for data. Crawler deferred — crawl actions show graceful "service unavailable" messaging.
 
