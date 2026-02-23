@@ -140,7 +140,7 @@ export function createPipelineService(
       const run = await runs.create({
         projectId,
         crawlJobId,
-        settings,
+        settings: settings as Record<string, unknown>,
       });
 
       await runs.updateStatus(run.id, "running", { startedAt: new Date() });
