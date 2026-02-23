@@ -171,6 +171,84 @@ export function createBillingService(deps: BillingServiceDeps) {
       return { downgraded: true, targetPlan: args.targetPlan };
     },
 
+    async upgrade(args: {
+      userId: string;
+      targetPlan: string;
+      stripeSecretKey: string;
+      successUrl: string;
+      cancelUrl: string;
+      db?: Database;
+    }) {
+      const user = await deps.users.getById(args.userId);
+      if (!user) {
+        throw new ServiceError("NOT_FOUND", 404, "User not found");
+      }
+
+      const targetPriceId = priceIdFromPlanCode(args.targetPlan);
+      if (!targetPriceId) {
+        throw new ServiceError(
+          "VALIDATION_ERROR",
+          422,
+          `Invalid plan: ${args.targetPlan}`,
+        );
+      }
+
+      // If user has an active subscription, do an in-place upgrade with proration
+      const subscription = await deps.billing.getActiveSubscription(
+        args.userId,
+      );
+      if (subscription?.stripeSubscriptionId) {
+        const gateway = new StripeGateway(args.stripeSecretKey);
+        const stripeSub = await gateway.getSubscription(
+          subscription.stripeSubscriptionId,
+        );
+        const itemId = stripeSub.items.data[0]?.id;
+        if (!itemId) {
+          throw new ServiceError(
+            "VALIDATION_ERROR",
+            422,
+            "Subscription has no items",
+          );
+        }
+
+        await gateway.upgradeSubscriptionPrice(
+          subscription.stripeSubscriptionId,
+          itemId,
+          targetPriceId,
+        );
+
+        // Update local plan immediately
+        await deps.users.updatePlan(
+          args.userId,
+          args.targetPlan,
+          subscription.stripeSubscriptionId,
+        );
+
+        return {
+          upgraded: true,
+          targetPlan: args.targetPlan,
+          method: "proration",
+        };
+      }
+
+      // No active subscription — fall back to Stripe Checkout
+      const session = await this.checkout({
+        userId: args.userId,
+        plan: args.targetPlan,
+        successUrl: args.successUrl,
+        cancelUrl: args.cancelUrl,
+        stripeSecretKey: args.stripeSecretKey,
+        db: args.db,
+      });
+
+      return {
+        upgraded: false,
+        targetPlan: args.targetPlan,
+        method: "checkout",
+        ...session,
+      };
+    },
+
     async validatePromo(code: string, db: Database) {
       const promo = await promoQueries(db).getByCode(code);
       if (!promo) {

@@ -1524,6 +1524,29 @@ export const api = {
       await apiClient.post("/api/billing/cancel");
     },
 
+    async upgrade(
+      plan: string,
+      successUrl: string,
+      cancelUrl: string,
+    ): Promise<{
+      upgraded: boolean;
+      targetPlan: string;
+      method: string;
+      sessionId?: string;
+      url?: string;
+    }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{
+          upgraded: boolean;
+          targetPlan: string;
+          method: string;
+          sessionId?: string;
+          url?: string;
+        }>
+      >("/api/billing/upgrade", { plan, successUrl, cancelUrl });
+      return res.data;
+    },
+
     async downgrade(plan: string): Promise<{ downgraded: boolean }> {
       const res = await apiClient.post<ApiEnvelope<{ downgraded: boolean }>>(
         "/api/billing/downgrade",
