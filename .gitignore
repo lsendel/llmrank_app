@@ -9,6 +9,7 @@ dist/
 target/
 .vercel
 .DS_Store
+*.tsbuildinfo
 .idea/
 .claude/
 .worktrees/
