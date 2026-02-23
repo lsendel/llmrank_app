@@ -25,5 +25,16 @@ export function handleServiceError(c: Context<AppEnv>, error: unknown) {
       },
     });
   }
-  throw error;
+
+  // Wrap unexpected errors (e.g. Stripe API errors) so the client gets a
+  // meaningful message instead of a generic 500 from the global handler.
+  const message =
+    error instanceof Error ? error.message : "An unexpected error occurred";
+  c.status(500);
+  return c.json({
+    error: {
+      code: "INTERNAL_ERROR",
+      message,
+    },
+  });
 }
