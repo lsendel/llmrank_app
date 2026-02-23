@@ -54,6 +54,7 @@ import { actionItemRoutes } from "./routes/action-items";
 import { alertRoutes } from "./routes/alerts";
 import { trialRoutes } from "./routes/trial";
 import { appRoutes } from "./routes/app";
+import { marketingRoutes } from "./routes/marketing";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -231,6 +232,9 @@ app.route("/api/trial", trialRoutes);
 
 // HTMX app routes (server-rendered HTML pages)
 app.route("/app", appRoutes);
+
+// Marketing/public HTML pages (server-rendered)
+app.route("/", marketingRoutes);
 
 // Better Auth Routes
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
