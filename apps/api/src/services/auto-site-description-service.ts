@@ -83,6 +83,8 @@ If you cannot determine the site's purpose, return: {"siteDescription": "", "ind
       await projectQueries(db).update(input.projectId, {
         siteDescription: result.siteDescription || null,
         industry: result.industry || null,
+        siteDescriptionSource: "auto",
+        industrySource: "auto",
       });
       log.info("Auto-site-description completed", {
         projectId: input.projectId,

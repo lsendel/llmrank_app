@@ -274,8 +274,12 @@ projectRoutes.patch(
     await projectQueries(db).update(projectId, {
       ...(body.siteDescription !== undefined && {
         siteDescription: body.siteDescription,
+        siteDescriptionSource: "user",
       }),
-      ...(body.industry !== undefined && { industry: body.industry }),
+      ...(body.industry !== undefined && {
+        industry: body.industry,
+        industrySource: "user",
+      }),
     });
 
     return c.json({ data: { success: true } });
