@@ -121,10 +121,7 @@ const MarketingPage = ({
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>{title} — LLM Boost</title>
       <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-      <link
-        href="https://cdn.jsdelivr.net/npm/tailwindcss@4/dist/tailwind.min.css"
-        rel="stylesheet"
-      />
+      <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     </head>
     <body class="min-h-screen bg-white text-gray-900">
       <MarketingHeader />

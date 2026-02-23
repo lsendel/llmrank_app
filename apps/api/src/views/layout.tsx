@@ -14,10 +14,7 @@ export const Layout: FC<
         src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"
         defer
       ></script>
-      <link
-        href="https://cdn.jsdelivr.net/npm/tailwindcss@4/dist/tailwind.min.css"
-        rel="stylesheet"
-      />
+      <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
       <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     </head>
     <body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
