@@ -1,3 +1,13 @@
+import type { Database } from "@llm-boost/db";
+import {
+  projectQueries,
+  crawlQueries,
+  scoreQueries,
+  savedKeywordQueries,
+  competitorQueries,
+  pipelineRunQueries,
+} from "@llm-boost/db";
+
 export interface Recommendation {
   type: "gap" | "platform" | "issue" | "trend" | "coverage";
   title: string;
@@ -110,4 +120,123 @@ export function generateRecommendations(input: {
   recs.sort((a, b) => impactOrder[a.impact] - impactOrder[b.impact]);
 
   return recs.slice(0, 5);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard "Next Best Actions" — queries DB to surface project-level actions
+// ---------------------------------------------------------------------------
+
+export interface NextAction {
+  priority: "critical" | "high" | "medium" | "low";
+  category: string;
+  title: string;
+  description: string;
+  action?: string;
+}
+
+export function createRecommendationsService(db: Database) {
+  return {
+    async getForProject(projectId: string): Promise<NextAction[]> {
+      const project = await projectQueries(db).getById(projectId);
+      if (!project) return [];
+
+      const recommendations: NextAction[] = [];
+
+      // Check latest crawl
+      const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
+      if (!latestCrawl) {
+        recommendations.push({
+          priority: "critical",
+          category: "crawl",
+          title: "Run your first crawl",
+          description:
+            "No crawl data yet. Start a crawl to get your AI-readiness score.",
+          action: "start_crawl",
+        });
+        return recommendations;
+      }
+
+      // Check crawl age
+      const daysSinceCrawl = latestCrawl.completedAt
+        ? Math.floor(
+            (Date.now() - latestCrawl.completedAt.getTime()) / 86400000,
+          )
+        : null;
+      if (daysSinceCrawl && daysSinceCrawl > 14) {
+        recommendations.push({
+          priority: "medium",
+          category: "crawl",
+          title: "Re-crawl your site",
+          description: `Last crawl was ${daysSinceCrawl} days ago. Re-crawl to check for changes.`,
+          action: "start_crawl",
+        });
+      }
+
+      // Check critical issues
+      if (latestCrawl.id && latestCrawl.status === "complete") {
+        const issues = await scoreQueries(db).getIssuesByJob(latestCrawl.id);
+        const criticalIssues = issues.filter((i) => i.severity === "critical");
+        if (criticalIssues.length > 0) {
+          recommendations.push({
+            priority: "critical",
+            category: "issues",
+            title: `${criticalIssues.length} critical issues found`,
+            description: criticalIssues
+              .map((i) => i.message)
+              .slice(0, 3)
+              .join("; "),
+            action: "get_action_items",
+          });
+        }
+      }
+
+      // Check keyword coverage
+      const keywordCount =
+        await savedKeywordQueries(db).countByProject(projectId);
+      if (keywordCount < 5) {
+        recommendations.push({
+          priority: "high",
+          category: "keywords",
+          title: "Add more keywords",
+          description: `Only ${keywordCount} keywords tracked. Add at least 5 for meaningful visibility data.`,
+          action: "discover_keywords_from_visibility",
+        });
+      }
+
+      // Check competitor tracking
+      const competitors = await competitorQueries(db).listByProject(projectId);
+      if (competitors.length === 0) {
+        recommendations.push({
+          priority: "high",
+          category: "competitors",
+          title: "Track competitors",
+          description:
+            "No competitors tracked. Discover competitors to benchmark against.",
+          action: "run_full_analysis",
+        });
+      }
+
+      // Check pipeline hasn't run
+      const latestPipeline =
+        await pipelineRunQueries(db).getLatestByProject(projectId);
+      if (!latestPipeline) {
+        recommendations.push({
+          priority: "medium",
+          category: "pipeline",
+          title: "Run full analysis",
+          description:
+            "Run the AI intelligence pipeline for comprehensive insights.",
+          action: "run_full_analysis",
+        });
+      }
+
+      // Sort by priority
+      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      recommendations.sort(
+        (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority],
+      );
+
+      return recommendations.slice(0, 5);
+    },
+  };
 }

@@ -3,6 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { pipelineRunQueries, projectQueries } from "@llm-boost/db";
 import { runHealthCheck } from "../services/health-check-service";
+import { createRecommendationsService } from "../services/recommendations-service";
 
 export const pipelineRoutes = new Hono<AppEnv>();
 
@@ -90,4 +91,13 @@ pipelineRoutes.get("/:projectId/health-check", authMiddleware, async (c) => {
   });
 
   return c.json({ data: result });
+});
+
+// GET /:projectId/recommendations — Next best actions for dashboard
+pipelineRoutes.get("/:projectId/recommendations", authMiddleware, async (c) => {
+  const db = c.get("db");
+  const projectId = c.req.param("projectId");
+  const service = createRecommendationsService(db);
+  const recommendations = await service.getForProject(projectId);
+  return c.json({ data: recommendations });
 });
