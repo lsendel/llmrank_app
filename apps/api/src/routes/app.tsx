@@ -19,6 +19,12 @@ import {
   adminQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
+import {
+  SkeletonText,
+  SkeletonCard,
+  SkeletonTable,
+  Breadcrumb,
+} from "../views/htmx-helpers";
 
 export const appRoutes = new Hono<AppEnv>();
 
@@ -45,16 +51,19 @@ function TabNav({ active }: { active: SettingsTab }) {
           hx-get={`/app/settings/${t}`}
           hx-target="#settings-content"
           hx-push-url={`/app/settings?tab=${t}`}
-          class={`border-b-2 px-4 py-2 text-sm font-medium ${
+          class={`flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium ${
             t === active
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
           role="tab"
         >
-          {t === "tokens"
-            ? "API Tokens"
-            : t.charAt(0).toUpperCase() + t.slice(1)}
+          <span class="tab-label">
+            {t === "tokens"
+              ? "API Tokens"
+              : t.charAt(0).toUpperCase() + t.slice(1)}
+          </span>
+          <span class="tab-spinner h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></span>
         </button>
       ))}
     </div>
@@ -84,7 +93,7 @@ appRoutes.get("/settings", async (c) => {
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <p class="py-8 text-center text-sm text-gray-400">Loading...</p>
+        <SkeletonText lines={4} />
       </div>
     </div>
   );
@@ -140,7 +149,7 @@ appRoutes.get("/settings/general", async (c) => {
           </div>
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             Save
           </button>
@@ -180,7 +189,7 @@ appRoutes.get("/settings/general", async (c) => {
           <div class="flex items-end gap-4">
             <button
               type="submit"
-              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
             >
               Save
             </button>
@@ -335,7 +344,7 @@ appRoutes.get("/settings/tokens", async (c) => {
           </select>
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
             disabled={tokens.length >= maxTokens}
           >
             Create
@@ -404,7 +413,7 @@ appRoutes.get("/settings/notifications", async (c) => {
           />
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             Add
           </button>
@@ -504,7 +513,7 @@ appRoutes.get("/settings/digest", async (c) => {
         </div>
         <button
           type="submit"
-          class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
         >
           Save
         </button>
@@ -610,7 +619,7 @@ appRoutes.get("/team", async (c) => {
           </div>
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             Create Organization
           </button>
@@ -755,7 +764,7 @@ appRoutes.get("/team/:orgId/members", async (c) => {
           </div>
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             Send Invite
           </button>
@@ -864,7 +873,7 @@ appRoutes.get("/projects/new", async (c) => {
           <div class="flex items-center gap-3 pt-2">
             <button
               type="submit"
-              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
             >
               Create Project
             </button>
@@ -897,20 +906,26 @@ appRoutes.get("/projects/new", async (c) => {
 // =====================================================================
 
 function gradeColor(score: number): string {
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
+  if (score >= 90) return "text-green-600";
+  if (score >= 80) return "text-lime-600";
+  if (score >= 70) return "text-yellow-600";
+  if (score >= 60) return "text-orange-600";
   return "text-red-600";
 }
 
 function gradeLabel(score: number): string {
-  if (score >= 80) return "Good";
-  if (score >= 60) return "Needs Work";
-  return "Poor";
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  if (score >= 60) return "D";
+  return "F";
 }
 
 function gradeBadgeColor(score: number): string {
-  if (score >= 80) return "bg-green-100 text-green-700";
-  if (score >= 60) return "bg-yellow-100 text-yellow-700";
+  if (score >= 90) return "bg-green-100 text-green-700";
+  if (score >= 80) return "bg-lime-100 text-lime-700";
+  if (score >= 70) return "bg-yellow-100 text-yellow-700";
+  if (score >= 60) return "bg-orange-100 text-orange-700";
   return "bg-red-100 text-red-700";
 }
 
@@ -930,7 +945,7 @@ appRoutes.get("/projects", async (c) => {
         actions={
           <a
             href="/app/projects/new"
-            class="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             + New Project
           </a>
@@ -942,9 +957,11 @@ appRoutes.get("/projects", async (c) => {
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <p class="py-16 text-center text-sm text-gray-400">
-          Loading projects...
-        </p>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       </div>
     </div>
   );
@@ -1016,7 +1033,7 @@ appRoutes.get("/projects/cards", async (c) => {
         return (
           <a
             href={`/app/projects/${project.id}`}
-            class="group block rounded-lg border bg-white p-5 transition-shadow hover:shadow-md dark:bg-gray-900"
+            class="group block rounded-lg border bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-900"
           >
             <div class="flex items-start justify-between">
               <div>
@@ -1140,17 +1157,16 @@ appRoutes.get("/projects/:id/issues", async (c) => {
 
   const content = (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Projects", href: "/app/projects" },
+          { label: project.name, href: `/app/projects/${projectId}` },
+          { label: "Issues" },
+        ]}
+      />
       <PageHeader
         title={`Issues — ${project.domain}`}
         description="Issues found during the latest crawl"
-        actions={
-          <a
-            href={`/app/projects/${projectId}`}
-            class="text-sm text-blue-600 hover:underline"
-          >
-            Back to project
-          </a>
-        }
       />
       {latestCrawl ? (
         <div
@@ -1159,9 +1175,7 @@ appRoutes.get("/projects/:id/issues", async (c) => {
           hx-trigger="load"
           hx-swap="innerHTML"
         >
-          <p class="py-8 text-center text-sm text-gray-400">
-            Loading issues...
-          </p>
+          <SkeletonTable rows={4} />
         </div>
       ) : (
         <div class="rounded-lg border bg-white p-8 text-center dark:bg-gray-900">
@@ -1326,45 +1340,17 @@ function ProjectTabNav({
           hx-get={`/app/projects/${projectId}/tab/${t.key}`}
           hx-target="#tab-content"
           hx-push-url={`/app/projects/${projectId}?tab=${t.key}`}
-          class={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
+          class={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
             t.key === active
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
           role="tab"
         >
-          {t.label}
+          <span class="tab-label">{t.label}</span>
+          <span class="tab-spinner h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></span>
         </button>
       ))}
-    </div>
-  );
-}
-
-function ScoreBar({
-  label,
-  score,
-  weight,
-}: {
-  label: string;
-  score: number | null;
-  weight: string;
-}) {
-  const s = score ?? 0;
-  return (
-    <div>
-      <div class="flex justify-between text-sm">
-        <span class="font-medium">
-          {label}{" "}
-          <span class="text-xs font-normal text-gray-400">({weight})</span>
-        </span>
-        <span class={`font-bold ${gradeColor(s)}`}>{score ?? "—"}</span>
-      </div>
-      <div class="mt-1 h-2 w-full rounded-full bg-gray-200">
-        <div
-          class={`h-2 rounded-full ${s >= 80 ? "bg-green-500" : s >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
-          style={`width: ${Math.min(s, 100)}%`}
-        ></div>
-      </div>
     </div>
   );
 }
@@ -1390,24 +1376,24 @@ appRoutes.get("/projects/:id", async (c) => {
 
   const content = (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Projects", href: "/app/projects" },
+          { label: project.name },
+        ]}
+      />
       <PageHeader
         title={project.name}
         description={project.domain}
         actions={
-          <div class="flex items-center gap-3">
-            <button
-              hx-post={`/api/projects/${projectId}/crawls`}
-              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Run Crawl
-            </button>
-            <a
-              href="/app/projects"
-              class="text-sm text-gray-500 hover:underline"
-            >
-              Back to projects
-            </a>
-          </div>
+          <button
+            hx-post={`/api/projects/${projectId}/crawls`}
+            hx-disabled-elt="this"
+            class="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span class="tab-spinner h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+            Run Crawl
+          </button>
         }
       />
       <ProjectTabNav projectId={projectId} active={tab} />
@@ -1417,7 +1403,7 @@ appRoutes.get("/projects/:id", async (c) => {
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <p class="py-8 text-center text-sm text-gray-400">Loading...</p>
+        <SkeletonText lines={6} />
       </div>
     </div>
   );
@@ -1490,14 +1476,44 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
     .filter((i) => i.severity === "critical" || i.severity === "warning")
     .slice(0, 5);
 
+  // Compute grade distribution from current scores
+  const gradeBuckets = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+  for (const s of scores) {
+    const sc = s.overallScore;
+    if (sc >= 90) gradeBuckets.A++;
+    else if (sc >= 80) gradeBuckets.B++;
+    else if (sc >= 70) gradeBuckets.C++;
+    else if (sc >= 60) gradeBuckets.D++;
+    else gradeBuckets.F++;
+  }
+
+  // Category breakdown data for chart
+  const categoryData = {
+    technical: technical ?? 0,
+    content: contentScore ?? 0,
+    aiReadiness: aiReadiness ?? 0,
+    performance: perfScore ?? 0,
+  };
+
   // Fetch score trend data from completed crawls
   const completedCrawls = await crawlQueries(db).listCompletedByProject(
     projectId,
     10,
   );
-  const trendData: { labels: string[]; scores: number[] } = {
+  const trendData: {
+    labels: string[];
+    scores: number[];
+    technical: number[];
+    content: number[];
+    aiReadiness: number[];
+    performance: number[];
+  } = {
     labels: [],
     scores: [],
+    technical: [],
+    content: [],
+    aiReadiness: [],
+    performance: [],
   };
   for (const cr of completedCrawls.reverse()) {
     const crScores = await scoreQueries(db).listByJob(cr.id);
@@ -1509,6 +1525,16 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
         new Date(cr.completedAt ?? cr.createdAt).toLocaleDateString(),
       );
       trendData.scores.push(avg);
+      trendData.technical.push(
+        avgOf(crScores.map((s) => s.technicalScore)) ?? 0,
+      );
+      trendData.content.push(avgOf(crScores.map((s) => s.contentScore)) ?? 0);
+      trendData.aiReadiness.push(
+        avgOf(crScores.map((s) => s.aiReadinessScore)) ?? 0,
+      );
+      trendData.performance.push(
+        avgOf(crScores.map((s) => s.lighthousePerf)) ?? 0,
+      );
     }
   }
 
@@ -1516,7 +1542,10 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
     <div class="space-y-6">
       <div class="grid gap-6 lg:grid-cols-3">
         <div class="flex flex-col items-center justify-center rounded-lg border bg-white p-6 dark:bg-gray-900">
-          <span class={`text-5xl font-bold ${gradeColor(overall ?? 0)}`}>
+          <span
+            class={`text-5xl font-bold ${gradeColor(overall ?? 0)}`}
+            data-count-up={overall ?? undefined}
+          >
             {overall ?? "—"}
           </span>
           <span
@@ -1533,14 +1562,15 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
           </p>
         </div>
 
-        <div class="col-span-2 space-y-4 rounded-lg border bg-white p-6 dark:bg-gray-900">
-          <h3 class="text-sm font-semibold text-gray-500">
+        <div class="col-span-2 rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-4 text-sm font-semibold text-gray-500">
             Category Breakdown
           </h3>
-          <ScoreBar label="Technical" score={technical} weight="25%" />
-          <ScoreBar label="Content" score={contentScore} weight="30%" />
-          <ScoreBar label="AI Readiness" score={aiReadiness} weight="30%" />
-          <ScoreBar label="Performance" score={perfScore} weight="15%" />
+          <div
+            class="h-48"
+            data-chart-type="category-breakdown"
+            data-chart-data={JSON.stringify(categoryData)}
+          ></div>
         </div>
       </div>
 
@@ -1583,6 +1613,17 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
         </div>
 
         <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+          <h3 class="mb-4 text-sm font-semibold text-gray-500">
+            Grade Distribution
+          </h3>
+          <div
+            id="grade-dist-chart"
+            class="h-48"
+            data-chart-data={JSON.stringify(gradeBuckets)}
+          ></div>
+        </div>
+
+        <div class="col-span-2 rounded-lg border bg-white p-6 dark:bg-gray-900">
           <h3 class="mb-4 text-sm font-semibold text-gray-500">Score Trend</h3>
           {trendData.scores.length >= 2 ? (
             <div
@@ -1639,37 +1680,132 @@ appRoutes.get("/projects/:id/tab/overview", async (c) => {
 // ─── Chart islands JS (served as static asset) ───────
 appRoutes.get("/static/charts.js", (c) => {
   // Safe: chart data comes from server-rendered data-* attributes, not user input
-  const js = [
-    "(function(){",
-    "if(typeof Chart==='undefined')return;",
-    "var distEl=document.getElementById('issue-dist-chart');",
-    "if(distEl){",
-    "  var d=JSON.parse(distEl.getAttribute('data-chart-data')||'{}');",
-    "  var cv=document.createElement('canvas');",
-    "  while(distEl.firstChild)distEl.removeChild(distEl.firstChild);",
-    "  distEl.appendChild(cv);",
-    "  new Chart(cv,{type:'doughnut',data:{",
-    "    labels:['Critical','Warning','Info'],",
-    "    datasets:[{data:[d.critical||0,d.warning||0,d.info||0],",
-    "      backgroundColor:['#ef4444','#eab308','#3b82f6']}]},",
-    "    options:{responsive:true,maintainAspectRatio:false,",
-    "      plugins:{legend:{position:'bottom',labels:{padding:16}}}}});",
-    "}",
-    "var trendEl=document.getElementById('score-trend-chart');",
-    "if(trendEl){",
-    "  var td=JSON.parse(trendEl.getAttribute('data-chart-data')||'null');",
-    "  if(td){",
-    "    var cv2=document.getElementById('score-trend-canvas');",
-    "    if(cv2){new Chart(cv2,{type:'line',data:{labels:td.labels,",
-    "      datasets:[{label:'Overall Score',data:td.scores,",
-    "        borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',",
-    "        fill:true,tension:0.3,pointRadius:4}]},",
-    "      options:{responsive:true,maintainAspectRatio:false,",
-    "        scales:{y:{min:0,max:100}},plugins:{legend:{display:false}}}});}",
-    "  }",
-    "}",
-    "})();",
-  ].join("\n");
+  const js = `(function(){
+if(typeof Chart==='undefined')return;
+
+var COLORS={
+  technical:'#6366f1',content:'#8b5cf6',aiReady:'#3b82f6',perf:'#06b6d4',
+  overall:'#6b7280',
+  gradeA:'#22c55e',gradeB:'#84cc16',gradeC:'#eab308',gradeD:'#f97316',gradeF:'#ef4444'
+};
+
+// ── Count-up animation ──
+document.querySelectorAll('[data-count-up]').forEach(function(el){
+  var target=parseInt(el.getAttribute('data-count-up'),10);
+  if(isNaN(target))return;
+  var dur=800,start=performance.now();
+  el.textContent='0';
+  function tick(now){
+    var t=Math.min((now-start)/dur,1);
+    var ease=1-Math.pow(1-t,3);
+    el.textContent=Math.round(ease*target).toString();
+    if(t<1)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+});
+
+// ── Score bar animation ──
+document.querySelectorAll('[data-score-bar]').forEach(function(el){
+  var w=el.getAttribute('data-score-bar');
+  el.style.width='0%';
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){ el.style.width=w+'%'; });
+  });
+});
+
+// ── Issue distribution doughnut ──
+var distEl=document.getElementById('issue-dist-chart');
+if(distEl){
+  var d=JSON.parse(distEl.getAttribute('data-chart-data')||'{}');
+  var cv=document.createElement('canvas');
+  while(distEl.firstChild)distEl.removeChild(distEl.firstChild);
+  distEl.appendChild(cv);
+  new Chart(cv,{type:'doughnut',data:{
+    labels:['Critical','Warning','Info'],
+    datasets:[{data:[d.critical||0,d.warning||0,d.info||0],
+      backgroundColor:['#ef4444','#eab308','#3b82f6']}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      animation:{animateRotate:true,animateScale:true,duration:600},
+      plugins:{legend:{position:'bottom',labels:{padding:16,usePointStyle:true}},
+        tooltip:{callbacks:{label:function(ctx){
+          var sum=ctx.dataset.data.reduce(function(a,b){return a+b},0);
+          var pct=sum>0?Math.round(ctx.raw/sum*100):0;
+          return ctx.label+': '+ctx.raw+' ('+pct+'%)';
+        }}}}}});
+}
+
+// ── Category breakdown horizontal bar ──
+document.querySelectorAll('[data-chart-type="category-breakdown"]').forEach(function(el){
+  var cd=JSON.parse(el.getAttribute('data-chart-data')||'null');
+  if(!cd)return;
+  var cv=document.createElement('canvas');
+  while(el.firstChild)el.removeChild(el.firstChild);
+  el.appendChild(cv);
+  new Chart(cv,{type:'bar',data:{
+    labels:['Technical','Content','AI Readiness','Performance'],
+    datasets:[{data:[cd.technical||0,cd.content||0,cd.aiReadiness||0,cd.performance||0],
+      backgroundColor:[COLORS.technical,COLORS.content,COLORS.aiReady,COLORS.perf],
+      borderRadius:4,barPercentage:0.7}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      animation:{duration:800,easing:'easeOutCubic'},
+      scales:{x:{min:0,max:100,grid:{display:false}},y:{grid:{display:false}}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){return ctx.raw+'/100'}}}}}});
+});
+
+// ── Grade distribution horizontal bar ──
+var gradeEl=document.getElementById('grade-dist-chart');
+if(gradeEl){
+  var gd=JSON.parse(gradeEl.getAttribute('data-chart-data')||'null');
+  if(gd){
+    var cv3=document.createElement('canvas');
+    while(gradeEl.firstChild)gradeEl.removeChild(gradeEl.firstChild);
+    gradeEl.appendChild(cv3);
+    new Chart(cv3,{type:'bar',data:{
+      labels:['A (90+)','B (80-89)','C (70-79)','D (60-69)','F (<60)'],
+      datasets:[{data:[gd.A||0,gd.B||0,gd.C||0,gd.D||0,gd.F||0],
+        backgroundColor:[COLORS.gradeA,COLORS.gradeB,COLORS.gradeC,COLORS.gradeD,COLORS.gradeF],
+        borderRadius:4,barPercentage:0.7}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        animation:{duration:800,easing:'easeOutCubic'},
+        scales:{x:{beginAtZero:true,ticks:{stepSize:1},grid:{display:false}},y:{grid:{display:false}}},
+        plugins:{legend:{display:false}}}});
+  }
+}
+
+// ── Score trend line chart ──
+var trendEl=document.getElementById('score-trend-chart');
+if(trendEl){
+  var td=JSON.parse(trendEl.getAttribute('data-chart-data')||'null');
+  if(td){
+    var cv2=document.getElementById('score-trend-canvas');
+    if(cv2){
+      var datasets=[{label:'Overall',data:td.scores,
+        borderColor:COLORS.overall,backgroundColor:'rgba(107,114,128,0.05)',
+        fill:true,tension:0.3,pointRadius:4,borderWidth:2}];
+      if(td.technical){
+        datasets.push({label:'Technical',data:td.technical,borderColor:COLORS.technical,
+          borderDash:[5,3],tension:0.3,pointRadius:2,borderWidth:1.5,fill:false});
+        datasets.push({label:'Content',data:td.content,borderColor:COLORS.content,
+          borderDash:[5,3],tension:0.3,pointRadius:2,borderWidth:1.5,fill:false});
+        datasets.push({label:'AI Readiness',data:td.aiReadiness,borderColor:COLORS.aiReady,
+          borderDash:[5,3],tension:0.3,pointRadius:2,borderWidth:1.5,fill:false});
+        datasets.push({label:'Performance',data:td.performance,borderColor:COLORS.perf,
+          borderDash:[5,3],tension:0.3,pointRadius:2,borderWidth:1.5,fill:false});
+      }
+      new Chart(cv2,{type:'line',data:{labels:td.labels,datasets:datasets},
+        options:{responsive:true,maintainAspectRatio:false,
+          animation:{duration:800,easing:'easeOutCubic'},
+          interaction:{mode:'index',intersect:false},
+          scales:{y:{min:0,max:100}},
+          plugins:{legend:{display:datasets.length>1,position:'bottom',
+            labels:{usePointStyle:true,padding:12}},
+            tooltip:{mode:'index',intersect:false}}}});
+    }
+  }
+}
+
+})();`;
   return c.body(js, 200, {
     "Content-Type": "application/javascript",
     "Cache-Control": "public, max-age=3600",
@@ -1831,7 +1967,7 @@ appRoutes.get("/projects/:id/tab/issues", async (c) => {
       hx-trigger="load"
       hx-swap="innerHTML"
     >
-      <p class="py-8 text-center text-sm text-gray-400">Loading issues...</p>
+      <SkeletonTable rows={4} />
     </div>,
   );
 });
@@ -1900,7 +2036,7 @@ appRoutes.get("/projects/:id/tab/competitors", async (c) => {
           />
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             Benchmark
           </button>
@@ -2018,7 +2154,7 @@ appRoutes.get("/projects/:id/tab/visibility", async (c) => {
           </select>
           <button
             type="submit"
-            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
           >
             Check
           </button>
@@ -2274,7 +2410,7 @@ appRoutes.get("/projects/:id/tab/settings", async (c) => {
           <div class="flex items-center gap-3">
             <button
               type="submit"
-              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
             >
               Save
             </button>
@@ -2319,17 +2455,16 @@ appRoutes.get("/crawl/:id", async (c) => {
 
   const content = (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Projects", href: "/app/projects" },
+          { label: project.name, href: `/app/projects/${project.id}` },
+          { label: "Crawl" },
+        ]}
+      />
       <PageHeader
         title={`Crawl — ${project.domain}`}
         description={`Started ${job.startedAt ? new Date(job.startedAt).toLocaleString() : new Date(job.createdAt).toLocaleString()}`}
-        actions={
-          <a
-            href={`/app/projects/${project.id}?tab=history`}
-            class="text-sm text-gray-500 hover:underline"
-          >
-            Back to project
-          </a>
-        }
       />
       <div
         id="crawl-progress"
@@ -2337,7 +2472,7 @@ appRoutes.get("/crawl/:id", async (c) => {
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <p class="py-8 text-center text-sm text-gray-400">Loading...</p>
+        <SkeletonCard />
       </div>
     </div>
   );
@@ -2366,16 +2501,16 @@ appRoutes.get("/crawl/:id/progress", async (c) => {
       ? Math.round(((job.pagesCrawled ?? 0) / job.pagesFound) * 100)
       : 0;
 
-  const STATUS_BADGE: Record<string, string> = {
-    complete: "bg-green-100 text-green-700",
-    failed: "bg-red-100 text-red-700",
-    crawling: "bg-blue-100 text-blue-700",
-    scoring: "bg-purple-100 text-purple-700",
-    pending: "bg-gray-100 text-gray-600",
-    queued: "bg-yellow-100 text-yellow-700",
-  };
-
   if (isActive) {
+    const PHASES = [
+      "pending",
+      "queued",
+      "crawling",
+      "scoring",
+      "complete",
+    ] as const;
+    const currentIdx = PHASES.indexOf(job.status as (typeof PHASES)[number]);
+
     // Still running — return with hx-trigger to continue polling
     return c.html(
       <div
@@ -2383,23 +2518,75 @@ appRoutes.get("/crawl/:id/progress", async (c) => {
         hx-trigger="every 3s"
         hx-swap="outerHTML"
       >
-        <div class="space-y-4 rounded-lg border bg-white p-6 dark:bg-gray-900">
-          <div class="flex items-center gap-3">
-            <span
-              class={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[job.status] ?? "bg-gray-100 text-gray-600"}`}
-            >
-              {job.status}
-            </span>
-            <span class="text-sm text-gray-500">
-              {job.pagesCrawled ?? 0} / {job.pagesFound ?? "?"} pages
-            </span>
+        <div class="space-y-6 rounded-lg border bg-white p-6 dark:bg-gray-900">
+          {/* Phase stepper */}
+          <div class="flex items-center justify-between">
+            {PHASES.map((phase, i) => {
+              const isDone = i < currentIdx;
+              const isCurrentPhase = i === currentIdx;
+              return (
+                <div class="flex flex-1 items-center">
+                  <div class="flex flex-col items-center gap-1">
+                    <div
+                      class={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+                        isDone
+                          ? "bg-green-500 text-white"
+                          : isCurrentPhase
+                            ? "animate-pulse bg-blue-500 text-white"
+                            : "bg-gray-200 text-gray-400 dark:bg-gray-700"
+                      }`}
+                    >
+                      {isDone ? (
+                        <svg
+                          class="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="3"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </div>
+                    <span
+                      class={`text-xs capitalize ${
+                        isDone
+                          ? "font-medium text-green-600"
+                          : isCurrentPhase
+                            ? "font-semibold text-blue-600"
+                            : "text-gray-400"
+                      }`}
+                    >
+                      {phase}
+                    </span>
+                  </div>
+                  {i < PHASES.length - 1 && (
+                    <div class="mx-2 h-0.5 flex-1">
+                      <div
+                        class={`h-full rounded ${isDone ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"}`}
+                      ></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          {/* Progress bar */}
           <div class="h-3 w-full rounded-full bg-gray-200">
             <div
               class="h-3 rounded-full bg-blue-500 transition-all"
               style={`width: ${pct}%`}
             ></div>
           </div>
+
+          {/* Counters */}
           <div class="grid grid-cols-3 gap-4 text-center text-sm">
             <div>
               <p class="text-2xl font-bold">{job.pagesFound ?? 0}</p>
@@ -2462,23 +2649,47 @@ appRoutes.get("/crawl/:id/progress", async (c) => {
   const aiReadiness = avgOf(scores.map((s) => s.aiReadinessScore));
   const perfScore = avgOf(scores.map((s) => s.lighthousePerf));
 
+  const issueCount = (await scoreQueries(db).getIssuesByJob(crawlId)).length;
+
   return c.html(
     <div class="space-y-6">
-      <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
-        <div class="flex items-center gap-3">
-          <span class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-            Complete
-          </span>
-          <span class="text-sm text-gray-500">
-            {scores.length} pages scored
-          </span>
+      {/* Success banner */}
+      <div class="rounded-lg border border-green-200 bg-green-50 p-6 dark:border-green-800 dark:bg-green-950">
+        <div class="flex items-center gap-4">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-500 text-white">
+            <svg
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-green-800 dark:text-green-200">
+              Crawl Complete
+            </h3>
+            <p class="text-sm text-green-600 dark:text-green-400">
+              {scores.length} page{scores.length !== 1 ? "s" : ""} analyzed and
+              scored
+            </p>
+          </div>
         </div>
       </div>
 
       {avgScore !== null && (
         <div class="grid gap-6 sm:grid-cols-5">
           <div class="flex flex-col items-center rounded-lg border bg-white p-4 dark:bg-gray-900">
-            <span class={`text-3xl font-bold ${gradeColor(avgScore)}`}>
+            <span
+              class={`text-3xl font-bold ${gradeColor(avgScore)}`}
+              data-count-up={avgScore}
+            >
               {avgScore}
             </span>
             <span class="mt-1 text-xs text-gray-500">Overall</span>
@@ -2492,7 +2703,10 @@ appRoutes.get("/crawl/:id/progress", async (c) => {
             ] as [string, number | null][]
           ).map(([label, score]) => (
             <div class="flex flex-col items-center rounded-lg border bg-white p-4 dark:bg-gray-900">
-              <span class={`text-3xl font-bold ${gradeColor(score ?? 0)}`}>
+              <span
+                class={`text-3xl font-bold ${gradeColor(score ?? 0)}`}
+                data-count-up={score ?? undefined}
+              >
                 {score ?? "—"}
               </span>
               <span class="mt-1 text-xs text-gray-500">{label}</span>
@@ -2500,6 +2714,22 @@ appRoutes.get("/crawl/:id/progress", async (c) => {
           ))}
         </div>
       )}
+
+      <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <h3 class="mb-4 text-sm font-semibold text-gray-500">
+          Category Breakdown
+        </h3>
+        <div
+          class="h-48"
+          data-chart-type="category-breakdown"
+          data-chart-data={JSON.stringify({
+            technical: technical ?? 0,
+            content: contentScore ?? 0,
+            aiReadiness: aiReadiness ?? 0,
+            performance: perfScore ?? 0,
+          })}
+        ></div>
+      </div>
 
       {job.summary && (
         <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
@@ -2513,17 +2743,18 @@ appRoutes.get("/crawl/:id/progress", async (c) => {
       <div class="flex gap-3">
         <a
           href={`/app/projects/${job.projectId}`}
-          class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
         >
           View Full Project
         </a>
         <a
           href={`/app/projects/${job.projectId}?tab=issues`}
-          class="rounded border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          class="rounded border-2 border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 active:scale-95 transition-transform"
         >
-          Review Issues
+          Review Issues{issueCount > 0 ? ` (${issueCount})` : ""}
         </a>
       </div>
+      <script src="/app/static/charts.js"></script>
     </div>,
   );
 });
@@ -2567,13 +2798,14 @@ appRoutes.get("/projects/:id/pages/:pageId", async (c) => {
 
   const content = (
     <div>
+      <Breadcrumb
+        items={[
+          { label: "Projects", href: "/app/projects" },
+          { label: project.name, href: `/app/projects/${projectId}` },
+          { label: "Page Analysis" },
+        ]}
+      />
       <div class="mb-6">
-        <a
-          href={`/app/projects/${projectId}?tab=pages`}
-          class="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          Back to Project
-        </a>
         <h1 class="text-2xl font-bold">Page Analysis</h1>
         <p class="mt-0.5 font-mono text-sm text-gray-500">
           {pageUrl || "Unknown URL"}
@@ -2586,14 +2818,17 @@ appRoutes.get("/projects/:id/pages/:pageId", async (c) => {
             hx-get={`/app/projects/${projectId}/pages/${pageId}/tab/${t.key}`}
             hx-target="#page-tab-content"
             hx-push-url={`/app/projects/${projectId}/pages/${pageId}?tab=${t.key}`}
-            class={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
+            class={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
               t.key === tab
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
             role="tab"
           >
-            {t.key === "issues" ? `Issues (${issues.length})` : t.label}
+            <span class="tab-label">
+              {t.key === "issues" ? `Issues (${issues.length})` : t.label}
+            </span>
+            <span class="tab-spinner h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></span>
           </button>
         ))}
       </div>
@@ -2604,7 +2839,7 @@ appRoutes.get("/projects/:id/pages/:pageId", async (c) => {
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <p class="py-8 text-center text-sm text-gray-400">Loading...</p>
+        <SkeletonText lines={5} />
       </div>
     </div>
   );
@@ -2648,13 +2883,17 @@ appRoutes.get("/projects/:id/pages/:pageId/tab/overview", async (c) => {
           ] as [string, number | null][]
         ).map(([label, val]) => (
           <div class="flex flex-col items-center rounded-lg border bg-white p-4 dark:bg-gray-900">
-            <span class={`text-3xl font-bold ${gradeColor(val ?? 0)}`}>
+            <span
+              class={`text-3xl font-bold ${gradeColor(val ?? 0)}`}
+              data-count-up={val ?? undefined}
+            >
               {val ?? "—"}
             </span>
             <span class="mt-1 text-xs text-gray-500">{label}</span>
           </div>
         ))}
       </div>
+      <script src="/app/static/charts.js"></script>
 
       {/* Page metadata */}
       <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
@@ -2721,11 +2960,13 @@ appRoutes.get("/projects/:id/pages/:pageId/tab/technical", async (c) => {
         </h3>
         <div class="mt-1 h-2 w-full rounded-full bg-gray-200">
           <div
-            class={`h-2 rounded-full ${(score.technicalScore ?? 0) >= 80 ? "bg-green-500" : (score.technicalScore ?? 0) >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
-            style={`width: ${Math.min(score.technicalScore ?? 0, 100)}%`}
+            class={`h-2 rounded-full transition-all duration-700 ${(score.technicalScore ?? 0) >= 80 ? "bg-green-500" : (score.technicalScore ?? 0) >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
+            style="width: 0%"
+            data-score-bar={Math.min(score.technicalScore ?? 0, 100)}
           ></div>
         </div>
       </div>
+      <script src="/app/static/charts.js"></script>
 
       <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
         <h3 class="mb-4 text-sm font-semibold text-gray-500">
@@ -2735,9 +2976,37 @@ appRoutes.get("/projects/:id/pages/:pageId/tab/technical", async (c) => {
           {checks.map(([label, val]) => (
             <div class="flex items-center gap-2 text-sm">
               <span
-                class={`h-5 w-5 rounded-full text-center text-xs leading-5 ${val ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+                class={`flex h-5 w-5 items-center justify-center rounded-full ${val ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"}`}
               >
-                {val ? "Y" : "N"}
+                {val ? (
+                  <svg
+                    class="h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    class="h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                )}
               </span>
               <span>{label as string}</span>
             </div>
@@ -2770,11 +3039,13 @@ appRoutes.get("/projects/:id/pages/:pageId/tab/content", async (c) => {
         </h3>
         <div class="mt-1 h-2 w-full rounded-full bg-gray-200">
           <div
-            class={`h-2 rounded-full ${(score.contentScore ?? 0) >= 80 ? "bg-green-500" : (score.contentScore ?? 0) >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
-            style={`width: ${Math.min(score.contentScore ?? 0, 100)}%`}
+            class={`h-2 rounded-full transition-all duration-700 ${(score.contentScore ?? 0) >= 80 ? "bg-green-500" : (score.contentScore ?? 0) >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
+            style="width: 0%"
+            data-score-bar={Math.min(score.contentScore ?? 0, 100)}
           ></div>
         </div>
       </div>
+      <script src="/app/static/charts.js"></script>
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
@@ -2911,11 +3182,13 @@ appRoutes.get("/projects/:id/pages/:pageId/tab/performance", async (c) => {
         </h3>
         <div class="mt-1 h-2 w-full rounded-full bg-gray-200">
           <div
-            class={`h-2 rounded-full ${(score.lighthousePerf ?? 0) >= 80 ? "bg-green-500" : (score.lighthousePerf ?? 0) >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
-            style={`width: ${Math.min(score.lighthousePerf ?? 0, 100)}%`}
+            class={`h-2 rounded-full transition-all duration-700 ${(score.lighthousePerf ?? 0) >= 80 ? "bg-green-500" : (score.lighthousePerf ?? 0) >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
+            style="width: 0%"
+            data-score-bar={Math.min(score.lighthousePerf ?? 0, 100)}
           ></div>
         </div>
       </div>
+      <script src="/app/static/charts.js"></script>
 
       <div class="rounded-lg border bg-white p-6 dark:bg-gray-900">
         <h3 class="mb-4 text-sm font-semibold text-gray-500">
@@ -2968,7 +3241,12 @@ appRoutes.get("/admin", async (c) => {
         hx-trigger="load"
         hx-swap="innerHTML"
       >
-        <p class="py-4 text-center text-sm text-gray-400">Loading stats...</p>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       </div>
 
       {/* User search + list */}
@@ -2989,7 +3267,7 @@ appRoutes.get("/admin", async (c) => {
           hx-trigger="load"
           hx-swap="innerHTML"
         >
-          <p class="py-4 text-center text-sm text-gray-400">Loading users...</p>
+          <SkeletonTable rows={6} />
         </div>
       </div>
     </div>

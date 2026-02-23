@@ -16,6 +16,20 @@ export const Layout: FC<
       ></script>
       <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
       <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+      <style>{`
+        .tab-spinner { display: none; }
+        .htmx-request .tab-spinner { display: inline-block; }
+        .htmx-request .tab-label { opacity: 0.6; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        #tab-content.htmx-settling > *,
+        #settings-content.htmx-settling > *,
+        #page-tab-content.htmx-settling > * {
+          animation: fadeIn 150ms ease-out;
+        }
+      `}</style>
     </head>
     <body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <nav class="border-b bg-white px-6 py-3 dark:bg-gray-900">
