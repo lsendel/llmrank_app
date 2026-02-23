@@ -199,6 +199,43 @@ billingRoutes.post("/downgrade", authMiddleware, async (c) => {
   }
 });
 
+// ─── POST /upgrade — Upgrade subscription with proration ──────
+billingRoutes.post("/upgrade", authMiddleware, async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const body = await c.req.json<{
+    plan: string;
+    successUrl: string;
+    cancelUrl: string;
+  }>();
+
+  if (!body.plan) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "plan is required" } },
+      422,
+    );
+  }
+
+  const service = createBillingService({
+    billing: createBillingRepository(db),
+    users: createUserRepository(db),
+  });
+
+  try {
+    const data = await service.upgrade({
+      userId,
+      targetPlan: body.plan,
+      stripeSecretKey: c.env.STRIPE_SECRET_KEY,
+      successUrl: body.successUrl ?? "",
+      cancelUrl: body.cancelUrl ?? "",
+      db,
+    });
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
 // ─── POST /portal — Stripe Customer Portal ──────────────────────
 
 billingRoutes.post("/portal", authMiddleware, async (c) => {

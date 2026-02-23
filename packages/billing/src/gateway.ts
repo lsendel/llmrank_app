@@ -303,6 +303,27 @@ export class StripeGateway {
   }
 
   /**
+   * Upgrade a subscription's price with proration.
+   * proration_behavior "create_prorations" charges the difference immediately.
+   */
+  async upgradeSubscriptionPrice(
+    subscriptionId: string,
+    itemId: string,
+    newPriceId: string,
+  ): Promise<StripeSubscription> {
+    return stripeRequest<StripeSubscription>(
+      this.secretKey,
+      "POST",
+      `/subscriptions/${subscriptionId}`,
+      {
+        "items[0][id]": itemId,
+        "items[0][price]": newPriceId,
+        proration_behavior: "create_prorations",
+      },
+    );
+  }
+
+  /**
    * Create a Stripe coupon.
    */
   async createCoupon(opts: {
