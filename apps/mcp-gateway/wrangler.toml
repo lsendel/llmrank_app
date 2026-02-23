@@ -10,5 +10,7 @@ API_BASE_URL = "https://api.llmrank.app"
 binding = "KV"
 id = "1253976636c64d6c83ad2e936ac97c75"
 
-# Custom domain: mcp.llmrank.app (managed via Cloudflare Workers Custom Domains API)
+# Custom domain: mcp.llmrank.app
 # DNS + SSL auto-provisioned by Cloudflare
+[env.production]
+routes = [{ pattern = "mcp.llmrank.app/*", custom_domain = true }]
