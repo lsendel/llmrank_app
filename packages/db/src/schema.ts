@@ -105,6 +105,14 @@ export const eventStatusEnum = pgEnum("event_status", [
   "failed",
 ]);
 
+export const pipelineStatusEnum = pgEnum("pipeline_status", [
+  "pending",
+  "running",
+  "paused",
+  "completed",
+  "failed",
+]);
+
 export const channelTypeEnum = pgEnum("channel_type", [
   "email",
   "webhook",
@@ -297,6 +305,9 @@ export const projects = pgTable(
     teamId: uuid("team_id"),
     siteDescription: text("site_description"),
     industry: text("industry"),
+    pipelineSettings: jsonb("pipeline_settings").default({}),
+    siteDescriptionSource: text("site_description_source").default("auto"),
+    industrySource: text("industry_source").default("auto"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -1384,5 +1395,32 @@ export const alerts = pgTable(
   (t) => [
     index("idx_alerts_project").on(t.projectId),
     index("idx_alerts_unacked").on(t.projectId, t.acknowledgedAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Pipeline Runs (AI intelligence pipeline orchestration)
+// ---------------------------------------------------------------------------
+
+export const pipelineRuns = pgTable(
+  "pipeline_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    crawlJobId: uuid("crawl_job_id").references(() => crawlJobs.id),
+    status: pipelineStatusEnum("status").default("pending").notNull(),
+    currentStep: text("current_step"),
+    stepResults: jsonb("step_results").default({}),
+    settings: jsonb("settings").default({}),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    error: text("error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_pipeline_runs_project").on(t.projectId),
+    index("idx_pipeline_runs_crawl_job").on(t.crawlJobId),
   ],
 );
