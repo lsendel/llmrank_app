@@ -14,6 +14,7 @@ import { registerContentTools } from "./content";
 import { registerTechnicalTools } from "./technical";
 import { registerKeywordTools } from "./keywords";
 import { registerQueryTools } from "./queries";
+import { registerPipelineTools } from "./pipeline";
 
 export function registerAllTools(server: McpServer, ctx: ToolContext): void {
   registerProjectTools(server, ctx);
@@ -30,4 +31,5 @@ export function registerAllTools(server: McpServer, ctx: ToolContext): void {
   registerTechnicalTools(server, ctx);
   registerKeywordTools(server, ctx);
   registerQueryTools(server, ctx);
+  registerPipelineTools(server, ctx);
 }
