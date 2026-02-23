@@ -37,5 +37,14 @@
     "ai-readiness",
     "llm-boost"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/llm-boost/llmrank-app"
+  },
+  "homepage": "https://llmrank.app/mcp",
+  "author": "LLM Boost <support@llmrank.app>"
 }
