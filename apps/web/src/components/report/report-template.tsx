@@ -151,7 +151,7 @@ export interface ReportProps {
 export const AIReadinessReport: React.FC<ReportProps> = ({
   crawl,
   quickWins,
-  companyName = "LLM Boost",
+  companyName = "LLM Rank",
   logoUrl,
   primaryColor = "#6366f1",
   narrativeSections,
@@ -194,7 +194,7 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
               <Text style={[styles.brand, dynamicStyles.brand]}>
                 {companyName}
               </Text>
-              {companyName !== "LLM Boost" && (
+              {companyName !== "LLM Rank" && (
                 <Text style={{ fontSize: 8, color: "#999999" }}>
                   Prepared by {companyName}
                 </Text>
@@ -297,7 +297,7 @@ export const AIReadinessReport: React.FC<ReportProps> = ({
 
         {/* Footer */}
         <Text style={styles.footer}>
-          {companyName !== "LLM Boost" ? `${companyName} \u2022 ` : ""}
+          {companyName !== "LLM Rank" ? `${companyName} \u2022 ` : ""}
           Confidence in AI discovery depends on continuous optimization. This
           report is based on current LLM indexing patterns as of February 2026.
         </Text>

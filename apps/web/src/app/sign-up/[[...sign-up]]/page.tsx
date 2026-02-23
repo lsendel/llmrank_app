@@ -7,11 +7,11 @@ import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 export const metadata: Metadata = {
   title: "Sign Up Free — AI-Readiness SEO Platform",
   description:
-    "Create your free LLM Boost account. Audit up to 10 pages per crawl, score your site across 37 AI-readiness factors, and get actionable recommendations.",
+    "Create your free LLM Rank account. Audit up to 10 pages per crawl, score your site across 37 AI-readiness factors, and get actionable recommendations.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/sign-up" },
   openGraph: {
-    title: "Sign Up Free | LLM Boost",
+    title: "Sign Up Free | LLM Rank",
     description:
       "Start auditing your website for AI search visibility. Free tier includes 10 pages per crawl and 37-factor scoring.",
     url: "https://llmrank.app/sign-up",
@@ -51,7 +51,7 @@ export default function SignUpPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link

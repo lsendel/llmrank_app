@@ -60,7 +60,7 @@ export function BacklinkCard({ summary, isLoading }: BacklinkCardProps) {
         <CardContent>
           <p className="text-sm text-muted-foreground">
             No backlinks discovered yet. Your profile grows as more sites are
-            crawled across the LLM Boost network.
+            crawled across the LLM Rank network.
           </p>
         </CardContent>
       </Card>
@@ -129,7 +129,7 @@ export function BacklinkCard({ summary, isLoading }: BacklinkCardProps) {
         )}
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Based on sites analyzed across the LLM Boost network. Your backlink
+          Based on sites analyzed across the LLM Rank network. Your backlink
           profile grows as more sites are crawled.
         </p>
       </CardContent>

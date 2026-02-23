@@ -27,7 +27,7 @@ export function organizationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "LLM Boost",
+    name: "LLM Rank",
     url: BASE_URL,
     logo: `${BASE_URL}/icon.svg`,
     description:
@@ -45,7 +45,7 @@ export function webSiteSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "LLM Boost",
+    name: "LLM Rank",
     url: BASE_URL,
     description:
       "Audit, score, and improve your website for AI search engines like ChatGPT, Claude, Perplexity, and Gemini.",
@@ -64,7 +64,7 @@ export function softwareApplicationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "LLM Boost",
+    name: "LLM Rank",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     url: BASE_URL,
@@ -100,9 +100,9 @@ export function productOffersSchema(plans: PricingPlan[]) {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: "LLM Boost",
+    name: "LLM Rank",
     description: "AI-Readiness SEO Platform with 37-factor scoring engine.",
-    brand: { "@type": "Organization", name: "LLM Boost" },
+    brand: { "@type": "Organization", name: "LLM Rank" },
     offers: plans.map((plan) => ({
       "@type": "Offer",
       name: plan.name,
@@ -138,7 +138,7 @@ export function webPageSchema(opts: {
     name: opts.title,
     description: opts.description,
     url: `${BASE_URL}${opts.path}`,
-    isPartOf: { "@type": "WebSite", name: "LLM Boost", url: BASE_URL },
+    isPartOf: { "@type": "WebSite", name: "LLM Rank", url: BASE_URL },
   };
 }
 

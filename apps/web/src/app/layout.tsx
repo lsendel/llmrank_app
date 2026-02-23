@@ -22,16 +22,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
     default:
-      "AI Search Optimization Tool - Rank in ChatGPT & Perplexity | LLM Boost",
-    template: "%s | LLM Boost",
+      "AI Search Optimization Tool - Rank in ChatGPT & Perplexity | LLM Rank",
+    template: "%s | LLM Rank",
   },
   description:
     "The first AI Search Optimization (AISO) platform. Audit your website for AI-readiness across 37 factors. Optimize for ChatGPT, Claude, Perplexity, and Gemini.",
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "LLM Boost",
-    title: "Rank in ChatGPT, Claude & Perplexity | LLM Boost",
+    siteName: "LLM Rank",
+    title: "Rank in ChatGPT, Claude & Perplexity | LLM Rank",
     description:
       "Audit your website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, Perplexity, and Gemini.",
     url: BASE_URL,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
         url: `${BASE_URL}/og-default.png`,
         width: 1200,
         height: 630,
-        alt: "LLM Boost — AI-Readiness SEO Platform",
+        alt: "LLM Rank — AI-Readiness SEO Platform",
       },
     ],
   },

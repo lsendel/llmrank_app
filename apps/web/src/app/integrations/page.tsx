@@ -12,10 +12,10 @@ import {
 export const metadata: Metadata = {
   title: "SEO Integrations & Connections",
   description:
-    "Connect LLM Boost with Google Search Console, Google Analytics, MCP for AI coding agents, WordPress, Slack, and more to supercharge your AI SEO strategy.",
+    "Connect LLM Rank with Google Search Console, Google Analytics, MCP for AI coding agents, WordPress, Slack, and more to supercharge your AI SEO strategy.",
   alternates: { canonical: "/integrations" },
   openGraph: {
-    title: "Integrations | LLM Boost",
+    title: "Integrations | LLM Rank",
     description:
       "Connect Google Search Console, GA4, WordPress, and Slack to your AI-readiness workflow.",
     url: "https://llmrank.app/integrations",
@@ -50,7 +50,7 @@ const INTEGRATIONS = [
   {
     name: "MCP Server",
     description:
-      "Connect your AI coding agent to LLM Boost via the Model Context Protocol (MCP). Get 27 SEO tools — crawl sites, score pages, check AI visibility, and generate fixes — directly from Claude Code, Cursor, VS Code, Windsurf, or ChatGPT. Install from npm and configure in under 2 minutes.",
+      "Connect your AI coding agent to LLM Rank via the Model Context Protocol (MCP). Get 27 SEO tools — crawl sites, score pages, check AI visibility, and generate fixes — directly from Claude Code, Cursor, VS Code, Windsurf, or ChatGPT. Install from npm and configure in under 2 minutes.",
     features: [
       "27 tools for AI-readiness analysis from your IDE",
       "Works with Claude Code, Cursor, VS Code, Windsurf, ChatGPT",
@@ -109,7 +109,7 @@ export default function IntegrationsPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
           <Link
             href="/sign-in"
@@ -134,11 +134,11 @@ export default function IntegrationsPage() {
             Integrations
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Supercharge your AI SEO strategy by connecting LLM Boost with your
+            Supercharge your AI SEO strategy by connecting LLM Rank with your
             favorite tools.
           </p>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            LLM Boost integrations connect your AI-readiness workflow with the
+            LLM Rank integrations connect your AI-readiness workflow with the
             tools your team already uses. Import search analytics from Google
             Search Console to correlate traditional rankings with AI visibility
             scores. Track conversions from AI-driven traffic with Google
@@ -212,7 +212,7 @@ export default function IntegrationsPage() {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Direct answer: Integrations securely connect your existing data
-            sources to LLM Boost via OAuth. This allows us to correlate your
+            sources to LLM Rank via OAuth. This allows us to correlate your
             AI-readiness scores with actual traffic and ranking data.
           </p>
           <div className="mt-8 grid gap-8 md:grid-cols-3">
@@ -236,7 +236,7 @@ export default function IntegrationsPage() {
               </div>
               <h3 className="font-semibold text-foreground">Sync & Analyze</h3>
               <p className="text-sm text-muted-foreground">
-                LLM Boost fetches your historical data and overlays it with your
+                LLM Rank fetches your historical data and overlays it with your
                 AI-readiness timeline. This highlights correlations, such as
                 &quot;Score improved by 10 points → AI referral traffic
                 increased by 15%.&quot;
@@ -311,7 +311,7 @@ export default function IntegrationsPage() {
 
       <footer className="mt-auto border-t border-border py-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <span>&copy; {new Date().getFullYear()} LLM Rank</span>
           <Link href="/" className="hover:text-foreground">
             Home
           </Link>

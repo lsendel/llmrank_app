@@ -5,12 +5,12 @@ import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 export const metadata: Metadata = {
   title: "Privacy Policy — AI-Readiness",
   description:
-    "LLM Boost privacy policy explaining how we collect, use, and protect your data when using our AI-readiness SEO platform.",
+    "LLM Rank privacy policy explaining how we collect, use, and protect your data when using our AI-readiness SEO platform.",
   alternates: { canonical: "/privacy" },
   openGraph: {
-    title: "Privacy Policy | LLM Boost",
+    title: "Privacy Policy | LLM Rank",
     description:
-      "How LLM Boost collects, uses, and protects your data. Covers third-party services, data retention, and your privacy rights.",
+      "How LLM Rank collects, uses, and protects your data. Covers third-party services, data retention, and your privacy rights.",
     url: "https://llmrank.app/privacy",
   },
 };
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
       <JsonLd
         data={webPageSchema({
           title: "Privacy Policy",
-          description: "How LLM Boost collects, uses, and protects your data.",
+          description: "How LLM Rank collects, uses, and protects your data.",
           path: "/privacy",
           type: "WebPage",
         })}
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
         </div>
       </header>
@@ -199,7 +199,7 @@ export default function PrivacyPage() {
 
       <footer className="border-t border-border py-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <span>&copy; {new Date().getFullYear()} LLM Rank</span>
           <Link href="/terms" className="hover:text-foreground">
             Terms
           </Link>

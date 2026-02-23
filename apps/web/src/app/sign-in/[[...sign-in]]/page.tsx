@@ -7,11 +7,11 @@ import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 export const metadata: Metadata = {
   title: "Sign In to Your AI-Readiness Dashboard",
   description:
-    "Sign in to LLM Boost to access your AI-readiness scores, track visibility across ChatGPT, Claude, Perplexity, and Gemini, and get prioritized SEO fixes.",
+    "Sign in to LLM Rank to access your AI-readiness scores, track visibility across ChatGPT, Claude, Perplexity, and Gemini, and get prioritized SEO fixes.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/sign-in" },
   openGraph: {
-    title: "Sign In | LLM Boost",
+    title: "Sign In | LLM Rank",
     description:
       "Access your AI-readiness dashboard. Track scores, visibility, and recommendations across all major AI search engines.",
     url: "https://llmrank.app/sign-in",
@@ -63,7 +63,7 @@ export default function SignInPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link
@@ -88,7 +88,7 @@ export default function SignInPage() {
           <div className="flex-1 space-y-8 text-center lg:pt-4 lg:text-left">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Welcome back to LLM Boost
+                Welcome back to LLM Rank
               </h1>
               <p className="mt-3 text-lg text-muted-foreground">
                 Sign in to your dashboard and continue optimizing your
@@ -120,7 +120,7 @@ export default function SignInPage() {
                 Trusted by SEO professionals
               </p>
               <p className="text-muted-foreground">
-                LLM Boost follows{" "}
+                LLM Rank follows{" "}
                 <a
                   href="https://owasp.org/www-project-top-ten/"
                   target="_blank"

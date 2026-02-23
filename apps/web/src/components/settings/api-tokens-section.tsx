@@ -236,7 +236,7 @@ export function ApiTokensSection() {
         <div>
           <h2 className="text-lg font-semibold">API Tokens</h2>
           <p className="text-sm text-muted-foreground">
-            Create tokens to access the LLM Boost API programmatically.
+            Create tokens to access the LLM Rank API programmatically.
           </p>
         </div>
         <div className="flex items-center gap-3">

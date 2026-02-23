@@ -14,14 +14,14 @@ export const metadata: Metadata = {
   title:
     "Rank in ChatGPT, Claude & Perplexity | AI Search Optimization Platform",
   description:
-    "LLM Boost analyses your website across 37 AI ranking factors. The first B2B platform for AI Search Optimization (AISO). Get your AI-Readiness Score today.",
+    "LLM Rank analyses your website across 37 AI ranking factors. The first B2B platform for AI Search Optimization (AISO). Get your AI-Readiness Score today.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Rank in ChatGPT, Claude & Perplexity | LLM Boost",
+    title: "Rank in ChatGPT, Claude & Perplexity | LLM Rank",
     description:
       "The first AI Search Optimization (AISO) platform. Audit your website for AI-readiness and become the cited source in AI answers.",
     url: "https://llmrank.app",
-    siteName: "LLM Boost",
+    siteName: "LLM Rank",
     type: "website",
   },
 };
@@ -45,7 +45,7 @@ const FAQ_ITEMS = [
   {
     question: "What is an AI-Readiness score?",
     answer:
-      "It is a proprietary metric from LLM Boost that evaluates a page across 37 factors including Technical SEO, Content Quality, AI Readiness, and Performance into a single 0-100 score.",
+      "It is a proprietary metric from LLM Rank that evaluates a page across 37 factors including Technical SEO, Content Quality, AI Readiness, and Performance into a single 0-100 score.",
   },
 ];
 
@@ -111,7 +111,7 @@ export default function HomePage() {
             className="flex items-center gap-2 font-bold text-xl tracking-tight text-foreground"
           >
             <Zap className="h-5 w-5 text-primary fill-current" />
-            LLM Boost
+            LLM Rank
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             <Link
@@ -166,7 +166,7 @@ export default function HomePage() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              LLM Boost analyzes your website across{" "}
+              LLM Rank analyzes your website across{" "}
               <strong>37 AI ranking factors</strong> and shows you exactly how
               to improve visibility in AI-powered search engines.
             </p>
@@ -477,7 +477,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-6 grid md:grid-cols-4 gap-8 text-sm">
           <div className="col-span-1 md:col-span-2">
             <span className="font-bold text-lg flex items-center gap-2 mb-4">
-              <Zap className="h-4 w-4" /> LLM Boost
+              <Zap className="h-4 w-4" /> LLM Rank
             </span>
             <p className="text-muted-foreground max-w-xs">
               The first B2B platform for AI Search Optimization (AISO). Helping
@@ -527,7 +527,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-6 mt-12 pt-8 border-t border-border text-center text-muted-foreground">
-          &copy; {new Date().getFullYear()} LLM Boost. All rights reserved.
+          &copy; {new Date().getFullYear()} LLM Rank. All rights reserved.
         </div>
       </footer>
     </div>

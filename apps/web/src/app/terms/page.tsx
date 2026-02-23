@@ -5,12 +5,12 @@ import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
 export const metadata: Metadata = {
   title: "Terms of Service — AI-Readiness",
   description:
-    "LLM Boost terms of service covering account usage, billing, data handling, and acceptable use of the AI-readiness platform.",
+    "LLM Rank terms of service covering account usage, billing, data handling, and acceptable use of the AI-readiness platform.",
   alternates: { canonical: "/terms" },
   openGraph: {
-    title: "Terms of Service | LLM Boost",
+    title: "Terms of Service | LLM Rank",
     description:
-      "Terms of service for LLM Boost, the AI-readiness SEO platform covering account usage, billing, and data handling.",
+      "Terms of service for LLM Rank, the AI-readiness SEO platform covering account usage, billing, and data handling.",
     url: "https://llmrank.app/terms",
   },
 };
@@ -22,7 +22,7 @@ export default function TermsPage() {
         data={webPageSchema({
           title: "Terms of Service",
           description:
-            "LLM Boost terms of service covering account usage, billing, data handling, and acceptable use.",
+            "LLM Rank terms of service covering account usage, billing, data handling, and acceptable use.",
           path: "/terms",
           type: "WebPage",
         })}
@@ -33,7 +33,7 @@ export default function TermsPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
         </div>
       </header>
@@ -47,14 +47,14 @@ export default function TermsPage() {
         <div className="prose mt-10 max-w-none text-foreground [&_h2]:mt-10 [&_h2]:text-xl [&_h2]:font-semibold [&_p]:mt-4 [&_p]:leading-7 [&_p]:text-muted-foreground [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-6 [&_li]:text-muted-foreground">
           <h2>1. Acceptance of Terms</h2>
           <p>
-            By using LLM Boost (&quot;the Service&quot;), you agree to these
-            Terms. LLM Boost Inc. operates the Service. If you do not agree with
+            By using LLM Rank (&quot;the Service&quot;), you agree to these
+            Terms. LLM Rank Inc. operates the Service. If you do not agree with
             these Terms, please do not use the Service.
           </p>
 
           <h2>2. Service Description</h2>
           <p>
-            LLM Boost provides website crawling, AI-readiness scoring, and
+            LLM Rank provides website crawling, AI-readiness scoring, and
             visibility analysis tools. The Service crawls publicly accessible
             web pages you authorize, scores them across 37 factors, and provides
             recommendations to improve visibility in AI-generated responses.
@@ -176,7 +176,7 @@ export default function TermsPage() {
 
       <footer className="border-t border-border py-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <span>&copy; {new Date().getFullYear()} LLM Rank</span>
           <Link href="/terms" className="hover:text-foreground">
             Terms
           </Link>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@/lib/auth-hooks";
-import { Check, Minus, Sparkles } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 import {
   JsonLd,
@@ -9,14 +9,15 @@ import {
   breadcrumbSchema,
   faqSchema,
 } from "@/components/seo/json-ld";
+import { PricingCards } from "./billing-toggle";
 
 export const metadata: Metadata = {
   title: "AI-Readiness SEO Pricing Plans",
   description:
-    "LLM Boost pricing plans from Free to Agency ($299/mo). All plans include 37-factor AI-readiness scoring, automated crawling, and Lighthouse audits.",
+    "LLM Rank pricing plans from Free to Agency ($299/mo). All plans include 37-factor AI-readiness scoring, automated crawling, and Lighthouse audits.",
   alternates: { canonical: "/pricing" },
   openGraph: {
-    title: "Pricing | LLM Boost",
+    title: "Pricing | LLM Rank",
     description:
       "Start free, upgrade when you need more pages, crawls, or integrations. Plans from $0 to $299/month.",
     url: "https://llmrank.app/pricing",
@@ -174,7 +175,7 @@ const PRICING_FAQ = [
   {
     question: "Can I export reports for my clients?",
     answer:
-      "Absolutely. The Agency plan includes white-labeled PDF and DOCX reporting. You can upload your own agency logo, set custom colors, and remove all LLM Boost branding from the reports you send to clients.",
+      "Absolutely. The Agency plan includes white-labeled PDF and DOCX reporting. You can upload your own agency logo, set custom colors, and remove all LLM Rank branding from the reports you send to clients.",
   },
 ];
 
@@ -203,7 +204,7 @@ export default function PricingPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
           <nav className="flex items-center gap-4">
             <SignedOut>
@@ -304,76 +305,8 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* Cards */}
-      <section className="mx-auto w-full max-w-6xl px-6 pb-20">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {plans.map((plan) => {
-            const limits = PLAN_LIMITS[plan.tier];
-            return (
-              <div
-                key={plan.tier}
-                className={`relative flex flex-col rounded-xl border p-6 ${
-                  plan.highlight
-                    ? "border-primary shadow-lg shadow-primary/10"
-                    : "border-border"
-                }`}
-              >
-                {plan.highlight && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-                    <Sparkles className="h-3 w-3" /> Most Popular
-                  </span>
-                )}
-
-                <h2 className="text-lg font-semibold text-foreground">
-                  {plan.name}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {plan.tagline}
-                </p>
-
-                <div className="mt-6">
-                  <span className="text-4xl font-bold tracking-tight text-foreground">
-                    ${plan.price}
-                  </span>
-                  {plan.price !== 0 && (
-                    <span className="ml-1 text-sm text-muted-foreground">
-                      /month
-                    </span>
-                  )}
-                </div>
-
-                {/* Quick stats */}
-                <ul className="mt-6 flex flex-col gap-2.5 text-sm">
-                  <li className="flex items-center gap-2 text-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    {limits.pagesPerCrawl.toLocaleString()} pages / crawl
-                  </li>
-                  <li className="flex items-center gap-2 text-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    {limits.crawlsPerMonth === Infinity
-                      ? "Unlimited"
-                      : limits.crawlsPerMonth}{" "}
-                    crawls / month
-                  </li>
-                  <li className="flex items-center gap-2 text-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    {limits.projects} project{limits.projects > 1 ? "s" : ""}
-                  </li>
-                  <li className="flex items-center gap-2 text-foreground">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
-                    {limits.visibilityChecks} visibility checks
-                  </li>
-                </ul>
-
-                {/* CTA */}
-                <div className="mt-auto pt-8">
-                  <PlanCTA tier={plan.tier} highlight={plan.highlight} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {/* Cards with billing toggle */}
+      <PricingCards />
 
       {/* Comparison table */}
       <section className="border-t border-border bg-muted/40 px-6 py-20">
@@ -464,30 +397,29 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-3xl px-6 pb-12 text-center">
-        <p className="text-sm text-muted-foreground">
-          Not sure which plan is right for you?{" "}
+      {/* Final CTA */}
+      <section className="bg-muted/30 px-6 py-16">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-2xl font-bold text-foreground">
+            Not sure which plan? Start free.
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Run a free AI audit on your site — no credit card required. Upgrade
+            when you need more pages, crawls, or integrations.
+          </p>
           <Link
             href="/scan"
-            className="font-medium text-primary hover:underline"
+            className="mt-6 inline-block rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
           >
-            Try a free scan
-          </Link>{" "}
-          first, or{" "}
-          <Link
-            href="/integrations"
-            className="font-medium text-primary hover:underline"
-          >
-            explore our integrations
-          </Link>{" "}
-          to see what connects with your workflow.
-        </p>
-      </div>
+            Start Free Audit
+          </Link>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <span>&copy; {new Date().getFullYear()} LLM Rank</span>
           <Link href="/terms" className="hover:text-foreground">
             Terms
           </Link>
@@ -500,52 +432,5 @@ export default function PricingPage() {
         </div>
       </footer>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// CTA button — varies based on auth state
-// ---------------------------------------------------------------------------
-
-function PlanCTA({ tier, highlight }: { tier: PlanTier; highlight?: boolean }) {
-  const base =
-    "block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-opacity hover:opacity-90";
-
-  const filled = `${base} bg-primary text-primary-foreground`;
-  const outlined = `${base} border border-border text-foreground hover:bg-secondary`;
-
-  if (tier === "free") {
-    return (
-      <>
-        <SignedOut>
-          <Link href="/sign-up" className={outlined}>
-            Start Free
-          </Link>
-        </SignedOut>
-        <SignedIn>
-          <span className="block w-full rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-center text-sm font-semibold text-primary">
-            Current Plan
-          </span>
-        </SignedIn>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <SignedOut>
-        <Link href="/sign-up" className={highlight ? filled : outlined}>
-          Get Started
-        </Link>
-      </SignedOut>
-      <SignedIn>
-        <Link
-          href={`/dashboard/settings?upgrade=${tier}`}
-          className={highlight ? filled : outlined}
-        >
-          Upgrade to {tier.charAt(0).toUpperCase() + tier.slice(1)}
-        </Link>
-      </SignedIn>
-    </>
   );
 }

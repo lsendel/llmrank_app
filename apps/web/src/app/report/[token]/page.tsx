@@ -106,7 +106,7 @@ export default function SharedReportPage() {
           )}
           <div>
             <h2 className="text-lg font-bold leading-none">
-              {project.branding?.companyName || "LLM Boost"}
+              {project.branding?.companyName || "LLM Rank"}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               AI-Readiness Intelligence
@@ -463,7 +463,7 @@ export default function SharedReportPage() {
         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
           {isAgencyReport
             ? `Prepared by ${project.branding?.companyName}`
-            : "Powered by LLM Boost \u2022 The AI SEO Intelligence Platform"}
+            : "Powered by LLM Rank \u2022 The AI SEO Intelligence Platform"}
         </p>
       </footer>
     </div>

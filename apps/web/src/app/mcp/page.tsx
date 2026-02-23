@@ -24,7 +24,7 @@ import {
 export const metadata: Metadata = {
   title: "MCP Server for AI Coding Agents | Claude, Cursor, VS Code, ChatGPT",
   description:
-    "Connect your AI coding agent to LLM Boost via Model Context Protocol (MCP). 27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT. Crawl sites, score pages, and fix AI-readiness issues from your IDE.",
+    "Connect your AI coding agent to LLM Rank via Model Context Protocol (MCP). 27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT. Crawl sites, score pages, and fix AI-readiness issues from your IDE.",
   keywords: [
     "MCP server",
     "Model Context Protocol",
@@ -35,20 +35,20 @@ export const metadata: Metadata = {
     "VS Code MCP",
     "ChatGPT MCP",
     "AI-readiness",
-    "LLM Boost",
+    "LLM Rank",
   ],
   alternates: { canonical: "/mcp" },
   openGraph: {
-    title: "MCP Server for AI Coding Agents | LLM Boost",
+    title: "MCP Server for AI Coding Agents | LLM Rank",
     description:
       "27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT via Model Context Protocol. Crawl, score, and fix your site from your IDE.",
     url: "https://llmrank.app/mcp",
-    siteName: "LLM Boost",
+    siteName: "LLM Rank",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "MCP Server for AI Coding Agents | LLM Boost",
+    title: "MCP Server for AI Coding Agents | LLM Rank",
     description:
       "27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT via Model Context Protocol.",
   },
@@ -308,17 +308,17 @@ const FAQ_ITEMS = [
   {
     question: "What is the Model Context Protocol (MCP)?",
     answer:
-      "MCP is an open standard created by Anthropic that lets AI coding agents connect to external tools and data sources. It provides a unified way for IDEs like Claude Code, Cursor, VS Code, and ChatGPT to call tools — in this case, the 27 SEO tools from LLM Boost.",
+      "MCP is an open standard created by Anthropic that lets AI coding agents connect to external tools and data sources. It provides a unified way for IDEs like Claude Code, Cursor, VS Code, and ChatGPT to call tools — in this case, the 27 SEO tools from LLM Rank.",
   },
   {
     question: "Which AI coding agents support MCP?",
     answer:
-      "Claude Code, Cursor, Claude Desktop, VS Code (via Copilot), Windsurf, ChatGPT, and Perplexity all support MCP servers. LLM Boost works with all of them — use stdio transport for local IDEs or the HTTP endpoint for cloud-based agents.",
+      "Claude Code, Cursor, Claude Desktop, VS Code (via Copilot), Windsurf, ChatGPT, and Perplexity all support MCP servers. LLM Rank works with all of them — use stdio transport for local IDEs or the HTTP endpoint for cloud-based agents.",
   },
   {
     question: "Do I need a paid plan to use the MCP server?",
     answer:
-      "The MCP server works with any LLM Boost plan, including the free tier. Free accounts can crawl up to 10 pages per crawl with 2 crawls per month. Paid plans unlock higher limits and additional features like competitor analysis.",
+      "The MCP server works with any LLM Rank plan, including the free tier. Free accounts can crawl up to 10 pages per crawl with 2 crawls per month. Paid plans unlock higher limits and additional features like competitor analysis.",
   },
   {
     question: "Is the MCP server open source?",
@@ -337,7 +337,7 @@ function mcpServerSchema() {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "@llmrank.app/mcp",
-    alternateName: "LLM Boost MCP Server",
+    alternateName: "LLM Rank MCP Server",
     applicationCategory: "DeveloperApplication",
     applicationSubCategory: "MCP Server",
     operatingSystem: "Cross-platform",
@@ -365,7 +365,7 @@ function mcpServerSchema() {
     license: "https://opensource.org/licenses/MIT",
     isPartOf: {
       "@type": "SoftwareApplication",
-      name: "LLM Boost",
+      name: "LLM Rank",
       url: "https://llmrank.app",
     },
   };
@@ -404,7 +404,7 @@ export default function McpPage() {
             href="/"
             className="text-xl font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link
@@ -696,7 +696,7 @@ export default function McpPage() {
         {/* CTA */}
         <section className="rounded-lg border border-border bg-muted/40 p-8 text-center">
           <h2 className="text-xl font-bold">
-            Start using LLM Boost from your IDE
+            Start using LLM Rank from your IDE
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Create a free account, generate an API token, and add the MCP server
@@ -724,7 +724,7 @@ export default function McpPage() {
       {/* Footer */}
       <footer className="mt-auto border-t border-border py-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-6 text-sm text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} LLM Boost</span>
+          <span>&copy; {new Date().getFullYear()} LLM Rank</span>
           <Link href="/" className="hover:text-foreground">
             Home
           </Link>

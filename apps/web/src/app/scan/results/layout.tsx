@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     "View your website's AI-readiness score across 37 factors with actionable recommendations to improve visibility in ChatGPT, Claude, and Perplexity.",
   alternates: { canonical: "/scan/results" },
   openGraph: {
-    title: "AI-Readiness Scan Results | LLM Boost",
+    title: "AI-Readiness Scan Results | LLM Rank",
     description:
       "See how your website scores for AI search visibility across 37 factors.",
     url: "https://llmrank.app/scan/results",

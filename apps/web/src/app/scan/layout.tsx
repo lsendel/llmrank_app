@@ -8,10 +8,10 @@ import {
 export const metadata: Metadata = {
   title: "Free AI-Readiness Scan",
   description:
-    "Enter any URL to get an instant AI-readiness score with actionable recommendations. No signup required. Powered by LLM Boost's 37-factor scoring engine.",
+    "Enter any URL to get an instant AI-readiness score with actionable recommendations. No signup required. Powered by LLM Rank's 37-factor scoring engine.",
   alternates: { canonical: "/scan" },
   openGraph: {
-    title: "Free AI-Readiness Scan | LLM Boost",
+    title: "Free AI-Readiness Scan | LLM Rank",
     description:
       "Enter any URL to get an instant AI-readiness score. No signup required.",
     url: "https://llmrank.app/scan",

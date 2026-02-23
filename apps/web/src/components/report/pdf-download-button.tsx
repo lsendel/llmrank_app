@@ -37,7 +37,7 @@ export function PdfDownloadButton({
         <AIReadinessReport
           crawl={crawl}
           quickWins={quickWins}
-          companyName={branding.companyName || "LLM Boost"}
+          companyName={branding.companyName || "LLM Rank"}
           logoUrl={branding.logoUrl}
           primaryColor={branding.primaryColor}
         />,

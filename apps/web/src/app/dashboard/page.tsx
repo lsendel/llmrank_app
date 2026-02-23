@@ -237,7 +237,7 @@ export default function DashboardPage() {
           </button>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
-              What makes LLM Boost different
+              What makes LLM Rank different
             </CardTitle>
             <CardDescription>
               Go beyond traditional SEO — optimize for AI search engines

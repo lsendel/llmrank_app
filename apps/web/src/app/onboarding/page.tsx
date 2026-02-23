@@ -62,7 +62,7 @@ export default function OnboardingPage() {
           {state.step === 0 && (
             <>
               <CardTitle className="mt-4 text-2xl font-bold">
-                Welcome to LLM Boost
+                Welcome to LLM Rank
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
                 Let&apos;s get your first AI-readiness score in under 2 minutes.

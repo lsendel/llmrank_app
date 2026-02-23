@@ -157,7 +157,7 @@ export default async function SharePage({ params }: Props) {
               href="https://llmrank.app"
               className="text-xs font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground"
             >
-              Powered by LLM Boost
+              Powered by LLM Rank
             </Link>
           </footer>
         </div>

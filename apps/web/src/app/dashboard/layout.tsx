@@ -68,7 +68,7 @@ export default function DashboardLayout({
             href="/dashboard"
             className="text-lg font-bold tracking-tight text-primary"
           >
-            LLM Boost
+            LLM Rank
           </Link>
         </div>
         <nav className="flex flex-col gap-1 p-4">
@@ -91,7 +91,7 @@ export default function DashboardLayout({
         <header className="flex h-16 items-center justify-between border-b border-border px-6">
           <div className="flex items-center gap-4 md:hidden">
             <span className="text-lg font-bold tracking-tight text-primary">
-              LLM Boost
+              LLM Rank
             </span>
           </div>
           <div className="ml-auto">

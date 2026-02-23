@@ -54,7 +54,7 @@ const FAQ_ITEMS = [
   {
     question: "Does this tool work for any website?",
     answer:
-      "Yes. LLM Boost can audit any publicly accessible URL. It is particularly effective for content-heavy sites, SaaS documentation, blogs, and e-commerce sites where authority and depth are critical for AI trust.",
+      "Yes. LLM Rank can audit any publicly accessible URL. It is particularly effective for content-heavy sites, SaaS documentation, blogs, and e-commerce sites where authority and depth are critical for AI trust.",
   },
 ];
 
@@ -141,8 +141,8 @@ export default function AiSeoToolPage() {
               Optimization beyond keywords
             </h3>
             <p className="mt-4 leading-relaxed text-muted-foreground">
-              LLM Boost checks for things Google might ignore but AI loves:
-              clear semantic HTML, direct answer formatting, logical content
+              LLM Rank checks for things Google might ignore but AI loves: clear
+              semantic HTML, direct answer formatting, logical content
               hierarchy, and authoritative entity coverage. We help you
               translate your expertise into a format machines can easily digest
               and cite.

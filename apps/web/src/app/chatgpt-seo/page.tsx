@@ -7,7 +7,7 @@ import { JsonLd, webPageSchema, faqSchema } from "@/components/seo/json-ld";
 export const metadata: Metadata = {
   title: "ChatGPT SEO Guide - How to Rank in ChatGPT Answers",
   description:
-    "Learn how to optimize your website for ChatGPT visibility. Audit your content for AI-readiness and get cited in ChatGPT's responses using LLM Boost.",
+    "Learn how to optimize your website for ChatGPT visibility. Audit your content for AI-readiness and get cited in ChatGPT's responses using LLM Rank.",
   openGraph: {
     title: "ChatGPT SEO - Rank in AI Answers",
     description:
@@ -49,7 +49,7 @@ const FAQ_ITEMS = [
   {
     question: "How do I get cited in ChatGPT answers?",
     answer:
-      "You need to be seen as a trusted authority. This means having comprehensive coverage of your topic, clear logical structure, and avoiding 'fluff'. LLM Boost identifies the exact content gaps preventing you from being cited.",
+      "You need to be seen as a trusted authority. This means having comprehensive coverage of your topic, clear logical structure, and avoiding 'fluff'. LLM Rank identifies the exact content gaps preventing you from being cited.",
   },
   {
     question: "Can I block ChatGPT from my site?",
@@ -129,7 +129,7 @@ export default function ChatGptSeoPage() {
           </div>
           <div>
             <h3 className="text-2xl font-bold text-foreground">
-              What LLM Boost checks
+              What LLM Rank checks
             </h3>
             <p className="mt-4 leading-relaxed text-muted-foreground">
               We simulate an AI crawler on your site immediately. We check for

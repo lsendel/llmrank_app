@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ScanPageClient } from "./client";
 
 export const metadata: Metadata = {
-  title: "Free AI SEO Scanner | LLM Boost",
+  title: "Free AI SEO Scanner | LLM Rank",
   description:
     "Check if your website is ready for AI search engines. Get a free 37-factor audit for ChatGPT, Claude, and Perplexity visibility.",
   openGraph: {

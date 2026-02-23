@@ -300,8 +300,8 @@ function ScanResultsContent() {
             </p>
             {!result.visibility.brandMentioned && (
               <p className="mt-2 text-sm text-muted-foreground">
-                Your site isn&apos;t appearing in AI responses yet. LLM Boost
-                can help you improve your AI visibility.
+                Your site isn&apos;t appearing in AI responses yet. LLM Rank can
+                help you improve your AI visibility.
               </p>
             )}
             <div className="mt-3">

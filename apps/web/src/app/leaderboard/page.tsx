@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LeaderboardClient } from "./client";
 
 export const metadata: Metadata = {
-  title: "AI Readiness Leaderboard | LLM Boost",
+  title: "AI Readiness Leaderboard | LLM Rank",
   description:
     "See which websites are most visible in ChatGPT, Claude, and Perplexity. The leaderboard ranks sites by their AI-readiness score across 37 factors.",
   openGraph: {
