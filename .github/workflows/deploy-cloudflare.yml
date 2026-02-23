@@ -115,8 +115,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build @llmrank.app/mcp dependency
+        run: pnpm --filter @llmrank.app/mcp build
+
       - name: Deploy MCP Gateway Worker
-        run: npx wrangler deploy
+        run: npx wrangler deploy -e production
         working-directory: apps/mcp-gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
