@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { MicrosoftClarity } from "@/components/microsoft-clarity";
+import { Intercom } from "@/components/intercom";
 import {
   JsonLd,
   organizationSchema,
@@ -68,6 +69,7 @@ export default function RootLayout({
         <PostHogProvider>{children}</PostHogProvider>
         <GoogleAnalytics />
         <MicrosoftClarity />
+        <Intercom />
       </body>
     </html>
   );
