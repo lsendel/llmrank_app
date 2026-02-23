@@ -52,6 +52,7 @@ import { discoveryRoutes } from "./routes/discovery";
 import { narrativeRoutes } from "./routes/narratives";
 import { actionItemRoutes } from "./routes/action-items";
 import { alertRoutes } from "./routes/alerts";
+import { pipelineRoutes } from "./routes/pipeline";
 import { trialRoutes } from "./routes/trial";
 import { appRoutes } from "./routes/app";
 import { marketingRoutes } from "./routes/marketing";
@@ -228,6 +229,7 @@ app.route("/api/discovery", discoveryRoutes);
 app.route("/api/narratives", narrativeRoutes);
 app.route("/api/action-items", actionItemRoutes);
 app.route("/api/alerts", alertRoutes);
+app.route("/api/pipeline", pipelineRoutes);
 app.route("/api/trial", trialRoutes);
 
 // HTMX app routes (server-rendered HTML pages)

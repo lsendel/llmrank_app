@@ -44,6 +44,9 @@ export function projectQueries(db: Database) {
         scoringProfileId?: string | null;
         siteDescription?: string | null;
         industry?: string | null;
+        pipelineSettings?: unknown;
+        siteDescriptionSource?: string;
+        industrySource?: string;
       },
     ) {
       const [updated] = await db
