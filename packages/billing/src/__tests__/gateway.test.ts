@@ -294,6 +294,39 @@ describe("StripeGateway", () => {
   });
 
   // -------------------------------------------------------------------------
+  // upgradeSubscriptionPrice
+  // -------------------------------------------------------------------------
+
+  describe("upgradeSubscriptionPrice", () => {
+    it("sends proration_behavior=create_prorations", async () => {
+      mockFetchResponse({
+        id: "sub_1",
+        object: "subscription",
+        status: "active",
+        items: { data: [{ id: "si_upgraded", price: { id: "price_agency" } }] },
+      });
+
+      const result = await gateway.upgradeSubscriptionPrice(
+        "sub_1",
+        "si_item1",
+        "price_agency",
+      );
+
+      expect(result.id).toBe("sub_1");
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://api.stripe.com/v1/subscriptions/sub_1");
+      expect(init.method).toBe("POST");
+      const body = init.body as string;
+      expect(body).toContain("proration_behavior=create_prorations");
+      expect(body).toContain(encodeURIComponent("items[0][id]") + "=si_item1");
+      expect(body).toContain(
+        encodeURIComponent("items[0][price]") + "=price_agency",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // createPortalSession
   // -------------------------------------------------------------------------
 

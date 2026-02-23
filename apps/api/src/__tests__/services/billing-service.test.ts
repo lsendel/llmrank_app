@@ -187,6 +187,90 @@ describe("BillingService", () => {
     );
   });
 
+  // ---- upgrade (proration path) ----
+
+  it("upgrades in-place with proration when subscription exists", async () => {
+    billing.getActiveSubscription.mockResolvedValue({
+      id: "sub-1",
+      stripeSubscriptionId: "sub_stripe_1",
+    } as any);
+
+    const mockGetSubscription = vi.fn().mockResolvedValue({
+      id: "sub_stripe_1",
+      items: { data: [{ id: "si_item1" }] },
+    });
+    const mockUpgradePrice = vi.fn().mockResolvedValue(undefined);
+
+    const { StripeGateway } = await import("@llm-boost/billing");
+    (StripeGateway as any).mockImplementation(() => ({
+      ...mockGateway,
+      getSubscription: mockGetSubscription,
+      upgradeSubscriptionPrice: mockUpgradePrice,
+    }));
+
+    const service = createBillingService({ billing, users });
+    const result = await service.upgrade({
+      userId: "user-1",
+      targetPlan: "agency",
+      stripeSecretKey: "sk_test_key",
+      successUrl: "https://app.test/success",
+      cancelUrl: "https://app.test/cancel",
+    });
+
+    expect(result).toEqual({
+      upgraded: true,
+      targetPlan: "agency",
+      method: "proration",
+    });
+    expect(mockUpgradePrice).toHaveBeenCalledWith(
+      "sub_stripe_1",
+      "si_item1",
+      "price_agency",
+    );
+    expect(users.updatePlan).toHaveBeenCalledWith(
+      "user-1",
+      "agency",
+      "sub_stripe_1",
+    );
+  });
+
+  // ---- upgrade (checkout fallback) ----
+
+  it("falls back to checkout when no active subscription", async () => {
+    billing.getActiveSubscription.mockResolvedValue(null);
+
+    const service = createBillingService({ billing, users });
+    const result = await service.upgrade({
+      userId: "user-1",
+      targetPlan: "starter",
+      stripeSecretKey: "sk_test_key",
+      successUrl: "https://app.test/success",
+      cancelUrl: "https://app.test/cancel",
+    });
+
+    expect(result).toMatchObject({
+      upgraded: false,
+      targetPlan: "starter",
+      method: "checkout",
+    });
+    expect(result).toHaveProperty("url");
+    expect(mockGateway.ensureCustomer).toHaveBeenCalled();
+  });
+
+  it("throws VALIDATION_ERROR for invalid plan on upgrade", async () => {
+    const service = createBillingService({ billing, users });
+
+    await expect(
+      service.upgrade({
+        userId: "user-1",
+        targetPlan: "nonexistent",
+        stripeSecretKey: "sk_test_key",
+        successUrl: "https://app.test/success",
+        cancelUrl: "https://app.test/cancel",
+      }),
+    ).rejects.toThrow("Invalid plan: nonexistent");
+  });
+
   // ---- portal ----
 
   it("creates portal session for user with Stripe customer ID", async () => {

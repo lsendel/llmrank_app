@@ -27,6 +27,7 @@ const mockBillingRepo = {
 const mockUserRepo = {
   getById: vi.fn().mockResolvedValue(buildUser({ id: "test-user-id" })),
   decrementCrawlCredits: vi.fn().mockResolvedValue(true),
+  updatePlan: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("../../repositories", () => ({
@@ -50,6 +51,14 @@ vi.mock("@llm-boost/billing", () => ({
     createPortalSession: vi
       .fn()
       .mockResolvedValue("https://billing.stripe.com/portal"),
+    getSubscription: vi.fn().mockResolvedValue({
+      id: "sub_stripe_1",
+      items: { data: [{ id: "si_item1" }] },
+    }),
+    upgradeSubscriptionPrice: vi.fn().mockResolvedValue({
+      id: "sub_stripe_1",
+      status: "active",
+    }),
   })),
   handleWebhook: vi.fn().mockResolvedValue(undefined),
   priceIdFromPlanCode: vi.fn().mockReturnValue("price_test_starter"),
@@ -254,6 +263,74 @@ describe("Billing Routes", () => {
       const body: any = await res.json();
       expect(body.error.code).toBe("VALIDATION_ERROR");
       expect(body.error.message).toContain("No active subscription");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /api/billing/upgrade
+  // -----------------------------------------------------------------------
+
+  describe("POST /api/billing/upgrade", () => {
+    it("returns 200 with proration result when subscription exists", async () => {
+      mockBillingRepo.getActiveSubscription.mockResolvedValue({
+        id: "sub-1",
+        stripeSubscriptionId: "sub_stripe_1",
+        planCode: "starter",
+        status: "active",
+      });
+
+      const res = await request("/api/billing/upgrade", {
+        method: "POST",
+        json: {
+          plan: "pro",
+          successUrl: "https://example.com/success",
+          cancelUrl: "https://example.com/cancel",
+        },
+      });
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data).toMatchObject({
+        upgraded: true,
+        targetPlan: "pro",
+        method: "proration",
+      });
+    });
+
+    it("returns 200 with checkout fallback when no subscription", async () => {
+      mockBillingRepo.getActiveSubscription.mockResolvedValue(null);
+
+      const res = await request("/api/billing/upgrade", {
+        method: "POST",
+        json: {
+          plan: "starter",
+          successUrl: "https://example.com/success",
+          cancelUrl: "https://example.com/cancel",
+        },
+      });
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data).toMatchObject({
+        upgraded: false,
+        targetPlan: "starter",
+        method: "checkout",
+      });
+      expect(body.data).toHaveProperty("url");
+    });
+
+    it("returns 422 when plan is missing", async () => {
+      const res = await request("/api/billing/upgrade", {
+        method: "POST",
+        json: {
+          successUrl: "https://example.com/success",
+          cancelUrl: "https://example.com/cancel",
+        },
+      });
+      expect(res.status).toBe(422);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("VALIDATION_ERROR");
     });
   });
 
