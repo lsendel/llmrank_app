@@ -8,6 +8,9 @@ import {
   userQueries,
   apiTokenQueries,
   notificationChannelQueries,
+  organizationQueries,
+  orgMemberQueries,
+  orgInviteQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 
@@ -520,6 +523,276 @@ appRoutes.get("/settings/team", async (c) => {
       >
         Go to Team Management
       </a>
+    </div>,
+  );
+});
+
+// =====================================================================
+// Team Management Page
+// =====================================================================
+
+const ROLE_COLORS: Record<string, string> = {
+  owner: "bg-blue-100 text-blue-700",
+  admin: "bg-red-100 text-red-700",
+  member: "bg-gray-100 text-gray-700",
+  viewer: "bg-gray-50 text-gray-500",
+};
+
+appRoutes.get("/team", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const user = await userQueries(db).getById(userId);
+  if (!user) return c.redirect("/sign-in");
+
+  // Find user's organization
+  const orgs = await organizationQueries(db).listByUser(userId);
+  const orgRow = orgs[0];
+
+  const content = orgRow ? (
+    <div>
+      <PageHeader
+        title="Team Management"
+        description={`Organization: ${orgRow.org.name}`}
+      />
+      {/* Members list — loaded via HTMX */}
+      <div
+        id="team-content"
+        hx-get={`/app/team/${orgRow.org.id}/members`}
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <p class="py-8 text-center text-sm text-gray-400">Loading team...</p>
+      </div>
+    </div>
+  ) : (
+    <div>
+      <PageHeader
+        title="Create Organization"
+        description="Create an organization to invite team members and collaborate."
+      />
+      <section class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <form hx-post="/api/orgs" hx-target="body" class="space-y-4">
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="orgName">
+              Organization Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              id="orgName"
+              placeholder="e.g. Acme Inc."
+              required
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="orgSlug">
+              Slug
+            </label>
+            <input
+              type="text"
+              name="slug"
+              id="orgSlug"
+              placeholder="e.g. acme-inc"
+              required
+              pattern="[a-z0-9-]+"
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Lowercase letters, numbers, and hyphens only.
+            </p>
+          </div>
+          <button
+            type="submit"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Create Organization
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+
+  if (c.get("isHtmx")) return c.html(content);
+
+  return c.html(
+    <Layout title="Team" user={{ email: user.email ?? "", plan: user.plan }}>
+      {content}
+    </Layout>,
+  );
+});
+
+// ─── Team members partial ──────────────────────────────
+appRoutes.get("/team/:orgId/members", async (c) => {
+  const db = c.get("db");
+  const orgId = c.req.param("orgId");
+
+  const members = await orgMemberQueries(db).listByOrg(orgId);
+  const invites = await orgInviteQueries(db).listByOrg(orgId);
+  const pendingInvites = invites.filter((inv) => !inv.acceptedAt);
+
+  return c.html(
+    <div class="space-y-6">
+      {/* Members table */}
+      <section class="rounded-lg border bg-white dark:bg-gray-900">
+        <div class="border-b px-6 py-4">
+          <h2 class="text-lg font-semibold">Team Members ({members.length})</h2>
+        </div>
+        {members.length === 0 ? (
+          <p class="px-6 py-8 text-center text-sm text-gray-500">
+            No team members yet. Invite someone below.
+          </p>
+        ) : (
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b text-left text-gray-500">
+                <th class="px-6 py-3 font-medium">Member</th>
+                <th class="px-6 py-3 font-medium">Role</th>
+                <th class="px-6 py-3 font-medium">Joined</th>
+                <th class="px-6 py-3 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr class="border-b last:border-0">
+                  <td class="px-6 py-3">
+                    <p class="font-medium">{m.name ?? "Unnamed"}</p>
+                    <p class="text-xs text-gray-500">{m.email}</p>
+                  </td>
+                  <td class="px-6 py-3">
+                    <span
+                      class={`rounded px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[m.role] ?? ROLE_COLORS.viewer}`}
+                    >
+                      {m.role}
+                    </span>
+                  </td>
+                  <td class="px-6 py-3 text-gray-500">
+                    {m.joinedAt
+                      ? new Date(m.joinedAt).toLocaleDateString()
+                      : "—"}
+                  </td>
+                  <td class="px-6 py-3 text-right">
+                    {m.role !== "owner" && (
+                      <div class="flex items-center justify-end gap-2">
+                        <select
+                          hx-patch={`/api/orgs/${orgId}/members/${m.id}`}
+                          hx-target="closest tr"
+                          hx-swap="outerHTML"
+                          name="role"
+                          class="rounded border px-2 py-1 text-xs"
+                        >
+                          {["admin", "member", "viewer"].map((r) => (
+                            <option value={r} selected={m.role === r}>
+                              {r.charAt(0).toUpperCase() + r.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          hx-delete={`/api/orgs/${orgId}/members/${m.userId}`}
+                          hx-target="closest tr"
+                          hx-swap="outerHTML"
+                          hx-confirm="Remove this member from the team?"
+                          class="text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    {m.role === "owner" && (
+                      <span class="text-xs text-gray-400">Owner</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* Invite form */}
+      <section class="rounded-lg border bg-white p-6 dark:bg-gray-900">
+        <h2 class="mb-4 text-lg font-semibold">Invite Team Member</h2>
+        <form
+          hx-post={`/api/orgs/${orgId}/invites`}
+          hx-target="#invite-status"
+          hx-swap="innerHTML"
+          class="flex items-end gap-3"
+        >
+          <div class="flex-1">
+            <label class="mb-1 block text-sm font-medium" for="inviteEmail">
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              id="inviteEmail"
+              placeholder="colleague@example.com"
+              required
+              class="w-full rounded border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium" for="inviteRole">
+              Role
+            </label>
+            <select
+              name="role"
+              id="inviteRole"
+              class="rounded border px-3 py-2 text-sm"
+            >
+              <option value="admin">Admin</option>
+              <option value="member" selected>
+                Member
+              </option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Send Invite
+          </button>
+        </form>
+        <div id="invite-status" class="mt-2"></div>
+      </section>
+
+      {/* Pending invites */}
+      {pendingInvites.length > 0 && (
+        <section class="rounded-lg border bg-white dark:bg-gray-900">
+          <div class="border-b px-6 py-4">
+            <h2 class="text-lg font-semibold">
+              Pending Invites ({pendingInvites.length})
+            </h2>
+          </div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b text-left text-gray-500">
+                <th class="px-6 py-3 font-medium">Email</th>
+                <th class="px-6 py-3 font-medium">Role</th>
+                <th class="px-6 py-3 font-medium">Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingInvites.map((inv) => (
+                <tr class="border-b last:border-0">
+                  <td class="px-6 py-3">{inv.email}</td>
+                  <td class="px-6 py-3">
+                    <span
+                      class={`rounded px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[inv.role] ?? ROLE_COLORS.viewer}`}
+                    >
+                      {inv.role}
+                    </span>
+                  </td>
+                  <td class="px-6 py-3 text-gray-500">
+                    {new Date(inv.expiresAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>,
   );
 });
