@@ -15,3 +15,12 @@ target/
 .playwright-mcp/
 coverage/
 .dev.vars
+
+# Testing artifacts
+competitors-*.md
+crawl-snapshot.md
+new-project-snapshot.md
+personas-*.md
+settings-*.md
+smoke-*.md
+suggest-queries-result.md
