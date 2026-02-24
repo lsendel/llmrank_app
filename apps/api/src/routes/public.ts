@@ -1,10 +1,14 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
-import { RobotsParser } from "@llm-boost/shared";
+import {
+  RobotsParser,
+  getQuickWins,
+  AI_BOT_USER_AGENT_NAMES,
+  normalizeDomain,
+} from "@llm-boost/shared";
 import { parseHtml } from "../lib/html-parser";
 import { analyzeSitemap } from "../lib/sitemap";
 import { scorePage, type PageData } from "@llm-boost/scoring";
-import { getQuickWins, AI_BOT_USER_AGENT_NAMES } from "@llm-boost/shared";
 import type { ReportConfig } from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";
 import {
@@ -12,6 +16,7 @@ import {
   crawlQueries,
   projectQueries,
   leadQueries,
+  adminQueries,
 } from "@llm-boost/db";
 import { fetchReportData, aggregateReportData } from "@llm-boost/reports";
 import type { GenerateReportJob } from "@llm-boost/reports";
@@ -44,14 +49,43 @@ publicRoutes.post("/scan", async (c) => {
     );
   }
 
-  // Normalize URL
-  let targetUrl: URL;
+  // Normalize domain
+  const domain = normalizeDomain(body.url);
+  if (!domain) {
+    return c.json(
+      {
+        error: {
+          code: "INVALID_DOMAIN",
+          message: "Please enter a valid domain (e.g. example.com)",
+        },
+      },
+      422,
+    );
+  }
+
+  // Blocklist check
+  const db = c.get("db");
+  const adminQ = adminQueries(db);
+  const blocked = await adminQ.isBlocked(domain);
+  if (blocked) {
+    return c.json(
+      {
+        error: {
+          code: "DOMAIN_BLOCKED",
+          message: "This domain cannot be crawled",
+        },
+      },
+      403,
+    );
+  }
+
+  // Build the full URL for crawling (always HTTPS)
+  const pageUrl = `https://${domain}`;
   try {
-    const raw = body.url.startsWith("http") ? body.url : `https://${body.url}`;
-    targetUrl = new URL(raw);
+    new URL(pageUrl);
   } catch {
     return c.json(
-      { error: { code: "INVALID_DOMAIN", message: "Invalid URL provided" } },
+      { error: { code: "INVALID_DOMAIN", message: "Invalid domain" } },
       422,
     );
   }
@@ -78,9 +112,6 @@ publicRoutes.post("/scan", async (c) => {
   await c.env.KV.put(rateLimitKey, String(currentCount + 1), {
     expirationTtl: 3600,
   });
-
-  const domain = targetUrl.hostname;
-  const pageUrl = targetUrl.toString();
 
   // Domains served by our own Cloudflare zone — same-zone fetch bypasses
   // the Workers pipeline and hits a non-existent origin, returning 404.
@@ -250,7 +281,6 @@ publicRoutes.post("/scan", async (c) => {
   }
 
   // Persist scan result to DB
-  const db = c.get("db");
   const ipBytes = new TextEncoder().encode(ip);
   const ipHashBuf = await crypto.subtle.digest("SHA-256", ipBytes);
   const ipHash = Array.from(new Uint8Array(ipHashBuf))

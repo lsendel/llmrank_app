@@ -6,11 +6,14 @@ import { handleServiceError } from "../services/errors";
 import { createAuditService } from "../services/audit-service";
 import { toCrawlResponse, toCrawlListResponse } from "../dto/crawl.dto";
 import { rateLimit } from "../middleware/rate-limit";
+import { normalizeDomain } from "@llm-boost/shared";
 import {
   pageQueries,
   scoreQueries,
   userQueries,
   crawlQueries,
+  adminQueries,
+  projectQueries,
 } from "@llm-boost/db";
 
 export const crawlRoutes = new Hono<AppEnv>();
@@ -88,6 +91,27 @@ crawlRoutes.post(
         },
         422,
       );
+    }
+
+    // Blocklist check
+    const db = c.get("db");
+    const project = await projectQueries(db).getById(projectId);
+    if (project) {
+      const adminQ = adminQueries(db);
+      const blockedDomain = await adminQ.isBlocked(
+        normalizeDomain(project.domain),
+      );
+      if (blockedDomain) {
+        return c.json(
+          {
+            error: {
+              code: "DOMAIN_BLOCKED",
+              message: "This domain cannot be crawled",
+            },
+          },
+          403,
+        );
+      }
     }
 
     const { crawlService } = c.get("container");
