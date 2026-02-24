@@ -25,6 +25,7 @@ function mockFetch(
       ok: resp.ok,
       status: resp.status ?? (resp.ok ? 200 : 500),
       json: resp.json ?? (() => Promise.resolve({})),
+      text: () => Promise.resolve(""),
     });
   }
 }
@@ -44,6 +45,14 @@ function makeCtx(
 describe("fetchGSCData", () => {
   it("returns EnrichmentResult[] with provider 'gsc'", async () => {
     mockFetch([
+      // Site list response
+      {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            siteEntry: [{ siteUrl: "sc-domain:example.com" }],
+          }),
+      },
       // Search analytics response
       {
         ok: true,
@@ -92,6 +101,14 @@ describe("fetchGSCData", () => {
 
   it("returns zero metrics for pages not in GSC data", async () => {
     mockFetch([
+      // Site list response
+      {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            siteEntry: [{ siteUrl: "sc-domain:example.com" }],
+          }),
+      },
       // No rows returned from analytics
       { ok: true, json: () => Promise.resolve({ rows: [] }) },
       // URL inspection for page1
@@ -108,7 +125,17 @@ describe("fetchGSCData", () => {
   });
 
   it("throws on search analytics API error", async () => {
-    mockFetch([{ ok: false, status: 403 }]);
+    mockFetch([
+      // Site list response
+      {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            siteEntry: [{ siteUrl: "sc-domain:example.com" }],
+          }),
+      },
+      { ok: false, status: 403 },
+    ]);
 
     await expect(fetchGSCData(makeCtx())).rejects.toThrow(
       "GSC Search Analytics API error: 403",
@@ -118,6 +145,15 @@ describe("fetchGSCData", () => {
   it("handles URL inspection failure gracefully", async () => {
     const fetchFn = globalThis.fetch as ReturnType<typeof vi.fn>;
     fetchFn
+      // Site list response
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            siteEntry: [{ siteUrl: "sc-domain:example.com" }],
+          }),
+      })
       // Search analytics success
       .mockResolvedValueOnce({
         ok: true,
@@ -141,6 +177,14 @@ describe("fetchGSCData", () => {
 
   it("aggregates queries per page correctly", async () => {
     mockFetch([
+      // Site list response
+      {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            siteEntry: [{ siteUrl: "sc-domain:example.com" }],
+          }),
+      },
       {
         ok: true,
         json: () =>
