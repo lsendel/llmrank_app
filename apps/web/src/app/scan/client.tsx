@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
+import { normalizeDomain } from "@llm-boost/shared";
 
 export function ScanPageClient() {
   const router = useRouter();
@@ -17,12 +18,17 @@ export function ScanPageClient() {
 
   async function handleScan(e: React.FormEvent) {
     e.preventDefault();
-    if (!url.trim()) return;
+    const domain = normalizeDomain(url);
+    if (!domain) {
+      setError("Please enter a valid domain");
+      return;
+    }
+    setUrl(domain); // Show cleaned value
 
     setLoading(true);
     setError(null);
     try {
-      const result = await api.public.scan(url.trim());
+      const result = await api.public.scan(domain);
       // Prefer URL-based navigation with scanResultId; fall back to sessionStorage
       if (result.scanResultId) {
         router.push(`/scan/results?id=${result.scanResultId}`);
@@ -63,9 +69,10 @@ export function ScanPageClient() {
             <form onSubmit={handleScan} className="flex gap-3">
               <Input
                 type="text"
-                placeholder="https://example.com"
+                placeholder="example.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                onBlur={() => setUrl(normalizeDomain(url))}
                 className="flex-1 text-base"
                 disabled={loading}
               />
@@ -77,8 +84,8 @@ export function ScanPageClient() {
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
             {!error && (
               <p className="mt-3 text-xs text-muted-foreground text-left sm:text-center">
-                Include the full URL (for example, https://yourdomain.com/blog)
-                so the crawler can fetch the page without redirects.
+                Enter a domain (e.g. example.com). Protocol and www are stripped
+                automatically.
               </p>
             )}
           </CardContent>
