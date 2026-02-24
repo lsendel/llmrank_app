@@ -28,6 +28,7 @@ export * from "./schemas/report";
 export * from "./schemas/narrative";
 export * from "./persona-widget-config";
 export * from "./utils/robots-parser";
+export { normalizeDomain } from "./utils/normalize-domain";
 export {
   validateKeyword,
   KEYWORD_MAX_LENGTH,
