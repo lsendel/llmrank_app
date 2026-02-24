@@ -339,6 +339,26 @@ export function crawlQueries(db: Database) {
         .offset(offset);
     },
 
+    /** Count active crawls for a user. */
+    async countActiveByUser(userId: string) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(crawlJobs)
+        .innerJoin(projects, eq(crawlJobs.projectId, projects.id))
+        .where(
+          and(
+            eq(projects.userId, userId),
+            inArray(crawlJobs.status, [
+              "pending",
+              "queued",
+              "crawling",
+              "scoring",
+            ]),
+          ),
+        );
+      return Number(count);
+    },
+
     /** List ALL crawls for a user (history), ordered by creation. */
     async listByUser(userId: string, limit = 50, offset = 0) {
       const rows = await db
@@ -399,6 +419,16 @@ export function crawlQueries(db: Database) {
         }
         return { ...r, overallScore, letterGrade };
       });
+    },
+
+    /** Count ALL crawls for a user. */
+    async countByUser(userId: string) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(crawlJobs)
+        .innerJoin(projects, eq(crawlJobs.projectId, projects.id))
+        .where(eq(projects.userId, userId));
+      return Number(count);
     },
 
     /** Delete all crawl jobs for a specific project (cascades to pages, scores, issues). */
