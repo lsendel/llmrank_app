@@ -61,6 +61,7 @@ export interface Project {
     maxDepth: number;
     schedule: "manual" | "daily" | "weekly" | "monthly";
     ignoreRobots?: boolean;
+    allowHttpFallback?: boolean;
   };
   branding?: {
     logoUrl?: string;
@@ -82,6 +83,7 @@ export interface UpdateProjectInput {
     maxDepth?: number;
     schedule?: "manual" | "daily" | "weekly" | "monthly";
     ignoreRobots?: boolean;
+    allowHttpFallback?: boolean;
   };
   branding?: {
     logoUrl?: string;
