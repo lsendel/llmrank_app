@@ -42,6 +42,7 @@ import {
   type Project,
   type PaginatedResponse,
 } from "@/lib/api";
+import { normalizeDomain } from "@llm-boost/shared";
 
 const tokenLimits: Record<string, number> = {
   free: 0,
@@ -416,7 +417,8 @@ export function ApiTokensSection() {
                             <SelectItem value="all">All projects</SelectItem>
                             {projectsData?.data.map((project) => (
                               <SelectItem key={project.id} value={project.id}>
-                                {project.name} ({project.domain})
+                                {project.name} (
+                                {normalizeDomain(project.domain)})
                               </SelectItem>
                             ))}
                           </SelectContent>

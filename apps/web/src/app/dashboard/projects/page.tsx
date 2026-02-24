@@ -35,6 +35,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
+import { normalizeDomain } from "@llm-boost/shared";
 
 function gradeBadgeVariant(
   score: number,
@@ -148,7 +149,7 @@ export default function ProjectsPage() {
                                   {project.name}
                                 </h3>
                                 <p className="mt-0.5 text-sm text-muted-foreground">
-                                  {project.domain}
+                                  {normalizeDomain(project.domain)}
                                 </p>
                               </div>
                               {lastScore !== null ? (
