@@ -15,7 +15,7 @@ describe("Well-Known Endpoints", () => {
       );
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = (await res.json()) as any;
       expect(body).toHaveProperty("issuer");
       expect(body).toHaveProperty("authorization_endpoint");
       expect(body).toHaveProperty("token_endpoint");
@@ -28,7 +28,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.issuer).toBe("http://localhost");
       expect(body.authorization_endpoint).toBe(
@@ -46,7 +46,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.code_challenge_methods_supported).toContain("S256");
     });
@@ -57,7 +57,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.grant_types_supported).toContain("authorization_code");
       expect(body.grant_types_supported).toContain("refresh_token");
@@ -69,7 +69,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.response_types_supported).toContain("code");
     });
@@ -80,7 +80,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.token_endpoint_auth_methods_supported).toContain("none");
     });
@@ -91,7 +91,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       const expectedScopes = [
         "projects:read",
@@ -126,7 +126,7 @@ describe("Well-Known Endpoints", () => {
       );
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = (await res.json()) as any;
       expect(body).toHaveProperty("resource");
       expect(body).toHaveProperty("authorization_servers");
       expect(body).toHaveProperty("scopes_supported");
@@ -139,7 +139,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.resource).toBe("http://localhost/v1/mcp");
     });
@@ -150,7 +150,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.authorization_servers).toEqual(["http://localhost"]);
     });
@@ -161,7 +161,7 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const body = await res.json();
+      const body = (await res.json()) as any;
 
       expect(body.bearer_methods_supported).toContain("header");
     });
@@ -172,14 +172,14 @@ describe("Well-Known Endpoints", () => {
         {},
         env,
       );
-      const authServerBody = await authServerRes.json();
+      const authServerBody = (await authServerRes.json()) as any;
 
       const resourceRes = await app.request(
         "/.well-known/oauth-protected-resource",
         {},
         env,
       );
-      const resourceBody = await resourceRes.json();
+      const resourceBody = (await resourceRes.json()) as any;
 
       expect(resourceBody.scopes_supported).toEqual(
         authServerBody.scopes_supported,

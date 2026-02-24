@@ -28,7 +28,7 @@ describe("MCP HTTP Transport Auth", () => {
     );
 
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.error).toBe("invalid_token");
     expect(body.error_description).toBe("Bearer token required");
   });
@@ -74,7 +74,7 @@ describe("MCP HTTP Transport Auth", () => {
     );
 
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.error).toBe("invalid_token");
     expect(body.error_description).toContain("Invalid or expired");
   });
@@ -156,7 +156,7 @@ describe("Health endpoint", () => {
     const res = await app.request("/health", { method: "GET" }, env);
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.status).toBe("ok");
     expect(body.service).toBe("mcp-gateway");
   });
