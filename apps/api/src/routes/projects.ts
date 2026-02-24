@@ -317,7 +317,7 @@ projectRoutes.post(
       perplexityApiKey: c.env.PERPLEXITY_API_KEY,
       grokApiKey: c.env.XAI_API_KEY,
       reportServiceUrl: c.env.REPORT_SERVICE_URL,
-      sharedSecret: c.env.CRAWLER_SHARED_SECRET,
+      sharedSecret: c.env.SHARED_SECRET,
     });
 
     const run = await pipeline.start(projectId, latestCrawl.id);

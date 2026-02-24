@@ -14,8 +14,11 @@ export async function checkCopilot(
   targetDomain: string,
   competitors: string[],
   apiKey: string,
+  locale?: { region: string; language: string },
 ): Promise<VisibilityCheckResult> {
-  const url = `${BING_SEARCH_URL}?q=${encodeURIComponent(query)}&count=10`;
+  const mkt = locale ? `${locale.language}-${locale.region.toUpperCase()}` : "";
+  const mktParam = mkt ? `&mkt=${mkt}` : "";
+  const url = `${BING_SEARCH_URL}?q=${encodeURIComponent(query)}&count=10${mktParam}`;
 
   const response = await withRetry(() =>
     withTimeout(

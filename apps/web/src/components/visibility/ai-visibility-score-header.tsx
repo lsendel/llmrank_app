@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type AIScoreTrend } from "@/lib/api";
-import { TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Loader2, Users } from "lucide-react";
 
 const GRADE_COLORS: Record<string, string> = {
   A: "text-green-600",
@@ -37,8 +37,8 @@ export function AIVisibilityScoreHeader({ projectId }: { projectId: string }) {
 
   if (isLoading || !data) {
     return (
-      <div className="grid gap-4 md:grid-cols-3">
-        {[1, 2, 3].map((i) => (
+      <div className="grid gap-4 md:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="animate-pulse">
             <CardContent className="flex h-32 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -63,8 +63,15 @@ export function AIVisibilityScoreHeader({ projectId }: { projectId: string }) {
         ? "text-red-600"
         : "text-muted-foreground";
 
+  const audienceGrowthColor =
+    data.meta.audienceGrowth > 0
+      ? "text-green-600"
+      : data.meta.audienceGrowth < 0
+        ? "text-red-600"
+        : "text-muted-foreground";
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-4">
       {/* Card 1: Overall Score */}
       <Card className={`border ${SCORE_BG[current.grade]}`}>
         <CardContent className="flex items-center justify-between p-6">
@@ -127,7 +134,42 @@ export function AIVisibilityScoreHeader({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      {/* Card 3: Check Stats */}
+      {/* Card 3: Est. Monthly Reach */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Est. Monthly Reach
+            </p>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-3xl font-bold">
+              {data.meta.estimatedMonthlyAudience.toLocaleString()}
+            </span>
+          </div>
+          {data.meta.audienceGrowth !== 0 && (
+            <div
+              className={`mt-2 flex items-center gap-1 text-sm ${audienceGrowthColor}`}
+            >
+              {data.meta.audienceGrowth > 0 ? (
+                <TrendingUp className="h-4 w-4" />
+              ) : (
+                <TrendingDown className="h-4 w-4" />
+              )}
+              <span>
+                {data.meta.audienceGrowth > 0 ? "+" : ""}
+                {data.meta.audienceGrowth}% vs last week
+              </span>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            People seeing AI responses about your brand
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Card 4: Check Stats */}
       <Card>
         <CardContent className="p-6">
           <p className="mb-3 text-sm font-medium text-muted-foreground">

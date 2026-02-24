@@ -20,21 +20,51 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { usePlan } from "@/hooks/use-plan";
 
 export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const limit = 20;
+  const { isFree } = usePlan();
 
   const { data, isLoading } = useApiSWR(
-    `crawl-history-${page}`,
+    isFree ? null : `crawl-history-${page}`,
     useCallback(() => api.crawls.getHistory(page, limit), [page]),
   );
 
   const history = data?.data || [];
   const pagination = data?.pagination;
+
+  if (isFree) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Crawl History</h1>
+          <p className="text-muted-foreground">
+            View all past crawls across all your projects.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Lock className="mb-4 h-10 w-10 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">
+              Crawl history is available on paid plans
+            </h2>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">
+              Upgrade to Starter or above to keep a full history of all your
+              crawls and track score changes over time.
+            </p>
+            <Button asChild className="mt-6">
+              <Link href="/dashboard/billing">View Plans</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

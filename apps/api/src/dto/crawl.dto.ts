@@ -6,6 +6,7 @@ export function toCrawlResponse(entity: Record<string, any>) {
   return {
     id: entity.id,
     projectId: entity.projectId,
+    projectName: entity.projectName ?? null,
     status: entity.status,
     config: entity.config ?? null,
     pagesFound: entity.pagesFound ?? null,

@@ -36,6 +36,7 @@ import {
   Mail,
   Loader2,
   Users,
+  Trash2,
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -74,6 +75,18 @@ export function GeneralSection() {
   // Persona state
   const [persona, setPersona] = useState<string | null>(null);
   const [savingPersona, setSavingPersona] = useState(false);
+
+  // Clear history state
+  const [clearTarget, setClearTarget] = useState<string>("all");
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearResult, setClearResult] = useState<string | null>(null);
+
+  const { data: projectsData } = useApiSWR(
+    "settings-projects",
+    useCallback(() => api.projects.list({ limit: 100 }), []),
+  );
+  const projectsList = projectsData?.data ?? [];
 
   useEffect(() => {
     api.account
@@ -182,6 +195,29 @@ export function GeneralSection() {
       setWebhookError("Failed to remove webhook URL");
     } finally {
       setSavingWebhook(false);
+    }
+  }
+
+  async function handleClearHistory() {
+    setClearing(true);
+    setClearResult(null);
+    try {
+      const projectId = clearTarget === "all" ? undefined : clearTarget;
+      const result = await api.crawls.deleteHistory(projectId);
+      const label =
+        clearTarget === "all"
+          ? "all projects"
+          : (projectsList.find((p) => p.id === clearTarget)?.name ?? "project");
+      setClearResult(
+        `Deleted ${result.deleted} crawl${result.deleted === 1 ? "" : "s"} from ${label}.`,
+      );
+      setClearDialogOpen(false);
+    } catch (err) {
+      setClearResult(
+        err instanceof Error ? err.message : "Failed to clear history",
+      );
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -425,6 +461,90 @@ export function GeneralSection() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Clear Crawl History */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">Clear Crawl History</CardTitle>
+          </div>
+          <CardDescription>
+            Permanently delete crawl data for all projects or a specific
+            project. This removes crawl jobs, page data, scores, and issues.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-end gap-3">
+            <div className="space-y-2">
+              <Label>Project</Label>
+              <Select value={clearTarget} onValueChange={setClearTarget}>
+                <SelectTrigger className="w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projectsList.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  Clear History
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Clear crawl history?</DialogTitle>
+                  <DialogDescription>
+                    This will permanently delete all crawl jobs, pages, scores,
+                    and issues for{" "}
+                    <span className="font-medium text-foreground">
+                      {clearTarget === "all"
+                        ? "all projects"
+                        : (projectsList.find((p) => p.id === clearTarget)
+                            ?.name ?? "this project")}
+                    </span>
+                    . This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <p className="text-sm text-destructive">
+                    All crawl data will be permanently lost.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setClearDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleClearHistory}
+                    disabled={clearing}
+                  >
+                    {clearing && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {clearing ? "Deleting..." : "Yes, clear history"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {clearResult && (
+            <p className="text-sm text-muted-foreground">{clearResult}</p>
+          )}
         </CardContent>
       </Card>
 

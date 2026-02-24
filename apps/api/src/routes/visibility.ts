@@ -40,6 +40,8 @@ visibilityRoutes.post(
       projectId: string;
       keywordIds: string[];
       providers: string[];
+      region?: string;
+      language?: string;
     }>();
 
     if (
@@ -105,6 +107,9 @@ visibilityRoutes.post(
             gemini_ai_mode: c.env.GOOGLE_API_KEY,
             grok: c.env.XAI_API_KEY,
           },
+          anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+          region: body.region,
+          language: body.language,
         });
         allResults.push(...stored);
       }
@@ -124,6 +129,8 @@ visibilityRoutes.get("/:projectId", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const region = c.req.query("region") || undefined;
+  const language = c.req.query("language") || undefined;
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -133,11 +140,240 @@ visibilityRoutes.get("/:projectId", async (c) => {
   });
 
   try {
-    const data = await service.listForProject(userId, projectId);
+    const data = await service.listForProject(userId, projectId, {
+      region,
+      language,
+    });
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
   }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:projectId/cited-pages — Pages cited by AI platforms
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.get("/:projectId/cited-pages", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await createProjectRepository(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const { visibilityQueries } = await import("@llm-boost/db");
+  const rows = await visibilityQueries(db).getCitedPages(projectId);
+  return c.json({ data: rows });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:projectId/brand-performance — Weekly SoV and competitor comparison
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.get("/:projectId/brand-performance", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await createProjectRepository(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const checks = await createVisibilityRepository(db).listByProject(projectId);
+
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
+
+  const currentChecks = checks.filter(
+    (ch) => new Date(ch.checkedAt) >= oneWeekAgo,
+  );
+  const previousChecks = checks.filter(
+    (ch) =>
+      new Date(ch.checkedAt) >= twoWeeksAgo &&
+      new Date(ch.checkedAt) < oneWeekAgo,
+  );
+
+  type CompMention = {
+    domain: string;
+    mentioned: boolean;
+    position: number | null;
+  };
+
+  function computeSov(subset: typeof checks) {
+    const userMentions = subset.filter((ch) => ch.brandMentioned).length;
+    const userCitations = subset.filter((ch) => ch.urlCited).length;
+    const competitorCounts: Record<
+      string,
+      { mentions: number; citations: number; total: number }
+    > = {};
+    let totalCompMentions = 0;
+
+    for (const ch of subset) {
+      const mentions = (ch.competitorMentions ?? []) as CompMention[];
+      for (const m of mentions) {
+        if (!competitorCounts[m.domain]) {
+          competitorCounts[m.domain] = { mentions: 0, citations: 0, total: 0 };
+        }
+        competitorCounts[m.domain].total++;
+        if (m.mentioned) {
+          competitorCounts[m.domain].mentions++;
+          totalCompMentions++;
+        }
+      }
+    }
+
+    const totalMentions = userMentions + totalCompMentions;
+    const sovPercent =
+      totalMentions > 0
+        ? Math.round((userMentions / totalMentions) * 1000) / 10
+        : 0;
+    const mentionRate =
+      subset.length > 0
+        ? Math.round((userMentions / subset.length) * 1000) / 10
+        : 0;
+    const citationRate =
+      subset.length > 0
+        ? Math.round((userCitations / subset.length) * 1000) / 10
+        : 0;
+
+    return {
+      userMentions,
+      sovPercent,
+      mentionRate,
+      citationRate,
+      competitorCounts,
+      totalMentions,
+    };
+  }
+
+  const current = computeSov(currentChecks);
+  const previous = computeSov(previousChecks);
+
+  // Build competitor list
+  const competitors = Object.entries(current.competitorCounts).map(
+    ([domain, data]) => {
+      const compSov =
+        current.totalMentions > 0
+          ? Math.round((data.mentions / current.totalMentions) * 1000) / 10
+          : 0;
+      const prevData = previous.competitorCounts[domain];
+      const prevSov =
+        prevData && previous.totalMentions > 0
+          ? Math.round((prevData.mentions / previous.totalMentions) * 1000) / 10
+          : 0;
+      return {
+        domain,
+        mentionRate:
+          data.total > 0
+            ? Math.round((data.mentions / data.total) * 1000) / 10
+            : 0,
+        citationRate:
+          data.total > 0
+            ? Math.round((data.citations / data.total) * 1000) / 10
+            : 0,
+        sovPercent: compSov,
+        trend: Math.round((compSov - prevSov) * 10) / 10,
+      };
+    },
+  );
+  competitors.sort((a, b) => b.sovPercent - a.sovPercent);
+
+  // Top prompts: queries where you appear vs. competitors
+  const queryMap = new Map<
+    string,
+    { yourMentioned: boolean; competitorsMentioned: Set<string> }
+  >();
+  for (const ch of currentChecks) {
+    const entry = queryMap.get(ch.query) ?? {
+      yourMentioned: false,
+      competitorsMentioned: new Set<string>(),
+    };
+    if (ch.brandMentioned) entry.yourMentioned = true;
+    const mentions = (ch.competitorMentions ?? []) as CompMention[];
+    for (const m of mentions) {
+      if (m.mentioned) entry.competitorsMentioned.add(m.domain);
+    }
+    queryMap.set(ch.query, entry);
+  }
+  const topPrompts = Array.from(queryMap.entries())
+    .map(([query, data]) => ({
+      query,
+      yourMentioned: data.yourMentioned,
+      competitorsMentioned: Array.from(data.competitorsMentioned),
+    }))
+    .slice(0, 10);
+
+  // Week-over-week deltas
+  const isoWeek = `${now.getFullYear()}-W${String(Math.ceil(((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000 + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)).padStart(2, "0")}`;
+
+  return c.json({
+    data: {
+      period: isoWeek,
+      yourBrand: {
+        mentionRate: current.mentionRate,
+        citationRate: current.citationRate,
+        sovPercent: current.sovPercent,
+        trend: Math.round((current.sovPercent - previous.sovPercent) * 10) / 10,
+      },
+      competitors,
+      topPrompts,
+      weekOverWeek: {
+        mentionsDelta:
+          Math.round((current.mentionRate - previous.mentionRate) * 10) / 10,
+        sovDelta:
+          Math.round((current.sovPercent - previous.sovPercent) * 10) / 10,
+        citationsDelta:
+          Math.round((current.citationRate - previous.citationRate) * 10) / 10,
+      },
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:projectId/source-opportunities — Competitors cited when you aren't
+// ---------------------------------------------------------------------------
+
+visibilityRoutes.get("/:projectId/source-opportunities", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await createProjectRepository(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  // Plan gate: Pro+ only
+  const user = await createUserRepository(db).getById(userId);
+  if (!user || user.plan === "free" || user.plan === "starter") {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: "Source opportunities are available on Pro plans and above.",
+        },
+      },
+      403,
+    );
+  }
+
+  const { visibilityQueries } = await import("@llm-boost/db");
+  const rows = await visibilityQueries(db).getSourceOpportunities(projectId);
+  return c.json({ data: rows });
 });
 
 // ---------------------------------------------------------------------------
@@ -339,6 +575,8 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const region = c.req.query("region") || undefined;
+  const language = c.req.query("language") || undefined;
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -348,7 +586,10 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
   });
 
   try {
-    const checks = await service.listForProject(userId, projectId);
+    const checks = await service.listForProject(userId, projectId, {
+      region,
+      language,
+    });
     const project = await createProjectRepository(db).getById(projectId);
     if (!project) {
       return c.json(
@@ -424,6 +665,33 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
 
     const delta = previous ? current.overall - previous.overall : 0;
 
+    // Audience estimation: unique queries where brand mentioned × estimated
+    // monthly search volume per query × AI adoption rate (~20%)
+    const AI_ADOPTION_RATE = 0.2;
+    const BASE_MONTHLY_SEARCHES_PER_QUERY = 500; // conservative default
+
+    function estimateAudience(subset: typeof checks): number {
+      const mentionedQueries = new Set<string>();
+      for (const ch of subset) {
+        if (ch.brandMentioned) mentionedQueries.add(ch.query);
+      }
+      // Scale by 4 to project weekly data to monthly
+      return Math.round(
+        mentionedQueries.size *
+          BASE_MONTHLY_SEARCHES_PER_QUERY *
+          AI_ADOPTION_RATE,
+      );
+    }
+
+    const currentAudience = estimateAudience(currentChecks);
+    const previousAudience = estimateAudience(previousChecks);
+    const audienceGrowth =
+      previousAudience > 0
+        ? Math.round(
+            ((currentAudience - previousAudience) / previousAudience) * 100,
+          )
+        : 0;
+
     return c.json({
       data: {
         current,
@@ -435,6 +703,8 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
           currentChecks: currentChecks.length,
           previousChecks: previousChecks.length,
           referringDomains: blSummary.referringDomains,
+          estimatedMonthlyAudience: currentAudience,
+          audienceGrowth,
         },
       },
     });

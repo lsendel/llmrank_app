@@ -147,6 +147,12 @@ export interface CrawlRepository {
     limit?: number,
     offset?: number,
   ): ReturnType<ReturnType<typeof crawlQueries>["listByUser"]>;
+  deleteByProject(
+    projectId: string,
+  ): ReturnType<ReturnType<typeof crawlQueries>["deleteByProject"]>;
+  deleteAllByUser(
+    userId: string,
+  ): ReturnType<ReturnType<typeof crawlQueries>["deleteAllByUser"]>;
 }
 
 export function createCrawlRepository(db: Database): CrawlRepository {
@@ -166,6 +172,8 @@ export function createCrawlRepository(db: Database): CrawlRepository {
       queries.listActiveByUser(userId, limit, offset),
     listByUser: (userId, limit, offset) =>
       queries.listByUser(userId, limit, offset),
+    deleteByProject: (projectId) => queries.deleteByProject(projectId),
+    deleteAllByUser: (userId) => queries.deleteAllByUser(userId),
   };
 }
 
@@ -257,6 +265,7 @@ export function createPageInsightRepository(
 export interface VisibilityRepository {
   listByProject(
     projectId: string,
+    filters?: { region?: string; language?: string },
   ): ReturnType<ReturnType<typeof visibilityQueries>["listByProject"]>;
   getTrends(
     projectId: string,
@@ -270,7 +279,8 @@ export interface VisibilityRepository {
 export function createVisibilityRepository(db: Database): VisibilityRepository {
   const queries = visibilityQueries(db);
   return {
-    listByProject: (projectId) => queries.listByProject(projectId),
+    listByProject: (projectId, filters) =>
+      queries.listByProject(projectId, filters),
     getTrends: (projectId) => queries.getTrends(projectId),
     create: (data) => queries.create(data),
     async countSince(projectId, since) {

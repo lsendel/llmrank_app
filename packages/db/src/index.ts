@@ -54,4 +54,6 @@ export {
 export { alertQueries } from "./queries/alerts";
 export { pipelineRunQueries } from "./queries/pipeline-runs";
 export { auditLogWriteQueries } from "./queries/audit-logs";
+export { brandSentimentQueries } from "./queries/brand-sentiment";
+export { aiPromptQueries } from "./queries/ai-prompts";
 export { eq, and, lte, desc, gte, sql, isNull } from "drizzle-orm";

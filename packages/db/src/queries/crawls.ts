@@ -400,5 +400,31 @@ export function crawlQueries(db: Database) {
         return { ...r, overallScore, letterGrade };
       });
     },
+
+    /** Delete all crawl jobs for a specific project (cascades to pages, scores, issues). */
+    async deleteByProject(projectId: string) {
+      const deleted = await db
+        .delete(crawlJobs)
+        .where(eq(crawlJobs.projectId, projectId))
+        .returning({ id: crawlJobs.id });
+      return deleted.length;
+    },
+
+    /** Delete all crawl jobs for all projects owned by a user. */
+    async deleteAllByUser(userId: string) {
+      const userProjects = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.userId, userId));
+
+      if (userProjects.length === 0) return 0;
+
+      const projectIds = userProjects.map((p) => p.id);
+      const deleted = await db
+        .delete(crawlJobs)
+        .where(inArray(crawlJobs.projectId, projectIds))
+        .returning({ id: crawlJobs.id });
+      return deleted.length;
+    },
   };
 }

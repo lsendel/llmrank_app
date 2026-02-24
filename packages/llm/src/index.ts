@@ -19,3 +19,7 @@ export { FactExtractor } from "./fact-extractor";
 export type { ExtractedFact } from "./fact-extractor";
 export { checkGeminiAIMode } from "./providers/gemini-ai-mode";
 export { suggestKeywords } from "./keyword-suggester";
+export { analyzeBrandSentiment } from "./sentiment";
+export type { SentimentResult } from "./sentiment";
+export { discoverPrompts } from "./prompt-research";
+export type { DiscoveredPrompt } from "./prompt-research";

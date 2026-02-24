@@ -6,6 +6,7 @@ export const LLM_MODELS = {
   scoring: "claude-haiku-4-5-20251001",
   summary: "claude-haiku-4-5-20251001",
   factExtraction: "claude-haiku-4-5-20251001",
+  sentiment: "claude-haiku-4-5-20251001",
   personas: "claude-sonnet-4-5-20250929",
   optimizer: "claude-sonnet-4-5-20250929",
   visibility: {

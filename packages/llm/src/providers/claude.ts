@@ -10,14 +10,21 @@ export async function checkClaude(
   targetDomain: string,
   competitors: string[],
   apiKey: string,
+  locale?: { region: string; language: string },
 ): Promise<VisibilityCheckResult> {
   const client = new Anthropic({ apiKey });
+
+  const systemPrompt =
+    locale && (locale.region !== "us" || locale.language !== "en")
+      ? `Answer as if you are responding to a user in ${locale.region.toUpperCase()} who speaks ${locale.language}.`
+      : undefined;
 
   const response = await withRetry(() =>
     withTimeout(
       client.messages.create({
         model: LLM_MODELS.visibility.claude,
         max_tokens: 1024,
+        ...(systemPrompt && { system: systemPrompt }),
         messages: [{ role: "user", content: query }],
       }),
       REQUEST_TIMEOUT_MS,
