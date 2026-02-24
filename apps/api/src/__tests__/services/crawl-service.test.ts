@@ -721,4 +721,47 @@ describe("buildCrawlConfig", () => {
     expect(config.seed_urls).toEqual(["https://blog.com"]);
     expect(config.max_pages).toBe(2000);
   });
+
+  it("normalizes domain in seed URL", () => {
+    const config = buildCrawlConfig(
+      { domain: "https://www.Example.COM/path", settings: {} },
+      "pro",
+    );
+    expect(config.seed_urls).toEqual(["https://example.com"]);
+  });
+
+  it("disables HTTP fallback by default", () => {
+    const config = buildCrawlConfig(
+      { domain: "example.com", settings: { allowHttpFallback: true } },
+      "pro",
+    );
+    expect(config.allow_http_fallback).toBe(false);
+  });
+
+  it("enables HTTP fallback when global toggle is on and project opted in and paid plan", () => {
+    const config = buildCrawlConfig(
+      { domain: "example.com", settings: { allowHttpFallback: true } },
+      "pro",
+      true,
+    );
+    expect(config.allow_http_fallback).toBe(true);
+  });
+
+  it("disables HTTP fallback for free plan even when global toggle is on", () => {
+    const config = buildCrawlConfig(
+      { domain: "example.com", settings: { allowHttpFallback: true } },
+      "free",
+      true,
+    );
+    expect(config.allow_http_fallback).toBe(false);
+  });
+
+  it("disables HTTP fallback when project has not opted in", () => {
+    const config = buildCrawlConfig(
+      { domain: "example.com", settings: {} },
+      "pro",
+      true,
+    );
+    expect(config.allow_http_fallback).toBe(false);
+  });
 });
