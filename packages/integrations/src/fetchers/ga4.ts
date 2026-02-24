@@ -97,7 +97,11 @@ export async function fetchGA4Data(
   const { domain, pageUrls, credentials, config } = ctx;
   const { accessToken } = credentials;
 
-  // Use configured property ID or auto-detect from domain
+  // Require explicit property ID or accessToken for auto-detection
+  if (!config.propertyId && !accessToken) {
+    throw new Error("GA4 property ID is required");
+  }
+
   const propertyId =
     (config.propertyId as string | undefined) ||
     (await findPropertyId(domain, accessToken));

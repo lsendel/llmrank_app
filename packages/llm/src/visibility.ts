@@ -117,11 +117,10 @@ export function analyzeResponse(
 
   const brandMentioned = brandVariations.some((v) => text.includes(v));
 
-  // Detect Markdown links [Anchor](URL) or plain URLs
-  // We want to see if the target domain appears in a URL context
+  // Detect Markdown links [Anchor](URL), full URLs, or bare domain references
   const urlRegex = new RegExp(
-    `\\(https?:\\/\\/[^)]*${escapeRegExp(domain)}[^)]*\\)|https?:\\/\\/[^\\s]*${escapeRegExp(domain)}`,
-    "i",
+    `\\(https?:\\/\\/[^)]*${escapeRegExp(domain)}[^)]*\\)|https?:\\/\\/[^\\s]*${escapeRegExp(domain)}|(?:^|[\\s(])${escapeRegExp(domain)}`,
+    "im",
   );
   const urlCited = urlRegex.test(responseText);
 

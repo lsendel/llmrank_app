@@ -53,10 +53,10 @@ describe("fetchGA4Data", () => {
     expect(results[0].data.sessions).toBe(500);
   });
 
-  it("throws when propertyId is missing", async () => {
-    await expect(fetchGA4Data(makeCtx({ config: {} }))).rejects.toThrow(
-      "GA4 property ID is required",
-    );
+  it("throws when propertyId is missing and no accessToken", async () => {
+    await expect(
+      fetchGA4Data(makeCtx({ config: {}, credentials: {} })),
+    ).rejects.toThrow("GA4 property ID is required");
   });
 
   it("throws on API error", async () => {

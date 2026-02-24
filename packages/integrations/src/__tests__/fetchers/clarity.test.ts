@@ -29,18 +29,26 @@ describe("fetchClarityData", () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       json: () =>
-        Promise.resolve({
-          pages: [
-            {
-              url: "https://example.com/",
-              deadClicks: 5,
-              rageClicks: 2,
-              scrollDepth: 75,
-              engagementScore: 82,
-              totalSessions: 1200,
-            },
-          ],
-        }),
+        Promise.resolve([
+          {
+            metricName: "Traffic",
+            information: [
+              { URL: "https://example.com/", totalSessionCount: "1200" },
+            ],
+          },
+          {
+            metricName: "Dead Click Count",
+            information: [
+              { URL: "https://example.com/", "Dead Click Count": "5" },
+            ],
+          },
+          {
+            metricName: "Scroll Depth",
+            information: [
+              { URL: "https://example.com/", "Scroll Depth": "75" },
+            ],
+          },
+        ]),
     });
 
     const results = await fetchClarityData(makeCtx());
@@ -51,21 +59,22 @@ describe("fetchClarityData", () => {
     expect(results[0].data.totalSessions).toBe(1200);
   });
 
-  it("throws when projectId is missing", async () => {
+  it("throws when API token is missing", async () => {
     await expect(
       fetchClarityData(
         makeCtx({
-          credentials: { apiKey: "key" },
+          credentials: {},
           config: {},
         }),
       ),
-    ).rejects.toThrow("Clarity project ID is required");
+    ).rejects.toThrow("Clarity API token is required");
   });
 
   it("throws on API error", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 403,
+      text: () => Promise.resolve(""),
     });
 
     await expect(fetchClarityData(makeCtx())).rejects.toThrow(
@@ -76,7 +85,7 @@ describe("fetchClarityData", () => {
   it("returns null metrics for pages not in Clarity data", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ pages: [] }),
+      json: () => Promise.resolve([]),
     });
 
     const results = await fetchClarityData(makeCtx());
@@ -86,21 +95,16 @@ describe("fetchClarityData", () => {
     expect(results[0].data.totalSessions).toBe(0);
   });
 
-  it("uses projectId from config when available", async () => {
+  it("sends bearer token in authorization header", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ pages: [] }),
+      json: () => Promise.resolve([]),
     });
 
-    await fetchClarityData(
-      makeCtx({
-        credentials: { apiKey: "key" },
-        config: { projectId: "config-proj" },
-      }),
-    );
+    await fetchClarityData(makeCtx());
 
     const fetchCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
       .calls[0];
-    expect(fetchCall[0]).toContain("config-proj");
+    expect(fetchCall[1].headers.Authorization).toBe("Bearer clarity-key");
   });
 });
