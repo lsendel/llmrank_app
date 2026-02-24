@@ -37,6 +37,7 @@ import {
   Loader2,
   Users,
   Trash2,
+  Crown,
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -49,6 +50,15 @@ import {
 export function GeneralSection() {
   const { withAuth } = useApi();
   const { signOut } = useAuth();
+
+  const { data: me } = useApiSWR(
+    "account-me",
+    useCallback(() => api.account.getMe(), []),
+  );
+
+  const planName = me?.plan
+    ? me.plan.charAt(0).toUpperCase() + me.plan.slice(1)
+    : "Free";
 
   const { data: notifications, mutate: mutateNotifications } =
     useApiSWR<NotificationPreferences>(
@@ -223,6 +233,22 @@ export function GeneralSection() {
 
   return (
     <div className="space-y-8 pt-4">
+      {/* Current Plan */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Current Plan</CardTitle>
+            </div>
+          </div>
+          <CardDescription>
+            You are currently on the{" "}
+            <strong className="text-foreground">{planName}</strong> plan.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
       {/* Your Role */}
       <Card>
         <CardHeader>

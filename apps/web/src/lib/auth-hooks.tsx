@@ -1,9 +1,9 @@
 "use client";
 
-import React, { type ReactNode } from "react";
+import React, { type ReactNode, useCallback } from "react";
 import { useSession, signOut as betterSignOut } from "./auth-client";
 import { useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, Crown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useApiSWR } from "./use-api-swr";
+import { api } from "./api";
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -67,7 +69,16 @@ export function UserButton() {
   const { user } = useUser();
   const router = useRouter();
 
+  const { data: me } = useApiSWR(
+    "account-me",
+    useCallback(() => api.account.getMe(), []),
+  );
+
   if (!user) return null;
+
+  const planName = me?.plan
+    ? me.plan.charAt(0).toUpperCase() + me.plan.slice(1)
+    : "Free";
 
   return (
     <DropdownMenu>
@@ -82,11 +93,17 @@ export function UserButton() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
+          <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{user.name}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {user.email}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md bg-secondary/50 px-2 py-1 text-xs font-medium w-fit">
+              <Crown className="h-3 w-3 text-primary" />
+              {planName} Plan
+            </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

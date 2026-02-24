@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useState, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -126,6 +126,7 @@ export default function BillingPage() {
   const { withAuth } = useApi();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const { data: billing, mutate: mutateBilling } = useApiSWR<BillingInfo>(
     "billing-info",
@@ -154,11 +155,16 @@ export default function BillingPage() {
   const [validatingPromo, setValidatingPromo] = useState(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [verifyingUpgrade, setVerifyingUpgrade] = useState(false);
+  const verificationStarted = useRef(false);
 
   useEffect(() => {
-    if (searchParams.get("upgraded") === "true") {
+    if (
+      searchParams.get("upgraded") === "true" &&
+      !verificationStarted.current
+    ) {
+      verificationStarted.current = true;
       setVerifyingUpgrade(true);
-      window.history.replaceState({}, "", "/dashboard/billing");
+      router.replace("/dashboard/billing", { scroll: false });
 
       let attempts = 0;
       let timeoutId: NodeJS.Timeout;
