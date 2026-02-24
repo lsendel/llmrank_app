@@ -485,6 +485,14 @@ export interface Promo {
   createdAt: string;
 }
 
+export interface BlockedDomain {
+  id: string;
+  domain: string;
+  reason: string | null;
+  blockedBy: string;
+  createdAt: string;
+}
+
 export interface AdminStats {
   mrr: number;
   mrrByPlan: Record<string, number>;
@@ -1784,6 +1792,46 @@ export const api = {
       return apiClient.post(`/api/admin/customers/${userId}/apply-promo`, {
         promoId,
       });
+    },
+
+    async getBlockedDomains(): Promise<BlockedDomain[]> {
+      const res = await apiClient.get<ApiEnvelope<BlockedDomain[]>>(
+        "/api/admin/blocked-domains",
+      );
+      return res.data;
+    },
+
+    async addBlockedDomain(
+      domain: string,
+      reason?: string,
+    ): Promise<BlockedDomain> {
+      const res = await apiClient.post<ApiEnvelope<BlockedDomain>>(
+        "/api/admin/blocked-domains",
+        { domain, reason },
+      );
+      return res.data;
+    },
+
+    async removeBlockedDomain(id: string): Promise<BlockedDomain> {
+      const res = await apiClient.delete<ApiEnvelope<BlockedDomain>>(
+        `/api/admin/blocked-domains/${id}`,
+      );
+      return res.data;
+    },
+
+    async getSettings(): Promise<{ http_fallback_enabled: boolean }> {
+      const res = await apiClient.get<
+        ApiEnvelope<{ http_fallback_enabled: boolean }>
+      >("/api/admin/settings");
+      return res.data;
+    },
+
+    async updateSetting(key: string, value: unknown) {
+      const res = await apiClient.put<ApiEnvelope<unknown>>(
+        `/api/admin/settings/${key}`,
+        { value },
+      );
+      return res.data;
     },
   },
 
