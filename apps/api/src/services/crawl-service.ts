@@ -254,11 +254,14 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       pagination: { page: number; limit: number },
     ) {
       const offset = (pagination.page - 1) * pagination.limit;
-      const jobs = await deps.crawls.listActiveByUser(
-        userId,
-        pagination.limit,
-        offset > 0 ? offset : 0,
-      );
+      const [jobs, total] = await Promise.all([
+        deps.crawls.listActiveByUser(
+          userId,
+          pagination.limit,
+          offset > 0 ? offset : 0,
+        ),
+        deps.crawls.countActiveByUser(userId),
+      ]);
 
       // Return paginated response structure
       return {
@@ -266,8 +269,8 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         pagination: {
           page: pagination.page,
           limit: pagination.limit,
-          total: jobs.length, // Approximate / TODO: count query
-          totalPages: Math.ceil(jobs.length / pagination.limit) || 1, // Approximate
+          total,
+          totalPages: Math.ceil(total / pagination.limit) || 1,
         },
       };
     },
@@ -277,19 +280,22 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       pagination: { page: number; limit: number },
     ) {
       const offset = (pagination.page - 1) * pagination.limit;
-      const jobs = await deps.crawls.listByUser(
-        userId,
-        pagination.limit,
-        offset > 0 ? offset : 0,
-      );
+      const [jobs, total] = await Promise.all([
+        deps.crawls.listByUser(
+          userId,
+          pagination.limit,
+          offset > 0 ? offset : 0,
+        ),
+        deps.crawls.countByUser(userId),
+      ]);
 
       return {
         data: jobs,
         pagination: {
           page: pagination.page,
           limit: pagination.limit,
-          total: jobs.length, // Approximate / TODO: count query
-          totalPages: Math.ceil(jobs.length / pagination.limit) || 1, // Approximate
+          total,
+          totalPages: Math.ceil(total / pagination.limit) || 1,
         },
       };
     },

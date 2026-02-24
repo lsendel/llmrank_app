@@ -60,6 +60,8 @@ describe("CrawlService", () => {
     crawls = createMockCrawlRepo({
       getLatestByProject: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue(buildCrawlJob()),
+      countActiveByUser: vi.fn().mockResolvedValue(0),
+      countByUser: vi.fn().mockResolvedValue(0),
     });
     scores = createMockScoreRepo();
     mockFetchWithRetry.mockResolvedValue({
@@ -356,7 +358,8 @@ describe("CrawlService", () => {
         buildCrawlJob({ id: "c-1", status: "complete" }),
         buildCrawlJob({ id: "c-2", status: "crawling" }),
       ];
-      crawls.listByProject.mockResolvedValue(crawlList);
+      crawls.countByUser.mockResolvedValue(2);
+      crawls.countActiveByUser.mockResolvedValue(2);
       const service = createCrawlService({ crawls, projects, users, scores });
 
       const result = await service.listProjectCrawls("user-1", "proj-1");

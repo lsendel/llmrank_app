@@ -147,6 +147,12 @@ export interface CrawlRepository {
     limit?: number,
     offset?: number,
   ): ReturnType<ReturnType<typeof crawlQueries>["listByUser"]>;
+  countActiveByUser(
+    userId: string,
+  ): ReturnType<ReturnType<typeof crawlQueries>["countActiveByUser"]>;
+  countByUser(
+    userId: string,
+  ): ReturnType<ReturnType<typeof crawlQueries>["countByUser"]>;
   deleteByProject(
     projectId: string,
   ): ReturnType<ReturnType<typeof crawlQueries>["deleteByProject"]>;
@@ -172,6 +178,8 @@ export function createCrawlRepository(db: Database): CrawlRepository {
       queries.listActiveByUser(userId, limit, offset),
     listByUser: (userId, limit, offset) =>
       queries.listByUser(userId, limit, offset),
+    countActiveByUser: (userId) => queries.countActiveByUser(userId),
+    countByUser: (userId) => queries.countByUser(userId),
     deleteByProject: (projectId) => queries.deleteByProject(projectId),
     deleteAllByUser: (userId) => queries.deleteAllByUser(userId),
   };
