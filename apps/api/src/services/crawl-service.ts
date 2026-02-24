@@ -294,6 +294,14 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       };
     },
 
+    async deleteHistory(userId: string, projectId?: string) {
+      if (projectId) {
+        await assertProjectOwnership(deps.projects, userId, projectId);
+        return deps.crawls.deleteByProject(projectId);
+      }
+      return deps.crawls.deleteAllByUser(userId);
+    },
+
     async getQuickWins(userId: string, crawlId: string) {
       const crawlJob = await deps.crawls.getById(crawlId);
       if (!crawlJob) {

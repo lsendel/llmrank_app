@@ -34,6 +34,7 @@ import {
   X,
   Receipt,
   Crown,
+  Loader2,
 } from "lucide-react";
 import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -182,9 +183,9 @@ export default function BillingPage() {
       });
     } catch {
       toast({
-        title: "Unable to open billing portal",
+        title: "No payment history available",
         description:
-          "Make sure you have an active subscription. If this persists, contact support.",
+          "Payment history is available after your first subscription. Upgrade to get started.",
         variant: "destructive",
       });
       setPortalLoading(false);
@@ -431,52 +432,59 @@ export default function BillingPage() {
           </CardDescription>
         </CardHeader>
         <CardFooter className="gap-2">
-          {subscription && (
-            <>
-              <Button onClick={handleOpenPortal} disabled={portalLoading}>
-                <ExternalLink className="h-4 w-4" />
-                {portalLoading ? "Opening..." : "Manage in Stripe"}
-              </Button>
-              {!subscription.cancelAtPeriodEnd &&
-                subscription.status === "active" && (
-                  <Dialog
-                    open={cancelDialogOpen}
-                    onOpenChange={setCancelDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Cancel Subscription
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Cancel subscription?</DialogTitle>
-                        <DialogDescription>
-                          Your subscription will remain active until the end of
-                          the current billing period. You won&apos;t be charged
-                          again.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <Button
-                          variant="outline"
-                          onClick={() => setCancelDialogOpen(false)}
-                        >
-                          Keep Subscription
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          onClick={handleCancelSubscription}
-                          disabled={canceling}
-                        >
-                          {canceling ? "Canceling..." : "Yes, cancel"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
-            </>
-          )}
+          <Button onClick={handleOpenPortal} disabled={portalLoading}>
+            {portalLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ExternalLink className="h-4 w-4" />
+            )}
+            {portalLoading
+              ? "Opening..."
+              : subscription
+                ? "Manage in Stripe"
+                : "Payment History"}
+          </Button>
+          {subscription &&
+            !subscription.cancelAtPeriodEnd &&
+            subscription.status === "active" && (
+              <Dialog
+                open={cancelDialogOpen}
+                onOpenChange={setCancelDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Cancel Subscription
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Cancel subscription?</DialogTitle>
+                    <DialogDescription>
+                      Your subscription will remain active until the end of the
+                      current billing period. You won&apos;t be charged again.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCancelDialogOpen(false)}
+                    >
+                      Keep Subscription
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleCancelSubscription}
+                      disabled={canceling}
+                    >
+                      {canceling && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {canceling ? "Canceling..." : "Yes, cancel"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           {!subscription && (
             <Button
               onClick={() =>
@@ -556,7 +564,10 @@ export default function BillingPage() {
                       onClick={() => handlePlanAction(plan.tier)}
                     >
                       {upgrading === plan.tier ? (
-                        "Processing..."
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Processing...
+                        </>
                       ) : isUpgrade ? (
                         <>
                           <Zap className="h-3.5 w-3.5" />
@@ -658,6 +669,9 @@ export default function BillingPage() {
               }}
               disabled={canceling || downgrading}
             >
+              {(canceling || downgrading) && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
               {canceling || downgrading
                 ? "Processing..."
                 : `Downgrade to ${planNameMap[downgradingTo ?? "free"] ?? "Free"}`}
@@ -674,12 +688,10 @@ export default function BillingPage() {
               <Receipt className="h-5 w-5 text-primary" />
               <CardTitle className="text-base">Payment History</CardTitle>
             </div>
-            {subscription && (
-              <Button variant="ghost" size="sm" onClick={handleOpenPortal}>
-                <ExternalLink className="h-3.5 w-3.5" />
-                View all in Stripe
-              </Button>
-            )}
+            <Button variant="ghost" size="sm" onClick={handleOpenPortal}>
+              <ExternalLink className="h-3.5 w-3.5" />
+              View all in Stripe
+            </Button>
           </div>
           <CardDescription>Your recent payments and invoices.</CardDescription>
         </CardHeader>

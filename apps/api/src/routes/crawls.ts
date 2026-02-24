@@ -45,6 +45,24 @@ crawlRoutes.get("/history", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// DELETE /history — Delete crawl history (all or per-project)
+// ---------------------------------------------------------------------------
+
+crawlRoutes.delete("/history", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  const { crawlService } = c.get("container");
+
+  try {
+    const deleted = await crawlService.deleteHistory(userId, projectId);
+    return c.json({ data: { deleted } });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // POST / — Start a new crawl
 // ---------------------------------------------------------------------------
 
@@ -217,6 +235,83 @@ crawlRoutes.get("/:id/compare/:otherId", withOwnership("crawl"), async (c) => {
   } catch (error) {
     return handleServiceError(c, error);
   }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/ai-audit — AI-specific crawlability audit
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/:id/ai-audit", withOwnership("crawl"), async (c) => {
+  const db = c.get("db");
+  const crawlId = c.req.param("id");
+
+  const [scores, issuesWithUrls] = await Promise.all([
+    scoreQueries(db).listByJob(crawlId),
+    scoreQueries(db).getIssuesByJob(crawlId),
+  ]);
+
+  const totalPages = scores.length;
+  if (totalPages === 0) {
+    return c.json({
+      data: { checks: [], issueCount: 0, criticalCount: 0, pagesAudited: 0 },
+    });
+  }
+
+  const AI_ISSUE_CODES = [
+    "MISSING_LLMS_TXT",
+    "AI_CRAWLER_BLOCKED",
+    "NO_STRUCTURED_DATA",
+    "MISSING_SITEMAP",
+    "MISSING_CANONICAL",
+    "NOINDEX_SET",
+    "MISSING_OG_TAGS",
+    "MISSING_META_DESC",
+    "MISSING_TITLE",
+  ];
+
+  const aiIssues = issuesWithUrls.filter((i) =>
+    AI_ISSUE_CODES.includes(i.code),
+  );
+
+  function avg(field: (s: (typeof scores)[0]) => number | null) {
+    const sum = scores.reduce((acc, s) => acc + (field(s) ?? 0), 0);
+    return Math.round(sum / totalPages);
+  }
+
+  function status(score: number) {
+    if (score >= 80) return "pass";
+    if (score >= 50) return "warn";
+    return "fail";
+  }
+
+  const checks = [
+    { name: "llms.txt", score: avg((s) => s.llmsTxtScore), status: "" },
+    {
+      name: "Robots.txt AI Access",
+      score: avg((s) => s.robotsTxtScore),
+      status: "",
+    },
+    {
+      name: "Bot Crawlability",
+      score: avg((s) => s.botAccessScore),
+      status: "",
+    },
+    { name: "XML Sitemap", score: avg((s) => s.sitemapScore), status: "" },
+    {
+      name: "Structured Data",
+      score: avg((s) => s.schemaMarkupScore),
+      status: "",
+    },
+  ].map((c) => ({ ...c, status: status(c.score) }));
+
+  return c.json({
+    data: {
+      checks,
+      issueCount: aiIssues.length,
+      criticalCount: aiIssues.filter((i) => i.severity === "critical").length,
+      pagesAudited: totalPages,
+    },
+  });
 });
 
 // ---------------------------------------------------------------------------

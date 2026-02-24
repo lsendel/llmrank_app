@@ -9,6 +9,7 @@ export async function checkPerplexity(
   targetDomain: string,
   competitors: string[],
   apiKey: string,
+  locale?: { region: string; language: string },
 ): Promise<VisibilityCheckResult> {
   // Perplexity uses an OpenAI-compatible API
   const client = new OpenAI({
@@ -16,11 +17,20 @@ export async function checkPerplexity(
     baseURL: "https://api.perplexity.ai",
   });
 
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+  if (locale && (locale.region !== "us" || locale.language !== "en")) {
+    messages.push({
+      role: "system",
+      content: `Answer as if you are responding to a user in ${locale.region.toUpperCase()} who speaks ${locale.language}.`,
+    });
+  }
+  messages.push({ role: "user", content: query });
+
   const response = await withRetry(() =>
     withTimeout(
       client.chat.completions.create({
         model: "sonar",
-        messages: [{ role: "user", content: query }],
+        messages,
         max_tokens: 1024,
       }),
       REQUEST_TIMEOUT_MS,

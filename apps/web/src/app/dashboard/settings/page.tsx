@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GeneralSection } from "@/components/settings/general-section";
-import { BillingSection } from "@/components/settings/billing-section";
 import { BrandingSection } from "@/components/settings/branding-section";
 import { NotificationChannelsSection } from "@/components/settings/notification-channels-section";
 import { ApiTokensSection } from "@/components/settings/api-tokens-section";
@@ -78,7 +77,6 @@ export default function SettingsPage() {
       <Tabs defaultValue="general">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="api-tokens">API Tokens</TabsTrigger>
@@ -89,10 +87,6 @@ export default function SettingsPage() {
 
         <TabsContent value="general" className="space-y-8">
           <GeneralSection />
-        </TabsContent>
-
-        <TabsContent value="billing" className="space-y-8">
-          <BillingSection />
         </TabsContent>
 
         <TabsContent value="branding">

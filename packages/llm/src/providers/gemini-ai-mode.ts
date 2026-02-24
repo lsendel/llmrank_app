@@ -18,11 +18,16 @@ export async function checkGeminiAIMode(
   targetDomain: string,
   competitors: string[],
   apiKey: string,
+  locale?: { region: string; language: string },
 ): Promise<VisibilityCheckResult> {
   const genAI = new GoogleGenerativeAI(apiKey);
+  const localeContext =
+    locale && (locale.region !== "us" || locale.language !== "en")
+      ? `\n- Answer as if responding to a user in ${locale.region.toUpperCase()} who speaks ${locale.language}`
+      : "";
   const model = genAI.getGenerativeModel({
     model: LLM_MODELS.visibility.gemini_ai_mode,
-    systemInstruction: AI_MODE_SYSTEM_INSTRUCTION,
+    systemInstruction: AI_MODE_SYSTEM_INSTRUCTION + localeContext,
   });
 
   const result = await withRetry(() =>

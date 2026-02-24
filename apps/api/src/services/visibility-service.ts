@@ -1,5 +1,5 @@
 import { ERROR_CODES, canRunVisibilityChecks } from "@llm-boost/shared";
-import { VisibilityChecker } from "@llm-boost/llm";
+import { VisibilityChecker, analyzeBrandSentiment } from "@llm-boost/llm";
 import type {
   ProjectRepository,
   UserRepository,
@@ -28,6 +28,9 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
       providers: string[];
       competitors?: string[];
       apiKeys: Record<string, string | undefined>;
+      anthropicApiKey?: string;
+      region?: string;
+      language?: string;
     }) {
       const project = await deps.projects.getById(args.projectId);
       if (!project || project.userId !== args.userId) {
@@ -61,17 +64,46 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
           )
         : (args.competitors ?? []);
 
+      const locale =
+        args.region && args.language
+          ? { region: args.region, language: args.language }
+          : undefined;
+
       const results = await checker.checkAllProviders({
         query: args.query,
         targetDomain: project.domain,
         competitors: competitorDomains,
         providers: args.providers,
         apiKeys: args.apiKeys as Record<string, string>,
+        locale,
       });
 
+      // Run sentiment analysis in parallel for checks where brand is mentioned
+      const sentimentResults = await Promise.all(
+        results.map(async (result) => {
+          if (
+            result.brandMentioned &&
+            result.responseText &&
+            args.anthropicApiKey
+          ) {
+            try {
+              return await analyzeBrandSentiment(
+                args.anthropicApiKey,
+                result.responseText,
+                project.domain,
+              );
+            } catch {
+              return null;
+            }
+          }
+          return null;
+        }),
+      );
+
       const stored = await Promise.all(
-        results.map((result) =>
-          deps.visibility.create({
+        results.map((result, i) => {
+          const sentiment = sentimentResults[i];
+          return deps.visibility.create({
             projectId: project.id,
             llmProvider: result.provider as
               | "chatgpt"
@@ -84,22 +116,33 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
             responseText: result.responseText,
             brandMentioned: result.brandMentioned,
             urlCited: result.urlCited,
+            citedUrl: result.citedUrl,
             citationPosition: result.citationPosition,
             competitorMentions: result.competitorMentions,
-          }),
-        ),
+            ...(sentiment && {
+              sentiment: sentiment.sentiment,
+              brandDescription: sentiment.brandDescription,
+            }),
+            region: args.region ?? "us",
+            language: args.language ?? "en",
+          });
+        }),
       );
 
       return stored;
     },
 
-    async listForProject(userId: string, projectId: string) {
+    async listForProject(
+      userId: string,
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
       const project = await deps.projects.getById(projectId);
       if (!project || project.userId !== userId) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Project not found");
       }
-      return deps.visibility.listByProject(projectId);
+      return deps.visibility.listByProject(projectId, filters);
     },
 
     async getTrends(userId: string, projectId: string) {

@@ -258,6 +258,19 @@ export interface PageIssue {
   pageUrl?: string | null;
 }
 
+export interface AIAuditCheck {
+  name: string;
+  score: number;
+  status: "pass" | "warn" | "fail";
+}
+
+export interface AIAuditResult {
+  checks: AIAuditCheck[];
+  issueCount: number;
+  criticalCount: number;
+  pagesAudited: number;
+}
+
 export interface VisibilityCheck {
   id: string;
   projectId: string;
@@ -657,6 +670,77 @@ export interface VisibilityGap {
   }>;
 }
 
+export interface CitedPage {
+  citedUrl: string;
+  citationCount: number;
+  providers: string[];
+  avgPosition: number;
+  lastCited: string;
+}
+
+export interface BrandSentiment {
+  overallSentiment: "positive" | "neutral" | "negative" | "mixed" | null;
+  sentimentScore: number | null;
+  distribution: { positive: number; neutral: number; negative: number };
+  recentDescriptions: {
+    description: string;
+    provider: string;
+    checkedAt: string | Date;
+  }[];
+  providerBreakdown: Record<
+    string,
+    { positive: number; neutral: number; negative: number; total: number }
+  >;
+  sampleSize: number;
+}
+
+export interface BrandPerformance {
+  period: string;
+  yourBrand: {
+    mentionRate: number;
+    citationRate: number;
+    sovPercent: number;
+    trend: number;
+  };
+  competitors: {
+    domain: string;
+    mentionRate: number;
+    citationRate: number;
+    sovPercent: number;
+    trend: number;
+  }[];
+  topPrompts: {
+    query: string;
+    yourMentioned: boolean;
+    competitorsMentioned: string[];
+  }[];
+  weekOverWeek: {
+    mentionsDelta: number;
+    sovDelta: number;
+    citationsDelta: number;
+  };
+}
+
+export interface SourceOpportunity {
+  domain: string;
+  mentionCount: number;
+  queries: string[];
+}
+
+export interface AIPrompt {
+  id: string;
+  projectId: string;
+  prompt: string;
+  category: string | null;
+  estimatedVolume: number | null;
+  difficulty: number | null;
+  intent: string | null;
+  yourMentioned: boolean | null;
+  competitorsMentioned: unknown;
+  source: string;
+  discoveredAt: string;
+}
+
 export interface AIScoreTrend {
   current: {
     overall: number;
@@ -685,6 +769,8 @@ export interface AIScoreTrend {
     currentChecks: number;
     previousChecks: number;
     referringDomains: number;
+    estimatedMonthlyAudience: number;
+    audienceGrowth: number;
   };
 }
 
@@ -1349,6 +1435,14 @@ export const api = {
       );
     },
 
+    async deleteHistory(projectId?: string): Promise<{ deleted: number }> {
+      const qs = projectId ? `?projectId=${projectId}` : "";
+      const res = await apiClient.delete<ApiEnvelope<{ deleted: number }>>(
+        `/api/crawls/history${qs}`,
+      );
+      return res.data;
+    },
+
     async list(
       projectId: string,
       params?: { page?: number; limit?: number },
@@ -1369,6 +1463,13 @@ export const api = {
     async getInsights(crawlId: string): Promise<CrawlInsights> {
       const res = await apiClient.get<ApiEnvelope<CrawlInsights>>(
         `/api/crawls/${crawlId}/insights`,
+      );
+      return res.data;
+    },
+
+    async getAIAudit(crawlId: string): Promise<AIAuditResult> {
+      const res = await apiClient.get<ApiEnvelope<AIAuditResult>>(
+        `/api/crawls/${crawlId}/ai-audit`,
       );
       return res.data;
     },
@@ -1709,6 +1810,8 @@ export const api = {
       projectId: string;
       keywordIds: string[];
       providers: string[];
+      region?: string;
+      language?: string;
     }): Promise<VisibilityCheck[]> {
       const res = await apiClient.post<ApiEnvelope<VisibilityCheck[]>>(
         "/api/visibility/check",
@@ -1725,9 +1828,16 @@ export const api = {
       return res.data;
     },
 
-    async list(projectId: string): Promise<VisibilityCheck[]> {
+    async list(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<VisibilityCheck[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<VisibilityCheck[]>>(
-        `/api/visibility/${projectId}`,
+        `/api/visibility/${projectId}${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
@@ -1742,6 +1852,29 @@ export const api = {
     async getGaps(projectId: string): Promise<VisibilityGap[]> {
       const res = await apiClient.get<ApiEnvelope<VisibilityGap[]>>(
         `/api/visibility/${projectId}/gaps`,
+      );
+      return res.data;
+    },
+
+    async getCitedPages(projectId: string): Promise<CitedPage[]> {
+      const res = await apiClient.get<ApiEnvelope<CitedPage[]>>(
+        `/api/visibility/${projectId}/cited-pages`,
+      );
+      return res.data;
+    },
+
+    async getBrandPerformance(projectId: string): Promise<BrandPerformance> {
+      const res = await apiClient.get<ApiEnvelope<BrandPerformance>>(
+        `/api/visibility/${projectId}/brand-performance`,
+      );
+      return res.data;
+    },
+
+    async getSourceOpportunities(
+      projectId: string,
+    ): Promise<SourceOpportunity[]> {
+      const res = await apiClient.get<ApiEnvelope<SourceOpportunity[]>>(
+        `/api/visibility/${projectId}/source-opportunities`,
       );
       return res.data;
     },
@@ -1815,9 +1948,16 @@ export const api = {
       return res.data;
     },
 
-    async getScoreTrend(projectId: string): Promise<AIScoreTrend> {
+    async getScoreTrend(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<AIScoreTrend> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<AIScoreTrend>>(
-        `/api/visibility/${projectId}/ai-score/trend`,
+        `/api/visibility/${projectId}/ai-score/trend${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
@@ -1829,6 +1969,48 @@ export const api = {
         `/api/visibility/${projectId}/recommendations`,
       );
       return res.data;
+    },
+  },
+
+  // ── Brand ────────────────────────────────────────────────────
+  brand: {
+    async getSentiment(projectId: string): Promise<BrandSentiment> {
+      const res = await apiClient.get<ApiEnvelope<BrandSentiment>>(
+        `/api/brand/${projectId}/sentiment`,
+      );
+      return res.data;
+    },
+
+    async getSentimentHistory(projectId: string) {
+      const res = await apiClient.get<ApiEnvelope<unknown[]>>(
+        `/api/brand/${projectId}/sentiment/history`,
+      );
+      return res.data;
+    },
+  },
+
+  // ── Prompt Research ─────────────────────────────────────────────
+  promptResearch: {
+    async discover(projectId: string): Promise<AIPrompt[]> {
+      const res = await apiClient.post<ApiEnvelope<AIPrompt[]>>(
+        `/api/prompt-research/${projectId}/discover`,
+        {},
+      );
+      return res.data;
+    },
+
+    async list(
+      projectId: string,
+    ): Promise<{ data: AIPrompt[]; meta: { limit: number; plan: string } }> {
+      const res = await apiClient.get<{
+        data: AIPrompt[];
+        meta: { limit: number; plan: string };
+      }>(`/api/prompt-research/${projectId}`);
+      return res;
+    },
+
+    async remove(projectId: string, promptId: string): Promise<void> {
+      await apiClient.delete(`/api/prompt-research/${projectId}/${promptId}`);
     },
   },
 

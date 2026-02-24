@@ -12,6 +12,7 @@ export interface VisibilityCheckResult {
   responseText: string;
   brandMentioned: boolean;
   urlCited: boolean;
+  citedUrl: string | null;
   citationPosition: number | null;
   competitorMentions: {
     domain: string;
@@ -26,6 +27,7 @@ export interface VisibilityCheckOptions {
   competitors?: string[];
   providers: string[];
   apiKeys: Record<string, string>;
+  locale?: { region: string; language: string };
 }
 
 type ProviderCheckFn = (
@@ -33,6 +35,7 @@ type ProviderCheckFn = (
   targetDomain: string,
   competitors: string[],
   apiKey: string,
+  locale?: { region: string; language: string },
 ) => Promise<VisibilityCheckResult>;
 
 const PROVIDER_MAP: Record<string, ProviderCheckFn> = {
@@ -55,6 +58,7 @@ export class VisibilityChecker {
       competitors = [],
       providers,
       apiKeys,
+      locale,
     } = options;
 
     const checks = providers
@@ -65,6 +69,7 @@ export class VisibilityChecker {
           targetDomain,
           competitors,
           apiKeys[provider],
+          locale,
         ).catch(
           (err): VisibilityCheckResult => ({
             provider,
@@ -72,6 +77,7 @@ export class VisibilityChecker {
             responseText: `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
             brandMentioned: false,
             urlCited: false,
+            citedUrl: null,
             citationPosition: null,
             competitorMentions: competitors.map((domain) => ({
               domain,
@@ -93,7 +99,11 @@ export function analyzeResponse(
   competitors: string[],
 ): Pick<
   VisibilityCheckResult,
-  "brandMentioned" | "urlCited" | "citationPosition" | "competitorMentions"
+  | "brandMentioned"
+  | "urlCited"
+  | "citedUrl"
+  | "citationPosition"
+  | "competitorMentions"
 > {
   const text = responseText.toLowerCase();
   const domain = targetDomain
@@ -114,6 +124,19 @@ export function analyzeResponse(
     "i",
   );
   const urlCited = urlRegex.test(responseText);
+
+  // Extract the specific cited URL
+  let citedUrl: string | null = null;
+  if (urlCited) {
+    const extractRegex = new RegExp(
+      `https?:\\/\\/[^\\s)]*${escapeRegExp(domain)}[^\\s)]*`,
+      "i",
+    );
+    const urlMatch = responseText.match(extractRegex);
+    if (urlMatch) {
+      citedUrl = urlMatch[0].replace(/[.,;:!?]+$/, "");
+    }
+  }
 
   let citationPosition: number | null = null;
   const lines = responseText.split("\n").filter((l) => l.trim());
@@ -167,7 +190,13 @@ export function analyzeResponse(
     return { domain: comp, mentioned, position };
   });
 
-  return { brandMentioned, urlCited, citationPosition, competitorMentions };
+  return {
+    brandMentioned,
+    urlCited,
+    citedUrl,
+    citationPosition,
+    competitorMentions,
+  };
 }
 
 function escapeRegExp(string: string) {

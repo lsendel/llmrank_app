@@ -29,6 +29,7 @@ import { AiInsightCard } from "@/components/narrative/ai-insight-card";
 import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
 import { PlatformReadinessBadges } from "@/components/platform-readiness-badges";
 import { PlatformOpportunityCards } from "@/components/platform-opportunity-cards";
+import { AIAuditCard } from "@/components/visibility/ai-audit-card";
 import { IntegrationPromptBanner } from "@/components/integration-prompt-banner";
 import { ScoreTrendChart } from "@/components/charts/score-trend-chart";
 import { ProjectProgressCard } from "@/components/cards/project-progress-card";
@@ -309,6 +310,9 @@ export function OverviewTab({
       {latestCrawl?.id && (
         <AiInsightCard crawlJobId={latestCrawl.id} projectId={projectId} />
       )}
+
+      {/* AI Crawlability Audit */}
+      {latestCrawl?.id && <AIAuditCard crawlId={latestCrawl.id} />}
 
       {/* Score Trends */}
       <ScoreTrendChart projectId={projectId} />

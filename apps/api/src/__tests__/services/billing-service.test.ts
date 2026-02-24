@@ -237,7 +237,7 @@ describe("BillingService", () => {
   // ---- upgrade (checkout fallback) ----
 
   it("falls back to checkout when no active subscription", async () => {
-    billing.getActiveSubscription.mockResolvedValue(null);
+    billing.getActiveSubscription.mockResolvedValue(undefined);
 
     const service = createBillingService({ billing, users });
     const result = await service.upgrade({

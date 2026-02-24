@@ -56,6 +56,8 @@ import { pipelineRoutes } from "./routes/pipeline";
 import { trialRoutes } from "./routes/trial";
 import { appRoutes } from "./routes/app";
 import { marketingRoutes } from "./routes/marketing";
+import { brandPerformanceRoutes } from "./routes/brand-performance";
+import { promptResearchRoutes } from "./routes/prompt-research";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -231,6 +233,8 @@ app.route("/api/action-items", actionItemRoutes);
 app.route("/api/alerts", alertRoutes);
 app.route("/api/pipeline", pipelineRoutes);
 app.route("/api/trial", trialRoutes);
+app.route("/api/brand", brandPerformanceRoutes);
+app.route("/api/prompt-research", promptResearchRoutes);
 
 // HTMX app routes (server-rendered HTML pages)
 app.route("/app", appRoutes);

@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNotNull } from "drizzle-orm";
 import type { Database } from "../client";
 import { visibilityChecks, llmProviderEnum } from "../schema";
 
@@ -22,8 +22,13 @@ export function visibilityQueries(db: Database) {
       responseText?: string | null;
       brandMentioned?: boolean;
       urlCited?: boolean;
+      citedUrl?: string | null;
       citationPosition?: number | null;
       competitorMentions?: unknown;
+      sentiment?: string | null;
+      brandDescription?: string | null;
+      region?: string | null;
+      language?: string | null;
     }) {
       const [check] = await db
         .insert(visibilityChecks)
@@ -32,9 +37,19 @@ export function visibilityQueries(db: Database) {
       return check;
     },
 
-    async listByProject(projectId: string) {
+    async listByProject(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
+      const conditions = [eq(visibilityChecks.projectId, projectId)];
+      if (filters?.region) {
+        conditions.push(eq(visibilityChecks.region, filters.region));
+      }
+      if (filters?.language) {
+        conditions.push(eq(visibilityChecks.language, filters.language));
+      }
       return db.query.visibilityChecks.findMany({
-        where: eq(visibilityChecks.projectId, projectId),
+        where: and(...conditions),
         orderBy: [desc(visibilityChecks.checkedAt)],
         limit: 100,
       });
@@ -67,6 +82,74 @@ export function visibilityQueries(db: Database) {
     },
 
     /**
+     * Pages cited by AI platforms, grouped by URL with provider breakdown.
+     */
+    async getCitedPages(projectId: string) {
+      return db
+        .select({
+          citedUrl: visibilityChecks.citedUrl,
+          citationCount: sql<number>`count(*)::int`,
+          providers: sql<
+            string[]
+          >`array_agg(distinct ${visibilityChecks.llmProvider})`,
+          avgPosition: sql<number>`round(avg(${visibilityChecks.citationPosition})::numeric, 1)`,
+          lastCited: sql<string>`max(${visibilityChecks.checkedAt})::text`,
+        })
+        .from(visibilityChecks)
+        .where(
+          and(
+            eq(visibilityChecks.projectId, projectId),
+            eq(visibilityChecks.urlCited, true),
+            isNotNull(visibilityChecks.citedUrl),
+          ),
+        )
+        .groupBy(visibilityChecks.citedUrl)
+        .orderBy(desc(sql`count(*)`));
+    },
+
+    /**
+     * Competitor domains that appear in AI responses when user's brand is NOT mentioned.
+     */
+    async getSourceOpportunities(projectId: string) {
+      const checks = await db.query.visibilityChecks.findMany({
+        where: and(
+          eq(visibilityChecks.projectId, projectId),
+          eq(visibilityChecks.brandMentioned, false),
+        ),
+      });
+
+      const competitorData = new Map<
+        string,
+        { count: number; queries: Set<string> }
+      >();
+      for (const check of checks) {
+        const mentions = (check.competitorMentions ?? []) as Array<{
+          domain: string;
+          mentioned: boolean;
+        }>;
+        for (const m of mentions) {
+          if (m.mentioned) {
+            const existing = competitorData.get(m.domain) ?? {
+              count: 0,
+              queries: new Set<string>(),
+            };
+            existing.count++;
+            existing.queries.add(check.query);
+            competitorData.set(m.domain, existing);
+          }
+        }
+      }
+
+      return Array.from(competitorData.entries())
+        .map(([domain, data]) => ({
+          domain,
+          mentionCount: data.count,
+          queries: Array.from(data.queries),
+        }))
+        .sort((a, b) => b.mentionCount - a.mentionCount);
+    },
+
+    /**
      * Weekly aggregation of brand mention and citation rates per provider.
      * Returns rows sorted by week ascending for charting.
      */
@@ -95,6 +178,43 @@ export function visibilityQueries(db: Database) {
         citationRate: Number(r.citationRate),
         totalChecks: Number(r.totalChecks),
       }));
+    },
+
+    /**
+     * Get sentiment breakdown for a project: distribution + per-provider stats.
+     */
+    async getSentimentSummary(projectId: string) {
+      const checks = await db
+        .select({
+          sentiment: visibilityChecks.sentiment,
+          brandDescription: visibilityChecks.brandDescription,
+          llmProvider: visibilityChecks.llmProvider,
+          checkedAt: visibilityChecks.checkedAt,
+        })
+        .from(visibilityChecks)
+        .where(
+          and(
+            eq(visibilityChecks.projectId, projectId),
+            eq(visibilityChecks.brandMentioned, true),
+            isNotNull(visibilityChecks.sentiment),
+          ),
+        )
+        .orderBy(desc(visibilityChecks.checkedAt))
+        .limit(200);
+      return checks;
+    },
+
+    async countSince(projectId: string, since: Date) {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(visibilityChecks)
+        .where(
+          and(
+            eq(visibilityChecks.projectId, projectId),
+            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
+          ),
+        );
+      return row?.count ?? 0;
     },
   };
 }

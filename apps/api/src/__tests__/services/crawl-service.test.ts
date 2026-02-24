@@ -390,6 +390,7 @@ describe("CrawlService", () => {
           data: {},
           createdAt: new Date(),
           recommendation: null,
+          pageUrl: null,
         },
         {
           id: "i-2",
@@ -402,6 +403,7 @@ describe("CrawlService", () => {
           data: {},
           createdAt: new Date(),
           recommendation: null,
+          pageUrl: null,
         },
       ]);
       const service = createCrawlService({ crawls, projects, users, scores });
@@ -449,6 +451,7 @@ describe("CrawlService", () => {
           data: {},
           createdAt: new Date(),
           recommendation: null,
+          pageUrl: null,
         },
         {
           id: "i-2",
@@ -461,6 +464,7 @@ describe("CrawlService", () => {
           data: {},
           createdAt: new Date(),
           recommendation: null,
+          pageUrl: null,
         },
       ]);
       const service = createCrawlService({ crawls, projects, users, scores });

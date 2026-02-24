@@ -27,7 +27,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body).toHaveProperty("client_id");
     expect(body.client_id).toMatch(/^client_/);
     expect(body.client_name).toBe("Test App");
@@ -49,7 +49,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body).toHaveProperty("client_id");
     expect(body.redirect_uris).toEqual(["http://localhost:3000/callback"]);
   });
@@ -69,7 +69,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body).toHaveProperty("client_id");
     expect(body.redirect_uris).toEqual(["http://127.0.0.1:8080/callback"]);
   });
@@ -89,7 +89,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.error).toBe("invalid_redirect_uri");
     expect(body.error_description).toMatch(/HTTPS or localhost/i);
   });
@@ -109,7 +109,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.error).toBe("invalid_redirect_uri");
   });
 
@@ -127,7 +127,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body).toHaveProperty("client_id");
     expect(body.redirect_uris).toEqual([]);
   });
@@ -146,7 +146,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.client_name).toBe("MCP Client");
   });
 
@@ -164,7 +164,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.grant_types).toEqual(["authorization_code", "refresh_token"]);
     expect(body.response_types).toEqual(["code"]);
     expect(body.token_endpoint_auth_method).toBe("none");
@@ -189,7 +189,7 @@ describe("OAuth Dynamic Client Registration", () => {
     const after = Math.floor(Date.now() / 1000);
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body).toHaveProperty("client_id_issued_at");
     expect(body.client_id_issued_at).toBeGreaterThanOrEqual(before);
     expect(body.client_id_issued_at).toBeLessThanOrEqual(after);
@@ -210,7 +210,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
 
     // Verify client is stored in KV
     const stored = await env.KV.get(`oauth:client:${body.client_id}`);
@@ -237,8 +237,8 @@ describe("OAuth Dynamic Client Registration", () => {
       );
 
     const [res1, res2] = await Promise.all([makeRequest(), makeRequest()]);
-    const body1 = await res1.json();
-    const body2 = await res2.json();
+    const body1 = (await res1.json()) as any;
+    const body2 = (await res2.json()) as any;
 
     expect(body1.client_id).not.toBe(body2.client_id);
   });
@@ -262,7 +262,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.redirect_uris).toHaveLength(3);
   });
 
@@ -284,7 +284,7 @@ describe("OAuth Dynamic Client Registration", () => {
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as any;
     expect(body.error).toBe("invalid_redirect_uri");
   });
 });

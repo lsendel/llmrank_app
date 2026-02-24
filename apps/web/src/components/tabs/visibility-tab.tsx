@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +38,11 @@ import {
 } from "@/components/ui/select";
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
 import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
+import { CitedPagesTable } from "@/components/visibility/cited-pages-table";
+import { BrandSentimentCard } from "@/components/visibility/brand-sentiment-card";
+import { BrandPerformanceDashboard } from "@/components/visibility/brand-performance-dashboard";
+import { SourceOpportunitiesTable } from "@/components/visibility/source-opportunities-table";
+import { PromptResearchPanel } from "@/components/visibility/prompt-research-panel";
 import { CompetitorComparison } from "@/components/visibility/competitor-comparison";
 import { AIVisibilityScoreHeader } from "@/components/visibility/ai-visibility-score-header";
 import { RecommendationsCard } from "@/components/visibility/recommendations-card";
@@ -74,6 +85,41 @@ const FREQUENCY_OPTIONS = [
   { value: "monthly", label: "Monthly", description: "1st of each month" },
 ] as const;
 
+const REGIONS = [
+  { value: "all", label: "Worldwide" },
+  { value: "us", label: "US" },
+  { value: "gb", label: "UK" },
+  { value: "de", label: "DE" },
+  { value: "fr", label: "FR" },
+  { value: "es", label: "ES" },
+  { value: "br", label: "BR" },
+  { value: "jp", label: "JP" },
+  { value: "au", label: "AU" },
+  { value: "ca", label: "CA" },
+  { value: "in", label: "IN" },
+  { value: "it", label: "IT" },
+  { value: "nl", label: "NL" },
+  { value: "se", label: "SE" },
+  { value: "kr", label: "KR" },
+] as const;
+
+const REGION_LANGUAGES: Record<string, string> = {
+  us: "en",
+  gb: "en",
+  de: "de",
+  fr: "fr",
+  es: "es",
+  br: "pt",
+  jp: "ja",
+  au: "en",
+  ca: "en",
+  in: "en",
+  it: "it",
+  nl: "nl",
+  se: "sv",
+  kr: "ko",
+};
+
 export default function VisibilityTab({
   projectId,
   domain: _domain,
@@ -85,7 +131,9 @@ export default function VisibilityTab({
 }) {
   const { withAuth } = useApi();
   const { toast } = useToast();
-  const { isFree } = usePlan();
+  const { isFree, isPro, isAgency } = usePlan();
+  const canFilterRegion = isPro || isAgency;
+  const [selectedRegion, setSelectedRegion] = useState("all");
   const [selectedKeywordIds, setSelectedKeywordIds] = useState<string[]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
@@ -111,10 +159,23 @@ export default function VisibilityTab({
   const [schedulesLoaded, setSchedulesLoaded] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
-  // Load history on mount
+  // Compute region/language filter for API calls
+  const regionFilter = useMemo(
+    () =>
+      selectedRegion !== "all" && canFilterRegion
+        ? {
+            region: selectedRegion,
+            language: REGION_LANGUAGES[selectedRegion] ?? "en",
+          }
+        : undefined,
+    [selectedRegion, canFilterRegion],
+  );
+
+  // Load history on mount and when region changes
   useEffect(() => {
+    setHistoryLoaded(false);
     withAuth(async () => {
-      const data = await api.visibility.list(projectId);
+      const data = await api.visibility.list(projectId, regionFilter);
       setHistory(data);
     })
       .catch((err: unknown) => {
@@ -128,7 +189,7 @@ export default function VisibilityTab({
         });
       })
       .finally(() => setHistoryLoaded(true));
-  }, [withAuth, projectId, toast]);
+  }, [withAuth, projectId, toast, regionFilter]);
 
   // Load schedules on mount
   useEffect(() => {
@@ -178,11 +239,15 @@ export default function VisibilityTab({
           projectId,
           keywordIds: realIds,
           providers: selectedProviders,
+          ...(regionFilter && {
+            region: regionFilter.region,
+            language: regionFilter.language,
+          }),
         });
         setResults(data);
       });
 
-      const updated = await api.visibility.list(projectId);
+      const updated = await api.visibility.list(projectId, regionFilter);
       setHistory(updated);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -263,8 +328,50 @@ export default function VisibilityTab({
 
   return (
     <div className="space-y-6">
+      {/* Region Filter (Pro+) */}
+      <div className="flex items-center justify-between">
+        <div />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Region:</span>
+          <Select
+            value={selectedRegion}
+            onValueChange={(v) => {
+              if (!canFilterRegion && v !== "all") {
+                toast({
+                  title: "Pro plan required",
+                  description:
+                    "Regional filtering is available on Pro and Agency plans.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setSelectedRegion(v);
+            }}
+          >
+            <SelectTrigger className="h-8 w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {REGIONS.map((r) => (
+                <SelectItem
+                  key={r.value}
+                  value={r.value}
+                  disabled={r.value !== "all" && !canFilterRegion}
+                >
+                  {r.label}
+                  {r.value !== "all" && !canFilterRegion && " (Pro)"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* AI Visibility Score Header */}
       <AIVisibilityScoreHeader projectId={projectId} />
+
+      {/* Brand Performance Dashboard (Starter+) */}
+      {!isFree && <BrandPerformanceDashboard projectId={projectId} />}
 
       {isFree && (
         <UpgradePrompt
@@ -283,6 +390,12 @@ export default function VisibilityTab({
 
       {/* Share of Voice Chart */}
       <ShareOfVoiceChart projectId={projectId} />
+
+      {/* Cited Pages */}
+      <CitedPagesTable projectId={projectId} />
+
+      {/* Brand Perception (Starter+) */}
+      {!isFree && <BrandSentimentCard projectId={projectId} />}
 
       {/* Competitor Comparison */}
       {history.length > 0 && competitors && (
@@ -464,6 +577,12 @@ export default function VisibilityTab({
           </CardContent>
         </Card>
       )}
+
+      {/* Prompt Research (Starter+) */}
+      <PromptResearchPanel projectId={projectId} />
+
+      {/* Source Opportunities (Pro+) */}
+      <SourceOpportunitiesTable projectId={projectId} />
     </div>
   );
 }
