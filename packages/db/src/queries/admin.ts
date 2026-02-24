@@ -19,6 +19,8 @@ import {
   outboxEvents,
   projects,
   adminAuditLogs,
+  blockedDomains,
+  adminSettings,
 } from "../schema";
 
 const PLAN_PRICE_CENTS: Record<string, number> = {
@@ -351,6 +353,74 @@ export function adminQueries(db: Database) {
         targetId: args.targetId,
         reason: args.reason,
       });
+    },
+
+    // --- Blocked Domains ---
+
+    async listBlockedDomains() {
+      return db.select().from(blockedDomains).orderBy(blockedDomains.createdAt);
+    },
+
+    async isBlocked(domain: string): Promise<boolean> {
+      const rows = await db
+        .select({ id: blockedDomains.id })
+        .from(blockedDomains)
+        .where(eq(blockedDomains.domain, domain.toLowerCase()))
+        .limit(1);
+      return rows.length > 0;
+    },
+
+    async addBlockedDomain(
+      domain: string,
+      reason: string | null,
+      blockedBy: string,
+    ) {
+      const [row] = await db
+        .insert(blockedDomains)
+        .values({ domain: domain.toLowerCase(), reason, blockedBy })
+        .returning();
+      return row;
+    },
+
+    async removeBlockedDomain(id: string) {
+      const [row] = await db
+        .delete(blockedDomains)
+        .where(eq(blockedDomains.id, id))
+        .returning();
+      return row;
+    },
+
+    // --- Admin Settings ---
+
+    async getSetting(key: string) {
+      const rows = await db
+        .select()
+        .from(adminSettings)
+        .where(eq(adminSettings.key, key))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+
+    async setSetting(key: string, value: unknown, updatedBy: string) {
+      const [row] = await db
+        .insert(adminSettings)
+        .values({ key, value, updatedBy, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: adminSettings.key,
+          set: { value, updatedBy, updatedAt: new Date() },
+        })
+        .returning();
+      return row;
+    },
+
+    async isHttpFallbackEnabled(): Promise<boolean> {
+      const rows = await db
+        .select()
+        .from(adminSettings)
+        .where(eq(adminSettings.key, "http_fallback_enabled"))
+        .limit(1);
+      const setting = rows[0] ?? null;
+      return setting?.value === true;
     },
   };
 }

@@ -25,6 +25,7 @@ import {
   scoreQueries,
   contentFixQueries,
   crawlQueries,
+  adminQueries,
 } from "@llm-boost/db";
 
 export const projectRoutes = new Hono<AppEnv>();
@@ -89,6 +90,21 @@ projectRoutes.post("/", async (c) => {
         },
       },
       422,
+    );
+  }
+
+  // Blocklist check
+  const adminQ = adminQueries(c.get("db"));
+  const blocked = await adminQ.isBlocked(parsed.data.domain);
+  if (blocked) {
+    return c.json(
+      {
+        error: {
+          code: "DOMAIN_BLOCKED",
+          message: "This domain cannot be crawled",
+        },
+      },
+      403,
     );
   }
 

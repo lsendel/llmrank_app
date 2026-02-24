@@ -13,6 +13,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api";
+import { normalizeDomain } from "@llm-boost/shared";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -39,14 +40,8 @@ export default function NewProjectPage() {
     if (!domain.trim()) {
       newErrors.domain = "Domain is required.";
     } else {
-      // Validate URL format (auto-prepend https:// like the schema does)
-      const normalized =
-        domain.startsWith("http://") || domain.startsWith("https://")
-          ? domain
-          : `https://${domain}`;
-      try {
-        new URL(normalized);
-      } catch {
+      const normalized = normalizeDomain(domain);
+      if (!normalized) {
         newErrors.domain = "Please enter a valid domain (e.g. example.com).";
       }
     }
@@ -113,13 +108,14 @@ export default function NewProjectPage() {
                 placeholder="example.com"
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
+                onBlur={() => setDomain(normalizeDomain(domain))}
               />
               {errors.domain && (
                 <p className="text-sm text-destructive">{errors.domain}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Enter the root domain to audit. https:// will be added
-                automatically if omitted.
+                Enter the root domain to audit. Protocol and www are stripped
+                automatically.
               </p>
             </div>
 

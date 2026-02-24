@@ -5,6 +5,7 @@ import {
   PLATFORM_REQUIREMENTS,
   aggregatePageScores,
   CrawlStatus,
+  normalizeDomain,
   type CrawlJobPayload,
   type LLMPlatformId,
 } from "@llm-boost/shared";
@@ -539,6 +540,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
 export function buildCrawlConfig(
   project: { domain: string; settings: unknown },
   plan: keyof typeof PLAN_LIMITS,
+  httpFallbackGlobalEnabled = false,
 ) {
   const limits = PLAN_LIMITS[plan];
   const settings = (project.settings as Record<string, unknown>) ?? {};
@@ -551,8 +553,18 @@ export function buildCrawlConfig(
     limits.maxCrawlDepth,
   );
 
+  // Always use HTTPS as seed URL
+  const domain = normalizeDomain(project.domain);
+  const seedUrl = `https://${domain}`;
+
+  // HTTP fallback: only if global toggle is on AND project opted in AND not free plan
+  const allowHttpFallback =
+    httpFallbackGlobalEnabled &&
+    plan !== "free" &&
+    settings.allowHttpFallback === true;
+
   return {
-    seed_urls: [project.domain],
+    seed_urls: [seedUrl],
     max_pages: maxPages,
     max_depth: maxDepth,
     respect_robots: !(settings.ignoreRobots as boolean),
@@ -564,6 +576,7 @@ export function buildCrawlConfig(
     rate_limit_ms: 1000,
     timeout_s: 30,
     custom_extractors: [],
+    allow_http_fallback: allowHttpFallback,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ interface CrawlSettingsFormProps {
   initialSettings?: {
     ignoreRobots?: boolean;
     schedule?: CrawlSchedule;
+    allowHttpFallback?: boolean;
   };
 }
 
@@ -77,13 +78,26 @@ export function CrawlSettingsForm({
   const [schedule, setSchedule] = useState<CrawlSchedule>(
     initialSettings?.schedule ?? "manual",
   );
+  const [allowHttpFallback, setAllowHttpFallback] = useState(
+    initialSettings?.allowHttpFallback ?? false,
+  );
+  const [httpFallbackGlobal, setHttpFallbackGlobal] = useState(false);
+
+  useEffect(() => {
+    if (!isFree) {
+      api.public
+        .isHttpFallbackEnabled()
+        .then((enabled) => setHttpFallbackGlobal(enabled))
+        .catch(() => {});
+    }
+  }, [isFree]);
 
   async function handleSave() {
     setLoading(true);
     try {
       await withAuth(() =>
         api.projects.update(projectId, {
-          settings: { ignoreRobots, schedule },
+          settings: { ignoreRobots, schedule, allowHttpFallback },
         }),
       );
     } catch (err) {
@@ -150,6 +164,26 @@ export function CrawlSettingsForm({
             </p>
           </div>
         </div>
+        {httpFallbackGlobal && !isFree && (
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="allowHttpFallback"
+              checked={allowHttpFallback}
+              onChange={(e) => setAllowHttpFallback(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="allowHttpFallback" className="cursor-pointer">
+                Allow HTTP fallback
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Try HTTP if HTTPS connection fails during crawling. Only
+                recommended for sites that do not support HTTPS.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={loading}>
             {loading ? "Saving..." : "Save Settings"}

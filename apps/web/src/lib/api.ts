@@ -1,3 +1,5 @@
+import { normalizeDomain } from "@llm-boost/shared";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 
 // ─── Error handling ─────────────────────────────────────────────────
@@ -59,6 +61,7 @@ export interface Project {
     maxDepth: number;
     schedule: "manual" | "daily" | "weekly" | "monthly";
     ignoreRobots?: boolean;
+    allowHttpFallback?: boolean;
   };
   branding?: {
     logoUrl?: string;
@@ -80,6 +83,7 @@ export interface UpdateProjectInput {
     maxDepth?: number;
     schedule?: "manual" | "daily" | "weekly" | "monthly";
     ignoreRobots?: boolean;
+    allowHttpFallback?: boolean;
   };
   branding?: {
     logoUrl?: string;
@@ -482,6 +486,14 @@ export interface Promo {
   timesRedeemed: number;
   expiresAt: string | null;
   active: boolean;
+  createdAt: string;
+}
+
+export interface BlockedDomain {
+  id: string;
+  domain: string;
+  reason: string | null;
+  blockedBy: string;
   createdAt: string;
 }
 
@@ -1785,6 +1797,46 @@ export const api = {
         promoId,
       });
     },
+
+    async getBlockedDomains(): Promise<BlockedDomain[]> {
+      const res = await apiClient.get<ApiEnvelope<BlockedDomain[]>>(
+        "/api/admin/blocked-domains",
+      );
+      return res.data;
+    },
+
+    async addBlockedDomain(
+      domain: string,
+      reason?: string,
+    ): Promise<BlockedDomain> {
+      const res = await apiClient.post<ApiEnvelope<BlockedDomain>>(
+        "/api/admin/blocked-domains",
+        { domain, reason },
+      );
+      return res.data;
+    },
+
+    async removeBlockedDomain(id: string): Promise<BlockedDomain> {
+      const res = await apiClient.delete<ApiEnvelope<BlockedDomain>>(
+        `/api/admin/blocked-domains/${id}`,
+      );
+      return res.data;
+    },
+
+    async getSettings(): Promise<{ http_fallback_enabled: boolean }> {
+      const res = await apiClient.get<
+        ApiEnvelope<{ http_fallback_enabled: boolean }>
+      >("/api/admin/settings");
+      return res.data;
+    },
+
+    async updateSetting(key: string, value: unknown) {
+      const res = await apiClient.put<ApiEnvelope<unknown>>(
+        `/api/admin/settings/${key}`,
+        { value },
+      );
+      return res.data;
+    },
   },
 
   // ── Scores ──────────────────────────────────────────────────────
@@ -2372,9 +2424,10 @@ export const api = {
     async scan(
       url: string,
     ): Promise<PublicScanResult & { scanResultId?: string }> {
+      const domain = normalizeDomain(url);
       const res = await apiClient.post<
         ApiEnvelope<PublicScanResult & { scanResultId?: string }>
-      >("/api/public/scan", { url });
+      >("/api/public/scan", { url: domain });
       return res.data;
     },
 
@@ -2426,6 +2479,13 @@ export const api = {
         >
       >("/api/public/leaderboard");
       return res.data;
+    },
+
+    async isHttpFallbackEnabled(): Promise<boolean> {
+      const res = await apiClient.get<{ enabled: boolean }>(
+        "/api/public/settings/http-fallback",
+      );
+      return res.enabled;
     },
   },
 

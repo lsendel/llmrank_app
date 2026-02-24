@@ -52,8 +52,10 @@ import {
   type CrawlJobSummary,
   type OutboxEventSummary,
   type Promo,
+  type BlockedDomain,
 } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
+import { normalizeDomain } from "@llm-boost/shared";
 
 interface TrendPoint {
   timestamp: number;
@@ -149,6 +151,60 @@ export default function AdminPage() {
     expiresAt: "",
   });
   const [creatingPromo, setCreatingPromo] = useState(false);
+
+  // Blocked domains state
+  const [blockedDomains, setBlockedDomains] = useState<BlockedDomain[]>([]);
+  const [newBlockDomain, setNewBlockDomain] = useState("");
+  const [newBlockReason, setNewBlockReason] = useState("");
+  const [httpFallbackEnabled, setHttpFallbackEnabled] = useState(false);
+
+  useEffect(() => {
+    api.admin
+      .getBlockedDomains()
+      .then((domains) => setBlockedDomains(domains))
+      .catch(() => {});
+    api.admin
+      .getSettings()
+      .then((settings) =>
+        setHttpFallbackEnabled(settings.http_fallback_enabled),
+      )
+      .catch(() => {});
+  }, []);
+
+  const handleAddBlocked = async () => {
+    const domain = normalizeDomain(newBlockDomain);
+    if (!domain) return;
+    try {
+      const result = await api.admin.addBlockedDomain(
+        domain,
+        newBlockReason || undefined,
+      );
+      setBlockedDomains((prev) => [...prev, result]);
+      setNewBlockDomain("");
+      setNewBlockReason("");
+    } catch (error) {
+      console.error("Failed to add blocked domain:", error);
+    }
+  };
+
+  const handleRemoveBlocked = async (id: string) => {
+    try {
+      await api.admin.removeBlockedDomain(id);
+      setBlockedDomains((prev) => prev.filter((d) => d.id !== id));
+    } catch (error) {
+      console.error("Failed to remove blocked domain:", error);
+    }
+  };
+
+  const handleToggleHttpFallback = async () => {
+    const newValue = !httpFallbackEnabled;
+    try {
+      await api.admin.updateSetting("http_fallback_enabled", newValue);
+      setHttpFallbackEnabled(newValue);
+    } catch (error) {
+      console.error("Failed to update HTTP fallback setting:", error);
+    }
+  };
 
   async function handleRetryJob(jobId: string) {
     setActionTarget(`job-retry-${jobId}`);
@@ -758,6 +814,84 @@ export default function AdminPage() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Admin Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={httpFallbackEnabled}
+              onChange={handleToggleHttpFallback}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <div>
+              <span className="font-medium">Allow HTTP Fallback</span>
+              <p className="text-xs text-muted-foreground">
+                When enabled, paid plan users can opt in to HTTP fallback if
+                HTTPS connection fails during crawling.
+              </p>
+            </div>
+          </label>
+        </CardContent>
+      </Card>
+
+      {/* Blocked Domains */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Blocked Domains</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 mb-4">
+            <Input
+              placeholder="domain.com"
+              value={newBlockDomain}
+              onChange={(e) => setNewBlockDomain(e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              placeholder="Reason (optional)"
+              value={newBlockReason}
+              onChange={(e) => setNewBlockReason(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleAddBlocked} size="sm">
+              <Plus className="mr-1 h-3 w-3" /> Block
+            </Button>
+          </div>
+          {blockedDomains.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No domains blocked.</p>
+          ) : (
+            <div className="space-y-2">
+              {blockedDomains.map((bd) => (
+                <div
+                  key={bd.id}
+                  className="flex items-center justify-between rounded-md border p-2 text-sm"
+                >
+                  <div>
+                    <span className="font-medium">{bd.domain}</span>
+                    {bd.reason && (
+                      <span className="ml-2 text-muted-foreground">
+                        - {bd.reason}
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveBlocked(bd.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>

@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
+import { normalizeDomain } from "@llm-boost/shared";
 import { useProject } from "@/hooks/use-project";
 import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
@@ -274,7 +275,7 @@ export default function ProjectPage() {
               {project.name}
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {project.domain}
+              {normalizeDomain(project.domain)}
             </p>
           </div>
           <div className="flex items-center gap-3">
