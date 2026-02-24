@@ -54,8 +54,10 @@ export function createAuth(env: Bindings) {
     advanced: {
       generateId: () => crypto.randomUUID(),
       crossSubDomainCookies: {
-        enabled: true,
-        domain: "llmrank.app",
+        enabled: !env.APP_BASE_URL.includes("localhost"),
+        domain: env.APP_BASE_URL.includes("localhost")
+          ? undefined
+          : "llmrank.app",
       },
     },
   });

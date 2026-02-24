@@ -24,8 +24,8 @@ export function useAuth() {
     isLoaded: !isPending,
     isSignedIn: !!session?.user,
     signOut: async () => {
-      await betterSignOut();
-      window.location.href = "/sign-in";
+      await betterSignOut().catch(() => {});
+      window.location.href = "/sign-in?clear_auth=1";
     },
   };
 }
@@ -97,8 +97,8 @@ export function UserButton() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async () => {
-            await betterSignOut();
-            window.location.href = "/sign-in";
+            await betterSignOut().catch(() => {});
+            window.location.href = "/sign-in?clear_auth=1";
           }}
         >
           <LogOut className="mr-2 h-4 w-4" />

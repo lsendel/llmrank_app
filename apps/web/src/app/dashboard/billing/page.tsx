@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -127,7 +127,7 @@ export default function BillingPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  const { data: billing } = useApiSWR<BillingInfo>(
+  const { data: billing, mutate: mutateBilling } = useApiSWR<BillingInfo>(
     "billing-info",
     useCallback(() => api.billing.getInfo(), []),
   );
@@ -152,13 +152,47 @@ export default function BillingPage() {
   const [promoValid, setPromoValid] = useState<PromoInfo | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [validatingPromo, setValidatingPromo] = useState(false);
-  const [successBanner, setSuccessBanner] = useState<string | null>(() => {
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [verifyingUpgrade, setVerifyingUpgrade] = useState(false);
+
+  useEffect(() => {
     if (searchParams.get("upgraded") === "true") {
+      setVerifyingUpgrade(true);
       window.history.replaceState({}, "", "/dashboard/billing");
-      return "Your plan has been upgraded successfully!";
+
+      let attempts = 0;
+      let timeoutId: NodeJS.Timeout;
+
+      const poll = async () => {
+        try {
+          const freshBilling = await api.billing.getInfo();
+          if (freshBilling.plan !== "free" || attempts >= 5) {
+            await mutateBilling();
+            await mutateSubscription();
+            setVerifyingUpgrade(false);
+            setSuccessBanner("Your plan has been upgraded successfully!");
+            return;
+          }
+        } catch {
+          // ignore error and let it retry
+        }
+
+        attempts++;
+        if (attempts < 5) {
+          timeoutId = setTimeout(poll, 2000);
+        } else {
+          setVerifyingUpgrade(false);
+          setSuccessBanner(
+            "Your payment was received. It may take a minute for your new plan to show up.",
+          );
+        }
+      };
+
+      timeoutId = setTimeout(poll, 1500); // start polling after 1.5s
+
+      return () => clearTimeout(timeoutId);
     }
-    return null;
-  });
+  }, [searchParams, mutateBilling, mutateSubscription]);
 
   const currentTier = billing?.plan ?? "free";
   const currentPlanName = planNameMap[currentTier] ?? "Free";
@@ -295,6 +329,18 @@ export default function BillingPage() {
       });
       setUpgrading(null);
     }
+  }
+
+  if (verifyingUpgrade) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <h2 className="text-xl font-semibold">Verifying your upgrade...</h2>
+        <p className="text-muted-foreground text-center">
+          Please wait a moment while we confirm your payment with Stripe.
+        </p>
+      </div>
+    );
   }
 
   return (

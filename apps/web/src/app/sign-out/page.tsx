@@ -5,8 +5,8 @@ import { signOut } from "@/lib/auth-client";
 
 export default function SignOutPage() {
   useEffect(() => {
-    signOut().then(() => {
-      window.location.href = "/sign-in";
+    signOut().finally(() => {
+      window.location.href = "/sign-in?clear_auth=1";
     });
   }, []);
 

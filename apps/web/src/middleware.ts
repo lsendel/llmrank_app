@@ -8,6 +8,26 @@ const ALWAYS_ALLOWED = ["/sign-out"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Manual fallback to forcefully clear cookies if parameter is present
+  if (request.nextUrl.searchParams.get("clear_auth") === "1") {
+    const url = new URL(request.url);
+    url.searchParams.delete("clear_auth");
+    const response = NextResponse.redirect(url);
+    const domain = request.nextUrl.hostname.includes("localhost")
+      ? undefined
+      : "llmrank.app";
+
+    response.cookies.set("better-auth.session_token", "", {
+      maxAge: 0,
+      domain,
+    });
+    response.cookies.set("__Secure-better-auth.session_token", "", {
+      maxAge: 0,
+      domain,
+    });
+    return response;
+  }
+
   // Check for Better Auth session cookie
   const sessionCookie =
     request.cookies.get("better-auth.session_token") ??
