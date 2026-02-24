@@ -1,3 +1,5 @@
+import { normalizeDomain } from "@llm-boost/shared";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 
 // ─── Error handling ─────────────────────────────────────────────────
@@ -2420,9 +2422,10 @@ export const api = {
     async scan(
       url: string,
     ): Promise<PublicScanResult & { scanResultId?: string }> {
+      const domain = normalizeDomain(url);
       const res = await apiClient.post<
         ApiEnvelope<PublicScanResult & { scanResultId?: string }>
-      >("/api/public/scan", { url });
+      >("/api/public/scan", { url: domain });
       return res.data;
     },
 
