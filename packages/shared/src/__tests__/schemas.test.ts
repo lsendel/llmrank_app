@@ -12,25 +12,47 @@ import {
 } from "../index";
 
 describe("CreateProjectSchema", () => {
-  it("accepts valid project with domain auto-prefix", () => {
+  it("normalizes domain by stripping protocol and www", () => {
+    const result = CreateProjectSchema.parse({
+      name: "My Site",
+      domain: "https://www.example.com/",
+    });
+    expect(result.domain).toBe("example.com");
+  });
+
+  it("normalizes bare domain input", () => {
     const result = CreateProjectSchema.parse({
       name: "My Site",
       domain: "example.com",
     });
-    expect(result.domain).toBe("https://example.com");
+    expect(result.domain).toBe("example.com");
   });
 
-  it("accepts domain with https", () => {
+  it("preserves subdomains", () => {
+    const result = CreateProjectSchema.parse({
+      name: "My Blog",
+      domain: "https://blog.example.com",
+    });
+    expect(result.domain).toBe("blog.example.com");
+  });
+
+  it("lowercases domain", () => {
     const result = CreateProjectSchema.parse({
       name: "My Site",
-      domain: "https://example.com",
+      domain: "WWW.Example.COM",
     });
-    expect(result.domain).toBe("https://example.com");
+    expect(result.domain).toBe("example.com");
   });
 
   it("rejects empty name", () => {
     expect(() =>
       CreateProjectSchema.parse({ name: "", domain: "example.com" }),
+    ).toThrow();
+  });
+
+  it("rejects empty domain", () => {
+    expect(() =>
+      CreateProjectSchema.parse({ name: "Test", domain: "" }),
     ).toThrow();
   });
 });

@@ -1,17 +1,13 @@
 import { z } from "zod";
+import { normalizeDomain } from "../utils/normalize-domain";
 
 export const CreateProjectSchema = z.object({
   name: z.string().min(1).max(100),
   domain: z
     .string()
     .min(1)
-    .transform((d) => {
-      if (!d.startsWith("http://") && !d.startsWith("https://")) {
-        return `https://${d}`;
-      }
-      return d;
-    })
-    .pipe(z.string().url()),
+    .transform((d) => normalizeDomain(d))
+    .pipe(z.string().min(1, "Please enter a valid domain")),
 });
 
 export const UpdateProjectSchema = z.object({
@@ -22,6 +18,7 @@ export const UpdateProjectSchema = z.object({
       maxDepth: z.number().int().min(1).max(10).optional(),
       schedule: z.enum(["manual", "daily", "weekly", "monthly"]).optional(),
       ignoreRobots: z.boolean().optional(),
+      allowHttpFallback: z.boolean().optional(),
     })
     .optional(),
   branding: z
