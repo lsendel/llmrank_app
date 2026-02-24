@@ -9,7 +9,13 @@ import { createMonitoringService } from "../services/monitoring-service";
 import { createNotificationService } from "../services/notification-service";
 import { handleServiceError } from "../services/errors";
 import { StripeGateway } from "@llm-boost/billing";
-import { promoQueries, billingQueries, apiTokenQueries } from "@llm-boost/db";
+import {
+  promoQueries,
+  billingQueries,
+  apiTokenQueries,
+  adminQueries,
+} from "@llm-boost/db";
+import { normalizeDomain } from "@llm-boost/shared";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -488,4 +494,100 @@ adminRoutes.post("/customers/:id/apply-promo", async (c) => {
   } catch (error) {
     return handleServiceError(c, error);
   }
+});
+
+// ─── GET /blocked-domains — List all blocked domains ─────────────
+
+adminRoutes.get("/blocked-domains", async (c) => {
+  const db = c.get("db");
+  const queries = adminQueries(db);
+  const domains = await queries.listBlockedDomains();
+  return c.json({ data: domains });
+});
+
+// ─── POST /blocked-domains — Block a domain ─────────────────────
+
+adminRoutes.post("/blocked-domains", async (c) => {
+  const db = c.get("db");
+  const user = c.get("userId");
+  const body = await c.req.json<{ domain?: string; reason?: string }>();
+
+  const domain = normalizeDomain(body.domain ?? "");
+  if (!domain) {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Domain is required" } },
+      422,
+    );
+  }
+
+  const queries = adminQueries(db);
+  const existing = await queries.isBlocked(domain);
+  if (existing) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Domain is already blocked",
+        },
+      },
+      409,
+    );
+  }
+
+  const row = await queries.addBlockedDomain(domain, body.reason ?? null, user);
+  return c.json({ data: row }, 201);
+});
+
+// ─── DELETE /blocked-domains/:id — Unblock a domain ──────────────
+
+adminRoutes.delete("/blocked-domains/:id", async (c) => {
+  const db = c.get("db");
+  const queries = adminQueries(db);
+  const row = await queries.removeBlockedDomain(c.req.param("id"));
+  if (!row) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Blocked domain not found" } },
+      404,
+    );
+  }
+  return c.json({ data: row });
+});
+
+// ─── GET /settings — Get admin settings ──────────────────────────
+
+adminRoutes.get("/settings", async (c) => {
+  const db = c.get("db");
+  const queries = adminQueries(db);
+  const httpFallback = await queries.getSetting("http_fallback_enabled");
+  return c.json({
+    data: {
+      http_fallback_enabled: httpFallback?.value === true,
+    },
+  });
+});
+
+// ─── PUT /settings/:key — Update an admin setting ────────────────
+
+adminRoutes.put("/settings/:key", async (c) => {
+  const db = c.get("db");
+  const user = c.get("userId");
+  const key = c.req.param("key");
+  const body = await c.req.json<{ value: unknown }>();
+
+  const allowedKeys = ["http_fallback_enabled"];
+  if (!allowedKeys.includes(key)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `Unknown setting: ${key}`,
+        },
+      },
+      422,
+    );
+  }
+
+  const queries = adminQueries(db);
+  const row = await queries.setSetting(key, body.value, user);
+  return c.json({ data: row });
 });
