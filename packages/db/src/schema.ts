@@ -4,3 +4,4 @@ export * from "./schema/projects";
 export * from "./schema/crawling";
 export * from "./schema/billing";
 export * from "./schema/features";
+export * from "./schema/admin";
