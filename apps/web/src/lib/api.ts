@@ -2475,6 +2475,13 @@ export const api = {
       >("/api/public/leaderboard");
       return res.data;
     },
+
+    async isHttpFallbackEnabled(): Promise<boolean> {
+      const res = await apiClient.get<{ enabled: boolean }>(
+        "/api/public/settings/http-fallback",
+      );
+      return res.enabled;
+    },
   },
 
   // ── Reports ─────────────────────────────────────────────────────

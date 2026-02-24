@@ -517,3 +517,14 @@ publicRoutes.post("/leads", async (c) => {
 
   return c.json({ data: { id: lead.id } }, 201);
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/public/settings/http-fallback — Check if HTTP fallback is enabled
+// ---------------------------------------------------------------------------
+
+publicRoutes.get("/settings/http-fallback", async (c) => {
+  const db = c.get("db");
+  const queries = adminQueries(db);
+  const enabled = await queries.isHttpFallbackEnabled();
+  return c.json({ enabled });
+});
