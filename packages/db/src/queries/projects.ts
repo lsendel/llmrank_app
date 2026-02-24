@@ -1,14 +1,66 @@
-import { eq, and, isNull, desc, sql } from "drizzle-orm";
+import { eq, and, isNull, desc, asc, sql, ilike, or } from "drizzle-orm";
 import type { Database } from "../client";
 import { projects } from "../schema";
 
+export interface ProjectListQuery {
+  q?: string;
+  sort?:
+    | "activity_desc"
+    | "score_desc"
+    | "score_asc"
+    | "name_asc"
+    | "name_desc"
+    | "created_desc"
+    | "created_asc";
+  limit?: number;
+  offset?: number;
+}
+
 export function projectQueries(db: Database) {
+  function listWhere(userId: string, query?: ProjectListQuery) {
+    const base = [eq(projects.userId, userId), isNull(projects.deletedAt)];
+    const q = query?.q?.trim();
+    if (!q) return and(...base);
+    const pattern = `%${q}%`;
+    return and(
+      ...base,
+      or(ilike(projects.name, pattern), ilike(projects.domain, pattern)),
+    );
+  }
+
+  function listOrderBy(sort: ProjectListQuery["sort"]) {
+    switch (sort) {
+      case "name_asc":
+        return [asc(projects.name), desc(projects.createdAt)];
+      case "name_desc":
+        return [desc(projects.name), desc(projects.createdAt)];
+      case "created_asc":
+        return [asc(projects.createdAt)];
+      case "created_desc":
+      case "activity_desc":
+      case "score_desc":
+      case "score_asc":
+      default:
+        return [desc(projects.createdAt)];
+    }
+  }
+
   return {
-    async listByUser(userId: string) {
+    async listByUser(userId: string, query?: ProjectListQuery) {
       return db.query.projects.findMany({
-        where: and(eq(projects.userId, userId), isNull(projects.deletedAt)),
-        orderBy: [desc(projects.createdAt)],
+        where: listWhere(userId, query),
+        orderBy: listOrderBy(query?.sort),
+        ...(query?.limit !== undefined ? { limit: query.limit } : {}),
+        ...(query?.offset !== undefined ? { offset: query.offset } : {}),
       });
+    },
+
+    async countByUser(userId: string, query?: Pick<ProjectListQuery, "q">) {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(projects)
+        .where(listWhere(userId, query));
+      return Number(row?.count ?? 0);
     },
 
     async getById(id: string) {

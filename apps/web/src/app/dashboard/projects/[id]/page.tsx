@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -22,6 +22,7 @@ import {
   User,
   Key,
   Brain,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,10 +37,13 @@ import { BrandingSettingsForm } from "@/components/forms/branding-settings-form"
 import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
 import { SiteContextSection } from "@/components/settings/site-context-section";
+import { SiteFileGeneratorSection } from "@/components/settings/site-file-generator-section";
 import { PostCrawlChecklist } from "@/components/post-crawl-checklist";
 import { AlertBanner } from "@/components/alert-banner";
 import { TrialBanner } from "@/components/trial-banner";
 import { UsageMeter } from "@/components/usage-meter";
+import { ProjectRecommendationsCard } from "@/components/cards/project-recommendations-card";
+import { normalizeProjectTab } from "./tab-state";
 
 function TabLoadingSkeleton() {
   return (
@@ -70,7 +74,7 @@ class TabErrorBoundary extends React.Component<
         <div className="flex flex-col items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
           <AlertTriangle className="h-8 w-8 text-destructive" />
           <p className="text-sm text-destructive">
-            Something went wrong loading this tab.
+            This tab could not be loaded.
           </p>
           <Button
             size="sm"
@@ -136,6 +140,22 @@ const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
   loading: () => <TabLoadingSkeleton />,
 });
 
+const LogsTab = dynamic(
+  () =>
+    import("@/components/tabs/logs-tab").then((mod) => ({
+      default: mod.LogsTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const AutomationTab = dynamic(
+  () =>
+    import("@/components/tabs/automation-tab").then((mod) => ({
+      default: mod.AutomationTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
 const AIVisibilityTab = dynamic(
   () => import("@/components/tabs/ai-visibility-tab"),
   {
@@ -177,17 +197,51 @@ const AiAnalysisTab = dynamic(
   { loading: () => <TabLoadingSkeleton /> },
 );
 
+const INTEGRATION_PROVIDERS = ["gsc", "psi", "ga4", "clarity"] as const;
+type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
+
+function asIntegrationProvider(
+  value: string | null,
+): IntegrationProvider | null {
+  if (!value) return null;
+  return (INTEGRATION_PROVIDERS as readonly string[]).includes(value)
+    ? (value as IntegrationProvider)
+    : null;
+}
+
+const INTEGRATION_LABELS: Record<IntegrationProvider, string> = {
+  gsc: "Google Search Console",
+  ga4: "Google Analytics 4",
+  psi: "PageSpeed Insights",
+  clarity: "Microsoft Clarity",
+};
+
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentTab = searchParams.get("tab") ?? "overview";
+  const rawTab = searchParams.get("tab");
+  const connectProvider = asIntegrationProvider(searchParams.get("connect"));
+  const connectedProvider = asIntegrationProvider(
+    searchParams.get("connected"),
+  );
+  const currentTab = normalizeProjectTab(rawTab);
+  const autoCrawlFailed = searchParams.get("autocrawl") === "failed";
+
+  useEffect(() => {
+    if (!rawTab || rawTab === currentTab) return;
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("tab", currentTab);
+    router.replace(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
+  }, [currentTab, params.id, rawTab, router, searchParams]);
 
   const handleTabChange = useCallback(
     (value: string) => {
+      const safeTab = normalizeProjectTab(value);
       const newParams = new URLSearchParams(searchParams.toString());
-      newParams.set("tab", value);
+      newParams.set("tab", safeTab);
       router.push(`/dashboard/projects/${params.id}?${newParams.toString()}`);
     },
     [router, searchParams, params.id],
@@ -245,7 +299,7 @@ export default function ProjectPage() {
   if (projectLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">Loading project...</p>
+        <p className="text-muted-foreground">Loading workspace...</p>
       </div>
     );
   }
@@ -253,7 +307,9 @@ export default function ProjectPage() {
   if (!project) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">Project not found.</p>
+        <p className="text-muted-foreground">
+          Project not found. Return to Projects and select a workspace.
+        </p>
       </div>
     );
   }
@@ -277,6 +333,10 @@ export default function ProjectPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">
               {normalizeDomain(project.domain)}
             </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Monitor rankings, prioritize fixes, and run automation from one
+              workspace.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <UsageMeter />
@@ -286,9 +346,16 @@ export default function ProjectPage() {
             </Button>
           </div>
         </div>
-        {crawlError && (
+        {(crawlError || autoCrawlFailed) && (
           <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {crawlError}
+            {crawlError ??
+              'Project created, but the first crawl did not start. Click "Run Crawl" to retry.'}
+          </div>
+        )}
+        {connectedProvider && (
+          <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+            {INTEGRATION_LABELS[connectedProvider]} connected successfully. You
+            can sync data or run a connection test from the Integrations tab.
           </div>
         )}
       </div>
@@ -301,6 +368,9 @@ export default function ProjectPage() {
 
       {/* Onboarding Checklist */}
       <PostCrawlChecklist projectId={project.id} />
+
+      {/* Next best actions */}
+      <ProjectRecommendationsCard projectId={project.id} />
 
       {/* Tabs */}
       <Tabs value={currentTab} onValueChange={handleTabChange}>
@@ -357,6 +427,14 @@ export default function ProjectPage() {
             <Download className="mr-1.5 h-4 w-4" />
             Reports
           </TabsTrigger>
+          <TabsTrigger value="automation">
+            <Play className="mr-1.5 h-4 w-4" />
+            Automation
+          </TabsTrigger>
+          <TabsTrigger value="logs">
+            <Bot className="mr-1.5 h-4 w-4" />
+            Logs
+          </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="mr-1.5 h-4 w-4" />
             Settings
@@ -375,7 +453,7 @@ export default function ProjectPage() {
 
         <TabsContent value="pages" className="pt-4">
           <TabErrorBoundary>
-            <PagesTab pages={pagesData?.data ?? []} />
+            <PagesTab pages={pagesData?.data ?? []} projectId={project.id} />
           </TabErrorBoundary>
         </TabsContent>
 
@@ -436,15 +514,32 @@ export default function ProjectPage() {
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 pt-4">
-          <IntegrationsTab projectId={project.id} />
+          <IntegrationsTab
+            projectId={project.id}
+            connectProvider={connectProvider}
+            connectedProvider={connectedProvider}
+          />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6 pt-4">
           <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
         </TabsContent>
 
+        <TabsContent value="automation" className="space-y-6 pt-4">
+          <TabErrorBoundary>
+            <AutomationTab projectId={project.id} />
+          </TabErrorBoundary>
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-6 pt-4">
+          <TabErrorBoundary>
+            <LogsTab projectId={project.id} />
+          </TabErrorBoundary>
+        </TabsContent>
+
         <TabsContent value="settings" className="space-y-6 pt-4">
           <SiteContextSection projectId={project.id} />
+          <SiteFileGeneratorSection projectId={project.id} />
           <CrawlSettingsForm
             projectId={project.id}
             initialSettings={project.settings}

@@ -1,0 +1,279 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "LLM Rank" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e6]:
+        - link "Integrations" [ref=e7] [cursor=pointer]:
+          - /url: /integrations
+        - link "Pricing" [ref=e8] [cursor=pointer]:
+          - /url: /pricing
+        - link "Sign In" [ref=e9] [cursor=pointer]:
+          - /url: /sign-in
+  - main [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - img [ref=e13]
+        - text: npm install @llmrank.app/mcp
+      - heading "MCP Server for AI Coding Agents" [level=1] [ref=e15]
+      - paragraph [ref=e16]:
+        - text: 27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT. Crawl sites, score pages across 37 AI-readiness factors, and fix issues — all from your IDE via the
+        - link "Model Context Protocol" [ref=e17] [cursor=pointer]:
+          - /url: https://modelcontextprotocol.io
+        - text: .
+      - generic [ref=e18]:
+        - link "Get Started" [ref=e19] [cursor=pointer]:
+          - /url: "#setup"
+        - link "View on npm" [ref=e20] [cursor=pointer]:
+          - /url: https://www.npmjs.com/package/@llmrank.app/mcp
+    - generic [ref=e21]:
+      - heading "Quick Start" [level=2] [ref=e22]
+      - paragraph [ref=e23]:
+        - text: 1. Generate an API token at
+        - link "Dashboard → Settings → API Tokens" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/settings
+        - text: . 2. Add the MCP server to your IDE.
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - heading "Claude Code" [level=3] [ref=e28]
+          - code [ref=e31]: claude mcp add llm-boost \ --env LLM_BOOST_API_TOKEN=llmb_xxx \ -- npx -y @llmrank.app/mcp
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - heading "Cursor" [level=3] [ref=e34]
+            - generic [ref=e35]: ~/.cursor/mcp.json
+          - code [ref=e38]: "{ \"mcpServers\": { \"llm-boost\": { \"command\": \"npx\", \"args\": [ \"-y\", \"@llmrank.app/mcp\" ], \"env\": { \"LLM_BOOST_API_TOKEN\": \"llmb_xxx\" } } } }"
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - heading "Claude Desktop" [level=3] [ref=e41]
+            - generic [ref=e42]: claude_desktop_config.json
+          - code [ref=e45]: "{ \"mcpServers\": { \"llm-boost\": { \"command\": \"npx\", \"args\": [ \"-y\", \"@llmrank.app/mcp\" ], \"env\": { \"LLM_BOOST_API_TOKEN\": \"llmb_xxx\" } } } }"
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - heading "VS Code" [level=3] [ref=e48]
+            - generic [ref=e49]: .vscode/mcp.json
+          - code [ref=e52]: "{ \"servers\": { \"llm-boost\": { \"command\": \"npx\", \"args\": [ \"-y\", \"@llmrank.app/mcp\" ], \"env\": { \"LLM_BOOST_API_TOKEN\": \"llmb_xxx\" } } } }"
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - heading "Windsurf" [level=3] [ref=e55]
+            - generic [ref=e56]: ~/.codeium/windsurf/mcp_config.json
+          - code [ref=e59]: "{ \"mcpServers\": { \"llm-boost\": { \"command\": \"npx\", \"args\": [ \"-y\", \"@llmrank.app/mcp\" ], \"env\": { \"LLM_BOOST_API_TOKEN\": \"llmb_xxx\" } } } }"
+        - generic [ref=e60]:
+          - heading "ChatGPT / HTTP" [level=3] [ref=e62]
+          - code [ref=e65]: "Endpoint: https://mcp.llmrank.app/v1/mcp Auth: OAuth 2.1 with PKCE (auto-discovered via /.well-known/oauth-authorization-server)"
+      - paragraph [ref=e67]:
+        - strong [ref=e68]: "Environment variables:"
+        - code [ref=e69]: LLM_BOOST_API_TOKEN
+        - text: (required, starts with
+        - code [ref=e70]: llmb_
+        - text: ) and
+        - code [ref=e71]: LLM_BOOST_API_URL
+        - text: (optional, defaults to
+        - code [ref=e72]: https://api.llmrank.app
+        - text: ).
+    - generic [ref=e73]:
+      - heading "27 Available Tools" [level=2] [ref=e74]
+      - paragraph [ref=e75]:
+        - text: Every tool includes
+        - link "MCP annotations" [ref=e76] [cursor=pointer]:
+          - /url: https://modelcontextprotocol.io/docs/concepts/tools#annotations
+        - text: (readOnlyHint, destructiveHint) so your agent knows which tools are safe to call without confirmation.
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - img [ref=e80]
+            - heading "Projects" [level=3] [ref=e82]
+            - generic [ref=e83]: 3 tools
+          - list [ref=e84]:
+            - listitem [ref=e85]:
+              - code [ref=e86]: list_projects
+              - text: List all projects with domains and latest scores
+            - listitem [ref=e87]:
+              - code [ref=e88]: get_project
+              - text: Get project details including latest crawl score
+            - listitem [ref=e89]:
+              - code [ref=e90]: create_project
+              - text: Create a new project by providing a domain
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - img [ref=e93]
+            - heading "Crawling" [level=3] [ref=e96]
+            - generic [ref=e97]: 3 tools
+          - list [ref=e98]:
+            - listitem [ref=e99]:
+              - code [ref=e100]: start_crawl
+              - text: Start a crawl scoring pages across 37 AI-readiness factors
+            - listitem [ref=e101]:
+              - code [ref=e102]: get_crawl_status
+              - text: Check crawl progress in real time
+            - listitem [ref=e103]:
+              - code [ref=e104]: list_crawls
+              - text: Get crawl history with scores and timestamps
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - img [ref=e107]
+            - heading "Scores & Analysis" [level=3] [ref=e109]
+            - generic [ref=e110]: 5 tools
+          - list [ref=e111]:
+            - listitem [ref=e112]:
+              - code [ref=e113]: get_site_score
+              - text: Overall AI-readiness score with category breakdown
+            - listitem [ref=e114]:
+              - code [ref=e115]: compare_scores
+              - text: Compare two crawls to see improvements or regressions
+            - listitem [ref=e116]:
+              - code [ref=e117]: get_score_history
+              - text: Score trends over time across crawls
+            - listitem [ref=e118]:
+              - code [ref=e119]: list_pages
+              - text: List crawled pages with scores, sortable by grade
+            - listitem [ref=e120]:
+              - code [ref=e121]: get_page_details
+              - text: "Full page analysis: per-category scores, issues, fixes"
+        - generic [ref=e122]:
+          - generic [ref=e123]:
+            - img [ref=e124]
+            - heading "Issues & Fixes" [level=3] [ref=e133]
+            - generic [ref=e134]: 3 tools
+          - list [ref=e135]:
+            - listitem [ref=e136]:
+              - code [ref=e137]: list_issues
+              - text: All issues grouped by severity and category
+            - listitem [ref=e138]:
+              - code [ref=e139]: get_fix_recommendation
+              - text: AI-generated fix steps with code examples
+            - listitem [ref=e140]:
+              - code [ref=e141]: generate_fix
+              - text: Generate code snippets to resolve a specific issue
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - img [ref=e144]
+            - heading "AI Visibility" [level=3] [ref=e147]
+            - generic [ref=e148]: 3 tools
+          - list [ref=e149]:
+            - listitem [ref=e150]:
+              - code [ref=e151]: check_visibility
+              - text: Check if your brand appears in AI search results across 6 platforms
+            - listitem [ref=e152]:
+              - code [ref=e153]: list_visibility_history
+              - text: Track AI search presence over time
+            - listitem [ref=e154]:
+              - code [ref=e155]: suggest_queries
+              - text: AI-suggested queries to monitor based on your content
+        - generic [ref=e156]:
+          - generic [ref=e157]:
+            - img [ref=e158]
+            - heading "Content & Technical" [level=3] [ref=e161]
+            - generic [ref=e162]: 4 tools
+          - list [ref=e163]:
+            - listitem [ref=e164]:
+              - code [ref=e165]: analyze_content
+              - text: Evaluate content across 37 AI-readiness factors
+            - listitem [ref=e166]:
+              - code [ref=e167]: suggest_meta_tags
+              - text: Generate optimized title, description, and OG tags
+            - listitem [ref=e168]:
+              - code [ref=e169]: check_llms_txt
+              - text: Validate your llms.txt for AI crawler permissions
+            - listitem [ref=e170]:
+              - code [ref=e171]: validate_schema
+              - text: Check structured data (JSON-LD, Schema.org)
+        - generic [ref=e172]:
+          - generic [ref=e173]:
+            - img [ref=e174]
+            - heading "Strategy" [level=3] [ref=e176]
+            - generic [ref=e177]: 5 tools
+          - list [ref=e178]:
+            - listitem [ref=e179]:
+              - code [ref=e180]: get_recommendations
+              - text: Prioritized action plan ranked by effort and impact
+            - listitem [ref=e181]:
+              - code [ref=e182]: get_content_gaps
+              - text: Topics competitors cover that you don't
+            - listitem [ref=e183]:
+              - code [ref=e184]: discover_keywords
+              - text: AI-powered keyword discovery with search volume
+            - listitem [ref=e185]:
+              - code [ref=e186]: list_competitors
+              - text: Competitors with AI-readiness score comparison
+            - listitem [ref=e187]:
+              - code [ref=e188]: compare_competitor
+              - text: Side-by-side comparison with a specific competitor
+        - generic [ref=e189]:
+          - generic [ref=e190]:
+            - img [ref=e191]
+            - heading "Reports" [level=3] [ref=e194]
+            - generic [ref=e195]: 1 tool
+          - list [ref=e196]:
+            - listitem [ref=e197]:
+              - code [ref=e198]: generate_report
+              - text: Comprehensive Markdown report with scores, issues, and recommendations
+    - generic [ref=e199]:
+      - heading "Pre-built Prompts" [level=2] [ref=e200]
+      - paragraph [ref=e201]: Common workflows packaged as MCP prompts your agent can invoke directly.
+      - generic [ref=e202]:
+        - generic [ref=e203]:
+          - code [ref=e204]: site-audit
+          - paragraph [ref=e205]: "Full AI-readiness audit: scores, critical issues, and prioritized action plan"
+        - generic [ref=e206]:
+          - code [ref=e207]: fix-plan
+          - paragraph [ref=e208]: Generate specific code and content fixes for your top issues
+        - generic [ref=e209]:
+          - code [ref=e210]: competitor-analysis
+          - paragraph [ref=e211]: Compare your site against competitors and identify gaps
+    - generic [ref=e212]:
+      - heading "HTTP Transport & OAuth" [level=2] [ref=e213]
+      - paragraph [ref=e214]: For cloud-based agents like ChatGPT, the MCP server is available over Streamable HTTP with OAuth 2.1 authentication (PKCE, RFC 8414, RFC 9728).
+      - generic [ref=e215]:
+        - generic [ref=e216]:
+          - img [ref=e217]
+          - heading "MCP Endpoint" [level=3] [ref=e220]
+          - code [ref=e221]: https://mcp.llmrank.app/v1/mcp
+        - generic [ref=e222]:
+          - img [ref=e223]
+          - heading "OAuth Discovery" [level=3] [ref=e227]
+          - code [ref=e228]: /.well-known/oauth-authorization-server
+        - generic [ref=e229]:
+          - img [ref=e230]
+          - heading "Resource Metadata" [level=3] [ref=e233]
+          - code [ref=e234]: /.well-known/oauth-protected-resource
+      - paragraph [ref=e235]:
+        - text: Supports
+        - link "MCP Authorization Spec" [ref=e236] [cursor=pointer]:
+          - /url: https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization
+        - text: ": Dynamic Client Registration (RFC 7591), PKCE with S256, WWW-Authenticate with resource_metadata, and token refresh."
+    - generic [ref=e237]:
+      - heading "Frequently Asked Questions" [level=2] [ref=e238]
+      - generic [ref=e239]:
+        - group [ref=e240]:
+          - generic "What is the Model Context Protocol (MCP)?" [ref=e241] [cursor=pointer]
+        - group [ref=e242]:
+          - generic "Which AI coding agents support MCP?" [ref=e243] [cursor=pointer]
+        - group [ref=e244]:
+          - generic "Do I need a paid plan to use the MCP server?" [ref=e245] [cursor=pointer]
+        - group [ref=e246]:
+          - generic "Is the MCP server open source?" [ref=e247] [cursor=pointer]
+        - group [ref=e248]:
+          - generic "How does the HTTP transport work for ChatGPT?" [ref=e249] [cursor=pointer]
+    - generic [ref=e250]:
+      - heading "Start using LLM Rank from your IDE" [level=2] [ref=e251]
+      - paragraph [ref=e252]: Create a free account, generate an API token, and add the MCP server to your IDE in under 2 minutes.
+      - generic [ref=e253]:
+        - link "Create Free Account" [ref=e254] [cursor=pointer]:
+          - /url: /sign-up
+        - link "npm package →" [ref=e255] [cursor=pointer]:
+          - /url: https://www.npmjs.com/package/@llmrank.app/mcp
+  - contentinfo [ref=e256]:
+    - generic [ref=e257]:
+      - generic [ref=e258]: © 2026 LLM Rank
+      - link "Home" [ref=e259] [cursor=pointer]:
+        - /url: /
+      - link "Integrations" [ref=e260] [cursor=pointer]:
+        - /url: /integrations
+      - link "Pricing" [ref=e261] [cursor=pointer]:
+        - /url: /pricing
+      - link "Free Scan" [ref=e262] [cursor=pointer]:
+        - /url: /scan
+      - link "Terms" [ref=e263] [cursor=pointer]:
+        - /url: /terms
+      - link "Privacy" [ref=e264] [cursor=pointer]:
+        - /url: /privacy

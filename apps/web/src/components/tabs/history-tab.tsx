@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { StateCard } from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -26,11 +27,11 @@ export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
 
   if (crawlHistory.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-muted-foreground">
-          No crawl history yet. Run your first crawl to see results.
-        </p>
-      </Card>
+      <StateCard
+        variant="empty"
+        description="No crawl history yet. Run your first crawl to see results."
+        contentClassName="p-0"
+      />
     );
   }
 

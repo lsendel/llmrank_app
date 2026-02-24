@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, type SavedKeyword } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { StateCard } from "@/components/ui/state";
 import {
   Select,
   SelectContent,
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, Key, Loader2, Search } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const FUNNEL_COLORS = {
   education: "bg-blue-100 text-blue-800",
@@ -28,6 +29,7 @@ const SOURCE_LABELS = {
 };
 
 export function KeywordsTab({ projectId }: { projectId: string }) {
+  const { toast } = useToast();
   const [keywords, setKeywords] = useState<SavedKeyword[]>([]);
   const [loading, setLoading] = useState(true);
   const [newKeyword, setNewKeyword] = useState("");
@@ -39,8 +41,13 @@ export function KeywordsTab({ projectId }: { projectId: string }) {
     try {
       const data = await api.keywords.list(projectId);
       setKeywords(data);
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to load keywords",
+        description:
+          err instanceof Error ? err.message : "Please refresh and try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -60,8 +67,13 @@ export function KeywordsTab({ projectId }: { projectId: string }) {
       });
       setKeywords((prev) => [kw, ...prev]);
       setNewKeyword("");
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to add keyword",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setAdding(false);
     }
@@ -71,8 +83,13 @@ export function KeywordsTab({ projectId }: { projectId: string }) {
     try {
       await api.keywords.remove(id);
       setKeywords((prev) => prev.filter((k) => k.id !== id));
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to delete keyword",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -81,8 +98,13 @@ export function KeywordsTab({ projectId }: { projectId: string }) {
     try {
       await api.visibility.discoverKeywords(projectId);
       await loadKeywords();
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Discovery failed",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setDiscovering(false);
     }
@@ -90,9 +112,12 @@ export function KeywordsTab({ projectId }: { projectId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <StateCard
+        variant="loading"
+        title="Loading keywords"
+        description="Fetching tracked keywords and funnel stages."
+        contentClassName="p-0"
+      />
     );
   }
 
@@ -150,15 +175,12 @@ export function KeywordsTab({ projectId }: { projectId: string }) {
       </div>
 
       {keywords.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Key className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No keywords saved yet. Add keywords or use Discover to find
-              relevant ones.
-            </p>
-          </CardContent>
-        </Card>
+        <StateCard
+          variant="empty"
+          icon={<Key className="h-10 w-10 text-muted-foreground/70" />}
+          description="No keywords saved yet. Add keywords or use Discover to find relevant ones."
+          contentClassName="p-0"
+        />
       ) : (
         <div className="space-y-2">
           {keywords.map((kw) => (

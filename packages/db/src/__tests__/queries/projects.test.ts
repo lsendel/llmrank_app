@@ -80,6 +80,33 @@ describe("projectQueries", () => {
     expect(result).toEqual([]);
   });
 
+  it("listByUser passes pagination options", async () => {
+    mock.db.query.projects.findMany.mockResolvedValueOnce([]);
+
+    await queries.listByUser("u1", {
+      q: "acme",
+      sort: "name_asc",
+      limit: 10,
+      offset: 20,
+    });
+
+    expect(mock.db.query.projects.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 10,
+        offset: 20,
+      }),
+    );
+  });
+
+  // --- countByUser ---
+  it("countByUser returns numeric count", async () => {
+    mock.chain.where.mockResolvedValueOnce([{ count: 7 }]);
+
+    const result = await queries.countByUser("u1");
+
+    expect(result).toBe(7);
+  });
+
   // --- getById ---
   it("getById returns project when found", async () => {
     const fakeProject = { id: "p1", name: "Test", domain: "test.com" };

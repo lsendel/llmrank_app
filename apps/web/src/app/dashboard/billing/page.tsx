@@ -164,7 +164,9 @@ export default function BillingPage() {
     ) {
       verificationStarted.current = true;
       setVerifyingUpgrade(true);
-      router.replace("/dashboard/billing", { scroll: false });
+      // NOTE: Do NOT call router.replace here — it would change searchParams,
+      // trigger this effect's cleanup, and cancel the polling timeout before
+      // the first poll fires. We clean the URL after polling completes instead.
 
       let attempts = 0;
       let timeoutId: NodeJS.Timeout;
@@ -177,6 +179,7 @@ export default function BillingPage() {
             await mutateSubscription();
             setVerifyingUpgrade(false);
             setSuccessBanner("Your plan has been upgraded successfully!");
+            router.replace("/dashboard/billing", { scroll: false });
             return;
           }
         } catch {
@@ -191,6 +194,7 @@ export default function BillingPage() {
           setSuccessBanner(
             "Your payment was received. It may take a minute for your new plan to show up.",
           );
+          router.replace("/dashboard/billing", { scroll: false });
         }
       };
 
@@ -198,7 +202,7 @@ export default function BillingPage() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [searchParams, mutateBilling, mutateSubscription]);
+  }, [searchParams, mutateBilling, mutateSubscription, router]);
 
   const currentTier = billing?.plan ?? "free";
   const currentPlanName = planNameMap[currentTier] ?? "Free";

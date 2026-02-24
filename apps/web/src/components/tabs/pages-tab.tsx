@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertTriangle, Sparkles, FileText } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ExternalLink, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StateCard } from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -19,7 +21,13 @@ import type { CrawledPage } from "@/lib/api";
 type SortField = "url" | "statusCode" | "title" | "overallScore" | "issueCount";
 type SortDirection = "asc" | "desc";
 
-export function PagesTab({ pages }: { pages: CrawledPage[] }) {
+export function PagesTab({
+  pages,
+  projectId,
+}: {
+  pages: CrawledPage[];
+  projectId: string;
+}) {
   const [sortField, setSortField] = useState<SortField>("overallScore");
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -35,11 +43,11 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
 
   if (pages.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-muted-foreground">
-          No pages crawled yet. Run a crawl to see page-level results.
-        </p>
-      </Card>
+      <StateCard
+        variant="empty"
+        description="No pages crawled yet. Run a crawl to see page-level results."
+        contentClassName="p-0"
+      />
     );
   }
 
@@ -230,17 +238,25 @@ export function PagesTab({ pages }: { pages: CrawledPage[] }) {
                         size="sm"
                         variant="outline"
                         className="h-8 text-xs"
+                        asChild
                       >
-                        <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                        Optimize Section
+                        <Link
+                          href={`/dashboard/projects/${projectId}/pages/${page.id}`}
+                        >
+                          <FileText className="mr-1.5 h-3.5 w-3.5" />
+                          View Details
+                        </Link>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-8 text-xs"
+                        asChild
                       >
-                        <FileText className="mr-1.5 h-3.5 w-3.5" />
-                        Generate Brief
+                        <a href={page.url} target="_blank" rel="noreferrer">
+                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                          Open Page
+                        </a>
                       </Button>
                     </div>
                   </TableCell>

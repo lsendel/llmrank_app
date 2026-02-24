@@ -32,6 +32,7 @@
 
   --color-success: oklch(0.55 0.18 150);
   --color-warning: oklch(0.7 0.15 75);
+  --color-info: oklch(0.56 0.16 250);
 
   --color-sidebar-background: oklch(0.98 0.005 260);
   --color-sidebar-foreground: oklch(0.3 0.02 260);
@@ -44,6 +45,11 @@
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
+
+  /* Dashboard spacing/density */
+  --dashboard-max-width: 96rem;
+  --dashboard-gutter-mobile: 1rem;
+  --dashboard-gutter-desktop: 1.5rem;
 }
 
 @layer base {
@@ -56,9 +62,31 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    text-rendering: optimizeLegibility;
     font-feature-settings:
       "rlig" 1,
       "calt" 1;
+  }
+}
+
+@layer components {
+  .dashboard-main {
+    padding: var(--dashboard-gutter-mobile);
+  }
+
+  .dashboard-shell {
+    margin-inline: auto;
+    display: flex;
+    width: 100%;
+    max-width: var(--dashboard-max-width);
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .dashboard-main {
+      padding: var(--dashboard-gutter-desktop);
+    }
   }
 }
 

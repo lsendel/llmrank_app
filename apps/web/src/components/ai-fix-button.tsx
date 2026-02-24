@@ -17,6 +17,7 @@ interface Props {
   pageId?: string;
   issueCode: string;
   issueTitle: string;
+  onGenerated?: () => void;
 }
 
 export function AiFixButton({
@@ -24,6 +25,7 @@ export function AiFixButton({
   pageId,
   issueCode,
   issueTitle,
+  onGenerated,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,7 @@ export function AiFixButton({
       const result = await api.fixes.generate({ projectId, pageId, issueCode });
       setFix(result.generatedFix);
       setOpen(true);
+      onGenerated?.();
     } catch (err: unknown) {
       toast({
         title: "Fix generation failed",

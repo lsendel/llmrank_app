@@ -610,6 +610,19 @@ export interface PublicScanResult {
   } | null;
 }
 
+export interface IntegrationCatalogItem {
+  id: string;
+  provider: "gsc" | "ga4" | null;
+  name: string;
+  description: string;
+  features: string[];
+  availability: "available_now" | "coming_soon";
+  access: "public" | "requires_auth";
+  minPlan: "pro" | "agency" | null;
+  authType: "oauth2" | "api_key";
+  link?: string;
+}
+
 export interface SharedReport {
   crawlId: string;
   projectId: string;
@@ -811,7 +824,7 @@ export interface CreateScheduleInput {
   projectId: string;
   query: string;
   providers: string[];
-  frequency: "hourly" | "daily" | "weekly" | "monthly";
+  frequency: "hourly" | "daily" | "weekly";
 }
 
 export interface ScheduleUpdate {
@@ -1017,6 +1030,33 @@ export interface DashboardCoverageMetric {
 export interface DashboardActivity extends CrawlJob {
   projectName: string;
   projectId: string;
+}
+
+export interface PortfolioPriorityItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  projectDomain: string;
+  priority: "critical" | "high" | "medium" | "low";
+  category: "onboarding" | "issues" | "crawl" | "keywords" | "competitors";
+  channel: "google" | "llm" | "both";
+  title: string;
+  description: string;
+  reason: string;
+  action: string;
+  owner: string | null;
+  dueDate: string;
+  expectedImpact: "high" | "medium" | "low";
+  impactScore: number;
+  effort: "low" | "medium" | "high";
+  freshness: {
+    generatedAt: string;
+    lastCrawlAt: string | null;
+  };
+  source: {
+    signals: string[];
+    confidence: number;
+  };
 }
 
 // Progress tracking
@@ -1232,6 +1272,47 @@ export interface ActionItemStats {
   fixRate: number;
 }
 
+export interface PipelineRecommendation {
+  priority: "critical" | "high" | "medium" | "low";
+  category: string;
+  title: string;
+  description: string;
+  action?: string;
+}
+
+export type PipelineRunStatus =
+  | "pending"
+  | "running"
+  | "paused"
+  | "completed"
+  | "failed";
+
+export interface PipelineRun {
+  id: string;
+  status: PipelineRunStatus;
+  currentStep: string | null;
+  stepResults: Record<string, unknown> | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface PipelineHealthCheck {
+  check: string;
+  category: "technical" | "configuration" | "billing";
+  status: "pass" | "warn" | "fail";
+  message: string;
+  autoFixable: boolean;
+  suggestion?: string;
+}
+
+export interface PipelineHealthCheckResult {
+  projectId: string;
+  crawlJobId: string;
+  checks: PipelineHealthCheck[];
+  score: number;
+}
+
 // ─── Request helpers ────────────────────────────────────────────────
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
@@ -1338,6 +1419,40 @@ function buildQueryString(
   return qs ? `?${qs}` : "";
 }
 
+function extractFilename(contentDisposition: string | null): string | null {
+  if (!contentDisposition) return null;
+  const match = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return match?.[1] ?? null;
+}
+
+async function postDownload(path: string): Promise<{
+  filename: string | null;
+  contentType: string | null;
+  content: string;
+}> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "*/*" },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new ApiError(
+      response.status,
+      errorBody?.error?.code ?? "UNKNOWN_ERROR",
+      errorBody?.error?.message ?? response.statusText,
+      errorBody?.error?.details,
+    );
+  }
+
+  return {
+    filename: extractFilename(response.headers.get("content-disposition")),
+    contentType: response.headers.get("content-type"),
+    content: await response.text(),
+  };
+}
+
 // ─── Domain-specific API methods ────────────────────────────────────
 
 export const api = {
@@ -1355,6 +1470,13 @@ export const api = {
       );
       return res.data;
     },
+    async getPriorityFeed(limit = 15): Promise<PortfolioPriorityItem[]> {
+      const qs = buildQueryString({ limit });
+      const res = await apiClient.get<ApiEnvelope<PortfolioPriorityItem[]>>(
+        `/api/dashboard/priority-feed${qs}`,
+      );
+      return res.data;
+    },
   },
 
   // ── Projects ────────────────────────────────────────────────────
@@ -1362,6 +1484,23 @@ export const api = {
     async list(params?: {
       page?: number;
       limit?: number;
+      q?: string;
+      health?:
+        | "all"
+        | "good"
+        | "needs_work"
+        | "poor"
+        | "no_crawl"
+        | "in_progress"
+        | "failed";
+      sort?:
+        | "activity_desc"
+        | "score_desc"
+        | "score_asc"
+        | "name_asc"
+        | "name_desc"
+        | "created_desc"
+        | "created_asc";
     }): Promise<PaginatedResponse<Project>> {
       const qs = buildQueryString(params);
       return apiClient.get<PaginatedResponse<Project>>(`/api/projects${qs}`);
@@ -1418,6 +1557,15 @@ export const api = {
       data: { siteDescription?: string; industry?: string },
     ): Promise<void> {
       await apiClient.patch(`/api/projects/${projectId}/site-context`, data);
+    },
+
+    async rerunAutoGeneration(
+      projectId: string,
+    ): Promise<{ pipelineRunId?: string; status?: string }> {
+      const res = await apiClient.post<
+        ApiEnvelope<{ pipelineRunId?: string; status?: string }>
+      >(`/api/projects/${projectId}/rerun-auto-generation`, {});
+      return res.data;
     },
 
     async rediscoverCompetitors(projectId: string): Promise<void> {
@@ -2481,6 +2629,13 @@ export const api = {
       return res.data;
     },
 
+    async integrationCatalog(): Promise<IntegrationCatalogItem[]> {
+      const res = await apiClient.get<ApiEnvelope<IntegrationCatalogItem[]>>(
+        "/api/integrations/catalog",
+      );
+      return res.data;
+    },
+
     async isHttpFallbackEnabled(): Promise<boolean> {
       const res = await apiClient.get<{ enabled: boolean }>(
         "/api/public/settings/http-fallback",
@@ -2594,6 +2749,50 @@ export const api = {
       async delete(id: string): Promise<void> {
         await apiClient.delete(`/api/reports/schedules/${id}`);
       },
+    },
+  },
+
+  // ── Pipeline Recommendations ──────────────────────────────────
+  pipeline: {
+    async recommendations(
+      projectId: string,
+    ): Promise<PipelineRecommendation[]> {
+      const res = await apiClient.get<ApiEnvelope<PipelineRecommendation[]>>(
+        `/api/pipeline/${projectId}/recommendations`,
+      );
+      return res.data;
+    },
+
+    async list(projectId: string): Promise<PipelineRun[]> {
+      const res = await apiClient.get<ApiEnvelope<PipelineRun[]>>(
+        `/api/pipeline/${projectId}`,
+      );
+      return res.data;
+    },
+
+    async latest(projectId: string): Promise<PipelineRun | null> {
+      const res = await apiClient.get<ApiEnvelope<PipelineRun | null>>(
+        `/api/pipeline/${projectId}/latest`,
+      );
+      return res.data;
+    },
+
+    async updateSettings(
+      projectId: string,
+      data: Record<string, unknown>,
+    ): Promise<Record<string, unknown>> {
+      const res = await apiClient.patch<ApiEnvelope<Record<string, unknown>>>(
+        `/api/pipeline/${projectId}/settings`,
+        data,
+      );
+      return res.data;
+    },
+
+    async healthCheck(projectId: string): Promise<PipelineHealthCheckResult> {
+      const res = await apiClient.get<ApiEnvelope<PipelineHealthCheckResult>>(
+        `/api/pipeline/${projectId}/health-check`,
+      );
+      return res.data;
     },
   },
 
@@ -2908,87 +3107,6 @@ export const api = {
     },
   },
 
-  // ── Action Plan ──────────────────────────────────────────────
-  actionPlan: {
-    async get(projectId: string): Promise<{
-      items: Array<{
-        id: string;
-        issueCode: string;
-        category: string;
-        severity: string;
-        status: string;
-        title: string;
-        description: string;
-        scoreImpact: number;
-        effortLevel: string;
-        affectedPageCount: number;
-        assignedTo: string | null;
-        completedAt: string | null;
-        verifiedAt: string | null;
-      }>;
-      summary: {
-        total: number;
-        pending: number;
-        inProgress: number;
-        completed: number;
-        verified: number;
-        dismissed: number;
-        estimatedScoreGain: number;
-        currentScore: number;
-        currentGrade: string;
-      };
-    }> {
-      const res = await apiClient.get<ApiEnvelope<unknown>>(
-        `/api/action-plan/${projectId}`,
-      );
-      return res.data as any; // Cast to expected return type for now
-    },
-
-    async generate(projectId: string): Promise<void> {
-      await apiClient.post(`/api/action-plan/${projectId}/generate`);
-    },
-
-    async updateItem(
-      itemId: string,
-      data: { status?: string; assignedTo?: string },
-    ): Promise<void> {
-      await apiClient.patch(`/api/action-plan/items/${itemId}`, data);
-    },
-
-    async previewImpact(
-      projectId: string,
-      itemIds: string[],
-    ): Promise<{
-      currentScore: number;
-      predictedScore: number;
-      delta: number;
-      letterGrade: string;
-    }> {
-      const res = await apiClient.post<
-        ApiEnvelope<{
-          currentScore: number;
-          predictedScore: number;
-          delta: number;
-          letterGrade: string;
-        }>
-      >(`/api/action-plan/${projectId}/preview`, { itemIds });
-      return res.data;
-    },
-
-    async getProgress(projectId: string): Promise<{
-      total: number;
-      pending: number;
-      inProgress: number;
-      completed: number;
-      verified: number;
-    }> {
-      const res = await apiClient.get<ApiEnvelope<unknown>>(
-        `/api/action-plan/${projectId}/progress`,
-      );
-      return res.data as any;
-    },
-  },
-
   // ── API Tokens ───────────────────────────────────────────────
   tokens: {
     async list(): Promise<ApiTokenInfo[]> {
@@ -3096,19 +3214,19 @@ export const api = {
 
   // ── Generators ──────────────────────────────────────────────
   generators: {
-    async sitemap(projectId: string): Promise<string> {
-      const res = await apiClient.post<string>(
-        `/api/projects/${projectId}/generate/sitemap`,
-        {},
-      );
-      return res as unknown as string;
+    async sitemap(projectId: string): Promise<{
+      filename: string | null;
+      contentType: string | null;
+      content: string;
+    }> {
+      return postDownload(`/api/projects/${projectId}/generate/sitemap`);
     },
-    async llmsTxt(projectId: string): Promise<string> {
-      const res = await apiClient.post<string>(
-        `/api/projects/${projectId}/generate/llms-txt`,
-        {},
-      );
-      return res as unknown as string;
+    async llmsTxt(projectId: string): Promise<{
+      filename: string | null;
+      contentType: string | null;
+      content: string;
+    }> {
+      return postDownload(`/api/projects/${projectId}/generate/llms-txt`);
     },
   },
 

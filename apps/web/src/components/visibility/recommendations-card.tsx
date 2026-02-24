@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StateCard } from "@/components/ui/state";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type VisibilityRecommendation } from "@/lib/api";
 import {
@@ -13,7 +14,6 @@ import {
   AlertTriangle,
   Radio,
   ExternalLink,
-  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,30 +42,21 @@ export function RecommendationsCard({ projectId }: { projectId: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="loading"
+        description="Loading visibility recommendations..."
+      />
     );
   }
 
   if (!data || data.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lightbulb className="h-4 w-4" />
-            Recommendations
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            No actionable recommendations right now. Run more visibility checks
-            to get insights.
-          </p>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="empty"
+        cardTitle="Recommendations"
+        icon={<Lightbulb className="h-5 w-5 text-muted-foreground" />}
+        description="No actionable recommendations right now. Run more visibility checks to get insights."
+      />
     );
   }
 

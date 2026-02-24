@@ -7,6 +7,12 @@ import type {
   OutboxRepository,
   UserRepository,
 } from "../repositories";
+import {
+  createCrawlRepository,
+  createProjectRepository,
+  createReportRepository,
+  createUserRepository,
+} from "../repositories";
 import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import {
@@ -17,9 +23,16 @@ import {
 import { createNotificationService } from "./notification-service";
 import { createRegressionService } from "./regression-service";
 import { createFrontierService } from "./frontier-service";
-import { createDb, outboxEvents, projectQueries } from "@llm-boost/db";
+import {
+  actionItemQueries,
+  createDb,
+  outboxEvents,
+  projectQueries,
+  reportScheduleQueries,
+} from "@llm-boost/db";
 import { createPipelineService } from "./pipeline-service";
 import { createAuditService } from "./audit-service";
+import { createReportService } from "./report-service";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -169,6 +182,11 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
                   status: "pending",
                 }),
             },
+            actionItems: {
+              create: (data) => actionItemQueries(db).create(data),
+              getOpenByProjectIssueCode: (pid, issueCode) =>
+                actionItemQueries(db).getOpenByProjectIssueCode(pid, issueCode),
+            },
           });
           args.executionCtx.waitUntil(
             regressionSvc.checkAndNotify({
@@ -202,6 +220,51 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
           args.executionCtx.waitUntil(
             pipeline.start(projectId, crawlJobId).catch(() => {}),
           );
+        }
+      }
+
+      // Auto-generate scheduled reports after each completed crawl.
+      if (batch.is_final && env.reportServiceUrl && env.sharedSecret) {
+        const db = createDb(env.databaseUrl);
+        const project = await projectQueries(db).getById(projectId);
+
+        if (project) {
+          const activeSchedules =
+            await reportScheduleQueries(db).getActiveByProject(projectId);
+
+          if (activeSchedules.length > 0) {
+            const reportService = createReportService({
+              reports: createReportRepository(db),
+              projects: createProjectRepository(db),
+              users: createUserRepository(db),
+              crawls: createCrawlRepository(db),
+            });
+
+            args.executionCtx.waitUntil(
+              (async () => {
+                for (const schedule of activeSchedules) {
+                  try {
+                    await reportService.generate(
+                      project.userId,
+                      {
+                        projectId,
+                        crawlJobId,
+                        type: schedule.type,
+                        format: schedule.format,
+                        config: { preparedFor: schedule.recipientEmail },
+                      },
+                      {
+                        reportServiceUrl: env.reportServiceUrl!,
+                        sharedSecret: env.sharedSecret!,
+                      },
+                    );
+                  } catch {
+                    // Continue to next schedule to avoid blocking other outputs.
+                  }
+                }
+              })(),
+            );
+          }
         }
       }
 

@@ -1,4 +1,4 @@
-import { eq, desc, count } from "drizzle-orm";
+import { eq, desc, count, and, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { actionItems } from "../schema";
 
@@ -10,6 +10,11 @@ export type ActionItemStatus =
 
 export function actionItemQueries(db: Database) {
   return {
+    async create(data: typeof actionItems.$inferInsert) {
+      const [created] = await db.insert(actionItems).values(data).returning();
+      return created;
+    },
+
     async listByProject(projectId: string) {
       return db.query.actionItems.findMany({
         where: eq(actionItems.projectId, projectId),
@@ -20,6 +25,17 @@ export function actionItemQueries(db: Database) {
     async getById(id: string) {
       return db.query.actionItems.findFirst({
         where: eq(actionItems.id, id),
+      });
+    },
+
+    async getOpenByProjectIssueCode(projectId: string, issueCode: string) {
+      return db.query.actionItems.findFirst({
+        where: and(
+          eq(actionItems.projectId, projectId),
+          eq(actionItems.issueCode, issueCode),
+          inArray(actionItems.status, ["pending", "in_progress"]),
+        ),
+        orderBy: [desc(actionItems.createdAt)],
       });
     },
 

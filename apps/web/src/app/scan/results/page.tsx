@@ -27,6 +27,11 @@ const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   high: { label: "Significant", color: "bg-destructive/10 text-destructive" },
 };
 
+type ScanResultCta =
+  | "create_project"
+  | "connect_integration"
+  | "schedule_recurring_scan";
+
 function ScanResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -110,7 +115,7 @@ function ScanResultsContent() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading results...</p>
+        <p className="text-muted-foreground">Loading report...</p>
       </div>
     );
   }
@@ -120,7 +125,7 @@ function ScanResultsContent() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
         <p className="text-destructive">{error}</p>
         <Button variant="outline" asChild>
-          <Link href="/scan">Scan Another Site</Link>
+          <Link href="/scan">Run Another Scan</Link>
         </Button>
       </div>
     );
@@ -129,12 +134,27 @@ function ScanResultsContent() {
   if (!result) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading results...</p>
+        <p className="text-muted-foreground">Loading report...</p>
       </div>
     );
   }
 
   const { scores, issues, quickWins, meta } = result;
+  const domain = result.url ?? result.domain;
+
+  function trackCtaClick(
+    cta: ScanResultCta,
+    destination: string,
+    placement: "unlock_banner" | "results_next_actions",
+  ) {
+    track("scan_result_cta_clicked", {
+      cta,
+      destination,
+      placement,
+      scanResultId: scanId ?? "session-storage",
+      domain,
+    });
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-8">
@@ -148,7 +168,7 @@ function ScanResultsContent() {
           Scan another site
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">
-          AI-Readiness Report
+          AI Visibility Report
         </h1>
         <p className="text-muted-foreground">{result.url}</p>
       </div>
@@ -200,20 +220,27 @@ function ScanResultsContent() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-primary">
-              Need every issue and quick win?
+              Unlock the full issue list
             </p>
             <p className="text-sm text-muted-foreground">
-              Unlock the full checklist for this {scores.letterGrade ?? "—"}{" "}
-              grade page and get a PDF summary plus AI-ready recommendations.
+              Get full quick wins for this {scores.letterGrade ?? "-"} grade
+              page, plus exportable summaries for your team.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button size="sm" asChild>
-              <Link href="/sign-up">Unlock detailed quick wins</Link>
+              <Link
+                href="/sign-up"
+                onClick={() =>
+                  trackCtaClick("create_project", "/sign-up", "unlock_banner")
+                }
+              >
+                Create Free Account
+              </Link>
             </Button>
             {!isUnlocked && (
               <Button size="sm" variant="outline" asChild>
-                <a href="#unlock">Unlock this report</a>
+                <a href="#unlock">Unlock Report</a>
               </Button>
             )}
           </div>
@@ -286,28 +313,28 @@ function ScanResultsContent() {
           </CardHeader>
           <CardContent>
             <p className="text-sm">
-              We asked <span className="font-medium">Perplexity</span> about
+              We queried <span className="font-medium">Perplexity</span> for
               your brand.{" "}
               {result.visibility.brandMentioned ? (
                 <span className="font-semibold text-success">
-                  Your site was mentioned!
+                  Your site was mentioned.
                 </span>
               ) : (
                 <span className="font-semibold text-warning">
-                  Your site wasn&apos;t mentioned.
+                  Your site was not mentioned.
                 </span>
               )}
             </p>
             {!result.visibility.brandMentioned && (
               <p className="mt-2 text-sm text-muted-foreground">
-                Your site isn&apos;t appearing in AI responses yet. LLM Rank can
-                help you improve your AI visibility.
+                This is an opportunity to strengthen structured answers,
+                authority signals, and citation-focused content.
               </p>
             )}
             <div className="mt-3">
               <Button size="sm" variant="outline" asChild>
                 <Link href="/sign-up">
-                  Track visibility across 5 AI platforms
+                  Track across 5 AI platforms
                   <ArrowLeft className="ml-1 h-3 w-3 rotate-180" />
                 </Link>
               </Button>
@@ -321,8 +348,8 @@ function ScanResultsContent() {
         <div>
           <h2 className="mb-4 text-lg font-semibold">
             {isUnlocked
-              ? `All Issues (${issues.length})`
-              : `Top Issues (${issues.length})`}
+              ? `All Detected Issues (${issues.length})`
+              : `Top Issues to Fix (${issues.length})`}
           </h2>
           <div className="space-y-3">
             {issues.map((issue, i) => (
@@ -338,7 +365,7 @@ function ScanResultsContent() {
           <div className="flex items-center gap-2 text-muted-foreground">
             <Lock className="h-4 w-4" />
             <span className="text-sm">
-              Full results including Quick Wins are locked
+              Full results and quick wins are locked
             </span>
           </div>
           <EmailCaptureGate
@@ -360,24 +387,70 @@ function ScanResultsContent() {
         </div>
       )}
 
-      {/* CTA */}
-      <Card className="bg-primary/5 p-8 text-center">
-        <h2 className="text-xl font-bold">Want deeper analysis?</h2>
-        <p className="mt-2 text-muted-foreground">
-          Sign up for free to crawl up to 10 pages with Lighthouse performance
-          data, LLM content scoring, and AI visibility checks.
+      {/* Next Actions */}
+      <Card className="bg-primary/5 p-8">
+        <h2 className="text-center text-xl font-bold">
+          Recommended Next Actions
+        </h2>
+        <p className="mt-2 text-center text-muted-foreground">
+          Move from one-time audit to repeatable execution with a project
+          workspace, integrations, and recurring monitoring.
         </p>
-        <div className="mt-4 flex justify-center gap-3">
-          <Button size="lg" asChild>
-            <Link href="/sign-up">Sign Up Free</Link>
+        <div className="mt-5 space-y-3">
+          <Button size="lg" className="w-full" asChild>
+            <Link
+              href="/sign-up"
+              onClick={() =>
+                trackCtaClick(
+                  "create_project",
+                  "/sign-up",
+                  "results_next_actions",
+                )
+              }
+            >
+              Create Project Workspace
+            </Link>
           </Button>
-          <Button size="lg" variant="outline" asChild>
-            <Link href="/scan">Scan Another Site</Link>
-          </Button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button size="lg" variant="outline" className="w-full" asChild>
+              <Link
+                href="/integrations"
+                onClick={() =>
+                  trackCtaClick(
+                    "connect_integration",
+                    "/integrations",
+                    "results_next_actions",
+                  )
+                }
+              >
+                Connect Integrations
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="w-full" asChild>
+              <Link
+                href="/pricing"
+                onClick={() =>
+                  trackCtaClick(
+                    "schedule_recurring_scan",
+                    "/pricing",
+                    "results_next_actions",
+                  )
+                }
+              >
+                Schedule Recurring Scans
+              </Link>
+            </Button>
+          </div>
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Create a free account to download PDF reports and get AI-generated
-          executive summaries.
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Need another baseline first?{" "}
+          <Link
+            href="/scan"
+            className="font-medium text-primary hover:underline"
+          >
+            Run another scan
+          </Link>
+          .
         </p>
       </Card>
     </div>
@@ -389,7 +462,7 @@ export default function ScanResultsPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <p className="text-muted-foreground">Loading results...</p>
+          <p className="text-muted-foreground">Loading report...</p>
         </div>
       }
     >

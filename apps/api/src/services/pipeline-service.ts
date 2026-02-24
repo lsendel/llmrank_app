@@ -5,6 +5,9 @@ import { runAutoPersonaGeneration } from "./auto-persona-service";
 import { runAutoKeywordGeneration } from "./auto-keyword-service";
 import { runAutoCompetitorDiscovery } from "./auto-competitor-service";
 import { runAutoVisibilityChecks } from "./auto-visibility-service";
+import { runContentOptimization } from "./content-optimization-service";
+import { createRecommendationsService } from "./recommendations-service";
+import { runHealthCheck } from "./health-check-service";
 import type { createAuditService } from "./audit-service";
 
 type AuditService = ReturnType<typeof createAuditService>;
@@ -51,6 +54,7 @@ export function createPipelineService(
     crawlJobId: string,
   ): Promise<void> {
     const start = Date.now();
+    let stepOutput: Record<string, unknown> = {};
     try {
       switch (step) {
         case "site_description":
@@ -96,20 +100,54 @@ export function createPipelineService(
             },
           });
           break;
-        case "content_optimization":
-          // Phase 4 — will be wired after content-optimization-service is created
+        case "content_optimization": {
+          const result = await runContentOptimization({
+            databaseUrl: keys.databaseUrl,
+            projectId,
+            crawlJobId,
+            anthropicApiKey: keys.anthropicApiKey,
+          });
+          stepOutput = {
+            pagesAnalyzed: result.pagesAnalyzed,
+            suggestionsGenerated: result.suggestions.length,
+          };
           break;
-        case "action_report":
-          // Phase 5 — will be wired to report generation
+        }
+        case "action_report": {
+          const recommendations =
+            await createRecommendationsService(db).getForProject(projectId);
+          stepOutput = {
+            actionsGenerated: recommendations.length,
+            criticalActions: recommendations.filter(
+              (r) => r.priority === "critical",
+            ).length,
+            highActions: recommendations.filter((r) => r.priority === "high")
+              .length,
+          };
           break;
-        case "health_check":
-          // Phase 6 — will be wired after health-check-service is created
+        }
+        case "health_check": {
+          const result = await runHealthCheck({
+            databaseUrl: keys.databaseUrl,
+            projectId,
+            crawlJobId,
+          });
+          stepOutput = {
+            healthScore: result.score,
+            checksRun: result.checks.length,
+            failedChecks: result.checks.filter((c) => c.status === "fail")
+              .length,
+            warningChecks: result.checks.filter((c) => c.status === "warn")
+              .length,
+          };
           break;
+        }
       }
 
       await runs.updateStep(runId, step, {
         status: "completed",
         duration_ms: Date.now() - start,
+        ...stepOutput,
       });
 
       await audit.emitEvent({

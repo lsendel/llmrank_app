@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StateCard } from "@/components/ui/state";
 import { IssueCard } from "@/components/issue-card";
 import { IssueHeatmap } from "@/components/charts/issue-heatmap";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -244,11 +245,15 @@ export function IssuesTab({
       {/* Issue list */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground">
-            {issues.length === 0
-              ? "No issues found. Run a crawl to check for issues."
-              : "No issues match the selected filters."}
-          </Card>
+          <StateCard
+            variant="empty"
+            description={
+              issues.length === 0
+                ? "No issues found. Run a crawl to check for issues."
+                : "No issues match the selected filters."
+            }
+            contentClassName="p-0"
+          />
         ) : (
           filtered.map((issue, i) => {
             const actionItem = actionItemsByCode.get(issue.code);
@@ -256,6 +261,8 @@ export function IssuesTab({
               <IssueCard
                 key={`${issue.code}-${issue.pageUrl ?? ""}-${i}`}
                 {...issue}
+                projectId={projectId}
+                pageId={issue.pageId}
                 actionItemId={actionItem?.id}
                 actionItemStatus={actionItem?.status}
                 onStatusChange={actionItem ? handleStatusChange : undefined}

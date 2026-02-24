@@ -126,8 +126,13 @@ export default function AIVisibilityTab({
         const result = await api.visibility.discoverKeywords(projectId);
         setDiscoveryResult(result);
       });
-    } catch {
-      // Error handled by withAuth toast
+    } catch (err) {
+      toast({
+        title: "Keyword discovery failed",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setDiscovering(false);
     }
@@ -145,8 +150,13 @@ export default function AIVisibilityTab({
           description: `${created.length} gap queries added as tracked keywords.`,
         });
       });
-    } catch {
-      // Error handled by withAuth toast
+    } catch (err) {
+      toast({
+        title: "Failed to save gap keywords",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setTrackingGaps(false);
     }

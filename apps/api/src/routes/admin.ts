@@ -413,10 +413,14 @@ adminRoutes.delete("/promos/:id", async (c) => {
       );
     }
 
-    // Deactivate in Stripe
+    // Deactivate in Stripe (best-effort — may not exist if key changed)
     const gateway = new StripeGateway(c.env.STRIPE_SECRET_KEY);
     if (promo.stripePromotionCodeId) {
-      await gateway.deactivatePromotionCode(promo.stripePromotionCodeId);
+      try {
+        await gateway.deactivatePromotionCode(promo.stripePromotionCodeId);
+      } catch {
+        // Stripe promo may belong to a different account; still clean up locally
+      }
     }
 
     await promoQueries(db).deactivate(promoId);

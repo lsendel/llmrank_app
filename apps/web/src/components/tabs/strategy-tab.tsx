@@ -57,7 +57,12 @@ export function StrategyTab({ projectId }: { projectId: string }) {
       await addCompetitor(newCompDomain);
       setNewCompDomain("");
     } catch (err) {
-      console.error(err);
+      toast({
+        title: "Failed to add competitor",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setAddingComp(false);
     }
@@ -67,7 +72,12 @@ export function StrategyTab({ projectId }: { projectId: string }) {
     try {
       await removeCompetitor(id);
     } catch (err) {
-      console.error(err);
+      toast({
+        title: "Failed to remove competitor",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     }
   }
 

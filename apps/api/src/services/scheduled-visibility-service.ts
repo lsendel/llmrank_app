@@ -1,6 +1,21 @@
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { ServiceError } from "./errors";
 
+const VALID_FREQUENCIES = ["hourly", "daily", "weekly"] as const;
+type ScheduleFrequency = (typeof VALID_FREQUENCIES)[number];
+
+function assertValidFrequency(
+  frequency: unknown,
+): asserts frequency is ScheduleFrequency {
+  if (!(VALID_FREQUENCIES as readonly string[]).includes(String(frequency))) {
+    throw new ServiceError(
+      "VALIDATION_ERROR",
+      422,
+      "frequency must be one of: hourly, daily, weekly",
+    );
+  }
+}
+
 interface ScheduledVisibilityServiceDeps {
   schedules: {
     create(data: any): Promise<any>;
@@ -23,8 +38,10 @@ export function createScheduledVisibilityService(
       projectId: string;
       query: string;
       providers: string[];
-      frequency: "hourly" | "daily" | "weekly";
+      frequency: ScheduleFrequency;
     }) {
+      assertValidFrequency(args.frequency);
+
       const user = await deps.users.getById(args.userId);
       if (!user) throw new ServiceError("NOT_FOUND", 404, "User not found");
 
@@ -75,7 +92,20 @@ export function createScheduledVisibilityService(
       return deps.schedules.listByProject(projectId);
     },
 
-    async update(userId: string, scheduleId: string, data: any) {
+    async update(
+      userId: string,
+      scheduleId: string,
+      data: {
+        query?: string;
+        providers?: string[];
+        frequency?: ScheduleFrequency;
+        enabled?: boolean;
+      },
+    ) {
+      if (data.frequency !== undefined) {
+        assertValidFrequency(data.frequency);
+      }
+
       const schedule = await deps.schedules.getById(scheduleId);
       if (!schedule)
         throw new ServiceError("NOT_FOUND", 404, "Schedule not found");

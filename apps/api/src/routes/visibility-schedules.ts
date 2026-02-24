@@ -14,6 +14,16 @@ export const visibilityScheduleRoutes = new Hono<AppEnv>();
 
 visibilityScheduleRoutes.use("*", authMiddleware);
 
+const VALID_FREQUENCIES = ["hourly", "daily", "weekly"] as const;
+type ScheduleFrequency = (typeof VALID_FREQUENCIES)[number];
+
+function isValidFrequency(value: unknown): value is ScheduleFrequency {
+  return (
+    typeof value === "string" &&
+    (VALID_FREQUENCIES as readonly string[]).includes(value)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Helper — build service from context
 // ---------------------------------------------------------------------------
@@ -39,7 +49,7 @@ visibilityScheduleRoutes.post("/", async (c) => {
     projectId: string;
     query: string;
     providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
+    frequency: ScheduleFrequency;
   }>();
 
   if (
@@ -53,6 +63,18 @@ visibilityScheduleRoutes.post("/", async (c) => {
         error: {
           code: "VALIDATION_ERROR",
           message: "projectId, query, providers, and frequency are required",
+        },
+      },
+      422,
+    );
+  }
+
+  if (!isValidFrequency(body.frequency)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "frequency must be one of: hourly, daily, weekly",
         },
       },
       422,
@@ -115,9 +137,21 @@ visibilityScheduleRoutes.patch("/:id", async (c) => {
   const body = await c.req.json<{
     query?: string;
     providers?: string[];
-    frequency?: "hourly" | "daily" | "weekly";
+    frequency?: ScheduleFrequency;
     enabled?: boolean;
   }>();
+
+  if (body.frequency !== undefined && !isValidFrequency(body.frequency)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "frequency must be one of: hourly, daily, weekly",
+        },
+      },
+      422,
+    );
+  }
 
   const service = buildService(c);
 

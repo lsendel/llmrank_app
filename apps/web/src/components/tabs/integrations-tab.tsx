@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -124,7 +124,17 @@ function planAllows(userPlan: string, requiredPlan: string): boolean {
   return PLAN_ORDER.indexOf(userPlan) >= PLAN_ORDER.indexOf(requiredPlan);
 }
 
-export default function IntegrationsTab({ projectId }: { projectId: string }) {
+type SupportedProvider = "gsc" | "psi" | "ga4" | "clarity";
+
+export default function IntegrationsTab({
+  projectId,
+  connectProvider,
+  connectedProvider,
+}: {
+  projectId: string;
+  connectProvider?: SupportedProvider | null;
+  connectedProvider?: SupportedProvider | null;
+}) {
   const { withAuth } = useApi();
   const { toast } = useToast();
 
@@ -172,6 +182,7 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
   const [syncing, setSyncing] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const autoConnectAttempted = useRef<SupportedProvider | null>(null);
 
   const hasConnectedIntegrations = integrations?.some(
     (i) => i.hasCredentials && i.enabled,
@@ -180,6 +191,42 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
   function getIntegration(provider: string): ProjectIntegration | undefined {
     return integrations?.find((i) => i.provider === provider);
   }
+
+  useEffect(() => {
+    if (!connectProvider) return;
+    if (integrations === undefined) return;
+    if (autoConnectAttempted.current === connectProvider) return;
+    autoConnectAttempted.current = connectProvider;
+
+    const targetMeta = INTEGRATIONS.find(
+      (item) => item.provider === connectProvider,
+    );
+    if (!targetMeta) return;
+
+    if (!planAllows(currentPlan, targetMeta.minPlan)) {
+      setError(
+        `${targetMeta.label} requires ${targetMeta.minPlan === "agency" ? "Agency" : "Pro"} plan.`,
+      );
+      return;
+    }
+
+    const existing = getIntegration(connectProvider);
+    if (existing?.hasCredentials) return;
+
+    if (
+      targetMeta.authType === "oauth2" &&
+      connectProvider !== "psi" &&
+      connectProvider !== "clarity"
+    ) {
+      handleOAuthConnect(connectProvider);
+      return;
+    }
+
+    setConnectModal({
+      provider: connectProvider as "psi" | "clarity",
+      label: targetMeta.label,
+    });
+  }, [connectProvider, currentPlan, integrations]);
 
   async function handleSync() {
     setSyncing(true);
@@ -335,6 +382,13 @@ export default function IntegrationsTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-6">
+      {connectedProvider && (
+        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+          {INTEGRATIONS.find((item) => item.provider === connectedProvider)
+            ?.label ?? "Integration"}{" "}
+          connected successfully.
+        </div>
+      )}
       {error && (
         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}

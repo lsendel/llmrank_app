@@ -81,8 +81,8 @@ const PROVIDERS = [
 ] as const;
 
 const FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Daily", description: "Every 24 hours" },
   { value: "weekly", label: "Weekly", description: "Every 7 days" },
-  { value: "monthly", label: "Monthly", description: "1st of each month" },
 ] as const;
 
 const REGIONS = [
@@ -263,7 +263,7 @@ export default function VisibilityTab({
   async function handleCreateSchedule(data: {
     query: string;
     providers: string[];
-    frequency: "weekly" | "monthly";
+    frequency: "daily" | "weekly";
   }) {
     setScheduleError(null);
     try {
@@ -601,7 +601,7 @@ function ScheduledChecksSection({
   onCreateSchedule: (data: {
     query: string;
     providers: string[];
-    frequency: "weekly" | "monthly";
+    frequency: "daily" | "weekly";
   }) => Promise<void>;
   onToggleSchedule: (schedule: ScheduledQuery) => Promise<void>;
   onDeleteSchedule: (id: string) => Promise<void>;
@@ -760,14 +760,14 @@ function AddScheduleDialog({
   onSubmit: (data: {
     query: string;
     providers: string[];
-    frequency: "weekly" | "monthly";
+    frequency: "daily" | "weekly";
   }) => Promise<void>;
 }) {
   const [scheduleQuery, setScheduleQuery] = useState("");
   const [scheduleProviders, setScheduleProviders] = useState<string[]>(
     PROVIDERS.map((p) => p.id),
   );
-  const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
+  const [frequency, setFrequency] = useState<"daily" | "weekly">("weekly");
   const [submitting, setSubmitting] = useState(false);
 
   function toggleScheduleProvider(id: string) {
@@ -837,7 +837,7 @@ function AddScheduleDialog({
           <Label>Frequency</Label>
           <Select
             value={frequency}
-            onValueChange={(val) => setFrequency(val as "weekly" | "monthly")}
+            onValueChange={(val) => setFrequency(val as "daily" | "weekly")}
           >
             <SelectTrigger>
               <SelectValue />

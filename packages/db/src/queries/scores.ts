@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import {
   pageScores,
@@ -58,6 +58,13 @@ export function scoreQueries(db: Database) {
     async listByJob(jobId: string) {
       return db.query.pageScores.findMany({
         where: eq(pageScores.jobId, jobId),
+      });
+    },
+
+    async listByJobs(jobIds: string[]) {
+      if (jobIds.length === 0) return [];
+      return db.query.pageScores.findMany({
+        where: inArray(pageScores.jobId, jobIds),
       });
     },
 

@@ -14,6 +14,7 @@ import {
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type CitedPage } from "@/lib/api";
 import { ExternalLink, FileText } from "lucide-react";
+import { StateCard } from "@/components/ui/state";
 
 const PROVIDER_LABELS: Record<string, string> = {
   chatgpt: "ChatGPT",
@@ -33,35 +34,22 @@ export function CitedPagesTable({ projectId }: { projectId: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Cited Pages</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="loading"
+        cardTitle="Cited Pages"
+        description="Loading citation data..."
+      />
     );
   }
 
   if (!citedPages || citedPages.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Cited Pages</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <FileText className="mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No citations found yet. Run visibility checks to see which of your
-              pages AI platforms reference.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="empty"
+        cardTitle="Cited Pages"
+        icon={<FileText className="h-10 w-10 text-muted-foreground/60" />}
+        description="No citations found yet. Run visibility checks to see which of your pages AI platforms reference."
+      />
     );
   }
 

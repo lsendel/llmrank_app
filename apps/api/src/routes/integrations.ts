@@ -44,6 +44,100 @@ async function hmacSign(secret: string, message: string): Promise<string> {
 
 export const integrationRoutes = new Hono<AppEnv>();
 
+const INTEGRATION_CATALOG = [
+  {
+    id: "gsc",
+    provider: "gsc",
+    name: "Google Search Console",
+    description:
+      "Import GSC performance data to pair search rankings with AI-readiness scores and prioritize pages with the largest upside.",
+    features: [
+      "Import impressions, clicks, CTR, and average position",
+      "Compare organic rankings against AI readiness",
+      "Spot high-opportunity pages and queries",
+      "Track ranking and score trends in one view",
+    ],
+    availability: "available_now",
+    access: "requires_auth",
+    minPlan: "pro",
+    authType: "oauth2",
+  },
+  {
+    id: "ga4",
+    provider: "ga4",
+    name: "Google Analytics 4",
+    description:
+      "Connect GA4 to measure how traffic from search and AI channels performs after landing on your content.",
+    features: [
+      "Track referral traffic by source",
+      "Measure engagement and conversion outcomes",
+      "Compare AI and organic traffic quality",
+      "Validate ROI for optimization work",
+    ],
+    availability: "available_now",
+    access: "requires_auth",
+    minPlan: "agency",
+    authType: "oauth2",
+  },
+  {
+    id: "mcp",
+    provider: null,
+    name: "MCP Server",
+    description:
+      "Use LLM Rank tools from your coding agent via MCP to run audits and generate fixes without leaving your editor.",
+    features: [
+      "27 tools available in supported agents and IDEs",
+      "Works with Claude Code, Cursor, VS Code, Windsurf, and ChatGPT",
+      "HTTP transport with OAuth 2.1",
+      "Prompts for audits, fix plans, and competitor analysis",
+    ],
+    availability: "available_now",
+    access: "public",
+    minPlan: null,
+    authType: "oauth2",
+    link: "/mcp",
+  },
+  {
+    id: "wordpress",
+    provider: null,
+    name: "WordPress Plugin",
+    description:
+      "Score content directly in the WordPress editor and apply technical recommendations during drafting and publishing.",
+    features: [
+      "Real-time content scoring in editor",
+      "Schema markup suggestions",
+      "Robots.txt checks for AI crawlers",
+      "Bulk recommendations for existing posts",
+    ],
+    availability: "coming_soon",
+    access: "requires_auth",
+    minPlan: null,
+    authType: "api_key",
+  },
+  {
+    id: "slack",
+    provider: null,
+    name: "Slack",
+    description:
+      "Send score alerts and weekly summaries to Slack so teams can review changes and assign actions quickly.",
+    features: [
+      "Score change alerts",
+      "Weekly summary reports",
+      "Competitor movement notifications",
+      "Shared team triage workflows",
+    ],
+    availability: "coming_soon",
+    access: "requires_auth",
+    minPlan: null,
+    authType: "oauth2",
+  },
+] as const;
+
+// Public catalog used by /integrations page
+integrationRoutes.get("/catalog", async (c) => {
+  return c.json({ data: INTEGRATION_CATALOG });
+});
+
 integrationRoutes.use("*", authMiddleware);
 
 // ---------------------------------------------------------------------------

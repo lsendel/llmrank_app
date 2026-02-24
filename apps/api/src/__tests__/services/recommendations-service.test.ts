@@ -1,15 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetById = vi.fn();
+const mockListByUser = vi.fn();
 const mockGetLatestByProject = vi.fn();
+const mockGetLatestByProjects = vi.fn();
 const mockGetIssuesByJob = vi.fn();
 const mockCountByProject = vi.fn();
 const mockListByProject = vi.fn();
 const mockGetLatestPipeline = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
-  projectQueries: () => ({ getById: mockGetById }),
-  crawlQueries: () => ({ getLatestByProject: mockGetLatestByProject }),
+  projectQueries: () => ({
+    getById: mockGetById,
+    listByUser: mockListByUser,
+  }),
+  crawlQueries: () => ({
+    getLatestByProject: mockGetLatestByProject,
+    getLatestByProjects: mockGetLatestByProjects,
+  }),
   scoreQueries: () => ({ getIssuesByJob: mockGetIssuesByJob }),
   savedKeywordQueries: () => ({ countByProject: mockCountByProject }),
   competitorQueries: () => ({ listByProject: mockListByProject }),
@@ -123,5 +131,43 @@ describe("createRecommendationsService", () => {
         order[recs[i - 1].priority],
       );
     }
+  });
+
+  it("builds portfolio priority feed with freshness and source metadata", async () => {
+    mockListByUser.mockResolvedValueOnce([
+      { id: "proj-a", name: "A", domain: "a.com" },
+      { id: "proj-b", name: "B", domain: "b.com" },
+    ]);
+    mockGetLatestByProjects.mockResolvedValueOnce([
+      {
+        id: "crawl-a",
+        projectId: "proj-a",
+        status: "complete",
+        completedAt: new Date(),
+        createdAt: new Date(),
+      },
+    ]);
+    mockGetIssuesByJob.mockResolvedValueOnce([
+      { severity: "critical", message: "AI crawlers blocked" },
+    ]);
+    mockCountByProject.mockResolvedValueOnce(8);
+    mockListByProject.mockResolvedValueOnce([{ id: "comp-1" }]);
+
+    const service = createRecommendationsService(fakeDb);
+    const feed = await service.getPortfolioPriorityFeed("u-1", { limit: 10 });
+
+    expect(feed).toHaveLength(2);
+    expect(feed[0]).toMatchObject({
+      projectId: "proj-b",
+      category: "onboarding",
+      priority: "critical",
+    });
+    expect(feed[1]).toMatchObject({
+      projectId: "proj-a",
+      category: "issues",
+      priority: "critical",
+      source: { signals: ["issue_severity", "issue_count"] },
+    });
+    expect(feed[1].freshness.generatedAt).toBeTruthy();
   });
 });

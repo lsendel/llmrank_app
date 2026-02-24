@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserButton } from "@/lib/auth-hooks";
 import {
@@ -34,6 +34,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   // Auth is enforced by middleware.ts — if we reach here, user has a session cookie
   const { data: me } = useApiSWR(
@@ -59,6 +60,11 @@ export default function DashboardLayout({
     [me?.isAdmin],
   );
 
+  function isActiveLink(href: string) {
+    if (href === "/dashboard") return pathname === href;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -76,7 +82,11 @@ export default function DashboardLayout({
             <Link
               key={link.href}
               href={link.href}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActiveLink(link.href)
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              }`}
             >
               <link.icon className="h-4 w-4" />
               {link.label}
@@ -88,7 +98,7 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex flex-1 flex-col">
         {/* Top header */}
-        <header className="flex h-16 items-center justify-between border-b border-border px-6">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/70 md:px-6">
           <div className="flex items-center gap-4 md:hidden">
             <span className="text-lg font-bold tracking-tight text-primary">
               LLM Rank
@@ -98,10 +108,30 @@ export default function DashboardLayout({
             <UserButton />
           </div>
         </header>
+        <nav className="border-b border-border px-4 py-2 md:hidden">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {sidebarLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  isActiveLink(link.href)
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <link.icon className="h-3.5 w-3.5" />
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <ErrorBoundary>{children}</ErrorBoundary>
+        <main className="dashboard-main flex-1 overflow-y-auto">
+          <ErrorBoundary>
+            <div className="dashboard-shell">{children}</div>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

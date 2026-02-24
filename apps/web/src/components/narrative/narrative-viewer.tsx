@@ -70,7 +70,7 @@ export function NarrativeViewer({ crawlJobId }: Props) {
           </p>
         </div>
         <Button asChild>
-          <a href="/dashboard/settings?tab=billing">Upgrade Plan</a>
+          <a href="/dashboard/billing">Upgrade Plan</a>
         </Button>
       </div>
     );

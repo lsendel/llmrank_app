@@ -8,6 +8,7 @@ import { BrandingSection } from "@/components/settings/branding-section";
 import { NotificationChannelsSection } from "@/components/settings/notification-channels-section";
 import { ApiTokensSection } from "@/components/settings/api-tokens-section";
 import { DigestPreferencesSection } from "@/components/settings/digest-preferences-section";
+import { extractOrgIdFromPayload } from "./org-response";
 
 const TeamSection = dynamic(
   () =>
@@ -59,8 +60,7 @@ export default function SettingsPage() {
     fetch(`${baseUrl}/api/orgs`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        const orgs = json?.data;
-        if (Array.isArray(orgs) && orgs.length > 0) setOrgId(orgs[0].id);
+        setOrgId(extractOrgIdFromPayload(json));
       })
       .catch(() => {});
   }, []);

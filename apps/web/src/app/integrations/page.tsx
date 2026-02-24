@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
 import {
   JsonLd,
   webPageSchema,
   breadcrumbSchema,
 } from "@/components/seo/json-ld";
+import { IntegrationCatalogClient } from "./catalog-client";
 
 export const metadata: Metadata = {
-  title: "SEO Integrations & Connections",
+  title: "Integrations for SEO and AI Visibility",
   description:
-    "Connect LLM Rank with Google Search Console, Google Analytics, MCP for AI coding agents, WordPress, Slack, and more to supercharge your AI SEO strategy.",
+    "Connect Google Search Console, GA4, MCP, and workflow tools to turn SEO and AI visibility data into action.",
   alternates: { canonical: "/integrations" },
   openGraph: {
     title: "Integrations | LLM Rank",
@@ -21,70 +20,6 @@ export const metadata: Metadata = {
     url: "https://llmrank.app/integrations",
   },
 };
-
-const INTEGRATIONS = [
-  {
-    name: "Google Search Console",
-    description:
-      "Connect GSC to analyze actual search performance data alongside AI-readiness scores. Import impressions, clicks, and average position for every page. Identify which pages rank well in traditional search but score poorly for AI visibility — these are your biggest opportunities for quick improvement.",
-    features: [
-      "Import search analytics (impressions, clicks, CTR)",
-      "Correlate traditional rankings with AI scores",
-      "Identify high-opportunity keywords for AI optimization",
-      "Track performance trends alongside readiness scores",
-    ],
-    status: "Available",
-  },
-  {
-    name: "Google Analytics 4",
-    description:
-      "Link GA4 to track how AI-driven traffic converts on your site. As AI search engines begin citing URLs directly, understanding which pages receive AI referral traffic — and how those visitors behave — is critical for measuring the ROI of AI-readiness improvements.",
-    features: [
-      "Track AI referral traffic sources",
-      "Measure engagement and bounce rates from AI visitors",
-      "Conversion attribution for AI-driven sessions",
-      "Compare AI vs. organic traffic quality",
-    ],
-    status: "Available",
-  },
-  {
-    name: "MCP Server",
-    description:
-      "Connect your AI coding agent to LLM Rank via the Model Context Protocol (MCP). Get 27 SEO tools — crawl sites, score pages, check AI visibility, and generate fixes — directly from Claude Code, Cursor, VS Code, Windsurf, or ChatGPT. Install from npm and configure in under 2 minutes.",
-    features: [
-      "27 tools for AI-readiness analysis from your IDE",
-      "Works with Claude Code, Cursor, VS Code, Windsurf, ChatGPT",
-      "HTTP transport with OAuth 2.1 for cloud-based agents",
-      "Pre-built prompts for site audits, fix plans, and competitor analysis",
-    ],
-    status: "Available",
-    link: "/mcp",
-  },
-  {
-    name: "WordPress Plugin",
-    description:
-      "Automatically score your content for AI-readiness directly from the WordPress editor. Get real-time feedback on structured data, content depth, readability, and citation-worthiness as you write. Manage your robots.txt and generate Schema.org markup without touching code.",
-    features: [
-      "Real-time content scoring in the editor",
-      "One-click Schema.org markup generation",
-      "Robots.txt management for AI crawlers",
-      "Bulk optimization suggestions for existing posts",
-    ],
-    status: "Coming Soon",
-  },
-  {
-    name: "Slack",
-    description:
-      "Get notified instantly when your AI visibility score changes, when you are cited by an LLM, or when a competitor gains ground. Weekly summary reports keep the whole team aligned on AI SEO priorities without needing to check the dashboard.",
-    features: [
-      "Real-time score change alerts",
-      "Weekly AI-readiness summary reports",
-      "Competitor movement notifications",
-      "Team collaboration and assignment workflows",
-    ],
-    status: "Coming Soon",
-  },
-];
 
 export default function IntegrationsPage() {
   return (
@@ -134,125 +69,53 @@ export default function IntegrationsPage() {
             Integrations
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Supercharge your AI SEO strategy by connecting LLM Rank with your
-            favorite tools.
-          </p>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            LLM Rank integrations connect your AI-readiness workflow with the
-            tools your team already uses. Import search analytics from Google
-            Search Console to correlate traditional rankings with AI visibility
-            scores. Track conversions from AI-driven traffic with Google
-            Analytics 4. Our upcoming WordPress plugin will let you score
-            content in real time as you write. Slack integration keeps your team
-            informed with automated alerts when scores change or your brand gets
-            cited by an AI engine.
+            Connect your existing analytics and workflow stack to move from
+            insight to action faster.
           </p>
         </div>
 
         <h2 className="mb-6 text-2xl font-bold text-foreground">
-          Available Integrations
+          Integration Catalog
         </h2>
-        <div className="grid gap-6 md:grid-cols-2">
-          {INTEGRATIONS.map((integration) => (
-            <Card key={integration.name} className="flex flex-col">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">{integration.name}</CardTitle>
-                  {integration.status === "Available" ? (
-                    <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
-                      Available
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                      Coming Soon
-                    </span>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col">
-                <p className="mb-4 text-muted-foreground">
-                  {integration.description}
-                </p>
-                <ul className="mb-6 flex-1 space-y-2">
-                  {integration.features.map((feature) => (
-                    <li
-                      key={feature}
-                      className="flex items-start gap-2 text-sm"
-                    >
-                      <CheckCircle className="mt-0.5 h-4 w-4 text-primary" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                {"link" in integration && integration.link ? (
-                  <Link href={integration.link as string}>
-                    <Button className="w-full">View Setup Guide</Button>
-                  </Link>
-                ) : (
-                  <Button
-                    variant={
-                      integration.status === "Available" ? "default" : "outline"
-                    }
-                    disabled={integration.status !== "Available"}
-                    className="w-full"
-                  >
-                    {integration.status === "Available"
-                      ? "Connect"
-                      : "Notify Me"}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <IntegrationCatalogClient />
 
         <div className="my-20">
           <h2 className="text-2xl font-bold text-foreground">
             How Integrations Work
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Direct answer: Integrations securely connect your existing data
-            sources to LLM Rank via OAuth. This allows us to correlate your
-            AI-readiness scores with actual traffic and ranking data.
+            Connect once, sync automatically, and act on unified data inside the
+            project workspace.
           </p>
           <div className="mt-8 grid gap-8 md:grid-cols-3">
             <div className="space-y-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
                 1
               </div>
-              <h3 className="font-semibold text-foreground">
-                Authorize Connection
-              </h3>
+              <h3 className="font-semibold text-foreground">Connect</h3>
               <p className="text-sm text-muted-foreground">
-                Click &quot;Connect&quot; on any available integration. You will
-                be redirected to the provider (e.g., Google) to approve
-                read-only access to your analytics data. We never ask for write
-                permissions.
+                Choose an integration and authorize access with the provider.
+                Most connections are read-only and can be revoked anytime.
               </p>
             </div>
             <div className="space-y-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
                 2
               </div>
-              <h3 className="font-semibold text-foreground">Sync & Analyze</h3>
+              <h3 className="font-semibold text-foreground">Sync</h3>
               <p className="text-sm text-muted-foreground">
-                LLM Rank fetches your historical data and overlays it with your
-                AI-readiness timeline. This highlights correlations, such as
-                &quot;Score improved by 10 points → AI referral traffic
-                increased by 15%.&quot;
+                Data is synced into your workspace so rankings, traffic, and
+                readiness signals can be reviewed together.
               </p>
             </div>
             <div className="space-y-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
                 3
               </div>
-              <h3 className="font-semibold text-foreground">
-                Automate Insights
-              </h3>
+              <h3 className="font-semibold text-foreground">Execute</h3>
               <p className="text-sm text-muted-foreground">
-                Once connected, insights are automated. You receive alerts when
-                rankings drop or when new keyword opportunities emerge that are
-                perfect for AI optimization.
+                Use automated alerts and prioritized actions to assign work and
+                close visibility gaps faster.
               </p>
             </div>
           </div>
@@ -260,7 +123,7 @@ export default function IntegrationsPage() {
 
         <div className="mt-8 rounded-lg border border-border bg-muted/40 p-5 text-sm text-muted-foreground">
           <p>
-            Our integrations follow{" "}
+            Integrations align with{" "}
             <a
               href="https://developers.google.com/search/docs"
               target="_blank"
@@ -269,7 +132,7 @@ export default function IntegrationsPage() {
             >
               Google Search Central documentation
             </a>{" "}
-            for search analytics and{" "}
+            and{" "}
             <a
               href="https://developers.google.com/analytics"
               target="_blank"
@@ -278,32 +141,32 @@ export default function IntegrationsPage() {
             >
               Google Analytics best practices
             </a>{" "}
-            for traffic measurement. Data is fetched securely via OAuth 2.0 and
-            never stored beyond your active session.
+            for traffic measurement. Access is handled via OAuth and can be
+            revoked from your provider account.
           </p>
         </div>
 
         {/* CTA section with internal links */}
         <div className="mt-12 rounded-lg border border-border bg-muted/40 p-8 text-center">
           <h2 className="text-xl font-bold text-foreground">
-            Get started with integrations
+            Start with one connection
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create a free account to connect your tools and start tracking
-            AI-readiness alongside your existing analytics.
+            Create a free account to connect tools and start tracking AI
+            visibility with your existing analytics.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/scan"
               className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              Try a Free Scan
+              Run Free Scan
             </Link>
             <Link
               href="/pricing"
               className="text-sm font-semibold text-foreground hover:text-primary"
             >
-              View pricing plans &rarr;
+              View plans &rarr;
             </Link>
           </div>
         </div>

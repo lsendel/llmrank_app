@@ -16,7 +16,10 @@ function GoogleOAuthCallback() {
   const stateData = stateParam
     ? (() => {
         try {
-          return JSON.parse(atob(stateParam)) as { projectId: string };
+          return JSON.parse(atob(stateParam)) as {
+            projectId: string;
+            provider?: "gsc" | "ga4";
+          };
         } catch {
           return null;
         }
@@ -34,8 +37,10 @@ function GoogleOAuthCallback() {
         redirectUri: window.location.origin + "/integrations/callback/google",
       });
       if (!cancelled) {
+        const query = new URLSearchParams({ tab: "integrations" });
+        if (stateData.provider) query.set("connected", stateData.provider);
         router.replace(
-          `/dashboard/projects/${stateData.projectId}?tab=integrations`,
+          `/dashboard/projects/${stateData.projectId}?${query.toString()}`,
         );
       }
     }).catch((err) => {

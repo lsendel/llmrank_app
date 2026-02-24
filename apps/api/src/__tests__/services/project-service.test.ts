@@ -36,6 +36,7 @@ describe("ProjectService", () => {
     projects = createMockProjectRepo();
     projects.getById.mockResolvedValue(project);
     projects.listByUser.mockResolvedValue([project]);
+    projects.countByUser.mockResolvedValue(1);
     users = createMockUserRepo();
     users.getById.mockResolvedValue(user);
     crawls = createMockCrawlRepo();
@@ -63,7 +64,7 @@ describe("ProjectService", () => {
       users.getById.mockResolvedValue(
         buildUser({ plan: "free", email: "user@test.com" }),
       );
-      projects.listByUser.mockResolvedValue([buildProject()]);
+      projects.countByUser.mockResolvedValue(1);
       const service = createProjectService({ projects, users, crawls, scores });
 
       await expect(
@@ -159,10 +160,11 @@ describe("ProjectService", () => {
 
   describe("listForUser", () => {
     it("paginates results correctly", async () => {
-      const manyProjects = Array.from({ length: 12 }, (_, i) => ({
+      const pageProjects = Array.from({ length: 5 }, (_, i) => ({
         ...buildProject({ id: `proj-${i}` }),
       }));
-      projects.listByUser.mockResolvedValue(manyProjects);
+      projects.listByUser.mockResolvedValue(pageProjects);
+      projects.countByUser.mockResolvedValue(12);
       const service = createProjectService({ projects, users, crawls, scores });
 
       const result = await service.listForUser("user-1", { page: 2, limit: 5 });
@@ -170,6 +172,13 @@ describe("ProjectService", () => {
       expect(result.data).toHaveLength(5);
       expect(result.pagination.total).toBe(12);
       expect(result.pagination.totalPages).toBe(3);
+      expect(projects.listByUser).toHaveBeenCalledWith(
+        "user-1",
+        expect.objectContaining({
+          limit: 5,
+          offset: 5,
+        }),
+      );
     });
   });
 });

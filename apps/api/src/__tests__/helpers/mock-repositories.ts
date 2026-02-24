@@ -49,6 +49,7 @@ export function createMockProjectRepo(
   return applyOverrides(
     {
       listByUser: vi.fn().mockResolvedValue([]),
+      countByUser: vi.fn().mockResolvedValue(0),
       getById: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ id: "project-1" }),
       update: vi.fn().mockResolvedValue(undefined),
@@ -89,6 +90,7 @@ export function createMockCrawlRepo(
       create: vi.fn().mockResolvedValue({ id: "crawl-1" }),
       getById: vi.fn().mockResolvedValue(null),
       getLatestByProject: vi.fn().mockResolvedValue(null),
+      getLatestByProjects: vi.fn().mockResolvedValue([]),
       listByProject: vi.fn().mockResolvedValue([]),
       listByUser: vi.fn().mockResolvedValue([]),
       listActiveByUser: vi.fn().mockResolvedValue([]),
@@ -115,6 +117,7 @@ export function createMockScoreRepo(
   return applyOverrides(
     {
       listByJob: vi.fn().mockResolvedValue([]),
+      listByJobs: vi.fn().mockResolvedValue([]),
       getIssuesByJob: vi.fn().mockResolvedValue([]),
       listByJobWithPages: vi.fn().mockResolvedValue([]),
       getByPageWithIssues: vi.fn().mockResolvedValue(null),

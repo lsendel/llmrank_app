@@ -6,8 +6,10 @@ import {
 
 describe("RegressionService", () => {
   const createNotificationMock = vi.fn().mockResolvedValue({});
+  const createActionItemMock = vi.fn().mockResolvedValue({});
+  const getOpenActionItemMock = vi.fn().mockResolvedValue(undefined);
 
-  function makeDeps(crawls: any[]) {
+  function makeDeps(crawls: any[], options?: { withActionItems?: boolean }) {
     return {
       crawls: {
         listByProject: vi.fn().mockResolvedValue(crawls),
@@ -15,11 +17,21 @@ describe("RegressionService", () => {
       notifications: {
         create: createNotificationMock,
       },
+      ...(options?.withActionItems === false
+        ? {}
+        : {
+            actionItems: {
+              create: createActionItemMock,
+              getOpenByProjectIssueCode: getOpenActionItemMock,
+            },
+          }),
     };
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
+    createActionItemMock.mockResolvedValue({});
+    getOpenActionItemMock.mockResolvedValue(undefined);
   });
 
   describe("detectRegressions", () => {
@@ -303,6 +315,123 @@ describe("RegressionService", () => {
           title: expect.stringContaining("Critical"),
         }),
       );
+    });
+
+    it("auto-creates action item for critical regression", async () => {
+      const svc = createRegressionService(
+        makeDeps([
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 50,
+              technicalScore: 80,
+              contentScore: 80,
+              aiReadinessScore: 80,
+              performanceScore: 80,
+            },
+          },
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 80,
+              technicalScore: 80,
+              contentScore: 80,
+              aiReadinessScore: 80,
+              performanceScore: 80,
+            },
+          },
+        ]),
+      );
+
+      await svc.checkAndNotify({ projectId: "p1", userId: "u1" });
+
+      expect(getOpenActionItemMock).toHaveBeenCalledWith(
+        "p1",
+        "SCORE_REGRESSION_OVERALL",
+      );
+      expect(createActionItemMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: "p1",
+          issueCode: "SCORE_REGRESSION_OVERALL",
+          status: "pending",
+          severity: "critical",
+          category: "technical",
+          scoreImpact: 30,
+          assigneeId: "u1",
+        }),
+      );
+      expect(createActionItemMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: expect.stringContaining("Due by"),
+        }),
+      );
+    });
+
+    it("does not auto-create action item for non-critical regressions", async () => {
+      const svc = createRegressionService(
+        makeDeps([
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 70,
+              technicalScore: 80,
+              contentScore: 80,
+              aiReadinessScore: 80,
+              performanceScore: 80,
+            },
+          },
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 80,
+              technicalScore: 80,
+              contentScore: 80,
+              aiReadinessScore: 80,
+              performanceScore: 80,
+            },
+          },
+        ]),
+      );
+
+      await svc.checkAndNotify({ projectId: "p1", userId: "u1" });
+
+      expect(createActionItemMock).not.toHaveBeenCalled();
+    });
+
+    it("deduplicates auto-created action items when one is already open", async () => {
+      getOpenActionItemMock.mockResolvedValue({ id: "existing" });
+      const svc = createRegressionService(
+        makeDeps([
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 50,
+              technicalScore: 80,
+              contentScore: 80,
+              aiReadinessScore: 80,
+              performanceScore: 80,
+            },
+          },
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 80,
+              technicalScore: 80,
+              contentScore: 80,
+              aiReadinessScore: 80,
+              performanceScore: 80,
+            },
+          },
+        ]),
+      );
+
+      await svc.checkAndNotify({ projectId: "p1", userId: "u1" });
+
+      expect(getOpenActionItemMock).toHaveBeenCalledWith(
+        "p1",
+        "SCORE_REGRESSION_OVERALL",
+      );
+      expect(createActionItemMock).not.toHaveBeenCalled();
     });
   });
 });

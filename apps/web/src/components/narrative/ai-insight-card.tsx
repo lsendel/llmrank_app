@@ -38,7 +38,7 @@ export function AiInsightCard({ crawlJobId, projectId }: AiInsightCardProps) {
               Upgrade to Pro for AI-generated narrative reports
             </p>
             <Button size="sm" asChild>
-              <Link href="/dashboard/settings?tab=billing">Upgrade</Link>
+              <Link href="/dashboard/billing">Upgrade</Link>
             </Button>
           </div>
         </div>

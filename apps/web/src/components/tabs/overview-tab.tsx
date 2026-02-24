@@ -10,6 +10,7 @@ import { IssueDistributionChart } from "@/components/charts/issue-distribution-c
 import { GradeDistributionChart } from "@/components/charts/grade-distribution-chart";
 import { Brain, CheckCircle, Download, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StateCard } from "@/components/ui/state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,52 +70,55 @@ export function OverviewTab({
       latestCrawl?.status === "scoring" ||
       latestCrawl?.status === "pending"
     ) {
-      // We need to import these at the top of the file first.
-      // For now, let's just return a simple message to verify the logic,
-      // then I will add the imports and full component.
       return (
-        <Card className="p-8">
-          <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <div>
-              <h3 className="font-semibold">Crawl in Progress</h3>
-              <p className="text-sm text-muted-foreground">
-                We are currently scanning your site. This may take a few
-                minutes. You can view detailed progress on the{" "}
-                <Link
-                  href={`/dashboard/crawl/${latestCrawl.id}`}
-                  className="text-primary hover:underline"
-                >
-                  crawl page
-                </Link>
-                .
-              </p>
-            </div>
-          </div>
-        </Card>
+        <StateCard
+          variant="loading"
+          title="Crawl in progress"
+          description={
+            <>
+              We are scanning your site now. You can follow detailed progress on
+              the{" "}
+              <Link
+                href={`/dashboard/crawl/${latestCrawl.id}`}
+                className="text-primary hover:underline"
+              >
+                crawl page
+              </Link>
+              .
+            </>
+          }
+          contentClassName="p-0"
+        />
       );
     }
 
     return (
-      <Card className="p-8 text-center">
+      <>
         {isFailed ? (
-          <div className="space-y-2">
-            <p className="font-medium text-destructive">Last crawl failed</p>
-            {latestCrawl?.errorMessage && (
-              <p className="text-sm text-muted-foreground">
-                {latestCrawl.errorMessage}
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Click &quot;Run Crawl&quot; to try again.
-            </p>
-          </div>
+          <StateCard
+            variant="error"
+            title="Last crawl failed"
+            description={
+              <>
+                {latestCrawl?.errorMessage && (
+                  <>
+                    {latestCrawl.errorMessage}
+                    <br />
+                  </>
+                )}
+                Click &quot;Run Crawl&quot; to try again.
+              </>
+            }
+            contentClassName="p-0"
+          />
         ) : (
-          <p className="text-muted-foreground">
-            No crawl data yet. Click &quot;Run Crawl&quot; to analyze this site.
-          </p>
+          <StateCard
+            variant="empty"
+            description='No crawl data yet. Click "Run Crawl" to analyze this site.'
+            contentClassName="p-0"
+          />
         )}
-      </Card>
+      </>
     );
   }
 
@@ -350,7 +354,7 @@ export function OverviewTab({
       {latestCrawl?.status === "complete" && (
         <div className="flex justify-end">
           <Link
-            href={`/dashboard/projects/${projectId}/pages`}
+            href={`/dashboard/projects/${projectId}?tab=pages`}
             className="text-sm font-medium text-primary hover:underline"
           >
             View All Pages →
@@ -364,7 +368,7 @@ export function OverviewTab({
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Top Issues</h2>
             <Link
-              href={`/dashboard/projects/${projectId}/issues`}
+              href={`/dashboard/projects/${projectId}?tab=issues`}
               className="text-sm font-medium text-primary hover:underline"
             >
               View all issues

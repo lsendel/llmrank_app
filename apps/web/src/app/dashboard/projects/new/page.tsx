@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,12 +20,25 @@ export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
+  const [autoStartCrawl, setAutoStartCrawl] = useState(true);
+  const [enableWeeklyDigest, setEnableWeeklyDigest] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
     domain?: string;
     form?: string;
   }>({});
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api.account
+      .getDigestPreferences()
+      .then((prefs) => {
+        if (prefs.digestFrequency === "off") {
+          setEnableWeeklyDigest(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -55,6 +69,29 @@ export default function NewProjectPage() {
 
     try {
       const result = await api.projects.create({ name, domain });
+
+      if (enableWeeklyDigest) {
+        try {
+          await api.account.updateDigestPreferences({
+            digestFrequency: "weekly",
+            digestDay: 1,
+          });
+        } catch {
+          // Don't block project creation flow on digest preference update failure.
+        }
+      }
+
+      if (autoStartCrawl) {
+        try {
+          const crawl = await api.crawls.start(result.id);
+          router.push(`/dashboard/crawl/${crawl.id}`);
+          return;
+        } catch {
+          router.push(`/dashboard/projects/${result.id}?autocrawl=failed`);
+          return;
+        }
+      }
+
       router.push(`/dashboard/projects/${result.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -119,10 +156,54 @@ export default function NewProjectPage() {
               </p>
             </div>
 
+            <div className="flex items-start gap-3 rounded-md border p-3">
+              <Checkbox
+                id="auto-start-crawl"
+                checked={autoStartCrawl}
+                onCheckedChange={(value) => setAutoStartCrawl(value === true)}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="auto-start-crawl">
+                  Start first crawl automatically
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Recommended for faster setup. We will create the project and
+                  immediately run the first crawl.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Post-crawl AI automation is enabled by default and starts
+                  after crawl completion.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border p-3">
+              <Checkbox
+                id="weekly-digest"
+                checked={enableWeeklyDigest}
+                onCheckedChange={(value) =>
+                  setEnableWeeklyDigest(value === true)
+                }
+              />
+              <div className="space-y-1">
+                <Label htmlFor="weekly-digest">
+                  Send me a weekly performance digest
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Recommended. Receive a Monday summary of ranking changes and
+                  top actions.
+                </p>
+              </div>
+            </div>
+
             {/* Actions */}
             <div className="flex items-center gap-3 pt-2">
               <Button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Create Project"}
+                {submitting
+                  ? autoStartCrawl
+                    ? "Creating & Starting Crawl..."
+                    : "Creating..."
+                  : "Create Project"}
               </Button>
               <Button
                 type="button"

@@ -10,6 +10,7 @@ import {
   type GenerateReportJob,
   type ReportData,
 } from "@llm-boost/reports";
+import { createRecommendationsService } from "../services/recommendations-service";
 
 export const dashboardRoutes = new Hono<AppEnv>();
 dashboardRoutes.use("*", authMiddleware);
@@ -96,4 +97,26 @@ dashboardRoutes.get("/activity", async (c) => {
   const recentCrawls = await crawlQueries(db).getRecentForUser(userId, 5);
 
   return c.json({ data: recentCrawls });
+});
+
+// ---------------------------------------------------------------------------
+// GET /priority-feed — cross-project prioritized opportunities and risks
+// ---------------------------------------------------------------------------
+
+dashboardRoutes.get("/priority-feed", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const limit = Math.min(Math.max(Number(c.req.query("limit")) || 15, 1), 50);
+
+  const service = createRecommendationsService(db);
+  const data = await service.getPortfolioPriorityFeed(userId, { limit });
+
+  return c.json({
+    data,
+    meta: {
+      generatedAt: new Date().toISOString(),
+      count: data.length,
+      limit,
+    },
+  });
 });

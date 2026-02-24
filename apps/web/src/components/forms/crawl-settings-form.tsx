@@ -38,6 +38,18 @@ function getNextCrawlDate(schedule: CrawlSchedule): string | null {
 
   const now = new Date();
 
+  if (schedule === "daily") {
+    const next = new Date(now);
+    next.setDate(now.getDate() + 1);
+    next.setHours(0, 0, 0, 0);
+    return next.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
   if (schedule === "monthly") {
     const next = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
     return next.toLocaleDateString("en-US", {
@@ -129,6 +141,9 @@ export function CrawlSettingsForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="manual">Manual only</SelectItem>
+              <SelectItem value="daily" disabled={isFree || isStarter}>
+                Daily (every day) {(isFree || isStarter) && "\u2014 Pro+"}
+              </SelectItem>
               <SelectItem value="monthly" disabled={isFree}>
                 Monthly (1st of each month) {isFree && "\u2014 Starter+"}
               </SelectItem>

@@ -236,6 +236,29 @@ describe("ScheduledVisibilityService", () => {
 
       expect(result).toEqual({ id: "sq-3" });
     });
+
+    it("rejects invalid frequency values", async () => {
+      const user = buildUser({ plan: "pro" });
+      const project = buildProject({ userId: user.id });
+      mockUserRepo.getById.mockResolvedValue(user);
+      mockProjectRepo.getById.mockResolvedValue(project);
+
+      const service = createScheduledVisibilityService({
+        schedules: mockScheduleRepo,
+        projects: mockProjectRepo,
+        users: mockUserRepo,
+      });
+
+      await expect(
+        service.create({
+          userId: user.id,
+          projectId: project.id,
+          query: "test",
+          providers: ["chatgpt"],
+          frequency: "monthly" as any,
+        }),
+      ).rejects.toThrow("frequency must be one of: hourly, daily, weekly");
+    });
   });
 
   describe("list", () => {
@@ -365,6 +388,21 @@ describe("ScheduledVisibilityService", () => {
       await expect(
         service.update(user.id, "sq-1", { frequency: "hourly" }),
       ).rejects.toThrow();
+    });
+
+    it("rejects invalid frequency on update", async () => {
+      const service = createScheduledVisibilityService({
+        schedules: mockScheduleRepo,
+        projects: mockProjectRepo,
+        users: mockUserRepo,
+      });
+
+      await expect(
+        service.update("user-1", "sq-1", {
+          frequency: "monthly" as any,
+        }),
+      ).rejects.toThrow("frequency must be one of: hourly, daily, weekly");
+      expect(mockScheduleRepo.getById).not.toHaveBeenCalled();
     });
   });
 

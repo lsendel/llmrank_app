@@ -107,6 +107,7 @@ async function stripeRequest<T>(
   const url = `https://api.stripe.com/v1${path}`;
   const headers: Record<string, string> = {
     Authorization: `Bearer ${secretKey}`,
+    "Stripe-Version": "2025-12-15.clover",
   };
 
   const init: RequestInit = { method, headers };
@@ -216,6 +217,9 @@ export class StripeGateway {
 
     if (opts.promotionCodeId) {
       params["discounts[0][promotion_code]"] = opts.promotionCodeId;
+    } else {
+      // Allow users to enter their own promo codes at checkout
+      params["allow_promotion_codes"] = "true";
     }
 
     const session = await stripeRequest<StripeCheckoutSession>(
@@ -363,7 +367,8 @@ export class StripeGateway {
     opts?: { maxRedemptions?: number; expiresAt?: number },
   ): Promise<{ id: string; code: string }> {
     const params: Record<string, string> = {
-      coupon: couponId,
+      "promotion[type]": "coupon",
+      "promotion[coupon]": couponId,
       code: code.toUpperCase(),
     };
     if (opts?.maxRedemptions != null)

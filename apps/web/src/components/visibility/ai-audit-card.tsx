@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StateCard } from "@/components/ui/state";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type AIAuditResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -34,16 +35,11 @@ export function AIAuditCard({ crawlId }: { crawlId: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">AI Crawlability Audit</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-6">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="loading"
+        cardTitle="AI Crawlability Audit"
+        description="Running crawlability checks..."
+      />
     );
   }
 

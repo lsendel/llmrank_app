@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus, Sparkles, Trash2, User, Loader2, Wand2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const FUNNEL_COLORS = {
   education: "bg-blue-100 text-blue-800",
@@ -28,6 +29,7 @@ const FUNNEL_COLORS = {
 };
 
 export function PersonasTab({ projectId }: { projectId: string }) {
+  const { toast } = useToast();
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -40,8 +42,13 @@ export function PersonasTab({ projectId }: { projectId: string }) {
     try {
       const data = await api.personas.list(projectId);
       setPersonas(data);
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to load personas",
+        description:
+          err instanceof Error ? err.message : "Please refresh and try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -64,8 +71,13 @@ export function PersonasTab({ projectId }: { projectId: string }) {
       setPersonas((prev) => [persona, ...prev]);
       setRoleName("");
       setShowAddDialog(false);
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to generate persona",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setGenerating(false);
     }
@@ -77,8 +89,13 @@ export function PersonasTab({ projectId }: { projectId: string }) {
       const suggestions = await api.personas.refine(id);
       const updated = await api.personas.update(id, suggestions);
       setPersonas((prev) => prev.map((p) => (p.id === id ? updated : p)));
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to refine persona",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     } finally {
       setRefining(null);
     }
@@ -88,8 +105,13 @@ export function PersonasTab({ projectId }: { projectId: string }) {
     try {
       await api.personas.remove(id);
       setPersonas((prev) => prev.filter((p) => p.id !== id));
-    } catch {
-      // handle error
+    } catch (err) {
+      toast({
+        title: "Failed to delete persona",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+        variant: "destructive",
+      });
     }
   };
 

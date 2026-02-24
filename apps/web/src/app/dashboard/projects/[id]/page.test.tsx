@@ -76,6 +76,10 @@ vi.mock("@/components/tabs/strategy-tab", () => ({
   StrategyTab: () => <div>Strategy Tab Content</div>,
 }));
 
+vi.mock("@/components/cards/project-recommendations-card", () => ({
+  ProjectRecommendationsCard: () => <div>Project Recommendations</div>,
+}));
+
 describe("Project Page", () => {
   it("renders project name and domain", async () => {
     render(<ProjectPage />);

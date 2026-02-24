@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ActionItemStatus } from "@/lib/api";
+import { AiFixButton } from "@/components/ai-fix-button";
 
 interface IssueCardProps {
   code: string;
@@ -31,10 +32,15 @@ interface IssueCardProps {
   recommendation: string;
   data?: Record<string, unknown>;
   pageUrl?: string | null;
+  pageId?: string;
+  projectId?: string;
   className?: string;
   actionItemId?: string;
   actionItemStatus?: ActionItemStatus;
-  onStatusChange?: (id: string, status: ActionItemStatus) => void;
+  onStatusChange?: (
+    id: string,
+    status: ActionItemStatus,
+  ) => void | Promise<void>;
 }
 
 const severityVariantMap: Record<string, "destructive" | "warning" | "info"> = {
@@ -84,6 +90,8 @@ export function IssueCard({
   recommendation,
   data,
   pageUrl,
+  pageId,
+  projectId,
   className,
   actionItemId,
   actionItemStatus,
@@ -181,10 +189,24 @@ export function IssueCard({
               <p className="mt-1 text-sm text-foreground">{recommendation}</p>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="h-7 text-[10px]">
-                <Sparkles className="mr-1.5 h-3 w-3 text-primary" />
-                Optimize with AI
-              </Button>
+              {projectId ? (
+                <AiFixButton
+                  projectId={projectId}
+                  pageId={pageId}
+                  issueCode={code}
+                  issueTitle={message}
+                  onGenerated={() => {
+                    if (actionItemId && onStatusChange) {
+                      void onStatusChange(actionItemId, "in_progress");
+                    }
+                  }}
+                />
+              ) : (
+                <Button size="sm" variant="outline" className="h-7 text-[10px]">
+                  <Sparkles className="mr-1.5 h-3 w-3 text-primary" />
+                  Optimize with AI
+                </Button>
+              )}
             </div>
             {data && Object.keys(data).length > 0 && (
               <div>

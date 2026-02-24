@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { normalizeDomain } from "@llm-boost/shared";
+import { track } from "@/lib/telemetry";
 
 export function ScanPageClient() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export function ScanPageClient() {
 
     setLoading(true);
     setError(null);
+    track("scan.started", { domain });
     try {
       const result = await api.public.scan(domain);
       // Prefer URL-based navigation with scanResultId; fall back to sessionStorage
@@ -37,6 +39,10 @@ export function ScanPageClient() {
         router.push("/scan/results");
       }
     } catch (err) {
+      track("scan.failed", {
+        domain,
+        reason: err instanceof ApiError ? err.message : "unknown_error",
+      });
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
@@ -52,15 +58,15 @@ export function ScanPageClient() {
       <div className="w-full max-w-2xl space-y-8 text-center">
         <div className="space-y-3">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Is your site AI-ready?
+            Run a Free AI Visibility Scan
           </h1>
           <p className="text-lg text-muted-foreground">
-            Enter any URL to get an instant AI-readiness score with actionable
-            recommendations. No signup required.
+            Enter a domain to get a baseline score, top issues, and prioritized
+            next actions. No sign-up required.
           </p>
           <p className="text-sm font-semibold text-primary">
-            Short answer: you get a 37-factor grade, a prioritized checklist,
-            and the top three fixes to unlock AI citations in under two minutes.
+            Includes 37 checks across technical SEO, content quality, AI
+            readiness, and performance.
           </p>
         </div>
 
@@ -78,50 +84,54 @@ export function ScanPageClient() {
               />
               <Button type="submit" disabled={loading || !url.trim()} size="lg">
                 <Search className="mr-2 h-4 w-4" />
-                {loading ? "Scanning..." : "Scan"}
+                {loading ? "Running..." : "Run Scan"}
               </Button>
             </form>
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
             {!error && (
               <p className="mt-3 text-xs text-muted-foreground text-left sm:text-center">
-                Enter a domain (e.g. example.com). Protocol and www are stripped
-                automatically.
+                Use a root domain (for example, example.com). Protocol and www
+                are normalized automatically.
               </p>
             )}
+            <p className="mt-2 text-xs text-muted-foreground text-left sm:text-center">
+              Next in your report: create a project workspace, connect
+              integrations, and set recurring scans.
+            </p>
           </CardContent>
         </Card>
 
         <div className="w-full rounded-lg border border-border bg-muted/40 p-5 text-left text-sm leading-relaxed text-muted-foreground">
           <p className="font-semibold text-foreground">
-            Why I run this scan weekly
+            What this scan gives you
           </p>
           <p className="mt-2">
-            I audit new content drops for SaaS and agency teams every week. This
-            scan catches hidden noindex tags, broken schema, and internal link
-            gaps before ChatGPT or Claude stop citing the page. After each
-            crawl, I sync the fixes into the{" "}
+            Use this report as your first-pass audit before publishing or
+            reporting. It catches blocking issues like noindex directives,
+            schema gaps, and internal linking misses that reduce Google and LLM
+            visibility.
+          </p>
+          <p className="mt-2">
+            Review benchmarks on the{" "}
             <Link
               href="/leaderboard"
               className="font-medium text-primary hover:underline"
             >
-              AI-readiness leaderboard
+              leaderboard
             </Link>{" "}
-            and report progress inside our client workspaces.
-          </p>
-          <p className="mt-2">
-            Need deeper coverage? Connect data sources from the{" "}
+            and connect data sources on{" "}
             <Link
               href="/integrations"
               className="font-medium text-primary hover:underline"
             >
               integrations
             </Link>{" "}
-            page or schedule recurring crawls on the{" "}
+            . For recurring crawls and portfolio workflows, see{" "}
             <Link
               href="/pricing"
               className="font-medium text-primary hover:underline"
             >
-              Pro and Agency plans
+              plans
             </Link>
             .
           </p>
@@ -131,15 +141,15 @@ export function ScanPageClient() {
           {[
             {
               title: "37+ Factors",
-              desc: "Technical SEO, content quality, AI readiness, and performance checks.",
+              desc: "Checks technical SEO, content quality, AI readiness, and performance.",
             },
             {
               title: "Quick Wins",
-              desc: "Prioritized fixes ranked by impact and effort with copy-paste code.",
+              desc: "Ranks fixes by impact and effort so teams can ship faster.",
             },
             {
               title: "Free & Instant",
-              desc: "Results in seconds. Sign up for deeper crawls and monitoring.",
+              desc: "Runs in seconds. Upgrade for deeper crawls and monitoring.",
             },
           ].map((item) => (
             <div key={item.title} className="space-y-1">
@@ -151,29 +161,22 @@ export function ScanPageClient() {
 
         <div className="mt-10 w-full max-w-2xl space-y-4 text-left">
           <h2 className="text-xl font-bold text-foreground">
-            What does the AI-readiness scan check?
+            What the scan checks
           </h2>
           <p className="text-sm font-semibold text-primary">
-            Direct answer: the scan analyzes Technical SEO, content depth, AI
-            readiness signals, and performance so you know exactly why an AI
-            engine would skip your page.
+            You get a score and issue list mapped to the signals that affect
+            search and LLM citation likelihood.
           </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            The free scan evaluates your page across 37 factors in four
-            categories. Technical SEO (25% weight) checks meta tags, structured
-            data, canonical URLs, robots directives, internal linking, and HTTP
-            status codes. Content Quality (30%) analyzes word count,
-            readability, heading structure, and content depth. AI Readiness
-            (30%) evaluates citation-worthiness, direct answers, FAQ structure,
-            and Open Graph tags. Performance (15%) measures Lighthouse scores
-            including page speed, accessibility, and best practices.
+            The scan evaluates 37 factors in four weighted categories: Technical
+            SEO (25%), Content Quality (30%), AI Readiness (30%), and
+            Performance (15%). Checks include crawl directives, metadata,
+            schema, readability, answer structure, and Lighthouse signals.
           </p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Each factor starts with a perfect score and applies deductions for
-            issues found. Critical issues like missing titles or noindex
-            directives carry the heaviest penalties. The scan produces a letter
-            grade from A to F and a prioritized list of quick wins sorted by
-            impact and effort. Results are based on{" "}
+            Critical failures (for example missing titles or blocking
+            directives) carry higher penalties. Output includes a letter grade
+            and prioritized quick wins. Methodology is based on{" "}
             <a
               href="https://developers.google.com/search/docs"
               target="_blank"
@@ -209,57 +212,53 @@ export function ScanPageClient() {
             How to Improve Your Score
           </h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Improving your AI-readiness score requires a mix of technical fixes
-            and content strategy. Start with the &quot;Quick Wins&quot;
-            highlighted in your report—these are often simple metadata or schema
-            changes that yield big results. Next, focus on specific content gaps
-            identified by the &quot;Thin Content&quot; and &quot;Poor
-            Readability&quot; flags. Finally, ensure your diverse metrics in the
-            Performance category (Lighthouse) are green.
+            Start with Quick Wins first, then move to deeper content and
+            performance work. This sequence usually drives the fastest score and
+            visibility gains.
           </p>
-          <ul className="list-disc pl-5 text-sm leading-relaxed text-muted-foreground space-y-2">
+          <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted-foreground">
             <li>
-              <strong>Expand thin content:</strong> AI models prioritize pages
-              with authoritative depth (500+ words).
+              <strong>Resolve crawl blockers:</strong> fix robots, canonical,
+              and indexation errors first.
             </li>
             <li>
-              <strong>Add structured data:</strong> Schema.org markup helps bots
-              understand your entities and relationships.
+              <strong>Add structured data:</strong> help engines understand your
+              entities and page intent.
             </li>
             <li>
-              <strong>Fix technical errors:</strong> Resolve 404s, redirect
-              loops, and missing canonical tags to ensure efficient crawling.
+              <strong>Increase answer clarity:</strong> use concise headings,
+              direct answers, and FAQ sections where relevant.
             </li>
             <li>
-              <strong>Optimize for Q&A:</strong> Structure content with clear
-              questions and direct answers to win citation slots.
+              <strong>Improve depth and trust:</strong> expand thin pages with
+              facts, sources, and original examples.
             </li>
           </ul>
         </div>
 
         <div className="mt-8 w-full max-w-2xl text-center">
           <p className="text-sm text-muted-foreground">
-            Want deeper analysis?{" "}
+            Need portfolio-level analysis?{" "}
             <Link
               href="/pricing"
               className="font-medium text-primary hover:underline"
             >
-              View pricing plans
+              View plans
             </Link>{" "}
-            for up to 2,000 pages per crawl, AI visibility tracking, and
-            integrations. Compare your current score with peers on the{" "}
+            for large crawls, recurring monitoring, and integrations. Compare
+            scores on the{" "}
             <Link
               href="/leaderboard"
               className="font-medium text-primary hover:underline"
             >
               leaderboard
             </Link>{" "}
-            or connect data sources on the{" "}
+            or connect data sources in{" "}
             <Link
               href="/integrations"
               className="font-medium text-primary hover:underline"
             >
-              integrations page
+              Integrations
             </Link>
             .
           </p>

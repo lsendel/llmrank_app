@@ -17,3 +17,10 @@ export function useRecentActivity() {
     useCallback(() => api.dashboard.getRecentActivity(), []),
   );
 }
+
+export function usePortfolioPriorityFeed(limit = 15) {
+  return useApiSWR(
+    `dashboard-priority-feed-${limit}`,
+    useCallback(() => api.dashboard.getPriorityFeed(limit), [limit]),
+  );
+}

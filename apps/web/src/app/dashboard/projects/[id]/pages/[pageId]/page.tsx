@@ -14,6 +14,7 @@ import {
   Bug,
   Brain,
   Plug,
+  Wand2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageOverviewSection } from "@/components/page-detail/page-overview-section";
@@ -23,6 +24,7 @@ import { PagePerformanceSection } from "@/components/page-detail/page-performanc
 import { PageIssuesSection } from "@/components/page-detail/page-issues-section";
 import { PageLlmQualitySection } from "@/components/page-detail/page-llm-quality-section";
 import { PageEnrichmentsSection } from "@/components/page-detail/page-enrichments-section";
+import { PageOptimizationWorkspace } from "@/components/page-detail/page-optimization-workspace";
 import { useApi } from "@/lib/use-api";
 import { useLocalAI } from "@/lib/use-local-ai";
 import { api, type PageScoreDetail, type PageEnrichment } from "@/lib/api";
@@ -160,6 +162,10 @@ export default function PageDetailPage() {
             <FileText className="mr-1.5 h-4 w-4" />
             Content
           </TabsTrigger>
+          <TabsTrigger value="optimization">
+            <Wand2 className="mr-1.5 h-4 w-4" />
+            Optimization
+          </TabsTrigger>
           <TabsTrigger value="structure">
             <LayoutList className="mr-1.5 h-4 w-4" />
             Structure
@@ -208,6 +214,10 @@ export default function PageDetailPage() {
             topicsLoading={topicsLoading}
             onTopicExtraction={handleTopicExtraction}
           />
+        </TabsContent>
+
+        <TabsContent value="optimization" className="space-y-4 pt-4">
+          <PageOptimizationWorkspace page={page} projectId={params.id} />
         </TabsContent>
 
         <TabsContent value="structure" className="space-y-4 pt-4">

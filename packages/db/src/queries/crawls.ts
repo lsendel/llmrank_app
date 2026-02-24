@@ -75,6 +75,31 @@ export function crawlQueries(db: Database) {
       });
     },
 
+    async getLatestByProjects(projectIds: string[]) {
+      if (projectIds.length === 0) return [];
+
+      const rows = await db.query.crawlJobs.findMany({
+        where: inArray(crawlJobs.projectId, projectIds),
+        orderBy: [desc(crawlJobs.createdAt)],
+      });
+
+      const latestByProject = new Map<string, (typeof rows)[number]>();
+      for (const row of rows) {
+        const existing = latestByProject.get(row.projectId);
+        if (!existing) {
+          latestByProject.set(row.projectId, row);
+          continue;
+        }
+
+        // Prefer most recent completed crawl over newer non-completed crawl.
+        if (existing.status !== "complete" && row.status === "complete") {
+          latestByProject.set(row.projectId, row);
+        }
+      }
+
+      return Array.from(latestByProject.values());
+    },
+
     async listByProject(projectId: string, limit = 50, offset = 0) {
       return db.query.crawlJobs.findMany({
         where: eq(crawlJobs.projectId, projectId),

@@ -11,6 +11,29 @@ interface RegressionServiceDeps {
       data: any;
     }) => Promise<any>;
   };
+  actionItems?: {
+    create: (data: {
+      projectId: string;
+      issueCode: string;
+      status?: "pending" | "in_progress" | "fixed" | "dismissed";
+      severity: "critical" | "warning" | "info";
+      category:
+        | "technical"
+        | "content"
+        | "ai_readiness"
+        | "performance"
+        | "schema"
+        | "llm_visibility";
+      scoreImpact: number;
+      title: string;
+      description?: string;
+      assigneeId?: string | null;
+    }) => Promise<any>;
+    getOpenByProjectIssueCode: (
+      projectId: string,
+      issueCode: string,
+    ) => Promise<any | undefined>;
+  };
 }
 
 export interface Regression {
@@ -30,11 +53,32 @@ const SCORE_CATEGORIES = [
 ] as const;
 
 const REGRESSION_THRESHOLD = -5;
+const CRITICAL_DUE_DAYS = 2;
 
 function classifySeverity(delta: number): Regression["severity"] {
   if (delta <= -15) return "critical";
   if (delta <= -10) return "warning";
   return "info";
+}
+
+function issueCategoryFromRegression(
+  category: string,
+): "technical" | "content" | "ai_readiness" | "performance" {
+  if (category === "Content") return "content";
+  if (category === "AI Readiness") return "ai_readiness";
+  if (category === "Performance") return "performance";
+  return "technical";
+}
+
+function issueCodeFromRegression(category: string): string {
+  const slug = category.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  return `SCORE_REGRESSION_${slug}`;
+}
+
+function defaultDueDate(days: number): string {
+  const due = new Date();
+  due.setDate(due.getDate() + days);
+  return due.toISOString().slice(0, 10);
 }
 
 export function createRegressionService(deps: RegressionServiceDeps) {
@@ -123,6 +167,38 @@ export function createRegressionService(deps: RegressionServiceDeps) {
           regressions,
         },
       });
+
+      const criticalRegressions = regressions.filter(
+        (r) => r.severity === "critical",
+      );
+      const actionItems = deps.actionItems;
+      if (actionItems && criticalRegressions.length > 0) {
+        await Promise.all(
+          criticalRegressions.map(async (regression) => {
+            const issueCode = issueCodeFromRegression(regression.category);
+            const existing = await actionItems.getOpenByProjectIssueCode(
+              args.projectId,
+              issueCode,
+            );
+            if (existing) return;
+
+            const dueDate = defaultDueDate(CRITICAL_DUE_DAYS);
+            await actionItems.create({
+              projectId: args.projectId,
+              issueCode,
+              status: "pending",
+              severity: "critical",
+              category: issueCategoryFromRegression(regression.category),
+              scoreImpact: Math.abs(regression.delta),
+              title: `${regression.category} score regression`,
+              description:
+                `Detected score drop: ${regression.previousScore} -> ${regression.currentScore} (${regression.delta}). ` +
+                `Due by ${dueDate}.`,
+              assigneeId: args.userId,
+            });
+          }),
+        );
+      }
 
       return regressions;
     },

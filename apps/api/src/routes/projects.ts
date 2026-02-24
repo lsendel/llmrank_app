@@ -7,6 +7,7 @@ import {
   UpdateProjectSchema,
   PaginationSchema,
 } from "@llm-boost/shared";
+import { z } from "zod";
 import { handleServiceError } from "../services/errors";
 import { createAuditService } from "../services/audit-service";
 import {
@@ -40,9 +41,38 @@ projectRoutes.use("*", authMiddleware);
 projectRoutes.get("/", async (c) => {
   const userId = c.get("userId");
 
-  const query = PaginationSchema.safeParse({
+  const ListProjectsQuerySchema = PaginationSchema.extend({
+    q: z.string().trim().max(120).optional(),
+    sort: z
+      .enum([
+        "activity_desc",
+        "score_desc",
+        "score_asc",
+        "name_asc",
+        "name_desc",
+        "created_desc",
+        "created_asc",
+      ])
+      .default("activity_desc"),
+    health: z
+      .enum([
+        "all",
+        "good",
+        "needs_work",
+        "poor",
+        "no_crawl",
+        "in_progress",
+        "failed",
+      ])
+      .default("all"),
+  });
+
+  const query = ListProjectsQuerySchema.safeParse({
     page: c.req.query("page"),
     limit: c.req.query("limit"),
+    q: c.req.query("q"),
+    sort: c.req.query("sort"),
+    health: c.req.query("health"),
   });
 
   if (!query.success) {

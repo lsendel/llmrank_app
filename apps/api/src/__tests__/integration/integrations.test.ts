@@ -156,6 +156,23 @@ describe("Integration Routes", () => {
   });
 
   // -----------------------------------------------------------------------
+  // GET /api/integrations/catalog
+  // -----------------------------------------------------------------------
+
+  describe("GET /api/integrations/catalog", () => {
+    it("returns a public integration catalog", async () => {
+      const res = await request("/api/integrations/catalog");
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data).toBeInstanceOf(Array);
+      expect(body.data.length).toBeGreaterThan(0);
+      expect(body.data[0]).toHaveProperty("availability");
+      expect(body.data[0]).toHaveProperty("access");
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // GET /api/integrations/:projectId
   // -----------------------------------------------------------------------
 
@@ -256,7 +273,11 @@ describe("Integration Routes", () => {
       const res = await request("/api/integrations/proj-1/insights");
       expect(res.status).toBe(200);
       const body: any = await res.json();
-      expect(body.data.integrations).toBeNull();
+      expect(body.data.integrations).toEqual({
+        gsc: null,
+        ga4: null,
+        clarity: null,
+      });
     });
 
     it("supports selecting a crawl via query parameter", async () => {

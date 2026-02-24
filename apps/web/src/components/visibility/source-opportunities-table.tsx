@@ -15,6 +15,7 @@ import { useApiSWR } from "@/lib/use-api-swr";
 import { api, ApiError, type SourceOpportunity } from "@/lib/api";
 import { Target } from "lucide-react";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { StateCard } from "@/components/ui/state";
 
 export function SourceOpportunitiesTable({ projectId }: { projectId: string }) {
   const {
@@ -43,35 +44,22 @@ export function SourceOpportunitiesTable({ projectId }: { projectId: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Source Opportunities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-6">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="loading"
+        cardTitle="Source Opportunities"
+        description="Analyzing cited competitor domains..."
+      />
     );
   }
 
   if (!opportunities || opportunities.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Source Opportunities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Target className="mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No source opportunities found yet. Run visibility checks to
-              discover competitors that get cited when you don&apos;t.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="empty"
+        cardTitle="Source Opportunities"
+        icon={<Target className="h-10 w-10 text-muted-foreground/60" />}
+        description="No source opportunities found yet. Run visibility checks to discover competitors that get cited when you don't."
+      />
     );
   }
 

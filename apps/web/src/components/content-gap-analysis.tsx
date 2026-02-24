@@ -5,7 +5,8 @@ import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type VisibilityGap } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
+import { StateCard } from "@/components/ui/state";
 
 export function ContentGapAnalysis({ projectId }: { projectId: string }) {
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -18,27 +19,21 @@ export function ContentGapAnalysis({ projectId }: { projectId: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center p-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="loading"
+        description="Analyzing competitor coverage gaps..."
+      />
     );
   }
 
   if (gaps.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex items-center gap-3 p-5">
-          <Lightbulb className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="text-sm font-medium">No content gaps found</p>
-            <p className="text-xs text-muted-foreground">
-              Run a visibility check with competitors to discover gaps.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        variant="empty"
+        title="No content gaps found"
+        icon={<Lightbulb className="h-5 w-5 text-muted-foreground" />}
+        description="Run a visibility check with competitors to discover gaps."
+      />
     );
   }
 

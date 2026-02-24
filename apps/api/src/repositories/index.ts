@@ -30,7 +30,24 @@ import {
 export interface ProjectRepository {
   listByUser(
     userId: string,
+    query?: {
+      q?: string;
+      sort?:
+        | "activity_desc"
+        | "score_desc"
+        | "score_asc"
+        | "name_asc"
+        | "name_desc"
+        | "created_desc"
+        | "created_asc";
+      limit?: number;
+      offset?: number;
+    },
   ): ReturnType<ReturnType<typeof projectQueries>["listByUser"]>;
+  countByUser(
+    userId: string,
+    query?: { q?: string },
+  ): ReturnType<ReturnType<typeof projectQueries>["countByUser"]>;
   getById(id: string): ReturnType<ReturnType<typeof projectQueries>["getById"]>;
   create(data: {
     userId: string;
@@ -60,7 +77,8 @@ export interface ProjectRepository {
 export function createProjectRepository(db: Database): ProjectRepository {
   const queries = projectQueries(db);
   return {
-    listByUser: (userId) => queries.listByUser(userId),
+    listByUser: (userId, query) => queries.listByUser(userId, query),
+    countByUser: (userId, query) => queries.countByUser(userId, query),
     getById: (id) => queries.getById(id),
     create: (data) => queries.create(data),
     update: (id, data) => queries.update(id, data),
@@ -113,6 +131,9 @@ export interface CrawlRepository {
   getLatestByProject(
     projectId: string,
   ): ReturnType<ReturnType<typeof crawlQueries>["getLatestByProject"]>;
+  getLatestByProjects(
+    projectIds: string[],
+  ): ReturnType<ReturnType<typeof crawlQueries>["getLatestByProjects"]>;
   listByProject(
     projectId: string,
   ): ReturnType<ReturnType<typeof crawlQueries>["listByProject"]>;
@@ -167,6 +188,8 @@ export function createCrawlRepository(db: Database): CrawlRepository {
     create: (data) => queries.create(data),
     getById: (id) => queries.getById(id),
     getLatestByProject: (projectId) => queries.getLatestByProject(projectId),
+    getLatestByProjects: (projectIds) =>
+      queries.getLatestByProjects(projectIds),
     listByProject: (projectId) => queries.listByProject(projectId),
     updateStatus: (id, update) => queries.updateStatus(id, update),
     generateShareToken: (id, options) =>
@@ -193,6 +216,9 @@ export interface ScoreRepository {
   listByJob(
     jobId: string,
   ): ReturnType<ReturnType<typeof scoreQueries>["listByJob"]>;
+  listByJobs(
+    jobIds: string[],
+  ): ReturnType<ReturnType<typeof scoreQueries>["listByJobs"]>;
   getIssuesByJob(
     jobId: string,
   ): ReturnType<ReturnType<typeof scoreQueries>["getIssuesByJob"]>;
@@ -214,6 +240,7 @@ export function createScoreRepository(db: Database): ScoreRepository {
   const queries = scoreQueries(db);
   return {
     listByJob: (jobId) => queries.listByJob(jobId),
+    listByJobs: (jobIds) => queries.listByJobs(jobIds),
     getIssuesByJob: (jobId) => queries.getIssuesByJob(jobId),
     listByJobWithPages: (jobId) => queries.listByJobWithPages(jobId),
     getByPageWithIssues: (pageId) => queries.getByPageWithIssues(pageId),
