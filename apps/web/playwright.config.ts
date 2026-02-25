@@ -9,7 +9,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",
-    headless: false, // The user requested "no headles browser"
+    headless: !!process.env.HEADLESS, // The user requested "no headles browser", but we allow overriding it via env var
   },
   projects: [
     {
