@@ -43,6 +43,63 @@ export async function discoverPrompts(
     client.messages.create({
       model: LLM_MODELS.personas, // Sonnet — needs creative reasoning
       max_tokens: 4096,
+      tools: [
+        {
+          name: "return_prompts",
+          description:
+            "Returns the discovered AI prompts in a structured array.",
+          input_schema: {
+            type: "object",
+            properties: {
+              prompts: {
+                type: "array",
+                description: `List of exactly ${count} realistic prompts`,
+                items: {
+                  type: "object",
+                  properties: {
+                    prompt: {
+                      type: "string",
+                      description: "The actual prompt text",
+                    },
+                    category: {
+                      type: "string",
+                      enum: [
+                        "comparison",
+                        "how-to",
+                        "recommendation",
+                        "review",
+                        "general",
+                      ],
+                    },
+                    estimatedVolume: {
+                      type: "number",
+                      description: "Monthly estimated asks (100-50000 limit)",
+                    },
+                    difficulty: {
+                      type: "number",
+                      description:
+                        "0-100 score of how hard it is to appear in AI responses",
+                    },
+                    intent: {
+                      type: "string",
+                      enum: ["informational", "transactional", "navigational"],
+                    },
+                  },
+                  required: [
+                    "prompt",
+                    "category",
+                    "estimatedVolume",
+                    "difficulty",
+                    "intent",
+                  ],
+                },
+              },
+            },
+            required: ["prompts"],
+          },
+        },
+      ],
+      tool_choice: { type: "tool", name: "return_prompts" },
       messages: [
         {
           role: "user",
@@ -59,36 +116,20 @@ Generate diverse prompts across these categories:
 - "how-to": "How to solve X with Y", "Step-by-step guide to Z"
 - "recommendation": "Best tools for X", "What's the best X for Y"
 - "review": "Is X good for Y?", "X review 2026", "X pros and cons"
-- "general": Informational queries about the industry
-
-For each prompt, estimate:
-- estimatedVolume: monthly estimated asks (100-50000 range, be realistic)
-- difficulty: 0-100 how hard it is to appear in AI responses (consider competition, specificity)
-- intent: "informational", "transactional", or "navigational"
-
-Return a JSON array only, no other text:
-[
-  {
-    "prompt": "the actual prompt text",
-    "category": "comparison|how-to|recommendation|review|general",
-    "estimatedVolume": 1500,
-    "difficulty": 45,
-    "intent": "informational"
-  }
-]`,
+- "general": Informational queries about the industry`,
         },
       ],
     }),
   );
 
-  const text =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const toolBlock = response.content.find(
+    (block) => block.type === "tool_use" && block.name === "return_prompts",
+  );
+  if (!toolBlock || toolBlock.type !== "tool_use") return [];
 
   try {
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
-    const parsed = JSON.parse(jsonMatch[0]) as unknown[];
-    if (!Array.isArray(parsed)) return [];
+    const input = toolBlock.input as { prompts: unknown[] };
+    if (!input || !Array.isArray(input.prompts)) return [];
 
     const validCategories = [
       "comparison",
@@ -99,7 +140,7 @@ Return a JSON array only, no other text:
     ];
     const validIntents = ["informational", "transactional", "navigational"];
 
-    return parsed
+    return input.prompts
       .filter(
         (item): item is Record<string, unknown> =>
           typeof item === "object" && item !== null && "prompt" in item,

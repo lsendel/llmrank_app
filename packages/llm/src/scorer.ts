@@ -51,7 +51,8 @@ export class LLMScorer {
       this.client.messages.create({
         model: this.model,
         max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
+        system: prompt.system,
+        messages: [{ role: "user", content: prompt.user }],
       }),
     );
 
