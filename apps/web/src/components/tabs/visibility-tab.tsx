@@ -49,6 +49,7 @@ import { AIVisibilityScoreHeader } from "@/components/visibility/ai-visibility-s
 import { RecommendationsCard } from "@/components/visibility/recommendations-card";
 import { KeywordPicker } from "@/components/visibility/keyword-picker";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { WatchlistSection } from "@/components/competitors/watchlist-section";
 import { useToast } from "@/components/ui/use-toast";
 import { usePlan } from "@/hooks/use-plan";
 import { useApi } from "@/lib/use-api";
@@ -70,6 +71,7 @@ import {
   Play,
   AlertTriangle,
 } from "lucide-react";
+import { PLAN_LIMITS } from "@llm-boost/shared";
 
 const PROVIDERS = [
   { id: "chatgpt", label: "ChatGPT" },
@@ -860,6 +862,22 @@ export default function VisibilityTab({
           <SourceOpportunitiesTable projectId={projectId} />
         </TabsContent>
       </Tabs>
+
+      {/* Competitor Watchlist */}
+      <WatchlistSection
+        projectId={projectId}
+        watchlistLimit={
+          PLAN_LIMITS[
+            (isFree
+              ? "free"
+              : isPro
+                ? "pro"
+                : isAgency
+                  ? "agency"
+                  : "starter") as keyof typeof PLAN_LIMITS
+          ].watchlistQueriesPerProject
+        }
+      />
     </div>
   );
 }
