@@ -1,9 +1,37 @@
-import { pgTable, pgEnum, text, integer, real, boolean, timestamp, jsonb, index, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  real,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
-import { llmProviderEnum, integrationProviderEnum, eventStatusEnum, pipelineStatusEnum, channelTypeEnum, scheduleFrequencyEnum, fixTypeEnum, fixStatusEnum, narrativeToneEnum, narrativeStatusEnum, reportTypeEnum, reportFormatEnum, reportStatusEnum, alertSeverityEnum } from "./enums";
+import {
+  llmProviderEnum,
+  integrationProviderEnum,
+  eventStatusEnum,
+  pipelineStatusEnum,
+  channelTypeEnum,
+  scheduleFrequencyEnum,
+  fixTypeEnum,
+  fixStatusEnum,
+  narrativeToneEnum,
+  narrativeStatusEnum,
+  reportTypeEnum,
+  reportFormatEnum,
+  reportStatusEnum,
+  alertSeverityEnum,
+  competitorEventTypeEnum,
+} from "./enums";
 import { users } from "./identity";
 import { projects, savedKeywords } from "./projects";
-import { crawlJobs, pages, issues } from "./crawling";
+import { crawlJobs, pages } from "./crawling";
 
 export const visibilityChecks = pgTable(
   "visibility_checks",
@@ -61,6 +89,36 @@ export const competitorBenchmarks = pgTable(
   (t) => [
     index("idx_comp_benchmarks_project").on(t.projectId),
     index("idx_comp_benchmarks_domain").on(t.projectId, t.competitorDomain),
+  ],
+);
+
+export const competitorEvents = pgTable(
+  "competitor_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    competitorDomain: text("competitor_domain").notNull(),
+    eventType: competitorEventTypeEnum("event_type").notNull(),
+    severity: alertSeverityEnum("severity").notNull(),
+    summary: text("summary").notNull(),
+    data: jsonb("data").default({}),
+    benchmarkId: uuid("benchmark_id").references(
+      () => competitorBenchmarks.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_competitor_events_feed").on(t.projectId, t.createdAt),
+    index("idx_competitor_events_domain").on(
+      t.projectId,
+      t.competitorDomain,
+      t.createdAt,
+    ),
   ],
 );
 
@@ -402,9 +460,7 @@ export const brandSentimentSnapshots = pgTable(
     sampleSize: integer("sample_size").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("idx_sentiment_project_period").on(t.projectId, t.period),
-  ],
+  (t) => [index("idx_sentiment_project_period").on(t.projectId, t.period)],
 );
 
 export const aiPrompts = pgTable(
@@ -426,4 +482,3 @@ export const aiPrompts = pgTable(
   },
   (t) => [index("idx_prompts_project").on(t.projectId)],
 );
-
