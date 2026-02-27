@@ -78,6 +78,13 @@
       "when": 1771305216980,
       "tag": "0010_curvy_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772158653485,
+      "tag": "0011_happy_big_bertha",
+      "breakpoints": true
     }
   ]
 }
