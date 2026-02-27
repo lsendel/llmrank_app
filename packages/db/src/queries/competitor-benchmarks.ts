@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte } from "drizzle-orm";
 import type { Database } from "../client";
 import { competitorBenchmarks } from "../schema";
 
@@ -39,6 +39,25 @@ export function competitorBenchmarkQueries(db: Database) {
           eq(competitorBenchmarks.competitorDomain, domain),
         ),
         orderBy: [desc(competitorBenchmarks.crawledAt)],
+      });
+    },
+
+    async listByDomain(
+      projectId: string,
+      domain: string,
+      opts: { since?: Date; limit?: number } = {},
+    ) {
+      const { since, limit = 100 } = opts;
+      const conditions = [
+        eq(competitorBenchmarks.projectId, projectId),
+        eq(competitorBenchmarks.competitorDomain, domain),
+      ];
+      if (since) conditions.push(gte(competitorBenchmarks.crawledAt, since));
+
+      return db.query.competitorBenchmarks.findMany({
+        where: and(...conditions),
+        orderBy: [desc(competitorBenchmarks.crawledAt)],
+        limit,
       });
     },
   };

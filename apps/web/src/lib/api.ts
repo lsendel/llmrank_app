@@ -68,6 +68,10 @@ export interface Project {
     companyName?: string;
     primaryColor?: string;
   };
+  pipelineSettings?: {
+    autoRunOnCrawl?: boolean;
+    skipSteps?: string[];
+  };
   latestCrawl?: CrawlJob | null;
 }
 
@@ -3280,6 +3284,84 @@ export const api = {
       });
     },
   },
+
+  // ── Competitor Monitoring ────────────────────────────────────
+  competitorMonitoring: {
+    async getFeed(
+      projectId: string,
+      opts?: {
+        limit?: number;
+        offset?: number;
+        type?: string;
+        severity?: string;
+        domain?: string;
+      },
+    ) {
+      const params = new URLSearchParams({ projectId });
+      if (opts?.limit) params.set("limit", String(opts.limit));
+      if (opts?.offset) params.set("offset", String(opts.offset));
+      if (opts?.type) params.set("type", opts.type);
+      if (opts?.severity) params.set("severity", opts.severity);
+      if (opts?.domain) params.set("domain", opts.domain);
+      return apiClient.get<any>(`/api/competitors/feed?${params}`);
+    },
+    async getTrends(projectId: string, domain: string, period = 90) {
+      const params = new URLSearchParams({
+        projectId,
+        domain,
+        period: String(period),
+      });
+      return apiClient.get<any>(`/api/competitors/trends?${params}`);
+    },
+    async getCadence(projectId: string) {
+      return apiClient.get<any>(
+        `/api/competitors/cadence?projectId=${projectId}`,
+      );
+    },
+    async updateMonitoring(
+      competitorId: string,
+      data: { enabled?: boolean; frequency?: string },
+    ) {
+      return apiClient.patch<any>(
+        `/api/competitors/${competitorId}/monitoring`,
+        data,
+      );
+    },
+    async rebenchmark(competitorId: string) {
+      return apiClient.post<any>(
+        `/api/competitors/${competitorId}/rebenchmark`,
+        {},
+      );
+    },
+    async createWatchlistQuery(data: {
+      projectId: string;
+      query: string;
+      providers: string[];
+      frequency?: string;
+    }) {
+      return apiClient.post<any>("/api/competitors/watchlist", data);
+    },
+    async getWatchlist(projectId: string) {
+      return apiClient.get<any>(
+        `/api/competitors/watchlist?projectId=${projectId}`,
+      );
+    },
+    async updateWatchlistQuery(
+      id: string,
+      data: {
+        query?: string;
+        providers?: string[];
+        frequency?: string;
+        enabled?: boolean;
+      },
+    ) {
+      return apiClient.patch<any>(`/api/competitors/watchlist/${id}`, data);
+    },
+    async deleteWatchlistQuery(id: string) {
+      return apiClient.delete<any>(`/api/competitors/watchlist/${id}`);
+    },
+  },
+
   queue: {
     async list(params?: {
       page?: number;

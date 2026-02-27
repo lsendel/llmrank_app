@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FileText, Loader2, Download, Mail, Trash2 } from "lucide-react";
-import { api, type Report, type ReportSchedule } from "@/lib/api";
+import { api, ApiError, type Report, type ReportSchedule } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 import { GenerateReportModal } from "./generate-report-modal";
 import { ReportList } from "./report-list";
@@ -170,6 +170,7 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
 function AutoReportSettings({ projectId }: { projectId: string }) {
   const [schedules, setSchedules] = useState<ReportSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locked, setLocked] = useState(false);
   const [email, setEmail] = useState("");
   const [format, setFormat] = useState<"pdf" | "docx">("pdf");
   const [type, setType] = useState<"summary" | "detailed">("summary");
@@ -180,9 +181,11 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
     try {
       const list = await api.reports.schedules.list(projectId);
       setSchedules(list);
+      setLocked(false);
     } catch (err) {
-      // 403 = free plan (expected), but log unexpected errors
-      if (err instanceof Error && !err.message.includes("403")) {
+      if (err instanceof ApiError && err.status === 403) {
+        setLocked(true);
+      } else if (err instanceof Error) {
         console.warn("[fetchSchedules]", err.message);
       }
     } finally {
@@ -195,7 +198,7 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
   }, [fetchSchedules]);
 
   async function handleCreate() {
-    if (!email) return;
+    if (!email || locked) return;
     setSaving(true);
     try {
       const schedule = await api.reports.schedules.create({
@@ -208,6 +211,9 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
       setEmail("");
       toast({ title: "Schedule created" });
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 403) {
+        setLocked(true);
+      }
       toast({
         title: "Failed to create schedule",
         description:
@@ -267,6 +273,12 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
           Available on Pro plans and above.
         </p>
 
+        {locked && (
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Scheduled reports are available on Pro plans and above.
+          </div>
+        )}
+
         {/* Existing schedules */}
         {schedules.length > 0 && (
           <div className="space-y-2">
@@ -315,6 +327,7 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
               placeholder="client@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={locked}
             />
           </div>
           <div>
@@ -322,6 +335,7 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
             <Select
               value={format}
               onValueChange={(v) => setFormat(v as "pdf" | "docx")}
+              disabled={locked}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -337,6 +351,7 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
             <Select
               value={type}
               onValueChange={(v) => setType(v as "summary" | "detailed")}
+              disabled={locked}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -348,7 +363,11 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
             </Select>
           </div>
         </div>
-        <Button onClick={handleCreate} disabled={saving || !email} size="sm">
+        <Button
+          onClick={handleCreate}
+          disabled={saving || !email || locked}
+          size="sm"
+        >
           {saving ? "Creating..." : "Add Schedule"}
         </Button>
       </CardContent>

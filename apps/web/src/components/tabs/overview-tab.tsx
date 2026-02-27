@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ScoreCircle } from "@/components/score-circle";
 import { IssueCard } from "@/components/issue-card";
 import { QuickWinsCard } from "@/components/quick-wins-card";
@@ -36,6 +37,36 @@ import { ScoreTrendChart } from "@/components/charts/score-trend-chart";
 import { ProjectProgressCard } from "@/components/cards/project-progress-card";
 import { RegressionAlert } from "@/components/cards/regression-alert";
 
+function relativeTimeLabel(value: string | null | undefined): string {
+  if (!value) return "Unknown";
+
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "Unknown";
+
+  const diff = Date.now() - timestamp;
+  if (diff < 60_000) return "Just now";
+
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(diff / 3_600_000);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(diff / 86_400_000);
+  if (days < 30) return `${days}d ago`;
+
+  return new Date(value).toLocaleDateString();
+}
+
+function confidenceFromSample(pagesSampled: number): {
+  label: "High" | "Medium" | "Low";
+  variant: "success" | "warning" | "destructive";
+} {
+  if (pagesSampled >= 75) return { label: "High", variant: "success" };
+  if (pagesSampled >= 25) return { label: "Medium", variant: "warning" };
+  return { label: "Low", variant: "destructive" };
+}
+
 export function OverviewTab({
   latestCrawl,
   issues,
@@ -60,6 +91,13 @@ export function OverviewTab({
   const [_llmsTxtContent, _setLlmsTxtContent] = useState<string | null>(null);
 
   const hasScores = latestCrawl?.scores != null;
+  const pagesSampled = Math.max(
+    latestCrawl?.pagesScored ?? 0,
+    latestCrawl?.pagesCrawled ?? 0,
+    latestCrawl?.pagesFound ?? 0,
+  );
+  const crawlTimestamp = latestCrawl?.completedAt ?? latestCrawl?.createdAt;
+  const dataConfidence = confidenceFromSample(pagesSampled);
 
   if (!hasScores) {
     const isFailed = latestCrawl?.status === "failed";
@@ -147,6 +185,17 @@ export function OverviewTab({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">
+          Last analyzed: {relativeTimeLabel(crawlTimestamp)}
+        </Badge>
+        <Badge variant="secondary">Pages sampled: {pagesSampled}</Badge>
+        <Badge variant={dataConfidence.variant}>
+          Confidence: {dataConfidence.label}
+        </Badge>
+        <Badge variant="outline">Crawl: {latestCrawl?.id.slice(0, 8)}</Badge>
       </div>
 
       {/* Integration Prompt */}

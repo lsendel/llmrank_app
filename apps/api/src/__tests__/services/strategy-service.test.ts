@@ -444,6 +444,10 @@ describe("StrategyService", () => {
         projectId: "proj-1",
         domain: "rival.com",
         source: "user_added",
+        monitoringEnabled: true,
+        monitoringFrequency: "weekly" as const,
+        nextBenchmarkAt: null,
+        lastBenchmarkAt: null,
         createdAt: new Date("2024-01-01"),
       });
       const service = createStrategyService({
@@ -480,6 +484,10 @@ describe("StrategyService", () => {
         projectId: "proj-1",
         domain: "rival.com",
         source: "user_added",
+        monitoringEnabled: true,
+        monitoringFrequency: "weekly" as const,
+        nextBenchmarkAt: null,
+        lastBenchmarkAt: null,
         createdAt: new Date("2024-01-01"),
       });
       projects.getById.mockResolvedValue(

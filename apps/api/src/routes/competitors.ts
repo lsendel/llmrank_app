@@ -4,14 +4,17 @@ import { authMiddleware } from "../middleware/auth";
 import { handleServiceError } from "../services/errors";
 import { createAuditService } from "../services/audit-service";
 import { createCompetitorBenchmarkService } from "../services/competitor-benchmark-service";
+import { computeNextBenchmarkAt } from "../services/competitor-monitor-service";
+import { diffBenchmarks } from "../services/competitor-diff-service";
 import {
   competitorBenchmarkQueries,
   competitorQueries,
+  competitorEventQueries,
   userQueries,
   projectQueries,
   crawlQueries,
 } from "@llm-boost/db";
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, resolveEffectivePlan } from "@llm-boost/shared";
 
 export const competitorRoutes = new Hono<AppEnv>();
 competitorRoutes.use("*", authMiddleware);
@@ -172,6 +175,212 @@ competitorRoutes.get("/", async (c) => {
   return c.json({ data: { projectScores, competitors: comparison } });
 });
 
+// GET /api/competitors/feed — Activity feed of competitor events
+competitorRoutes.get("/feed", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId query parameter required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const user = await userQueries(db).getById(userId);
+  const effectivePlan = resolveEffectivePlan({
+    plan: user?.plan ?? "free",
+    trialEndsAt: user?.trialEndsAt ?? null,
+  });
+  const limits = PLAN_LIMITS[effectivePlan];
+
+  if (limits.competitorFeedLimit === 0) {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: "Competitor activity feed is not available on your plan.",
+        },
+      },
+      403,
+    );
+  }
+
+  const limit = Math.min(
+    Number(c.req.query("limit") ?? 20),
+    Number.isFinite(limits.competitorFeedLimit)
+      ? limits.competitorFeedLimit
+      : 100,
+  );
+  const offset = Number(c.req.query("offset") ?? 0);
+  const type = c.req.query("type");
+  const severity = c.req.query("severity");
+  const domain = c.req.query("domain");
+
+  const eventQueries = competitorEventQueries(db);
+  const [data, total] = await Promise.all([
+    eventQueries.listByProject(projectId, {
+      limit,
+      offset,
+      eventType: type,
+      severity,
+      domain,
+    }),
+    eventQueries.countByProject(projectId),
+  ]);
+
+  return c.json({
+    data,
+    total,
+    hasMore: offset + data.length < total,
+  });
+});
+
+// GET /api/competitors/trends — Score trends for a competitor domain
+competitorRoutes.get("/trends", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const domain = c.req.query("domain");
+
+  if (!projectId || !domain) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId and domain query parameters are required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const user = await userQueries(db).getById(userId);
+  const effectivePlan = resolveEffectivePlan({
+    plan: user?.plan ?? "free",
+    trialEndsAt: user?.trialEndsAt ?? null,
+  });
+  const limits = PLAN_LIMITS[effectivePlan];
+
+  if (limits.competitorTrendDays === 0) {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: "Competitor trend data is not available on your plan.",
+        },
+      },
+      403,
+    );
+  }
+
+  const since = new Date();
+  since.setDate(since.getDate() - limits.competitorTrendDays);
+
+  const benchmarks = await competitorBenchmarkQueries(db).listByDomain(
+    projectId,
+    domain,
+    { since },
+  );
+
+  const data = benchmarks.map((b) => ({
+    date: b.crawledAt,
+    overallScore: b.overallScore,
+    technicalScore: b.technicalScore,
+    contentScore: b.contentScore,
+    aiReadinessScore: b.aiReadinessScore,
+    performanceScore: b.performanceScore,
+    letterGrade: b.letterGrade,
+  }));
+
+  return c.json({ data });
+});
+
+// GET /api/competitors/cadence — Content publishing cadence per competitor
+competitorRoutes.get("/cadence", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId query parameter required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const competitors = await competitorQueries(db).listByProject(projectId);
+  const eventQueries = competitorEventQueries(db);
+
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+  const data = await Promise.all(
+    competitors.map(async (comp) => {
+      const [weekEvents, monthEvents] = await Promise.all([
+        eventQueries.listByProject(projectId, {
+          domain: comp.domain,
+          eventType: "new_pages_detected",
+          since: oneWeekAgo,
+          limit: 1000,
+        }),
+        eventQueries.listByProject(projectId, {
+          domain: comp.domain,
+          eventType: "new_pages_detected",
+          since: oneMonthAgo,
+          limit: 1000,
+        }),
+      ]);
+
+      return {
+        domain: comp.domain,
+        competitorId: comp.id,
+        newPagesLastWeek: weekEvents.length,
+        newPagesLastMonth: monthEvents.length,
+      };
+    }),
+  );
+
+  return c.json({ data });
+});
+
 // GET /api/competitors/comparison/:projectId — Structured comparison table
 competitorRoutes.get("/comparison/:projectId", async (c) => {
   const db = c.get("db");
@@ -213,4 +422,208 @@ competitorRoutes.get("/comparison/:projectId", async (c) => {
   };
 
   return c.json({ data: comparison });
+});
+
+// PATCH /api/competitors/:id/monitoring — Update monitoring settings
+competitorRoutes.patch("/:id/monitoring", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const competitorId = c.req.param("id");
+
+  if (!UUID_RE.test(competitorId)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid competitor ID",
+        },
+      },
+      422,
+    );
+  }
+
+  const body = await c.req.json<{
+    frequency?: string;
+  }>();
+
+  const validFrequencies = ["daily", "weekly", "monthly", "off"];
+  if (!body.frequency || !validFrequencies.includes(body.frequency)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "frequency is required and must be one of: daily, weekly, monthly, off",
+        },
+      },
+      422,
+    );
+  }
+
+  try {
+    const competitor = await competitorQueries(db).getById(competitorId);
+    if (!competitor) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    // Verify project ownership
+    const project = await projectQueries(db).getById(competitor.projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    // Check plan allows the requested frequency
+    const user = await userQueries(db).getById(userId);
+    const effectivePlan = resolveEffectivePlan({
+      plan: user?.plan ?? "free",
+      trialEndsAt: user?.trialEndsAt ?? null,
+    });
+    const limits = PLAN_LIMITS[effectivePlan];
+
+    if (
+      body.frequency === "daily" &&
+      !limits.competitorMonitoringFrequency.includes("daily")
+    ) {
+      return c.json(
+        {
+          error: {
+            code: "PLAN_LIMIT_REACHED",
+            message: "Daily monitoring frequency requires an Agency plan.",
+          },
+        },
+        403,
+      );
+    }
+
+    const isOff = body.frequency === "off";
+    const nextBenchmarkAt = isOff
+      ? null
+      : computeNextBenchmarkAt(body.frequency);
+
+    const updated = await competitorQueries(db).updateMonitoring(competitorId, {
+      monitoringEnabled: !isOff,
+      monitoringFrequency: body.frequency,
+      nextBenchmarkAt,
+    });
+
+    return c.json({ data: updated });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// POST /api/competitors/:id/rebenchmark — Manually trigger a re-benchmark
+competitorRoutes.post("/:id/rebenchmark", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const competitorId = c.req.param("id");
+
+  if (!UUID_RE.test(competitorId)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid competitor ID",
+        },
+      },
+      422,
+    );
+  }
+
+  try {
+    // Check plan limit
+    const user = await userQueries(db).getById(userId);
+    const effectivePlan = resolveEffectivePlan({
+      plan: user?.plan ?? "free",
+      trialEndsAt: user?.trialEndsAt ?? null,
+    });
+    const limits = PLAN_LIMITS[effectivePlan];
+
+    if (limits.competitorRebenchmarksPerWeek === 0) {
+      return c.json(
+        {
+          error: {
+            code: "PLAN_LIMIT_REACHED",
+            message:
+              "Manual re-benchmarking is not available on your plan. Upgrade to Starter or above.",
+          },
+        },
+        403,
+      );
+    }
+
+    const competitor = await competitorQueries(db).getById(competitorId);
+    if (!competitor) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    const project = await projectQueries(db).getById(competitor.projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    // Get previous benchmark for diffing
+    const benchmarkQ = competitorBenchmarkQueries(db);
+    const previous = await benchmarkQ.getLatest(
+      competitor.projectId,
+      competitor.domain,
+    );
+
+    // Run new benchmark
+    const service = createCompetitorBenchmarkService({
+      competitorBenchmarks: benchmarkQ,
+      competitors: competitorQueries(db),
+    });
+
+    const benchmark = await service.benchmarkCompetitor({
+      projectId: competitor.projectId,
+      competitorDomain: competitor.domain,
+      competitorLimit: Infinity,
+    });
+
+    // Diff and store events
+    const diffEvents = diffBenchmarks(
+      competitor.domain,
+      previous ?? null,
+      benchmark,
+    );
+    const eventQueries = competitorEventQueries(db);
+    const storedEvents = [];
+
+    for (const event of diffEvents) {
+      const stored = await eventQueries.create({
+        projectId: competitor.projectId,
+        competitorDomain: competitor.domain,
+        eventType: event.eventType as Parameters<
+          typeof eventQueries.create
+        >[0]["eventType"],
+        severity: event.severity,
+        summary: event.summary,
+        data: event.data,
+        benchmarkId: benchmark.id,
+      });
+      storedEvents.push(stored);
+    }
+
+    // Update lastBenchmarkAt
+    await competitorQueries(db).updateMonitoring(competitorId, {
+      lastBenchmarkAt: new Date(),
+    });
+
+    return c.json({ data: { benchmark, events: storedEvents } });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
 });

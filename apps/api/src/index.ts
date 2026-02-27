@@ -33,6 +33,7 @@ import { insightsRoutes } from "./routes/insights";
 import { reportRoutes } from "./routes/reports";
 import { reportUploadRoutes } from "./routes/report-upload";
 import { fixRoutes } from "./routes/fixes";
+import { competitorWatchlistRoutes } from "./routes/competitor-watchlist";
 import { competitorRoutes } from "./routes/competitors";
 import { trendRoutes } from "./routes/trends";
 import { notificationChannelRoutes } from "./routes/notification-channels";
@@ -61,6 +62,13 @@ import { promptResearchRoutes } from "./routes/prompt-research";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
+import { createCompetitorMonitorService } from "./services/competitor-monitor-service";
+import {
+  competitorBenchmarkQueries,
+  competitorQueries,
+  competitorEventQueries,
+  outboxQueries,
+} from "@llm-boost/db";
 
 // ---------------------------------------------------------------------------
 // Bindings & Variables
@@ -214,6 +222,7 @@ app.route("/api/browser", browserRoutes);
 app.route("/api/crawls", insightsRoutes);
 app.route("/api/reports", reportRoutes);
 app.route("/api/fixes", fixRoutes);
+app.route("/api/competitors/watchlist", competitorWatchlistRoutes);
 app.route("/api/competitors", competitorRoutes);
 app.route("/api/trends", trendRoutes);
 app.route("/internal", reportUploadRoutes);
@@ -575,6 +584,28 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
   }
 }
 
+async function processScheduledCompetitorChecks(env: Bindings) {
+  const db = createDb(env.DATABASE_URL);
+  const { createCompetitorBenchmarkService } =
+    await import("./services/competitor-benchmark-service");
+  const benchmarkService = createCompetitorBenchmarkService({
+    competitorBenchmarks: competitorBenchmarkQueries(db),
+    competitors: competitorQueries(db),
+  });
+  const monitorService = createCompetitorMonitorService({
+    competitors: competitorQueries(db),
+    competitorBenchmarks: competitorBenchmarkQueries(db),
+    competitorEvents: competitorEventQueries(db),
+    outbox: outboxQueries(db),
+    benchmarkService,
+  });
+
+  const results = await monitorService.processScheduledBenchmarks();
+  console.log(
+    `Competitor monitoring: processed=${results.processed}, events=${results.events}, errors=${results.errors}`,
+  );
+}
+
 export default withSentry(
   (env: Bindings) => ({ dsn: env.SENTRY_DSN, tracesSampleRate: 0.1 }),
   {
@@ -608,6 +639,9 @@ export default withSentry(
         // Daily benchmark aggregation — 4 AM UTC
         const db = createDb(env.DATABASE_URL);
         await aggregateBenchmarks(db, env.KV);
+      } else if (controller.cron === "0 2 * * 0") {
+        // Weekly competitor monitoring — Sundays at 2 AM UTC
+        await processScheduledCompetitorChecks(env);
       } else {
         await runScheduledTasks(env);
       }

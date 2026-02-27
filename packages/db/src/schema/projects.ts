@@ -1,6 +1,20 @@
-import { pgTable, pgEnum, text, integer, real, boolean, timestamp, jsonb, index, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  real,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+  uuid,
+} from "drizzle-orm/pg-core";
 
-import { crawlScheduleEnum, funnelStageEnum, keywordSourceEnum } from "./enums";
+import {
+  crawlScheduleEnum,
+  funnelStageEnum,
+  keywordSourceEnum,
+  monitoringFrequencyEnum,
+} from "./enums";
 import { users } from "./identity";
 
 export const projects = pgTable(
@@ -65,9 +79,21 @@ export const competitors = pgTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     domain: text("domain").notNull(),
     source: text("source").notNull().default("user_added"),
+    monitoringEnabled: boolean("monitoring_enabled").notNull().default(true),
+    monitoringFrequency: monitoringFrequencyEnum("monitoring_frequency")
+      .notNull()
+      .default("weekly"),
+    nextBenchmarkAt: timestamp("next_benchmark_at"),
+    lastBenchmarkAt: timestamp("last_benchmark_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("idx_competitors_project").on(t.projectId)],
+  (t) => [
+    index("idx_competitors_project").on(t.projectId),
+    index("idx_competitors_next_benchmark").on(
+      t.nextBenchmarkAt,
+      t.monitoringEnabled,
+    ),
+  ],
 );
 
 export const savedKeywords = pgTable(
@@ -114,4 +140,3 @@ export const scoringProfiles = pgTable(
   },
   (t) => [index("idx_scoring_profiles_user").on(t.userId)],
 );
-
