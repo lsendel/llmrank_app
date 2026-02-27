@@ -428,6 +428,15 @@ function getSubject(type: string): string {
     return "⚠️ Action Required: Crawl Credits Low";
   if (type.includes("score_drop"))
     return "📉 Alert: LLM Citability Score Dropped";
+  if (type.includes("competitor_score_regression"))
+    return "📉 Competitor Alert: Score Drop Detected";
+  if (type.includes("competitor_score_improvement"))
+    return "📈 Competitor Alert: Score Improvement Detected";
+  if (type.includes("competitor_llms_txt"))
+    return "🚨 Competitor Alert: AI Readiness Change";
+  if (type.includes("competitor_ai_crawlers"))
+    return "🚨 Competitor Alert: Crawler Access Changed";
+  if (type.startsWith("competitor_")) return "🔍 Competitor Activity Update";
   return "🔍 Competitor Alert: New Semantic Gaps Detected";
 }
 
@@ -481,6 +490,32 @@ function renderTemplate(type: string, data: any): string {
             <ul>${winsHtml}</ul>
             <p>Implement these fixes to improve how AI assistants perceive and cite your content.</p>
             <a href="${reportUrl}">View All Quick Wins</a>`;
+  }
+
+  if (type.startsWith("competitor_")) {
+    const severityColor =
+      data.severity === "critical"
+        ? "#ef4444"
+        : data.severity === "warning"
+          ? "#f59e0b"
+          : "#3b82f6";
+    const scoreTable =
+      data.previousScore != null
+        ? `<table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Previous Score</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">${data.previousScore}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">Current Score</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">${data.newScore}</td></tr>
+          <tr><td style="padding:8px;font-weight:bold">Change</td><td style="padding:8px;text-align:right;color:${data.delta > 0 ? "#22c55e" : "#ef4444"};font-weight:bold">${data.delta > 0 ? "+" : ""}${data.delta.toFixed(0)}</td></tr>
+        </table>`
+        : "";
+    return `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+      <h2 style="color:#1a1a2e">Competitor Activity Detected</h2>
+      <div style="background:#f8f9fa;border-left:4px solid ${severityColor};padding:16px;margin:16px 0;border-radius:4px">
+        <strong>${data.domain}</strong>
+        <p style="margin:8px 0 0">${data.summary}</p>
+      </div>
+      ${scoreTable}
+      <a href="${DEFAULT_APP_URL}/dashboard/projects/${data.projectId}?tab=competitors" style="display:inline-block;background:#3b82f6;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;margin-top:16px">View Activity Feed &rarr;</a>
+    </div>`;
   }
 
   return `<p>New updates in your LLM Rank dashboard.</p>`;
@@ -603,6 +638,20 @@ function formatSlackMessage(event: OutboxEvent): string {
       return `*Mention lost* on ${data.provider}\nQuery: "${data.query}"`;
     case "position_changed":
       return `*Citation position changed* on ${data.provider}\n${data.oldPosition} \u2192 ${data.newPosition}`;
+    case "competitor_score_regression":
+      return `*Competitor Score Drop* \ud83d\udcc9\n*${data.domain}* dropped ${Math.abs(data.delta).toFixed(0)} points (${data.previousScore} \u2192 ${data.newScore})`;
+    case "competitor_score_improvement":
+      return `*Competitor Score Jump* \ud83d\udcc8\n*${data.domain}* improved ${data.delta.toFixed(0)} points (${data.previousScore} \u2192 ${data.newScore})`;
+    case "competitor_llms_txt_added":
+      return `*Competitor Alert* \ud83d\udea8\n*${data.domain}* added llms.txt \u2014 they're optimizing for AI visibility`;
+    case "competitor_ai_crawlers_unblocked":
+      return `*Competitor Alert* \ud83d\udea8\n*${data.domain}* unblocked AI crawlers \u2014 they're opening up to AI`;
+    case "competitor_ai_crawlers_blocked":
+      return `*Competitor Alert* \u26a0\ufe0f\n*${data.domain}* blocked AI crawlers`;
+    case "competitor_schema_added":
+      return `*Competitor Update* \u2139\ufe0f\n*${data.domain}* added structured data markup`;
+    case "competitor_new_pages_detected":
+      return `*Competitor Content* \ud83d\udcc4\n*${data.domain}* published ${data.count} new page(s)`;
     default:
       return `Event: ${event.eventType}\n${JSON.stringify(data, null, 2)}`;
   }
