@@ -317,6 +317,69 @@ competitorRoutes.get("/trends", async (c) => {
   return c.json({ data });
 });
 
+// GET /api/competitors/cadence — Content publishing cadence per competitor
+competitorRoutes.get("/cadence", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId query parameter required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const competitors = await competitorQueries(db).listByProject(projectId);
+  const eventQueries = competitorEventQueries(db);
+
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+  const data = await Promise.all(
+    competitors.map(async (comp) => {
+      const [weekEvents, monthEvents] = await Promise.all([
+        eventQueries.listByProject(projectId, {
+          domain: comp.domain,
+          eventType: "new_pages_detected",
+          since: oneWeekAgo,
+          limit: 1000,
+        }),
+        eventQueries.listByProject(projectId, {
+          domain: comp.domain,
+          eventType: "new_pages_detected",
+          since: oneMonthAgo,
+          limit: 1000,
+        }),
+      ]);
+
+      return {
+        domain: comp.domain,
+        competitorId: comp.id,
+        newPagesLastWeek: weekEvents.length,
+        newPagesLastMonth: monthEvents.length,
+      };
+    }),
+  );
+
+  return c.json({ data });
+});
+
 // GET /api/competitors/comparison/:projectId — Structured comparison table
 competitorRoutes.get("/comparison/:projectId", async (c) => {
   const db = c.get("db");
