@@ -13,7 +13,7 @@ interface CompetitorMonitorDeps {
     create(data: any): Promise<any>;
   };
   outbox: {
-    insert(data: any): Promise<any>;
+    enqueue(data: any): Promise<any>;
   };
   benchmarkService: {
     benchmarkCompetitor(args: {
@@ -85,7 +85,7 @@ export function createCompetitorMonitorService(deps: CompetitorMonitorDeps) {
 
             // 5. Emit notification for critical/warning events
             if (event.severity === "critical" || event.severity === "warning") {
-              await deps.outbox.insert({
+              await deps.outbox.enqueue({
                 type: "webhook:alert",
                 eventType: `competitor_${event.eventType}`,
                 payload: {
