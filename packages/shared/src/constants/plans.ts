@@ -39,6 +39,12 @@ export interface PlanLimits {
   mcpCallsPerHour: number;
   mcpWriteOpsPerHour: number;
   mcpConcurrentSessions: number;
+  competitorMonitoring: boolean;
+  competitorMonitoringFrequency: ("weekly" | "daily")[];
+  competitorFeedLimit: number;
+  watchlistQueriesPerProject: number;
+  competitorTrendDays: number;
+  competitorRebenchmarksPerWeek: number;
 }
 
 export function resolveEffectivePlan(user: {
@@ -78,7 +84,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     reportCompetitorSection: false,
     reportIntegrationData: false,
     fixesPerMonth: 5,
-    competitorsPerProject: 0,
+    competitorsPerProject: 1,
     keywordDiscoveryPerMonth: 0,
     personasPerProject: 2,
     savedKeywordsPerProject: 10,
@@ -88,6 +94,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     mcpCallsPerHour: 0,
     mcpWriteOpsPerHour: 0,
     mcpConcurrentSessions: 0,
+    competitorMonitoring: true,
+    competitorMonitoringFrequency: ["weekly"],
+    competitorFeedLimit: 5,
+    watchlistQueriesPerProject: 0,
+    competitorTrendDays: 0,
+    competitorRebenchmarksPerWeek: 0,
   },
   starter: {
     pagesPerCrawl: 100,
@@ -121,6 +133,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     mcpCallsPerHour: 0,
     mcpWriteOpsPerHour: 0,
     mcpConcurrentSessions: 0,
+    competitorMonitoring: true,
+    competitorMonitoringFrequency: ["weekly"],
+    competitorFeedLimit: Infinity,
+    watchlistQueriesPerProject: 3,
+    competitorTrendDays: 30,
+    competitorRebenchmarksPerWeek: 1,
   },
   pro: {
     pagesPerCrawl: 500,
@@ -154,6 +172,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     mcpCallsPerHour: 100,
     mcpWriteOpsPerHour: 20,
     mcpConcurrentSessions: 2,
+    competitorMonitoring: true,
+    competitorMonitoringFrequency: ["weekly"],
+    competitorFeedLimit: Infinity,
+    watchlistQueriesPerProject: 10,
+    competitorTrendDays: 90,
+    competitorRebenchmarksPerWeek: 3,
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -187,5 +211,11 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     mcpCallsPerHour: 1000,
     mcpWriteOpsPerHour: 200,
     mcpConcurrentSessions: 10,
+    competitorMonitoring: true,
+    competitorMonitoringFrequency: ["weekly", "daily"],
+    competitorFeedLimit: Infinity,
+    watchlistQueriesPerProject: 25,
+    competitorTrendDays: 180,
+    competitorRebenchmarksPerWeek: Infinity,
   },
 };
