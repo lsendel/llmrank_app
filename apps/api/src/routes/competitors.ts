@@ -4,6 +4,7 @@ import { authMiddleware } from "../middleware/auth";
 import { handleServiceError } from "../services/errors";
 import { createAuditService } from "../services/audit-service";
 import { createCompetitorBenchmarkService } from "../services/competitor-benchmark-service";
+import { computeNextBenchmarkAt } from "../services/competitor-monitor-service";
 import {
   competitorBenchmarkQueries,
   competitorQueries,
@@ -11,7 +12,7 @@ import {
   projectQueries,
   crawlQueries,
 } from "@llm-boost/db";
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, resolveEffectivePlan } from "@llm-boost/shared";
 
 export const competitorRoutes = new Hono<AppEnv>();
 competitorRoutes.use("*", authMiddleware);
@@ -213,4 +214,98 @@ competitorRoutes.get("/comparison/:projectId", async (c) => {
   };
 
   return c.json({ data: comparison });
+});
+
+// PATCH /api/competitors/:id/monitoring — Update monitoring settings
+competitorRoutes.patch("/:id/monitoring", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const competitorId = c.req.param("id");
+
+  if (!UUID_RE.test(competitorId)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid competitor ID",
+        },
+      },
+      422,
+    );
+  }
+
+  const body = await c.req.json<{
+    frequency?: string;
+  }>();
+
+  const validFrequencies = ["daily", "weekly", "monthly", "off"];
+  if (!body.frequency || !validFrequencies.includes(body.frequency)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            "frequency is required and must be one of: daily, weekly, monthly, off",
+        },
+      },
+      422,
+    );
+  }
+
+  try {
+    const competitor = await competitorQueries(db).getById(competitorId);
+    if (!competitor) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    // Verify project ownership
+    const project = await projectQueries(db).getById(competitor.projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    // Check plan allows the requested frequency
+    const user = await userQueries(db).getById(userId);
+    const effectivePlan = resolveEffectivePlan({
+      plan: user?.plan ?? "free",
+      trialEndsAt: user?.trialEndsAt ?? null,
+    });
+    const limits = PLAN_LIMITS[effectivePlan];
+
+    if (
+      body.frequency === "daily" &&
+      !limits.competitorMonitoringFrequency.includes("daily")
+    ) {
+      return c.json(
+        {
+          error: {
+            code: "PLAN_LIMIT_REACHED",
+            message: "Daily monitoring frequency requires an Agency plan.",
+          },
+        },
+        403,
+      );
+    }
+
+    const isOff = body.frequency === "off";
+    const nextBenchmarkAt = isOff
+      ? null
+      : computeNextBenchmarkAt(body.frequency);
+
+    const updated = await competitorQueries(db).updateMonitoring(competitorId, {
+      monitoringEnabled: !isOff,
+      monitoringFrequency: body.frequency,
+      nextBenchmarkAt,
+    });
+
+    return c.json({ data: updated });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
 });
