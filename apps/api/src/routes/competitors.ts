@@ -249,6 +249,74 @@ competitorRoutes.get("/feed", async (c) => {
   });
 });
 
+// GET /api/competitors/trends — Score trends for a competitor domain
+competitorRoutes.get("/trends", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+  const domain = c.req.query("domain");
+
+  if (!projectId || !domain) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId and domain query parameters are required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const user = await userQueries(db).getById(userId);
+  const effectivePlan = resolveEffectivePlan({
+    plan: user?.plan ?? "free",
+    trialEndsAt: user?.trialEndsAt ?? null,
+  });
+  const limits = PLAN_LIMITS[effectivePlan];
+
+  if (limits.competitorTrendDays === 0) {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: "Competitor trend data is not available on your plan.",
+        },
+      },
+      403,
+    );
+  }
+
+  const since = new Date();
+  since.setDate(since.getDate() - limits.competitorTrendDays);
+
+  const benchmarks = await competitorBenchmarkQueries(db).listByDomain(
+    projectId,
+    domain,
+    { since },
+  );
+
+  const data = benchmarks.map((b) => ({
+    date: b.crawledAt,
+    overallScore: b.overallScore,
+    technicalScore: b.technicalScore,
+    contentScore: b.contentScore,
+    aiReadinessScore: b.aiReadinessScore,
+    performanceScore: b.performanceScore,
+    letterGrade: b.letterGrade,
+  }));
+
+  return c.json({ data });
+});
+
 // GET /api/competitors/comparison/:projectId — Structured comparison table
 competitorRoutes.get("/comparison/:projectId", async (c) => {
   const db = c.get("db");
