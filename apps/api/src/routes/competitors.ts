@@ -8,6 +8,7 @@ import { computeNextBenchmarkAt } from "../services/competitor-monitor-service";
 import {
   competitorBenchmarkQueries,
   competitorQueries,
+  competitorEventQueries,
   userQueries,
   projectQueries,
   crawlQueries,
@@ -171,6 +172,81 @@ competitorRoutes.get("/", async (c) => {
   });
 
   return c.json({ data: { projectScores, competitors: comparison } });
+});
+
+// GET /api/competitors/feed — Activity feed of competitor events
+competitorRoutes.get("/feed", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId query parameter required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const user = await userQueries(db).getById(userId);
+  const effectivePlan = resolveEffectivePlan({
+    plan: user?.plan ?? "free",
+    trialEndsAt: user?.trialEndsAt ?? null,
+  });
+  const limits = PLAN_LIMITS[effectivePlan];
+
+  if (limits.competitorFeedLimit === 0) {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: "Competitor activity feed is not available on your plan.",
+        },
+      },
+      403,
+    );
+  }
+
+  const limit = Math.min(
+    Number(c.req.query("limit") ?? 20),
+    Number.isFinite(limits.competitorFeedLimit)
+      ? limits.competitorFeedLimit
+      : 100,
+  );
+  const offset = Number(c.req.query("offset") ?? 0);
+  const type = c.req.query("type");
+  const severity = c.req.query("severity");
+  const domain = c.req.query("domain");
+
+  const eventQueries = competitorEventQueries(db);
+  const [data, total] = await Promise.all([
+    eventQueries.listByProject(projectId, {
+      limit,
+      offset,
+      eventType: type,
+      severity,
+      domain,
+    }),
+    eventQueries.countByProject(projectId),
+  ]);
+
+  return c.json({
+    data,
+    total,
+    hasMore: offset + data.length < total,
+  });
 });
 
 // GET /api/competitors/comparison/:projectId — Structured comparison table
