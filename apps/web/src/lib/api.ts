@@ -68,6 +68,10 @@ export interface Project {
     companyName?: string;
     primaryColor?: string;
   };
+  pipelineSettings?: {
+    autoRunOnCrawl?: boolean;
+    skipSteps?: string[];
+  };
   latestCrawl?: CrawlJob | null;
 }
 

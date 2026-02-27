@@ -18,8 +18,10 @@ import { IssueCard } from "@/components/issue-card";
 import { EmailCaptureGate } from "@/components/email-capture-gate";
 import { cn, gradeColor, scoreBarColor } from "@/lib/utils";
 import { track } from "@/lib/telemetry";
-import { api } from "@/lib/api";
+import { useUser } from "@/lib/auth-hooks";
+import { api, ApiError } from "@/lib/api";
 import type { PublicScanResult, QuickWin } from "@/lib/api";
+import { normalizeDomain } from "@llm-boost/shared";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -32,8 +34,47 @@ type ScanResultCta =
   | "connect_integration"
   | "schedule_recurring_scan";
 
+const DEFAULT_SCAN_VISIBILITY_PROVIDERS = [
+  "chatgpt",
+  "claude",
+  "perplexity",
+  "gemini",
+] as const;
+
+function toTitleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function deriveProjectName(domainOrUrl: string, title?: string | null): string {
+  const cleanedTitle = title?.split(/[|:\-•]/)[0]?.trim() ?? "";
+  if (cleanedTitle.length >= 3 && cleanedTitle.length <= 80) {
+    return cleanedTitle;
+  }
+
+  const normalized = normalizeDomain(domainOrUrl);
+  const labels = normalized.split(".");
+  const secondLevel =
+    labels.length >= 2
+      ? labels[labels.length - 2]
+      : (labels[0] ?? "Website Project");
+  const name = secondLevel.replace(/[-_]+/g, " ").trim();
+  return name ? toTitleCase(name) : "Website Project";
+}
+
+function deriveVisibilitySeedQuery(
+  domainOrUrl: string,
+  title?: string | null,
+): string {
+  const projectName = deriveProjectName(domainOrUrl, title);
+  return `${projectName} reviews`;
+}
+
 function ScanResultsContent() {
   const router = useRouter();
+  const { isSignedIn } = useUser();
   const searchParams = useSearchParams();
   const scanId = searchParams.get("id");
 
@@ -41,6 +82,8 @@ function ScanResultsContent() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   // Persist unlock token across refreshes
   const [unlockToken, setUnlockToken] = useState<string | null>(() => {
@@ -141,6 +184,7 @@ function ScanResultsContent() {
 
   const { scores, issues, quickWins, meta } = result;
   const domain = result.url ?? result.domain;
+  const normalizedDomain = normalizeDomain(domain);
 
   function trackCtaClick(
     cta: ScanResultCta,
@@ -154,6 +198,70 @@ function ScanResultsContent() {
       scanResultId: scanId ?? "session-storage",
       domain,
     });
+  }
+
+  async function handleCreateWorkspaceFromScan() {
+    if (creatingWorkspace) return;
+    setCreatingWorkspace(true);
+    setWorkspaceError(null);
+    trackCtaClick(
+      "create_project",
+      "/dashboard/projects/from-scan",
+      "results_next_actions",
+    );
+
+    try {
+      const project = await api.projects.create({
+        name: deriveProjectName(domain, meta?.title),
+        domain: normalizedDomain,
+      });
+
+      await Promise.allSettled([
+        api.projects.update(project.id, {
+          settings: {
+            schedule: "weekly",
+          },
+        }),
+        api.pipeline.updateSettings(project.id, {
+          autoRunOnCrawl: true,
+        }),
+      ]);
+
+      await Promise.allSettled([
+        api.visibility.schedules.create({
+          projectId: project.id,
+          query: deriveVisibilitySeedQuery(domain, meta?.title),
+          providers: [...DEFAULT_SCAN_VISIBILITY_PROVIDERS],
+          frequency: "weekly",
+        }),
+        (async () => {
+          const prefs = await api.account.getDigestPreferences();
+          if (prefs.digestFrequency === "off") {
+            await api.account.updateDigestPreferences({
+              digestFrequency: "weekly",
+              digestDay: 1,
+            });
+          }
+        })(),
+      ]);
+
+      track("scan_result_workspace_created", {
+        scanResultId: scanId ?? "session-storage",
+        domain: normalizedDomain,
+        projectId: project.id,
+      });
+      router.push(`/dashboard/projects/${project.id}?tab=overview&source=scan`);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Could not create a workspace from this scan.";
+      setWorkspaceError(message);
+    } finally {
+      setCreatingWorkspace(false);
+    }
   }
 
   return (
@@ -397,20 +505,44 @@ function ScanResultsContent() {
           workspace, integrations, and recurring monitoring.
         </p>
         <div className="mt-5 space-y-3">
-          <Button size="lg" className="w-full" asChild>
-            <Link
-              href="/sign-up"
-              onClick={() =>
-                trackCtaClick(
-                  "create_project",
-                  "/sign-up",
-                  "results_next_actions",
-                )
-              }
+          {isSignedIn ? (
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleCreateWorkspaceFromScan}
+              disabled={creatingWorkspace}
             >
-              Create Project Workspace
-            </Link>
-          </Button>
+              {creatingWorkspace
+                ? "Creating Project Workspace..."
+                : "Create Project Workspace"}
+            </Button>
+          ) : (
+            <Button size="lg" className="w-full" asChild>
+              <Link
+                href="/sign-up"
+                onClick={() =>
+                  trackCtaClick(
+                    "create_project",
+                    "/sign-up",
+                    "results_next_actions",
+                  )
+                }
+              >
+                Create Project Workspace
+              </Link>
+            </Button>
+          )}
+          {isSignedIn && (
+            <p className="text-center text-xs text-muted-foreground">
+              We will preconfigure weekly crawl cadence, weekly visibility
+              tracking, and digest defaults.
+            </p>
+          )}
+          {workspaceError && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {workspaceError}
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <Button size="lg" variant="outline" className="w-full" asChild>
               <Link

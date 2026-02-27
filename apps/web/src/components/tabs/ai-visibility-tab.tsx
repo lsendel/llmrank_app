@@ -34,8 +34,23 @@ const PROVIDER_LABELS: Record<string, string> = {
   perplexity: "Perplexity",
   gemini: "Gemini",
   copilot: "Copilot",
+  grok: "Grok",
   gemini_ai_mode: "AI Search",
 };
+
+const LLM_PROVIDER_ORDER = [
+  "chatgpt",
+  "claude",
+  "perplexity",
+  "gemini",
+  "copilot",
+  "grok",
+] as const;
+
+const KEYWORD_PROVIDER_ORDER = [
+  ...LLM_PROVIDER_ORDER,
+  "gemini_ai_mode",
+] as const;
 
 export default function AIVisibilityTab({
   projectId,
@@ -185,29 +200,27 @@ export default function AIVisibilityTab({
               {new Set(llmChecks.map((c) => c.llmProvider)).size} providers
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {["chatgpt", "claude", "perplexity", "gemini", "copilot"].map(
-                (p) => {
-                  const pChecks = llmChecks.filter((c) => c.llmProvider === p);
-                  const mentioned = pChecks.filter(
-                    (c) => c.brandMentioned,
-                  ).length;
-                  const hasMentions = mentioned > 0;
-                  return (
-                    <Badge
-                      key={p}
-                      variant={hasMentions ? "default" : "secondary"}
-                      className="text-xs"
-                    >
-                      {hasMentions ? (
-                        <Check className="mr-1 h-3 w-3" />
-                      ) : (
-                        <X className="mr-1 h-3 w-3" />
-                      )}
-                      {PROVIDER_LABELS[p] ?? p}
-                    </Badge>
-                  );
-                },
-              )}
+              {LLM_PROVIDER_ORDER.map((p) => {
+                const pChecks = llmChecks.filter((c) => c.llmProvider === p);
+                const mentioned = pChecks.filter(
+                  (c) => c.brandMentioned,
+                ).length;
+                const hasMentions = mentioned > 0;
+                return (
+                  <Badge
+                    key={p}
+                    variant={hasMentions ? "default" : "secondary"}
+                    className="text-xs"
+                  >
+                    {hasMentions ? (
+                      <Check className="mr-1 h-3 w-3" />
+                    ) : (
+                      <X className="mr-1 h-3 w-3" />
+                    )}
+                    {PROVIDER_LABELS[p] ?? p}
+                  </Badge>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -259,7 +272,7 @@ export default function AIVisibilityTab({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Keyword</TableHead>
-                    {Object.keys(PROVIDER_LABELS).map((p) => (
+                    {KEYWORD_PROVIDER_ORDER.map((p) => (
                       <TableHead key={p} className="text-center text-xs">
                         {PROVIDER_LABELS[p]}
                       </TableHead>
@@ -272,7 +285,7 @@ export default function AIVisibilityTab({
                       <TableCell className="max-w-[200px] truncate text-sm font-medium">
                         {row.query}
                       </TableCell>
-                      {Object.keys(PROVIDER_LABELS).map((p) => (
+                      {KEYWORD_PROVIDER_ORDER.map((p) => (
                         <TableCell key={p} className="text-center">
                           {row.providers[p] === true ? (
                             <Check className="mx-auto h-4 w-4 text-green-600" />
