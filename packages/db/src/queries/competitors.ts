@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, lte, and } from "drizzle-orm";
 import type { Database } from "../client";
 import { competitors } from "../schema";
 
@@ -36,6 +36,33 @@ export function competitorQueries(db: Database) {
         .where(eq(competitors.id, id))
         .returning();
       return deleted;
+    },
+
+    async updateMonitoring(
+      id: string,
+      data: {
+        monitoringEnabled?: boolean;
+        monitoringFrequency?: string;
+        nextBenchmarkAt?: Date | null;
+        lastBenchmarkAt?: Date | null;
+      },
+    ) {
+      const [updated] = await db
+        .update(competitors)
+        .set(data as any)
+        .where(eq(competitors.id, id))
+        .returning();
+      return updated;
+    },
+
+    async listDueForBenchmark(now: Date, limit = 20) {
+      return db.query.competitors.findMany({
+        where: and(
+          lte(competitors.nextBenchmarkAt, now),
+          eq(competitors.monitoringEnabled, true),
+        ),
+        limit,
+      });
     },
   };
 }
