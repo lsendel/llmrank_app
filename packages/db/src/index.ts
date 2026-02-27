@@ -14,6 +14,7 @@ export {
 export { visibilityQueries } from "./queries/visibility";
 export { competitorQueries } from "./queries/competitors";
 export { competitorBenchmarkQueries } from "./queries/competitor-benchmarks";
+export { competitorEventQueries } from "./queries/competitor-events";
 export { billingQueries } from "./queries/billing";
 export { adminQueries } from "./queries/admin";
 export { logQueries } from "./queries/logs";
