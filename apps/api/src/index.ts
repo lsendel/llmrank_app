@@ -639,7 +639,7 @@ export default withSentry(
         // Daily benchmark aggregation — 4 AM UTC
         const db = createDb(env.DATABASE_URL);
         await aggregateBenchmarks(db, env.KV);
-      } else if (controller.cron === "0 2 * * 0") {
+      } else if (controller.cron === "0 2 * * 7") {
         // Weekly competitor monitoring — Sundays at 2 AM UTC
         await processScheduledCompetitorChecks(env);
       } else {
