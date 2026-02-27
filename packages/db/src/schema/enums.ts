@@ -1,6 +1,4 @@
-import { pgTable, pgEnum, text, integer, real, boolean, timestamp, jsonb, index, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
-
-import { issues } from "./crawling";
+import { pgEnum } from "drizzle-orm/pg-core";
 
 export const planEnum = pgEnum("plan", ["free", "starter", "pro", "agency"]);
 
@@ -211,3 +209,24 @@ export const alertSeverityEnum = pgEnum("alert_severity", [
   "info",
 ]);
 
+export const competitorEventTypeEnum = pgEnum("competitor_event_type", [
+  "score_change",
+  "score_regression",
+  "score_improvement",
+  "llms_txt_added",
+  "llms_txt_removed",
+  "ai_crawlers_blocked",
+  "ai_crawlers_unblocked",
+  "schema_added",
+  "schema_removed",
+  "sitemap_added",
+  "sitemap_removed",
+  "new_pages_detected",
+]);
+
+export const monitoringFrequencyEnum = pgEnum("monitoring_frequency", [
+  "daily",
+  "weekly",
+  "monthly",
+  "off",
+]);
