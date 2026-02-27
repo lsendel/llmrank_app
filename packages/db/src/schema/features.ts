@@ -122,6 +122,27 @@ export const competitorEvents = pgTable(
   ],
 );
 
+export const competitorMonitoringSchedules = pgTable(
+  "competitor_monitoring_schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    query: text("query").notNull(),
+    providers: text("providers").array().notNull(),
+    frequency: scheduleFrequencyEnum("frequency").notNull().default("weekly"),
+    lastRunAt: timestamp("last_run_at"),
+    nextRunAt: timestamp("next_run_at"),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_comp_mon_schedules_project").on(t.projectId),
+    index("idx_comp_mon_schedules_due").on(t.nextRunAt, t.enabled),
+  ],
+);
+
 export const projectIntegrations = pgTable(
   "project_integrations",
   {
