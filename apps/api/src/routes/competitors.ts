@@ -5,6 +5,7 @@ import { handleServiceError } from "../services/errors";
 import { createAuditService } from "../services/audit-service";
 import { createCompetitorBenchmarkService } from "../services/competitor-benchmark-service";
 import { computeNextBenchmarkAt } from "../services/competitor-monitor-service";
+import { diffBenchmarks } from "../services/competitor-diff-service";
 import {
   competitorBenchmarkQueries,
   competitorQueries,
@@ -512,6 +513,116 @@ competitorRoutes.patch("/:id/monitoring", async (c) => {
     });
 
     return c.json({ data: updated });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// POST /api/competitors/:id/rebenchmark — Manually trigger a re-benchmark
+competitorRoutes.post("/:id/rebenchmark", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const competitorId = c.req.param("id");
+
+  if (!UUID_RE.test(competitorId)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid competitor ID",
+        },
+      },
+      422,
+    );
+  }
+
+  try {
+    // Check plan limit
+    const user = await userQueries(db).getById(userId);
+    const effectivePlan = resolveEffectivePlan({
+      plan: user?.plan ?? "free",
+      trialEndsAt: user?.trialEndsAt ?? null,
+    });
+    const limits = PLAN_LIMITS[effectivePlan];
+
+    if (limits.competitorRebenchmarksPerWeek === 0) {
+      return c.json(
+        {
+          error: {
+            code: "PLAN_LIMIT_REACHED",
+            message:
+              "Manual re-benchmarking is not available on your plan. Upgrade to Starter or above.",
+          },
+        },
+        403,
+      );
+    }
+
+    const competitor = await competitorQueries(db).getById(competitorId);
+    if (!competitor) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    const project = await projectQueries(db).getById(competitor.projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Competitor not found" } },
+        404,
+      );
+    }
+
+    // Get previous benchmark for diffing
+    const benchmarkQ = competitorBenchmarkQueries(db);
+    const previous = await benchmarkQ.getLatest(
+      competitor.projectId,
+      competitor.domain,
+    );
+
+    // Run new benchmark
+    const service = createCompetitorBenchmarkService({
+      competitorBenchmarks: benchmarkQ,
+      competitors: competitorQueries(db),
+    });
+
+    const benchmark = await service.benchmarkCompetitor({
+      projectId: competitor.projectId,
+      competitorDomain: competitor.domain,
+      competitorLimit: Infinity,
+    });
+
+    // Diff and store events
+    const diffEvents = diffBenchmarks(
+      competitor.domain,
+      previous ?? null,
+      benchmark,
+    );
+    const eventQueries = competitorEventQueries(db);
+    const storedEvents = [];
+
+    for (const event of diffEvents) {
+      const stored = await eventQueries.create({
+        projectId: competitor.projectId,
+        competitorDomain: competitor.domain,
+        eventType: event.eventType as Parameters<
+          typeof eventQueries.create
+        >[0]["eventType"],
+        severity: event.severity,
+        summary: event.summary,
+        data: event.data,
+        benchmarkId: benchmark.id,
+      });
+      storedEvents.push(stored);
+    }
+
+    // Update lastBenchmarkAt
+    await competitorQueries(db).updateMonitoring(competitorId, {
+      lastBenchmarkAt: new Date(),
+    });
+
+    return c.json({ data: { benchmark, events: storedEvents } });
   } catch (error) {
     return handleServiceError(c, error);
   }
