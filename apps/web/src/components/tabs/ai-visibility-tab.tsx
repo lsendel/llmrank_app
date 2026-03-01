@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StateMessage } from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -18,6 +19,10 @@ import { api, type VisibilityGap } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 import { AIVisibilityScoreCard } from "@/components/ai-visibility/score-card";
 import { BacklinkCard } from "@/components/ai-visibility/backlink-card";
+import {
+  confidenceFromVisibilityCoverage,
+  relativeTimeLabel,
+} from "@/lib/insight-metadata";
 import {
   Sparkles,
   TrendingUp,
@@ -133,6 +138,40 @@ export default function AIVisibilityTab({
     queryMap.set(check.query, existing);
   }
   const keywordRows = Array.from(queryMap.values()).slice(0, 20);
+  const visibilityMeta = useMemo(() => {
+    if (!checks || checks.length === 0) return null;
+
+    const providers = new Set<string>();
+    const queries = new Set<string>();
+    let latestTimestamp: number | null = null;
+    let latestCheckedAt: string | null = null;
+
+    for (const check of checks) {
+      providers.add(check.llmProvider);
+      queries.add(check.query);
+
+      const timestamp = new Date(check.checkedAt).getTime();
+      if (
+        Number.isFinite(timestamp) &&
+        (latestTimestamp == null || timestamp > latestTimestamp)
+      ) {
+        latestTimestamp = timestamp;
+        latestCheckedAt = check.checkedAt;
+      }
+    }
+
+    return {
+      checks: checks.length,
+      providerCount: providers.size,
+      queryCount: queries.size,
+      latestCheckedAt,
+      confidence: confidenceFromVisibilityCoverage(
+        checks.length,
+        providers.size,
+        queries.size,
+      ),
+    };
+  }, [checks]);
 
   async function handleDiscover() {
     setDiscovering(true);
@@ -179,6 +218,48 @@ export default function AIVisibilityTab({
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardContent className="space-y-2 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {checks === undefined && (
+              <Badge variant="secondary">Loading visibility freshness...</Badge>
+            )}
+            {checks !== undefined && !visibilityMeta && (
+              <Badge variant="secondary">
+                Run your first visibility check to establish confidence
+              </Badge>
+            )}
+            {visibilityMeta && (
+              <>
+                <Badge variant="secondary">
+                  Last checked:{" "}
+                  {relativeTimeLabel(visibilityMeta.latestCheckedAt)}
+                </Badge>
+                <Badge variant="secondary">
+                  Checks sampled: {visibilityMeta.checks}
+                </Badge>
+                <Badge variant="secondary">
+                  Provider diversity: {visibilityMeta.providerCount}/
+                  {KEYWORD_PROVIDER_ORDER.length}
+                </Badge>
+                <Badge variant="secondary">
+                  Query coverage: {visibilityMeta.queryCount}
+                </Badge>
+                <Badge variant={visibilityMeta.confidence.variant}>
+                  Confidence: {visibilityMeta.confidence.label}
+                </Badge>
+              </>
+            )}
+          </div>
+          {visibilityMeta && (
+            <p className="text-xs text-muted-foreground">
+              Confidence reflects repeated checks and source diversity across
+              LLM and AI search providers.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Top Row: Score + Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <AIVisibilityScoreCard score={score ?? null} isLoading={scoreLoading} />
@@ -263,10 +344,12 @@ export default function AIVisibilityTab({
           </CardHeader>
           <CardContent>
             {keywordRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No visibility checks yet. Run a check from the Visibility tab or
-                set up scheduled queries.
-              </p>
+              <StateMessage
+                variant="empty"
+                compact
+                title="No visibility checks yet"
+                description="Run a check from the Visibility tab or set up scheduled queries."
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -316,10 +399,12 @@ export default function AIVisibilityTab({
           </CardHeader>
           <CardContent>
             {!gaps || gaps.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No gaps detected. You&apos;re being mentioned where competitors
-                are.
-              </p>
+              <StateMessage
+                variant="empty"
+                compact
+                title="No gaps detected"
+                description="You are being mentioned in the same spaces as competitors."
+              />
             ) : (
               <div className="space-y-3">
                 {gaps.slice(0, 8).map((gap: VisibilityGap) => (
@@ -436,10 +521,12 @@ export default function AIVisibilityTab({
 
                 {discoveryResult.gscKeywords.length === 0 &&
                   discoveryResult.llmKeywords.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No new keyword suggestions found. Try connecting GSC for
-                      data-driven suggestions.
-                    </p>
+                    <StateMessage
+                      variant="empty"
+                      compact
+                      title="No new keyword suggestions"
+                      description="Try connecting GSC for data-driven discovery suggestions."
+                    />
                   )}
               </div>
             )}

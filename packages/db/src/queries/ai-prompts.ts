@@ -33,6 +33,15 @@ export function aiPromptQueries(db: Database) {
       });
     },
 
+    async getById(projectId: string, promptId: string) {
+      return db.query.aiPrompts.findFirst({
+        where: and(
+          eq(aiPrompts.projectId, projectId),
+          eq(aiPrompts.id, promptId),
+        ),
+      });
+    },
+
     async countByProject(projectId: string) {
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -45,6 +54,22 @@ export function aiPromptQueries(db: Database) {
       return db
         .delete(aiPrompts)
         .where(and(eq(aiPrompts.id, id), eq(aiPrompts.projectId, projectId)));
+    },
+
+    async updateTracking(
+      id: string,
+      projectId: string,
+      data: {
+        yourMentioned?: boolean;
+        competitorsMentioned?: unknown;
+      },
+    ) {
+      const [row] = await db
+        .update(aiPrompts)
+        .set(data)
+        .where(and(eq(aiPrompts.id, id), eq(aiPrompts.projectId, projectId)))
+        .returning();
+      return row ?? null;
     },
 
     async deleteAllByProject(projectId: string) {

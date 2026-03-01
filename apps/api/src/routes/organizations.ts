@@ -52,6 +52,21 @@ organizationRoutes.get("/", async (c) => {
   }
 });
 
+// GET /:id -- Get organization detail (requires membership)
+organizationRoutes.get("/:id", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const orgId = c.req.param("id");
+
+  try {
+    const service = createOrganizationService(db);
+    const org = await service.getById(orgId, userId);
+    return c.json({ data: org });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
 // POST / -- Create a new organization
 organizationRoutes.post("/", async (c) => {
   const db = c.get("db");

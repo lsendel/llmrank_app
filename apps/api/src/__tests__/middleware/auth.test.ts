@@ -5,6 +5,7 @@ import { authMiddleware } from "../../middleware/auth";
 
 // Mock createAuth
 const mockGetSession = vi.fn();
+const mockUserGetById = vi.fn();
 const mockAuth = {
   api: {
     getSession: mockGetSession,
@@ -13,6 +14,12 @@ const mockAuth = {
 
 vi.mock("../../lib/auth", () => ({
   createAuth: vi.fn(() => mockAuth),
+}));
+
+vi.mock("@llm-boost/db", () => ({
+  userQueries: vi.fn(() => ({ getById: mockUserGetById })),
+  apiTokenQueries: vi.fn(() => ({})),
+  projectQueries: vi.fn(() => ({ getById: vi.fn() })),
 }));
 
 function createTestApp() {
@@ -49,6 +56,10 @@ const env: Record<string, string> = {
 describe("authMiddleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserGetById.mockResolvedValue({
+      id: "user_123",
+      status: "active",
+    });
   });
 
   it("returns 401 when session retrieval fails", async () => {

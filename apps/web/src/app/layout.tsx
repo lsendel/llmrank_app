@@ -4,6 +4,7 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { MicrosoftClarity } from "@/components/microsoft-clarity";
 import { Intercom } from "@/components/intercom";
+import { AuthRedirectTracker } from "@/components/auth-redirect-tracker";
 import {
   JsonLd,
   organizationSchema,
@@ -66,7 +67,10 @@ export default function RootLayout({
       <body className="min-h-screen font-sans antialiased">
         <JsonLd data={organizationSchema()} />
         <JsonLd data={webSiteSchema()} />
-        <PostHogProvider>{children}</PostHogProvider>
+        <PostHogProvider>
+          <AuthRedirectTracker />
+          {children}
+        </PostHogProvider>
         <GoogleAnalytics />
         <MicrosoftClarity />
         <Intercom />

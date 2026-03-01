@@ -150,6 +150,7 @@ export interface PortfolioPriorityItem {
   dueDate: string;
   expectedImpact: "high" | "medium" | "low";
   impactScore: number;
+  trendDelta: number;
   effort: "low" | "medium" | "high";
   freshness: {
     generatedAt: string;
@@ -184,6 +185,75 @@ export function createRecommendationsService(db: Database) {
     return "low";
   }
 
+  function appendTrendSignal(signals: string[], hasTrendDelta: boolean) {
+    if (!hasTrendDelta) return signals;
+    return [...signals, "score_trend_delta"];
+  }
+
+  function effortScore(effort: PortfolioPriorityItem["effort"]) {
+    if (effort === "low") return 100;
+    if (effort === "medium") return 65;
+    return 35;
+  }
+
+  function trendUrgencyScore(trendDelta: number) {
+    const maxMeaningfulDrop = 25;
+    return Math.max(
+      0,
+      Math.min(100, Math.round((-trendDelta / maxMeaningfulDrop) * 100)),
+    );
+  }
+
+  function rankingScore(item: PortfolioPriorityItem) {
+    const impact = item.impactScore;
+    const confidence = Math.round(item.source.confidence * 100);
+    const effort = effortScore(item.effort);
+    const trend = trendUrgencyScore(item.trendDelta);
+
+    return impact * 0.42 + confidence * 0.23 + effort * 0.15 + trend * 0.2;
+  }
+
+  async function getTrendDeltaForProject(
+    crawls: ReturnType<typeof crawlQueries>,
+    scores: ReturnType<typeof scoreQueries>,
+    projectId: string,
+  ): Promise<{ delta: number; hasTrendDelta: boolean }> {
+    const completed = await crawls.listCompletedByProject(projectId, 2);
+    if (completed.length < 2) {
+      return { delta: 0, hasTrendDelta: false };
+    }
+
+    const [latest, previous] = completed;
+    const scoreRows = await scores.listByJobs([latest.id, previous.id]);
+
+    let latestTotal = 0;
+    let latestCount = 0;
+    let previousTotal = 0;
+    let previousCount = 0;
+
+    for (const row of scoreRows) {
+      if (row.jobId === latest.id) {
+        latestTotal += row.overallScore;
+        latestCount += 1;
+      } else if (row.jobId === previous.id) {
+        previousTotal += row.overallScore;
+        previousCount += 1;
+      }
+    }
+
+    if (latestCount === 0 || previousCount === 0) {
+      return { delta: 0, hasTrendDelta: false };
+    }
+
+    const latestAvg = latestTotal / latestCount;
+    const previousAvg = previousTotal / previousCount;
+
+    return {
+      delta: Math.round((latestAvg - previousAvg) * 10) / 10,
+      hasTrendDelta: true,
+    };
+  }
+
   return {
     async getPortfolioPriorityFeed(
       userId: string,
@@ -191,13 +261,18 @@ export function createRecommendationsService(db: Database) {
     ): Promise<PortfolioPriorityItem[]> {
       const limit = Math.min(Math.max(options?.limit ?? 15, 1), 50);
       const generatedAt = new Date().toISOString();
-      const projects = await projectQueries(db).listByUser(userId, {
+      const projectsQuery = projectQueries(db);
+      const crawlsQuery = crawlQueries(db);
+      const scoresQuery = scoreQueries(db);
+      const keywordsQuery = savedKeywordQueries(db);
+      const competitorsQuery = competitorQueries(db);
+      const projects = await projectsQuery.listByUser(userId, {
         sort: "activity_desc",
       });
 
       if (projects.length === 0) return [];
 
-      const latestCrawls = await crawlQueries(db).getLatestByProjects(
+      const latestCrawls = await crawlsQuery.getLatestByProjects(
         projects.map((project) => project.id),
       );
       const crawlByProject = new Map(
@@ -227,6 +302,7 @@ export function createRecommendationsService(db: Database) {
               dueDate: dueDateForPriority("critical"),
               expectedImpact: expectedImpactFromScore(100),
               impactScore: 100,
+              trendDelta: 0,
               effort: "low",
               freshness: {
                 generatedAt,
@@ -260,6 +336,7 @@ export function createRecommendationsService(db: Database) {
               dueDate: dueDateForPriority("high"),
               expectedImpact: expectedImpactFromScore(85),
               impactScore: 85,
+              trendDelta: 0,
               effort: "low",
               freshness: {
                 generatedAt,
@@ -272,10 +349,11 @@ export function createRecommendationsService(db: Database) {
             } satisfies PortfolioPriorityItem;
           }
 
-          const [issues, keywordCount, competitors] = await Promise.all([
-            scoreQueries(db).getIssuesByJob(crawl.id),
-            savedKeywordQueries(db).countByProject(project.id),
-            competitorQueries(db).listByProject(project.id),
+          const [issues, keywordCount, competitors, trend] = await Promise.all([
+            scoresQuery.getIssuesByJob(crawl.id),
+            keywordsQuery.countByProject(project.id),
+            competitorsQuery.listByProject(project.id),
+            getTrendDeltaForProject(crawlsQuery, scoresQuery, project.id),
           ]);
           const criticalIssues = issues.filter(
             (issue) => issue.severity === "critical",
@@ -313,13 +391,17 @@ export function createRecommendationsService(db: Database) {
                 Math.min(100, 70 + criticalIssues.length * 8),
               ),
               impactScore: Math.min(100, 70 + criticalIssues.length * 8),
+              trendDelta: trend.delta,
               effort: "medium",
               freshness: {
                 generatedAt,
                 lastCrawlAt,
               },
               source: {
-                signals: ["issue_severity", "issue_count"],
+                signals: appendTrendSignal(
+                  ["issue_severity", "issue_count"],
+                  trend.hasTrendDelta,
+                ),
                 confidence: 0.96,
               },
             } satisfies PortfolioPriorityItem;
@@ -343,13 +425,17 @@ export function createRecommendationsService(db: Database) {
               dueDate: dueDateForPriority("high"),
               expectedImpact: expectedImpactFromScore(78),
               impactScore: 78,
+              trendDelta: trend.delta,
               effort: "low",
               freshness: {
                 generatedAt,
                 lastCrawlAt,
               },
               source: {
-                signals: ["keyword_count"],
+                signals: appendTrendSignal(
+                  ["keyword_count"],
+                  trend.hasTrendDelta,
+                ),
                 confidence: 0.88,
               },
             } satisfies PortfolioPriorityItem;
@@ -374,13 +460,17 @@ export function createRecommendationsService(db: Database) {
               dueDate: dueDateForPriority("high"),
               expectedImpact: expectedImpactFromScore(74),
               impactScore: 74,
+              trendDelta: trend.delta,
               effort: "low",
               freshness: {
                 generatedAt,
                 lastCrawlAt,
               },
               source: {
-                signals: ["competitor_count"],
+                signals: appendTrendSignal(
+                  ["competitor_count"],
+                  trend.hasTrendDelta,
+                ),
                 confidence: 0.86,
               },
             } satisfies PortfolioPriorityItem;
@@ -404,13 +494,17 @@ export function createRecommendationsService(db: Database) {
               dueDate: dueDateForPriority("medium"),
               expectedImpact: expectedImpactFromScore(58),
               impactScore: 58,
+              trendDelta: trend.delta,
               effort: "low",
               freshness: {
                 generatedAt,
                 lastCrawlAt,
               },
               source: {
-                signals: ["crawl_age_days"],
+                signals: appendTrendSignal(
+                  ["crawl_age_days"],
+                  trend.hasTrendDelta,
+                ),
                 confidence: 0.83,
               },
             } satisfies PortfolioPriorityItem;
@@ -445,13 +539,17 @@ export function createRecommendationsService(db: Database) {
               Math.min(68, 40 + warningIssues.length * 2),
             ),
             impactScore: Math.min(68, 40 + warningIssues.length * 2),
+            trendDelta: trend.delta,
             effort: warningIssues.length > 10 ? "high" : "medium",
             freshness: {
               generatedAt,
               lastCrawlAt,
             },
             source: {
-              signals: ["warning_issue_count", "crawl_recency"],
+              signals: appendTrendSignal(
+                ["warning_issue_count", "crawl_recency"],
+                trend.hasTrendDelta,
+              ),
               confidence: warningIssues.length > 0 ? 0.78 : 0.7,
             },
           } satisfies PortfolioPriorityItem;
@@ -461,6 +559,8 @@ export function createRecommendationsService(db: Database) {
       const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
       return items
         .sort((a, b) => {
+          const rank = rankingScore(b) - rankingScore(a);
+          if (rank !== 0) return rank;
           const prio = priorityOrder[a.priority] - priorityOrder[b.priority];
           if (prio !== 0) return prio;
           return b.impactScore - a.impactScore;

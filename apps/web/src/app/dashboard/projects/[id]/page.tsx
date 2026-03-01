@@ -17,15 +17,25 @@ import {
   Trophy,
   Settings,
   Download,
-  AlertTriangle,
   Radar,
   User,
   Key,
-  Brain,
   Bot,
+  Globe,
+  Route,
+  Palette,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StateMessage } from "@/components/ui/state";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
@@ -43,7 +53,18 @@ import { AlertBanner } from "@/components/alert-banner";
 import { TrialBanner } from "@/components/trial-banner";
 import { UsageMeter } from "@/components/usage-meter";
 import { ProjectRecommendationsCard } from "@/components/cards/project-recommendations-card";
-import { normalizeProjectTab } from "./tab-state";
+import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
+import {
+  GROUP_DEFAULT_TABS,
+  normalizeProjectTab,
+  projectTabGroup,
+  type ProjectTab,
+  type ProjectTabGroup,
+} from "./tab-state";
+import {
+  normalizeConfigureSection,
+  type ConfigureSection,
+} from "./configure-state";
 
 function TabLoadingSkeleton() {
   return (
@@ -71,19 +92,13 @@ class TabErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
-          <AlertTriangle className="h-8 w-8 text-destructive" />
-          <p className="text-sm text-destructive">
-            This tab could not be loaded.
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => this.setState({ hasError: false })}
-          >
-            Retry
-          </Button>
-        </div>
+        <StateMessage
+          variant="error"
+          title="This tab could not be loaded"
+          description="Reload this section to continue."
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-8"
+          retry={{ onClick: () => this.setState({ hasError: false }) }}
+        />
       );
     }
     return this.props.children;
@@ -216,17 +231,72 @@ const INTEGRATION_LABELS: Record<IntegrationProvider, string> = {
   clarity: "Microsoft Clarity",
 };
 
+const VISIBILITY_MODES = [
+  "visibility",
+  "ai-visibility",
+  "ai-analysis",
+] as const;
+type VisibilityMode = (typeof VISIBILITY_MODES)[number];
+
+function asVisibilityMode(tab: ProjectTab): VisibilityMode | null {
+  return (VISIBILITY_MODES as readonly string[]).includes(tab)
+    ? (tab as VisibilityMode)
+    : null;
+}
+
+const CONFIGURE_SECTION_META: Record<
+  ConfigureSection,
+  {
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+> = {
+  "site-context": {
+    title: "Site Context",
+    description: "Keep your site description and market context accurate.",
+    icon: Globe,
+  },
+  "crawl-defaults": {
+    title: "Crawl Defaults",
+    description: "Set depth, schedule, and behavior for every crawl run.",
+    icon: Route,
+  },
+  "ai-seo-files": {
+    title: "AI/SEO Files",
+    description: "Generate sitemap.xml and llms.txt from crawl output.",
+    icon: FileText,
+  },
+  branding: {
+    title: "Branding",
+    description: "Tune tone, positioning, and content style settings.",
+    icon: Palette,
+  },
+  scoring: {
+    title: "Scoring Weights",
+    description: "Control how technical, content, AI, and performance score.",
+    icon: SlidersHorizontal,
+  },
+};
+
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const rawTab = searchParams.get("tab");
+  const rawConfigure = searchParams.get("configure");
   const connectProvider = asIntegrationProvider(searchParams.get("connect"));
   const connectedProvider = asIntegrationProvider(
     searchParams.get("connected"),
   );
   const currentTab = normalizeProjectTab(rawTab);
+  const currentGroup = projectTabGroup(currentTab);
+  const visibilityMode = asVisibilityMode(currentTab) ?? "visibility";
+  const currentGrowTab = asVisibilityMode(currentTab)
+    ? "visibility"
+    : currentTab;
+  const currentConfigureSection = normalizeConfigureSection(rawConfigure);
   const autoCrawlFailed = searchParams.get("autocrawl") === "failed";
 
   useEffect(() => {
@@ -237,14 +307,64 @@ export default function ProjectPage() {
     router.replace(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
   }, [currentTab, params.id, rawTab, router, searchParams]);
 
-  const handleTabChange = useCallback(
+  useEffect(() => {
+    if (!rawConfigure || rawConfigure === currentConfigureSection) return;
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("configure", currentConfigureSection);
+    router.replace(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
+  }, [currentConfigureSection, params.id, rawConfigure, router, searchParams]);
+
+  const setProjectTab = useCallback(
+    (tab: ProjectTab, mode: "push" | "replace" = "push") => {
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.set("tab", tab);
+      const url = `/dashboard/projects/${params.id}?${newParams.toString()}`;
+      if (mode === "replace") {
+        router.replace(url);
+        return;
+      }
+      router.push(url);
+    },
+    [params.id, router, searchParams],
+  );
+
+  const handleProjectTabChange = useCallback(
     (value: string) => {
       const safeTab = normalizeProjectTab(value);
-      const newParams = new URLSearchParams(searchParams.toString());
-      newParams.set("tab", safeTab);
-      router.push(`/dashboard/projects/${params.id}?${newParams.toString()}`);
+      setProjectTab(safeTab);
     },
-    [router, searchParams, params.id],
+    [setProjectTab],
+  );
+
+  const handleGroupChange = useCallback(
+    (value: string) => {
+      const group = value as ProjectTabGroup;
+      if (!(group in GROUP_DEFAULT_TABS)) return;
+      setProjectTab(GROUP_DEFAULT_TABS[group]);
+    },
+    [setProjectTab],
+  );
+
+  const handleVisibilityModeChange = useCallback(
+    (mode: VisibilityMode) => {
+      setProjectTab(mode);
+    },
+    [setProjectTab],
+  );
+
+  const setConfigureSection = useCallback(
+    (section: ConfigureSection, mode: "push" | "replace" = "replace") => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set("configure", section);
+      const url = `/dashboard/projects/${params.id}?${nextParams.toString()}`;
+      if (mode === "push") {
+        router.push(url);
+        return;
+      }
+      router.replace(url);
+    },
+    [params.id, router, searchParams],
   );
 
   const { withAuth } = useApi();
@@ -299,7 +419,11 @@ export default function ProjectPage() {
   if (projectLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">Loading workspace...</p>
+        <StateMessage
+          variant="loading"
+          title="Loading workspace"
+          description="Fetching your latest project details."
+        />
       </div>
     );
   }
@@ -307,9 +431,16 @@ export default function ProjectPage() {
   if (!project) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">
-          Project not found. Return to Projects and select a workspace.
-        </p>
+        <StateMessage
+          variant="error"
+          title="Project not found"
+          description="Return to Projects and select a workspace."
+          action={
+            <Button asChild variant="outline" size="sm">
+              <Link href="/dashboard/projects">Go to projects</Link>
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -323,7 +454,7 @@ export default function ProjectPage() {
           className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Projects
+          Back to projects
         </Link>
         <div className="flex items-start justify-between">
           <div>
@@ -334,15 +465,14 @@ export default function ProjectPage() {
               {normalizeDomain(project.domain)}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Monitor rankings, prioritize fixes, and run automation from one
-              workspace.
+              {WORKFLOW_TONE_COPY.projectWorkspaceSummary}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <UsageMeter />
             <Button onClick={handleStartCrawl} disabled={startingCrawl}>
               <Play className="h-4 w-4" />
-              {startingCrawl ? "Starting..." : "Run Crawl"}
+              {startingCrawl ? "Starting..." : "Run crawl now"}
             </Button>
           </div>
         </div>
@@ -373,182 +503,321 @@ export default function ProjectPage() {
       <ProjectRecommendationsCard projectId={project.id} />
 
       {/* Tabs */}
-      <Tabs value={currentTab} onValueChange={handleTabChange}>
+      <Tabs value={currentGroup} onValueChange={handleGroupChange}>
         <TabsList>
-          <TabsTrigger value="overview">
+          <TabsTrigger value="analyze">
             <BarChart3 className="mr-1.5 h-4 w-4" />
-            Overview
+            Analyze
           </TabsTrigger>
-          <TabsTrigger value="pages">
-            <FileText className="mr-1.5 h-4 w-4" />
-            Pages
-          </TabsTrigger>
-          <TabsTrigger value="issues">
-            <Bug className="mr-1.5 h-4 w-4" />
-            Issues
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            <History className="mr-1.5 h-4 w-4" />
-            History
-          </TabsTrigger>
-          <TabsTrigger value="strategy">
-            <Compass className="mr-1.5 h-4 w-4" />
-            Strategy
-          </TabsTrigger>
-          <TabsTrigger value="competitors">
-            <Trophy className="mr-1.5 h-4 w-4" />
-            Competitors
-          </TabsTrigger>
-          <TabsTrigger value="ai-visibility">
+          <TabsTrigger value="grow-visibility">
             <Radar className="mr-1.5 h-4 w-4" />
-            AI Visibility
+            Grow Visibility
           </TabsTrigger>
-          <TabsTrigger value="ai-analysis">
-            <Brain className="mr-1.5 h-4 w-4" />
-            AI Analysis
-          </TabsTrigger>
-          <TabsTrigger value="visibility">
-            <Eye className="mr-1.5 h-4 w-4" />
-            Visibility
-          </TabsTrigger>
-          <TabsTrigger value="personas" className="gap-1.5">
-            <User className="h-4 w-4" />
-            Personas
-          </TabsTrigger>
-          <TabsTrigger value="keywords" className="gap-1.5">
-            <Key className="h-4 w-4" />
-            Keywords
-          </TabsTrigger>
-          <TabsTrigger value="integrations">
-            <Plug className="mr-1.5 h-4 w-4" />
-            Integrations
-          </TabsTrigger>
-          <TabsTrigger value="reports">
-            <Download className="mr-1.5 h-4 w-4" />
-            Reports
-          </TabsTrigger>
-          <TabsTrigger value="automation">
+          <TabsTrigger value="automate-operate">
             <Play className="mr-1.5 h-4 w-4" />
-            Automation
+            Automate & Operate
           </TabsTrigger>
-          <TabsTrigger value="logs">
-            <Bot className="mr-1.5 h-4 w-4" />
-            Logs
-          </TabsTrigger>
-          <TabsTrigger value="settings">
+          <TabsTrigger value="configure">
             <Settings className="mr-1.5 h-4 w-4" />
-            Settings
+            Configure
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <OverviewTab
-              latestCrawl={project.latestCrawl}
-              issues={issuesData?.data ?? []}
+        <TabsContent value="analyze" className="space-y-4 pt-4">
+          <Tabs value={currentTab} onValueChange={handleProjectTabChange}>
+            <TabsList>
+              <TabsTrigger value="overview">
+                <BarChart3 className="mr-1.5 h-4 w-4" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="pages">
+                <FileText className="mr-1.5 h-4 w-4" />
+                Pages
+              </TabsTrigger>
+              <TabsTrigger value="issues">
+                <Bug className="mr-1.5 h-4 w-4" />
+                Issues
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History className="mr-1.5 h-4 w-4" />
+                History
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-6 pt-4">
+              <TabErrorBoundary>
+                <OverviewTab
+                  latestCrawl={project.latestCrawl}
+                  issues={issuesData?.data ?? []}
+                  projectId={project.id}
+                />
+              </TabErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="pages" className="pt-4">
+              <TabErrorBoundary>
+                <PagesTab
+                  pages={pagesData?.data ?? []}
+                  projectId={project.id}
+                />
+              </TabErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="issues" className="pt-4">
+              <TabErrorBoundary>
+                <IssuesTab
+                  issues={issuesData?.data ?? []}
+                  crawlId={latestCrawlId}
+                  projectId={project?.id}
+                />
+              </TabErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="history" className="pt-4">
+              <TabErrorBoundary>
+                <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
+              </TabErrorBoundary>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="grow-visibility" className="space-y-4 pt-4">
+          <Tabs value={currentGrowTab} onValueChange={handleProjectTabChange}>
+            <TabsList>
+              <TabsTrigger value="visibility">
+                <Eye className="mr-1.5 h-4 w-4" />
+                Visibility Workspace
+              </TabsTrigger>
+              <TabsTrigger value="strategy">
+                <Compass className="mr-1.5 h-4 w-4" />
+                Strategy
+              </TabsTrigger>
+              <TabsTrigger value="competitors">
+                <Trophy className="mr-1.5 h-4 w-4" />
+                Competitors
+              </TabsTrigger>
+              <TabsTrigger value="personas" className="gap-1.5">
+                <User className="h-4 w-4" />
+                Personas
+              </TabsTrigger>
+              <TabsTrigger value="keywords" className="gap-1.5">
+                <Key className="h-4 w-4" />
+                Keywords
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="strategy" className="pt-4">
+              <TabErrorBoundary>
+                <StrategyTab projectId={project.id} />
+              </TabErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="competitors" className="space-y-6 pt-4">
+              <CompetitorsTab projectId={project.id} />
+            </TabsContent>
+
+            <TabsContent value="visibility" className="space-y-6 pt-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">
+                    Visibility workspace
+                  </CardTitle>
+                  <CardDescription>
+                    Use one workflow for monitoring search performance, AI
+                    presence, and analysis insights.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVisibilityModeChange("visibility")}
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                      visibilityMode === "visibility"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    Search Visibility
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleVisibilityModeChange("ai-visibility")}
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                      visibilityMode === "ai-visibility"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    AI Visibility
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleVisibilityModeChange("ai-analysis")}
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                      visibilityMode === "ai-analysis"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    AI Analysis
+                  </button>
+                </CardContent>
+              </Card>
+
+              {visibilityMode === "visibility" && (
+                <VisibilityTab
+                  projectId={project.id}
+                  domain={project.domain}
+                  latestCrawlId={latestCrawlId}
+                />
+              )}
+
+              {visibilityMode === "ai-visibility" && (
+                <TabErrorBoundary>
+                  <AIVisibilityTab
+                    projectId={project.id}
+                    domain={project.domain}
+                  />
+                </TabErrorBoundary>
+              )}
+
+              {visibilityMode === "ai-analysis" && (
+                <TabErrorBoundary>
+                  <AiAnalysisTab
+                    crawlJobId={searchParams.get("crawlId") ?? latestCrawlId}
+                  />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
+
+            <TabsContent value="personas" className="mt-6">
+              <PersonasTab projectId={project.id} />
+            </TabsContent>
+
+            <TabsContent value="keywords" className="mt-6">
+              <KeywordsTab projectId={project.id} />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="automate-operate" className="space-y-4 pt-4">
+          <Tabs value={currentTab} onValueChange={handleProjectTabChange}>
+            <TabsList>
+              <TabsTrigger value="automation">
+                <Play className="mr-1.5 h-4 w-4" />
+                Automation
+              </TabsTrigger>
+              <TabsTrigger value="integrations">
+                <Plug className="mr-1.5 h-4 w-4" />
+                Integrations
+              </TabsTrigger>
+              <TabsTrigger value="reports">
+                <Download className="mr-1.5 h-4 w-4" />
+                Reports
+              </TabsTrigger>
+              <TabsTrigger value="logs">
+                <Bot className="mr-1.5 h-4 w-4" />
+                Logs
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="integrations" className="space-y-6 pt-4">
+              <IntegrationsTab
+                projectId={project.id}
+                connectProvider={connectProvider}
+                connectedProvider={connectedProvider}
+              />
+            </TabsContent>
+
+            <TabsContent value="reports" className="space-y-6 pt-4">
+              <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
+            </TabsContent>
+
+            <TabsContent value="automation" className="space-y-6 pt-4">
+              <TabErrorBoundary>
+                <AutomationTab projectId={project.id} />
+              </TabErrorBoundary>
+            </TabsContent>
+
+            <TabsContent value="logs" className="space-y-6 pt-4">
+              <TabErrorBoundary>
+                <LogsTab projectId={project.id} />
+              </TabErrorBoundary>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="configure" className="space-y-6 pt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Configure workspace</CardTitle>
+              <CardDescription>
+                Choose a task to configure. Each area is focused so setup is
+                faster and easier to review.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {(
+                Object.entries(CONFIGURE_SECTION_META) as Array<
+                  [
+                    ConfigureSection,
+                    (typeof CONFIGURE_SECTION_META)[ConfigureSection],
+                  ]
+                >
+              ).map(([section, meta]) => {
+                const Icon = meta.icon;
+                const isActive = currentConfigureSection === section;
+
+                return (
+                  <button
+                    key={section}
+                    type="button"
+                    onClick={() => setConfigureSection(section)}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:bg-muted/50"
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    <div className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+                      <Icon className="h-4 w-4" />
+                      {meta.title}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {meta.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {currentConfigureSection === "site-context" && (
+            <SiteContextSection projectId={project.id} />
+          )}
+
+          {currentConfigureSection === "crawl-defaults" && (
+            <CrawlSettingsForm
               projectId={project.id}
+              initialSettings={project.settings}
             />
-          </TabErrorBoundary>
-        </TabsContent>
+          )}
 
-        <TabsContent value="pages" className="pt-4">
-          <TabErrorBoundary>
-            <PagesTab pages={pagesData?.data ?? []} projectId={project.id} />
-          </TabErrorBoundary>
-        </TabsContent>
+          {currentConfigureSection === "ai-seo-files" && (
+            <SiteFileGeneratorSection projectId={project.id} />
+          )}
 
-        <TabsContent value="issues" className="pt-4">
-          <TabErrorBoundary>
-            <IssuesTab
-              issues={issuesData?.data ?? []}
-              crawlId={latestCrawlId}
-              projectId={project?.id}
+          {currentConfigureSection === "branding" && (
+            <BrandingSettingsForm
+              projectId={project.id}
+              initialBranding={project.branding}
             />
-          </TabErrorBoundary>
-        </TabsContent>
+          )}
 
-        <TabsContent value="history" className="pt-4">
-          <TabErrorBoundary>
-            <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
-          </TabErrorBoundary>
-        </TabsContent>
-
-        <TabsContent value="strategy" className="pt-4">
-          <TabErrorBoundary>
-            <StrategyTab projectId={project.id} />
-          </TabErrorBoundary>
-        </TabsContent>
-
-        <TabsContent value="competitors" className="space-y-6 pt-4">
-          <CompetitorsTab projectId={project.id} />
-        </TabsContent>
-
-        <TabsContent value="ai-visibility" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <AIVisibilityTab projectId={project.id} domain={project.domain} />
-          </TabErrorBoundary>
-        </TabsContent>
-
-        <TabsContent value="ai-analysis" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <AiAnalysisTab
-              crawlJobId={searchParams.get("crawlId") ?? latestCrawlId}
-            />
-          </TabErrorBoundary>
-        </TabsContent>
-
-        <TabsContent value="visibility" className="space-y-6 pt-4">
-          <VisibilityTab
-            projectId={project.id}
-            domain={project.domain}
-            latestCrawlId={latestCrawlId}
-          />
-        </TabsContent>
-
-        <TabsContent value="personas" className="mt-6">
-          <PersonasTab projectId={project.id} />
-        </TabsContent>
-
-        <TabsContent value="keywords" className="mt-6">
-          <KeywordsTab projectId={project.id} />
-        </TabsContent>
-
-        <TabsContent value="integrations" className="space-y-6 pt-4">
-          <IntegrationsTab
-            projectId={project.id}
-            connectProvider={connectProvider}
-            connectedProvider={connectedProvider}
-          />
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-6 pt-4">
-          <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
-        </TabsContent>
-
-        <TabsContent value="automation" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <AutomationTab projectId={project.id} />
-          </TabErrorBoundary>
-        </TabsContent>
-
-        <TabsContent value="logs" className="space-y-6 pt-4">
-          <TabErrorBoundary>
-            <LogsTab projectId={project.id} />
-          </TabErrorBoundary>
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6 pt-4">
-          <SiteContextSection projectId={project.id} />
-          <SiteFileGeneratorSection projectId={project.id} />
-          <CrawlSettingsForm
-            projectId={project.id}
-            initialSettings={project.settings}
-          />
-          <BrandingSettingsForm
-            projectId={project.id}
-            initialBranding={project.branding}
-          />
-          <ScoringProfileSection projectId={project.id} />
+          {currentConfigureSection === "scoring" && (
+            <ScoringProfileSection projectId={project.id} />
+          )}
         </TabsContent>
       </Tabs>
     </div>

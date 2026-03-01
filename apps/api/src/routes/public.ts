@@ -26,6 +26,51 @@ export const publicRoutes = new Hono<AppEnv>();
 
 publicRoutes.route("/badge", badgeRoutes);
 
+type RecommendationConfidence = {
+  label: "High" | "Medium" | "Low";
+  variant: "success" | "warning" | "destructive";
+  score: number;
+};
+
+function recommendationConfidence(args: {
+  severity?: string | null;
+  scoreImpact?: number | null;
+  affectedPages?: number | null;
+  totalPages: number;
+}): RecommendationConfidence {
+  const severityWeight =
+    args.severity === "critical" ? 1 : args.severity === "warning" ? 0.7 : 0.4;
+  const impactWeight = Math.min(
+    1,
+    Math.max(0, Math.abs(Number(args.scoreImpact ?? 0)) / 20),
+  );
+  const sampleWeight = Math.min(
+    1,
+    Math.max(
+      0,
+      Number(args.affectedPages ?? 0) / Math.max(1, Number(args.totalPages)),
+    ),
+  );
+
+  const score = Number(
+    Math.max(
+      0,
+      Math.min(
+        1,
+        0.45 * severityWeight + 0.35 * impactWeight + 0.2 * sampleWeight,
+      ),
+    ).toFixed(2),
+  );
+
+  if (score >= 0.75) {
+    return { label: "High", variant: "success", score };
+  }
+  if (score >= 0.45) {
+    return { label: "Medium", variant: "warning", score };
+  }
+  return { label: "Low", variant: "destructive", score };
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/public/benchmarks — Public percentile data
 // ---------------------------------------------------------------------------
@@ -65,8 +110,18 @@ publicRoutes.post("/scan", async (c) => {
 
   // Blocklist check
   const db = c.get("db");
-  const adminQ = adminQueries(db);
-  const blocked = await adminQ.isBlocked(domain);
+  let blocked = false;
+  try {
+    const adminQ = adminQueries(db);
+    blocked = await adminQ.isBlocked(domain);
+  } catch (error) {
+    // Public scan should degrade gracefully when admin settings are unavailable.
+    const logger = c.get("logger");
+    logger?.warn("Failed to evaluate blocked-domain list for public scan", {
+      domain,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   if (blocked) {
     return c.json(
       {
@@ -79,10 +134,11 @@ publicRoutes.post("/scan", async (c) => {
     );
   }
 
-  // Build the full URL for crawling (always HTTPS)
-  const pageUrl = `https://${domain}`;
+  // Build the full URL for crawling (always HTTPS).
+  // Use URL.href so root domains are normalized with trailing slash.
+  let pageUrl: string;
   try {
-    new URL(pageUrl);
+    pageUrl = new URL(`https://${domain}`).href;
   } catch {
     return c.json(
       { error: { code: "INVALID_DOMAIN", message: "Invalid domain" } },
@@ -125,12 +181,10 @@ publicRoutes.post("/scan", async (c) => {
       const webWorker = c.env.WEB_WORKER;
       const useSameZone =
         sameZoneDomains.has(parsedUrl.hostname) && !!webWorker;
-      const res = await (useSameZone ? webWorker : globalThis).fetch(
-        new Request(url, {
-          headers: { "User-Agent": "AISEOBot/1.0" },
-          signal: AbortSignal.timeout(10_000),
-        }),
-      );
+      const res = await (useSameZone ? webWorker : globalThis).fetch(url, {
+        headers: { "User-Agent": "AISEOBot/1.0" },
+        signal: AbortSignal.timeout(10_000),
+      });
       return res;
     } catch (err) {
       console.error(`Fetch failed for ${url}:`, err);
@@ -376,6 +430,15 @@ publicRoutes.get("/reports/:token", async (c) => {
   // Filter data based on share level
   const level = (crawlJob.shareLevel as string) || "summary";
   const quickWins = level === "summary" ? [] : aggregated.quickWins.slice(0, 5);
+  const evidencePages = Math.max(
+    crawlJob.pagesScored ?? 0,
+    crawlJob.pagesCrawled ?? 0,
+    aggregated.pages.length,
+    1,
+  );
+  const recommendationTimestamp = crawlJob.completedAt ?? crawlJob.createdAt;
+  const normalizedRecommendationTimestamp =
+    recommendationTimestamp ?? new Date();
 
   c.header("Cache-Control", "public, max-age=3600");
   return c.json({
@@ -430,6 +493,13 @@ publicRoutes.get("/reports/:token", async (c) => {
         owner: win.owner,
         pillar: win.pillar,
         docsUrl: win.docsUrl,
+        dataTimestamp: normalizedRecommendationTimestamp,
+        confidence: recommendationConfidence({
+          severity: win.severity,
+          scoreImpact: win.scoreImpact,
+          affectedPages: win.affectedPages,
+          totalPages: evidencePages,
+        }),
       })),
     },
   });

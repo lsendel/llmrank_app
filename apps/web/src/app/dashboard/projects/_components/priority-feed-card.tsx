@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2, UserPlus, Zap } from "lucide-react";
 import { useApiSWR } from "@/lib/use-api-swr";
@@ -9,17 +9,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { track } from "@/lib/telemetry";
 
-type PriorityFilter = "all" | "critical" | "high" | "medium" | "low";
+type UrgencyFilter = "all" | "critical" | "high" | "medium" | "low";
+type ImpactFilter = "all" | "high" | "medium" | "low";
 type ChannelFilter = "all" | "both" | "google" | "llm";
 
-const PRIORITY_FILTERS: PriorityFilter[] = [
+const URGENCY_FILTERS: UrgencyFilter[] = [
   "all",
   "critical",
   "high",
   "medium",
   "low",
 ];
+const IMPACT_FILTERS: ImpactFilter[] = ["all", "high", "medium", "low"];
 const CHANNEL_FILTERS: ChannelFilter[] = ["all", "both", "google", "llm"];
 
 function priorityVariant(priority: PortfolioPriorityItem["priority"]) {
@@ -41,12 +44,14 @@ function formatDate(value: string) {
 
 export function PriorityFeedCard() {
   const { toast } = useToast();
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
+  const [impactFilter, setImpactFilter] = useState<ImpactFilter>("all");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [ownerOverrides, setOwnerOverrides] = useState<Record<string, string>>(
     {},
   );
   const [runningProjectId, setRunningProjectId] = useState<string | null>(null);
+  const [viewTracked, setViewTracked] = useState(false);
 
   const { data, isLoading, mutate } = useApiSWR(
     "portfolio-priority-feed",
@@ -58,7 +63,10 @@ export function PriorityFeedCard() {
     const items = data ?? [];
     return items
       .filter((item) => {
-        if (priorityFilter !== "all" && item.priority !== priorityFilter) {
+        if (urgencyFilter !== "all" && item.priority !== urgencyFilter) {
+          return false;
+        }
+        if (impactFilter !== "all" && item.expectedImpact !== impactFilter) {
           return false;
         }
         if (channelFilter !== "all" && item.channel !== channelFilter) {
@@ -67,7 +75,16 @@ export function PriorityFeedCard() {
         return true;
       })
       .slice(0, 5);
-  }, [channelFilter, data, priorityFilter]);
+  }, [channelFilter, data, impactFilter, urgencyFilter]);
+
+  useEffect(() => {
+    if (viewTracked || !data || data.length === 0) return;
+    track("priority_feed_viewed", {
+      count: data.length,
+      surface: "dashboard_projects",
+    });
+    setViewTracked(true);
+  }, [data, viewTracked]);
 
   function ownerLabel(item: PortfolioPriorityItem) {
     return ownerOverrides[item.id] ?? item.owner ?? "Unassigned";
@@ -75,18 +92,32 @@ export function PriorityFeedCard() {
 
   function assignToMe(item: PortfolioPriorityItem) {
     setOwnerOverrides((prev) => ({ ...prev, [item.id]: "Me" }));
+    track("priority_action_completed", {
+      actionType: "assign",
+      priorityItemId: item.id,
+      projectId: item.projectId,
+      category: item.category,
+      channel: item.channel,
+    });
     toast({
       title: "Assigned",
       description: `"${item.title}" is now assigned to you.`,
     });
   }
 
-  async function runAnalysis(item: PortfolioPriorityItem) {
+  async function runFix(item: PortfolioPriorityItem) {
     setRunningProjectId(item.projectId);
     try {
       await api.projects.rerunAutoGeneration(item.projectId);
+      track("priority_action_completed", {
+        actionType: "run_fix",
+        priorityItemId: item.id,
+        projectId: item.projectId,
+        category: item.category,
+        channel: item.channel,
+      });
       toast({
-        title: "Analysis started",
+        title: "Fix run started",
         description: `${item.projectName} pipeline is running.`,
       });
       await mutate();
@@ -109,24 +140,48 @@ export function PriorityFeedCard() {
           <Badge variant="secondary">{(data ?? []).length} total</Badge>
         </div>
         <div className="flex flex-wrap gap-2">
-          {PRIORITY_FILTERS.map((filter) => (
+          <p className="w-full text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Urgency
+          </p>
+          {URGENCY_FILTERS.map((filter) => (
             <Button
               key={filter}
               size="sm"
-              variant={priorityFilter === filter ? "default" : "outline"}
-              onClick={() => setPriorityFilter(filter)}
+              variant={urgencyFilter === filter ? "default" : "outline"}
+              onClick={() => setUrgencyFilter(filter)}
+              aria-label={`urgency-${filter}`}
             >
               {filter}
             </Button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
+          <p className="w-full text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Impact
+          </p>
+          {IMPACT_FILTERS.map((filter) => (
+            <Button
+              key={filter}
+              size="sm"
+              variant={impactFilter === filter ? "default" : "outline"}
+              onClick={() => setImpactFilter(filter)}
+              aria-label={`impact-${filter}`}
+            >
+              {filter}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <p className="w-full text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Channel
+          </p>
           {CHANNEL_FILTERS.map((filter) => (
             <Button
               key={filter}
               size="sm"
               variant={channelFilter === filter ? "default" : "outline"}
               onClick={() => setChannelFilter(filter)}
+              aria-label={`channel-${filter}`}
             >
               {filter}
             </Button>
@@ -178,7 +233,20 @@ export function PriorityFeedCard() {
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" asChild>
-                  <Link href={item.action}>Open</Link>
+                  <Link
+                    href={item.action}
+                    onClick={() =>
+                      track("priority_action_opened", {
+                        actionType: "open_page",
+                        priorityItemId: item.id,
+                        projectId: item.projectId,
+                        category: item.category,
+                        channel: item.channel,
+                      })
+                    }
+                  >
+                    Open Page
+                  </Link>
                 </Button>
                 <Button
                   size="sm"
@@ -186,11 +254,11 @@ export function PriorityFeedCard() {
                   onClick={() => assignToMe(item)}
                 >
                   <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-                  Assign to Me
+                  Assign
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => runAnalysis(item)}
+                  onClick={() => runFix(item)}
                   disabled={runningProjectId === item.projectId}
                 >
                   {runningProjectId === item.projectId ? (
@@ -198,7 +266,7 @@ export function PriorityFeedCard() {
                   ) : (
                     <Zap className="mr-1.5 h-3.5 w-3.5" />
                   )}
-                  Run Analysis
+                  Run Fix
                 </Button>
               </div>
             </div>

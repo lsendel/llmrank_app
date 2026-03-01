@@ -298,6 +298,28 @@ describe("Visibility Schedules — Route-level service integration", () => {
         service.update(user.id, "sq-1", { frequency: "hourly" }),
       ).rejects.toThrow();
     });
+
+    it("allows daily update for starter plan", async () => {
+      const user = buildUser({ plan: "starter" });
+      const project = buildProject({ userId: user.id });
+      const schedule = { id: "sq-1", projectId: project.id };
+      mockScheduleRepo.getById.mockResolvedValue(schedule);
+      mockProjectRepo.getById.mockResolvedValue(project);
+      mockScheduleRepo.update.mockResolvedValue({
+        ...schedule,
+        frequency: "daily",
+      });
+
+      const service = buildService();
+      const result = await service.update(user.id, "sq-1", {
+        frequency: "daily",
+      });
+
+      expect(result).toEqual({ ...schedule, frequency: "daily" });
+      expect(mockScheduleRepo.update).toHaveBeenCalledWith("sq-1", {
+        frequency: "daily",
+      });
+    });
   });
 
   // -----------------------------------------------------------------

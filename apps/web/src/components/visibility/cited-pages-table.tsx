@@ -26,10 +26,19 @@ const PROVIDER_LABELS: Record<string, string> = {
   grok: "Grok",
 };
 
-export function CitedPagesTable({ projectId }: { projectId: string }) {
+export function CitedPagesTable({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const { data: citedPages, isLoading } = useApiSWR<CitedPage[]>(
-    `cited-pages-${projectId}`,
-    useCallback(() => api.visibility.getCitedPages(projectId), [projectId]),
+    `cited-pages-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
+    useCallback(
+      () => api.visibility.getCitedPages(projectId, filters),
+      [projectId, filters],
+    ),
   );
 
   if (isLoading) {

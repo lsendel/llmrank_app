@@ -7,22 +7,16 @@ import {
   userQueries,
   type Database,
 } from "@llm-boost/db";
-import { createScheduledVisibilityService } from "../services/scheduled-visibility-service";
+import {
+  createScheduledVisibilityService,
+  isScheduledVisibilityFrequency,
+  type ScheduleFrequency,
+} from "../services/scheduled-visibility-service";
 import { handleServiceError } from "../services/errors";
 
 export const visibilityScheduleRoutes = new Hono<AppEnv>();
 
 visibilityScheduleRoutes.use("*", authMiddleware);
-
-const VALID_FREQUENCIES = ["hourly", "daily", "weekly"] as const;
-type ScheduleFrequency = (typeof VALID_FREQUENCIES)[number];
-
-function isValidFrequency(value: unknown): value is ScheduleFrequency {
-  return (
-    typeof value === "string" &&
-    (VALID_FREQUENCIES as readonly string[]).includes(value)
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Helper — build service from context
@@ -69,7 +63,7 @@ visibilityScheduleRoutes.post("/", async (c) => {
     );
   }
 
-  if (!isValidFrequency(body.frequency)) {
+  if (!isScheduledVisibilityFrequency(body.frequency)) {
     return c.json(
       {
         error: {
@@ -141,7 +135,10 @@ visibilityScheduleRoutes.patch("/:id", async (c) => {
     enabled?: boolean;
   }>();
 
-  if (body.frequency !== undefined && !isValidFrequency(body.frequency)) {
+  if (
+    body.frequency !== undefined &&
+    !isScheduledVisibilityFrequency(body.frequency)
+  ) {
     return c.json(
       {
         error: {

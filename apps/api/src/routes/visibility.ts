@@ -20,6 +20,7 @@ import {
   discoveredLinkQueries,
 } from "@llm-boost/db";
 import { PLATFORM_REQUIREMENTS, validateKeyword } from "@llm-boost/shared";
+import { resolveLocaleForPlan } from "../lib/visibility-locale";
 
 export const visibilityRoutes = new Hono<AppEnv>();
 
@@ -54,6 +55,31 @@ visibilityRoutes.post(
           error: {
             code: "VALIDATION_ERROR",
             message: "projectId, keywordIds, and providers are required",
+          },
+        },
+        422,
+      );
+    }
+
+    const user = await createUserRepository(db).getById(userId);
+    if (!user) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "User not found" } },
+        404,
+      );
+    }
+
+    const localeResolution = resolveLocaleForPlan({
+      plan: user.plan,
+      region: body.region,
+      language: body.language,
+    });
+    if ("error" in localeResolution) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: localeResolution.error,
           },
         },
         422,
@@ -108,8 +134,8 @@ visibilityRoutes.post(
             grok: c.env.XAI_API_KEY,
           },
           anthropicApiKey: c.env.ANTHROPIC_API_KEY,
-          region: body.region,
-          language: body.language,
+          region: localeResolution.locale.region,
+          language: localeResolution.locale.language,
         });
         allResults.push(...stored);
       }
@@ -129,8 +155,30 @@ visibilityRoutes.get("/:projectId", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
-  const region = c.req.query("region") || undefined;
-  const language = c.req.query("language") || undefined;
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -140,10 +188,11 @@ visibilityRoutes.get("/:projectId", async (c) => {
   });
 
   try {
-    const data = await service.listForProject(userId, projectId, {
-      region,
-      language,
-    });
+    const data = await service.listForProject(
+      userId,
+      projectId,
+      localeResolution.locale,
+    );
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -158,6 +207,30 @@ visibilityRoutes.get("/:projectId/cited-pages", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const project = await createProjectRepository(db).getById(projectId);
   if (!project || project.userId !== userId) {
@@ -168,7 +241,10 @@ visibilityRoutes.get("/:projectId/cited-pages", async (c) => {
   }
 
   const { visibilityQueries } = await import("@llm-boost/db");
-  const rows = await visibilityQueries(db).getCitedPages(projectId);
+  const rows = await visibilityQueries(db).getCitedPages(
+    projectId,
+    localeResolution.locale,
+  );
   return c.json({ data: rows });
 });
 
@@ -180,6 +256,30 @@ visibilityRoutes.get("/:projectId/brand-performance", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const project = await createProjectRepository(db).getById(projectId);
   if (!project || project.userId !== userId) {
@@ -189,7 +289,10 @@ visibilityRoutes.get("/:projectId/brand-performance", async (c) => {
     );
   }
 
-  const checks = await createVisibilityRepository(db).listByProject(projectId);
+  const checks = await createVisibilityRepository(db).listByProject(
+    projectId,
+    localeResolution.locale,
+  );
 
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
@@ -371,8 +474,28 @@ visibilityRoutes.get("/:projectId/source-opportunities", async (c) => {
     );
   }
 
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
+
   const { visibilityQueries } = await import("@llm-boost/db");
-  const rows = await visibilityQueries(db).getSourceOpportunities(projectId);
+  const rows = await visibilityQueries(db).getSourceOpportunities(
+    projectId,
+    localeResolution.locale,
+  );
   return c.json({ data: rows });
 });
 
@@ -384,6 +507,30 @@ visibilityRoutes.get("/:projectId/gaps", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -393,7 +540,11 @@ visibilityRoutes.get("/:projectId/gaps", async (c) => {
   });
 
   try {
-    const checks = await service.listForProject(userId, projectId);
+    const checks = await service.listForProject(
+      userId,
+      projectId,
+      localeResolution.locale,
+    );
 
     // Group by query and find gaps: queries where user is NOT mentioned
     // but at least one competitor IS mentioned
@@ -463,6 +614,30 @@ visibilityRoutes.get("/:projectId/trends", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -472,7 +647,11 @@ visibilityRoutes.get("/:projectId/trends", async (c) => {
   });
 
   try {
-    const data = await service.getTrends(userId, projectId);
+    const data = await service.getTrends(
+      userId,
+      projectId,
+      localeResolution.locale,
+    );
     return c.json({ data });
   } catch (error) {
     return handleServiceError(c, error);
@@ -487,6 +666,30 @@ visibilityRoutes.get("/:projectId/ai-score", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -496,7 +699,11 @@ visibilityRoutes.get("/:projectId/ai-score", async (c) => {
   });
 
   try {
-    const checks = await service.listForProject(userId, projectId);
+    const checks = await service.listForProject(
+      userId,
+      projectId,
+      localeResolution.locale,
+    );
     const project = await createProjectRepository(db).getById(projectId);
     if (!project) {
       return c.json(
@@ -575,8 +782,30 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
-  const region = c.req.query("region") || undefined;
-  const language = c.req.query("language") || undefined;
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   const service = createVisibilityService({
     projects: createProjectRepository(db),
@@ -586,10 +815,11 @@ visibilityRoutes.get("/:projectId/ai-score/trend", async (c) => {
   });
 
   try {
-    const checks = await service.listForProject(userId, projectId, {
-      region,
-      language,
-    });
+    const checks = await service.listForProject(
+      userId,
+      projectId,
+      localeResolution.locale,
+    );
     const project = await createProjectRepository(db).getById(projectId);
     if (!project) {
       return c.json(
@@ -721,6 +951,30 @@ visibilityRoutes.get("/:projectId/recommendations", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const user = await createUserRepository(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
 
   try {
     const project = await createProjectRepository(db).getById(projectId);
@@ -731,8 +985,10 @@ visibilityRoutes.get("/:projectId/recommendations", async (c) => {
       );
     }
 
-    const checks =
-      await createVisibilityRepository(db).listByProject(projectId);
+    const checks = await createVisibilityRepository(db).listByProject(
+      projectId,
+      localeResolution.locale,
+    );
 
     // 1. Compute gaps
     const queryMap = new Map<

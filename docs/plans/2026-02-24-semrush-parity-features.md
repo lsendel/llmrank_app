@@ -16,9 +16,10 @@
 
 ### Task 1: Cited Pages Report
 
-**Why:** We already store `urlCited` and `citationPosition` per visibility check. Users need a dedicated view showing *which of their pages* AI platforms actually reference — this is the single most actionable metric for content optimization.
+**Why:** We already store `urlCited` and `citationPosition` per visibility check. Users need a dedicated view showing _which of their pages_ AI platforms actually reference — this is the single most actionable metric for content optimization.
 
 **Files:**
+
 - Create: `apps/web/src/components/visibility/cited-pages-table.tsx`
 - Modify: `apps/api/src/routes/visibility.ts` (add GET `/:projectId/cited-pages`)
 - Modify: `packages/db/src/queries/visibility.ts` (add `getCitedPages` query)
@@ -40,11 +41,12 @@ WHERE project_id = $1 AND url_cited = true
 GROUP BY response_text -- will need to extract URL from response
 ```
 
-However, we don't currently store the *specific URL cited* — just a boolean. We need a new column.
+However, we don't currently store the _specific URL cited_ — just a boolean. We need a new column.
 
 **Step 1a: Add `citedUrl` column to visibility_checks**
 
 In `packages/db/src/schema/features.ts`, add to `visibilityChecks`:
+
 ```typescript
 citedUrl: text("cited_url"),  // The specific page URL that was cited in the AI response
 ```
@@ -58,6 +60,7 @@ In `packages/llm/src/visibility.ts`, update `analyzeResponse()` to also extract 
 **Step 1c: Add DB query**
 
 In `packages/db/src/queries/visibility.ts`, add:
+
 ```typescript
 async getCitedPages(projectId: string) {
   return db
@@ -82,18 +85,24 @@ async getCitedPages(projectId: string) {
 **Step 2: Add API route**
 
 In `apps/api/src/routes/visibility.ts`, add:
+
 ```typescript
-visibilityRoutes.get("/:projectId/cited-pages", withOwnership("project"), async (c) => {
-  const db = c.get("db");
-  const projectId = c.req.param("projectId");
-  const rows = await visibilityQueries(db).getCitedPages(projectId);
-  return c.json({ data: rows });
-});
+visibilityRoutes.get(
+  "/:projectId/cited-pages",
+  withOwnership("project"),
+  async (c) => {
+    const db = c.get("db");
+    const projectId = c.req.param("projectId");
+    const rows = await visibilityQueries(db).getCitedPages(projectId);
+    return c.json({ data: rows });
+  },
+);
 ```
 
 **Step 3: Add API client method**
 
 In `apps/web/src/lib/api.ts`, in the `visibility` section:
+
 ```typescript
 async getCitedPages(projectId: string): Promise<CitedPage[]> {
   const res = await apiClient.get<ApiEnvelope<CitedPage[]>>(
@@ -104,6 +113,7 @@ async getCitedPages(projectId: string): Promise<CitedPage[]> {
 ```
 
 Add type:
+
 ```typescript
 export interface CitedPage {
   citedUrl: string;
@@ -117,6 +127,7 @@ export interface CitedPage {
 **Step 4: Build the component**
 
 Create `apps/web/src/components/visibility/cited-pages-table.tsx`:
+
 - Table with columns: Page URL (truncated, linked), Times Cited, Platforms (badges), Avg Position, Last Cited
 - Sort by citation count descending
 - Empty state: "No citations found yet. Run visibility checks to see which pages AI platforms reference."
@@ -127,6 +138,7 @@ Create `apps/web/src/components/visibility/cited-pages-table.tsx`:
 In `apps/web/src/components/tabs/visibility-tab.tsx`, add a "Cited Pages" card section after the Share of Voice chart.
 
 **Step 6: Commit**
+
 ```bash
 git add packages/db/ packages/llm/ apps/api/ apps/web/
 git commit -m "feat(visibility): add cited pages report showing which pages AI platforms reference"
@@ -139,6 +151,7 @@ git commit -m "feat(visibility): add cited pages report showing which pages AI p
 **Why:** We already compute `llmsTxtScore`, `robotsTxtScore`, `botAccessScore`, `sitemapScore` in the scoring engine. But they're buried inside per-page scores. Users need a project-level "AI Readiness Audit" card that shows pass/fail for AI-specific technical checks at a glance.
 
 **Files:**
+
 - Create: `apps/web/src/components/visibility/ai-audit-card.tsx`
 - Modify: `apps/api/src/routes/crawls.ts` (add GET `/:id/ai-audit`)
 - Modify: `apps/web/src/lib/api.ts` (add `crawls.getAIAudit()`)
@@ -147,6 +160,7 @@ git commit -m "feat(visibility): add cited pages report showing which pages AI p
 **Step 1: Add API route**
 
 In `apps/api/src/routes/crawls.ts`, add a route that aggregates AI-specific scores from the latest crawl:
+
 ```typescript
 crawlRoutes.get("/:id/ai-audit", withOwnership("crawl"), async (c) => {
   const db = c.get("db");
@@ -157,34 +171,68 @@ crawlRoutes.get("/:id/ai-audit", withOwnership("crawl"), async (c) => {
 
   // AI-specific issue codes
   const aiIssueCodes = [
-    "MISSING_LLMS_TXT", "AI_CRAWLER_BLOCKED", "NO_STRUCTURED_DATA",
-    "MISSING_SITEMAP", "MISSING_CANONICAL", "NOINDEX_SET",
-    "MISSING_OG_TAGS", "MISSING_META_DESC", "MISSING_TITLE",
+    "MISSING_LLMS_TXT",
+    "AI_CRAWLER_BLOCKED",
+    "NO_STRUCTURED_DATA",
+    "MISSING_SITEMAP",
+    "MISSING_CANONICAL",
+    "NOINDEX_SET",
+    "MISSING_OG_TAGS",
+    "MISSING_META_DESC",
+    "MISSING_TITLE",
   ];
 
-  const aiIssues = issues.filter(i => aiIssueCodes.includes(i.code));
+  const aiIssues = issues.filter((i) => aiIssueCodes.includes(i.code));
   const totalPages = scores.length;
 
   // Aggregate scores
-  const avgLlmsTxt = scores.reduce((s, r) => s + (r.llmsTxtScore ?? 0), 0) / (totalPages || 1);
-  const avgRobotsTxt = scores.reduce((s, r) => s + (r.robotsTxtScore ?? 0), 0) / (totalPages || 1);
-  const avgBotAccess = scores.reduce((s, r) => s + (r.botAccessScore ?? 0), 0) / (totalPages || 1);
-  const avgSitemap = scores.reduce((s, r) => s + (r.sitemapScore ?? 0), 0) / (totalPages || 1);
-  const avgSchema = scores.reduce((s, r) => s + (r.schemaMarkupScore ?? 0), 0) / (totalPages || 1);
+  const avgLlmsTxt =
+    scores.reduce((s, r) => s + (r.llmsTxtScore ?? 0), 0) / (totalPages || 1);
+  const avgRobotsTxt =
+    scores.reduce((s, r) => s + (r.robotsTxtScore ?? 0), 0) / (totalPages || 1);
+  const avgBotAccess =
+    scores.reduce((s, r) => s + (r.botAccessScore ?? 0), 0) / (totalPages || 1);
+  const avgSitemap =
+    scores.reduce((s, r) => s + (r.sitemapScore ?? 0), 0) / (totalPages || 1);
+  const avgSchema =
+    scores.reduce((s, r) => s + (r.schemaMarkupScore ?? 0), 0) /
+    (totalPages || 1);
 
   const checks = [
-    { name: "llms.txt", score: avgLlmsTxt, status: avgLlmsTxt >= 80 ? "pass" : avgLlmsTxt >= 50 ? "warn" : "fail" },
-    { name: "Robots.txt AI Access", score: avgRobotsTxt, status: avgRobotsTxt >= 80 ? "pass" : avgRobotsTxt >= 50 ? "warn" : "fail" },
-    { name: "Bot Crawlability", score: avgBotAccess, status: avgBotAccess >= 80 ? "pass" : avgBotAccess >= 50 ? "warn" : "fail" },
-    { name: "XML Sitemap", score: avgSitemap, status: avgSitemap >= 80 ? "pass" : avgSitemap >= 50 ? "warn" : "fail" },
-    { name: "Structured Data", score: avgSchema, status: avgSchema >= 80 ? "pass" : avgSchema >= 50 ? "warn" : "fail" },
+    {
+      name: "llms.txt",
+      score: avgLlmsTxt,
+      status: avgLlmsTxt >= 80 ? "pass" : avgLlmsTxt >= 50 ? "warn" : "fail",
+    },
+    {
+      name: "Robots.txt AI Access",
+      score: avgRobotsTxt,
+      status:
+        avgRobotsTxt >= 80 ? "pass" : avgRobotsTxt >= 50 ? "warn" : "fail",
+    },
+    {
+      name: "Bot Crawlability",
+      score: avgBotAccess,
+      status:
+        avgBotAccess >= 80 ? "pass" : avgBotAccess >= 50 ? "warn" : "fail",
+    },
+    {
+      name: "XML Sitemap",
+      score: avgSitemap,
+      status: avgSitemap >= 80 ? "pass" : avgSitemap >= 50 ? "warn" : "fail",
+    },
+    {
+      name: "Structured Data",
+      score: avgSchema,
+      status: avgSchema >= 80 ? "pass" : avgSchema >= 50 ? "warn" : "fail",
+    },
   ];
 
   return c.json({
     data: {
       checks,
       issueCount: aiIssues.length,
-      criticalCount: aiIssues.filter(i => i.severity === "critical").length,
+      criticalCount: aiIssues.filter((i) => i.severity === "critical").length,
       pagesAudited: totalPages,
     },
   });
@@ -205,6 +253,7 @@ async getAIAudit(crawlId: string): Promise<AIAuditResult> {
 **Step 3: Build the component**
 
 Create `apps/web/src/components/visibility/ai-audit-card.tsx`:
+
 - Card with 5 rows: check name, pass/warn/fail badge, score bar
 - Summary at top: "X/5 checks passing" with overall status icon
 - Critical issues count if > 0 (red alert)
@@ -215,6 +264,7 @@ Create `apps/web/src/components/visibility/ai-audit-card.tsx`:
 In the overview tab, add the AI Audit card after the ScoreRadarChart (or in a side column).
 
 **Step 5: Commit**
+
 ```bash
 git add apps/api/ apps/web/
 git commit -m "feat(audit): add dedicated AI crawlability audit card on overview tab"
@@ -228,9 +278,10 @@ git commit -m "feat(audit): add dedicated AI crawlability audit card on overview
 
 ### Task 3: Brand Sentiment Analysis
 
-**Why:** This is the highest-value differentiator. Semrush charges $199/mo and users report it's incomplete. We already store `responseText` from every visibility check — we just need an LLM pass to extract *how* AI describes the brand (tone, key attributes, perception). This turns "are we mentioned?" into "what do AI platforms think of us?"
+**Why:** This is the highest-value differentiator. Semrush charges $199/mo and users report it's incomplete. We already store `responseText` from every visibility check — we just need an LLM pass to extract _how_ AI describes the brand (tone, key attributes, perception). This turns "are we mentioned?" into "what do AI platforms think of us?"
 
 **Files:**
+
 - Modify: `packages/db/src/schema/features.ts` (add columns to `visibilityChecks`)
 - Create: `packages/db/src/schema/features.ts` (add `brandSentimentSnapshots` table)
 - Modify: `packages/llm/src/visibility.ts` (add `analyzeSentiment()`)
@@ -244,26 +295,32 @@ git commit -m "feat(audit): add dedicated AI crawlability audit card on overview
 **Step 1: Add schema**
 
 In `packages/db/src/schema/features.ts`, add new table:
+
 ```typescript
-export const brandSentimentSnapshots = pgTable("brand_sentiment_snapshots", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  period: text("period").notNull(),              // "2026-W08" (ISO week)
-  overallSentiment: text("overall_sentiment"),    // "positive" | "neutral" | "negative" | "mixed"
-  sentimentScore: real("sentiment_score"),         // -1.0 to 1.0
-  keyAttributes: jsonb("key_attributes"),          // ["reliable", "affordable", "innovative"]
-  brandNarrative: text("brand_narrative"),          // 2-3 sentence summary of how AI describes brand
-  strengthTopics: jsonb("strength_topics"),         // topics where brand is described positively
-  weaknessTopics: jsonb("weakness_topics"),         // topics where brand is described negatively
-  providerBreakdown: jsonb("provider_breakdown"),   // { chatgpt: { sentiment, attributes }, ... }
-  sampleSize: integer("sample_size").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (t) => [
-  index("idx_sentiment_project_period").on(t.projectId, t.period),
-]);
+export const brandSentimentSnapshots = pgTable(
+  "brand_sentiment_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // "2026-W08" (ISO week)
+    overallSentiment: text("overall_sentiment"), // "positive" | "neutral" | "negative" | "mixed"
+    sentimentScore: real("sentiment_score"), // -1.0 to 1.0
+    keyAttributes: jsonb("key_attributes"), // ["reliable", "affordable", "innovative"]
+    brandNarrative: text("brand_narrative"), // 2-3 sentence summary of how AI describes brand
+    strengthTopics: jsonb("strength_topics"), // topics where brand is described positively
+    weaknessTopics: jsonb("weakness_topics"), // topics where brand is described negatively
+    providerBreakdown: jsonb("provider_breakdown"), // { chatgpt: { sentiment, attributes }, ... }
+    sampleSize: integer("sample_size").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_sentiment_project_period").on(t.projectId, t.period)],
+);
 ```
 
 Also add to `visibilityChecks`:
+
 ```typescript
 sentiment: text("sentiment"),           // per-check: "positive" | "neutral" | "negative"
 brandDescription: text("brand_description"), // extracted snippet of how AI described the brand
@@ -274,6 +331,7 @@ Run: `cd packages/db && npx drizzle-kit generate && npx drizzle-kit push`
 **Step 2: Build sentiment analyzer**
 
 In `packages/llm/src/visibility.ts`, add function:
+
 ```typescript
 export async function analyzeBrandSentiment(
   responseText: string,
@@ -282,10 +340,11 @@ export async function analyzeBrandSentiment(
   sentiment: "positive" | "neutral" | "negative";
   brandDescription: string | null;
   attributes: string[];
-}>
+}>;
 ```
 
 This calls Claude Haiku with a focused prompt:
+
 - Input: the `responseText` from a visibility check
 - Output: sentiment classification, a 1-sentence brand description extract, and key attributes mentioned
 - Cost: ~$0.001 per check (Haiku), acceptable to run on every visibility check
@@ -297,12 +356,14 @@ In `apps/api/src/services/visibility-service.ts`, after `runCheck()` stores resu
 **Step 4: Build weekly aggregation service**
 
 Create `apps/api/src/services/brand-sentiment-service.ts`:
+
 - `aggregateWeeklySentiment(projectId)` — queries all visibility checks for current week, aggregates per-check sentiments into a `brandSentimentSnapshots` row
 - Called by a weekly cron or triggered after each visibility check batch
 
 **Step 5: Add API routes**
 
 Create `apps/api/src/routes/brand-performance.ts`:
+
 ```typescript
 // GET /brand/:projectId/sentiment — Latest sentiment snapshot
 // GET /brand/:projectId/sentiment/history — Weekly trend (last 12 weeks)
@@ -314,6 +375,7 @@ Register in `apps/api/src/routes/app.tsx`.
 **Step 6: Add API client methods**
 
 In `apps/web/src/lib/api.ts`:
+
 ```typescript
 brand: {
   async getSentiment(projectId: string): Promise<BrandSentiment>,
@@ -325,6 +387,7 @@ brand: {
 **Step 7: Build UI components**
 
 `brand-sentiment-card.tsx`:
+
 - Overall sentiment badge (positive/neutral/negative) with color
 - Sentiment score gauge (-1 to +1)
 - Key attributes as tag pills
@@ -332,6 +395,7 @@ brand: {
 - "How AI describes you" summary
 
 `brand-perception-chart.tsx`:
+
 - Recharts line chart showing sentiment score over weeks
 - Per-provider breakdown as colored dots
 
@@ -340,6 +404,7 @@ brand: {
 Add "Brand Perception" section to the visibility tab, gated to Starter+ plan.
 
 **Step 9: Commit**
+
 ```bash
 git add packages/db/ packages/llm/ apps/api/ apps/web/
 git commit -m "feat(brand): add brand sentiment analysis — track how AI platforms describe your brand"
@@ -352,6 +417,7 @@ git commit -m "feat(brand): add brand sentiment analysis — track how AI platfo
 **Why:** Executives need a single view: "How does my brand compare to competitors in AI search this week?" Semrush calls this Brand Performance. We have the data (share of voice, competitor mentions) but lack the executive-friendly dashboard.
 
 **Files:**
+
 - Create: `apps/web/src/components/visibility/brand-performance-dashboard.tsx`
 - Create: `apps/web/src/components/visibility/competitor-sov-table.tsx`
 - Modify: `apps/api/src/routes/visibility.ts` (add GET `/:projectId/brand-performance`)
@@ -361,6 +427,7 @@ git commit -m "feat(brand): add brand sentiment analysis — track how AI platfo
 **Step 1: Add API route**
 
 GET `/:projectId/brand-performance` that returns:
+
 ```typescript
 {
   period: "2026-W08",
@@ -386,6 +453,7 @@ async getBrandPerformance(projectId: string): Promise<BrandPerformance>
 **Step 3: Build dashboard component**
 
 `brand-performance-dashboard.tsx`:
+
 - Hero row: 3 KPI cards (Your SoV %, Week-over-week change with arrow, Total mentions)
 - Competitor comparison table: domain, SoV%, mention rate, citation rate, trend sparkline
 - "Top Prompts" section: queries where you appear vs. where competitors beat you
@@ -394,6 +462,7 @@ async getBrandPerformance(projectId: string): Promise<BrandPerformance>
 **Step 4: Wire into visibility tab as first section (replaces current header)**
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "feat(brand): add brand performance dashboard with competitor SoV comparison"
 ```
@@ -405,6 +474,7 @@ git commit -m "feat(brand): add brand performance dashboard with competitor SoV 
 **Why:** Shows external sites that cite competitors in AI responses but don't cite you. These are actionable outreach targets — get backlinks from these sites and AI platforms will start citing you too.
 
 **Files:**
+
 - Modify: `packages/db/src/queries/visibility.ts` (add `getSourceOpportunities`)
 - Modify: `apps/api/src/routes/visibility.ts` (add GET `/:projectId/source-opportunities`)
 - Modify: `apps/web/src/lib/api.ts`
@@ -445,9 +515,13 @@ async getSourceOpportunities(projectId: string) {
 **Step 2: Add API route**
 
 ```typescript
-visibilityRoutes.get("/:projectId/source-opportunities", withOwnership("project"), async (c) => {
-  // Return domains frequently cited alongside competitors but not you
-});
+visibilityRoutes.get(
+  "/:projectId/source-opportunities",
+  withOwnership("project"),
+  async (c) => {
+    // Return domains frequently cited alongside competitors but not you
+  },
+);
 ```
 
 **Step 3: Add API client + UI component**
@@ -457,6 +531,7 @@ Table with: Competitor Domain, Times Cited (when you weren't), Queries they appe
 **Step 4: Gate to Pro+ plan**
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "feat(visibility): add source opportunities — find sites that cite competitors but not you"
 ```
@@ -469,9 +544,10 @@ git commit -m "feat(visibility): add source opportunities — find sites that ci
 
 ### Task 6: Prompt Research Tool
 
-**Why:** This is Semrush's biggest investment area. Users need to discover *what prompts/questions* people ask AI about their industry, with volume estimates and difficulty scores. We have keyword discovery but not prompt-specific research.
+**Why:** This is Semrush's biggest investment area. Users need to discover _what prompts/questions_ people ask AI about their industry, with volume estimates and difficulty scores. We have keyword discovery but not prompt-specific research.
 
 **Files:**
+
 - Create: `packages/db/src/schema/features.ts` (add `aiPrompts` table)
 - Create: `packages/llm/src/prompt-research.ts`
 - Create: `apps/api/src/routes/prompt-research.ts`
@@ -483,26 +559,31 @@ git commit -m "feat(visibility): add source opportunities — find sites that ci
 **Step 1: Add schema**
 
 ```typescript
-export const aiPrompts = pgTable("ai_prompts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  prompt: text("prompt").notNull(),
-  category: text("category"),               // "comparison", "how-to", "recommendation", "review"
-  estimatedVolume: integer("estimated_volume"), // monthly estimated asks
-  difficulty: real("difficulty"),              // 0-100 how hard to appear
-  intent: text("intent"),                     // "informational", "transactional", "navigational"
-  yourMentioned: boolean("your_mentioned").default(false),
-  competitorsMentioned: jsonb("competitors_mentioned"), // string[]
-  source: text("source").notNull().default("discovered"), // "discovered" | "user_added" | "suggested"
-  discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
-}, (t) => [
-  index("idx_prompts_project").on(t.projectId),
-]);
+export const aiPrompts = pgTable(
+  "ai_prompts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    category: text("category"), // "comparison", "how-to", "recommendation", "review"
+    estimatedVolume: integer("estimated_volume"), // monthly estimated asks
+    difficulty: real("difficulty"), // 0-100 how hard to appear
+    intent: text("intent"), // "informational", "transactional", "navigational"
+    yourMentioned: boolean("your_mentioned").default(false),
+    competitorsMentioned: jsonb("competitors_mentioned"), // string[]
+    source: text("source").notNull().default("discovered"), // "discovered" | "user_added" | "suggested"
+    discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_prompts_project").on(t.projectId)],
+);
 ```
 
 **Step 2: Build prompt discovery LLM function**
 
 In `packages/llm/src/prompt-research.ts`:
+
 ```typescript
 export async function discoverPrompts(options: {
   domain: string;
@@ -510,10 +591,11 @@ export async function discoverPrompts(options: {
   siteDescription: string;
   existingKeywords: string[];
   competitors: string[];
-}): Promise<DiscoveredPrompt[]>
+}): Promise<DiscoveredPrompt[]>;
 ```
 
 Uses Claude Sonnet to generate realistic AI-style prompts people would ask:
+
 - "Best [industry] tools for [use case]"
 - "Compare [brand] vs [competitor]"
 - "[Brand] review [year]"
@@ -537,6 +619,7 @@ Service orchestrates: discover prompts → store in DB → optionally run visibi
 **Step 5: Build UI**
 
 `prompt-research-panel.tsx`:
+
 - "Discover Prompts" button (with Loader2 spinner)
 - Table: Prompt text, Category badge, Est. Volume, Difficulty bar, You Mentioned (check/x), Competitors
 - Filter by: category, mentioned status, difficulty range
@@ -546,6 +629,7 @@ Service orchestrates: discover prompts → store in DB → optionally run visibi
 **Step 6: Gate to Starter+ plan (Free: view 3 prompts, Starter: 20, Pro: 100, Agency: unlimited)**
 
 **Step 7: Commit**
+
 ```bash
 git commit -m "feat(prompts): add AI prompt research — discover what people ask AI about your industry"
 ```
@@ -557,12 +641,14 @@ git commit -m "feat(prompts): add AI prompt research — discover what people as
 **Why:** Gives users an estimated reach metric — how many people potentially see AI responses about their brand. It's a "vanity metric" but important for executive reporting and comparing against traditional SEO traffic.
 
 **Files:**
+
 - Modify: `apps/api/src/routes/visibility.ts` (extend AI score response)
 - Modify: `apps/web/src/components/visibility/ai-visibility-score-header.tsx`
 
 **Step 1: Add audience estimation to AI score route**
 
 In the existing GET `/:projectId/ai-score` handler, add an audience estimate calculation:
+
 ```typescript
 // Estimation formula:
 // For each query where brand is mentioned, estimate monthly searches
@@ -572,6 +658,7 @@ const estimatedMonthlyAudience = calculateAudienceEstimate(checks, gscData);
 ```
 
 Add to response:
+
 ```typescript
 meta: {
   ...existing,
@@ -583,10 +670,12 @@ meta: {
 **Step 2: Update score header component**
 
 In `ai-visibility-score-header.tsx`, add a new KPI card showing:
+
 - "Est. Monthly Reach" with the audience number
 - Growth arrow (up/down) with percentage
 
 **Step 3: Commit**
+
 ```bash
 git commit -m "feat(visibility): add monthly audience estimate to AI visibility score"
 ```
@@ -598,6 +687,7 @@ git commit -m "feat(visibility): add monthly audience estimate to AI visibility 
 **Why:** International brands need to know their AI visibility per market. Semrush supports 220+ regions. We start with the top 15 markets and expand.
 
 **Files:**
+
 - Modify: `packages/db/src/schema/features.ts` (add `region` and `language` columns)
 - Modify: `packages/llm/src/visibility.ts` (pass locale to LLM calls)
 - Modify: `apps/api/src/routes/visibility.ts` (add query params)
@@ -607,6 +697,7 @@ git commit -m "feat(visibility): add monthly audience estimate to AI visibility 
 **Step 1: Add schema columns**
 
 In `visibilityChecks` table:
+
 ```typescript
 region: text("region").default("us"),     // ISO 3166-1 alpha-2: "us", "gb", "de", etc.
 language: text("language").default("en"), // ISO 639-1: "en", "es", "de", etc.
@@ -617,6 +708,7 @@ Run migration.
 **Step 2: Update LLM provider calls**
 
 In each provider (`checkChatGPT`, `checkClaude`, etc.), add locale context to the prompt:
+
 ```
 "Answer as if you are responding to a user in {region} who speaks {language}."
 ```
@@ -630,6 +722,7 @@ All visibility routes accept optional `?region=us&language=en` query params. Def
 **Step 4: Add filter dropdown to visibility tab**
 
 Dropdown at the top of the visibility tab:
+
 ```
 Region: [Worldwide] [US] [UK] [DE] [FR] [ES] [BR] [JP] [AU] [CA] [IN] [IT] [NL] [SE] [KR]
 ```
@@ -641,6 +734,7 @@ Changing the dropdown re-fetches all visibility data for that region.
 Free/Starter: US only. Pro: top 15 regions. Agency: all regions.
 
 **Step 6: Commit**
+
 ```bash
 git commit -m "feat(visibility): add regional and language filtering for visibility data"
 ```
@@ -649,18 +743,139 @@ git commit -m "feat(visibility): add regional and language filtering for visibil
 
 ## Implementation Order & Effort Summary
 
-| # | Feature | Phase | Effort | Plan Gate | Depends On |
-|---|---------|-------|--------|-----------|------------|
-| 1 | Cited Pages Report | A | 1 day | All plans | Schema migration |
-| 2 | AI Crawlability Audit | A | 1 day | All plans | None |
-| 3 | Brand Sentiment Analysis | B | 4 days | Starter+ | Schema migration |
-| 4 | Brand Performance Dashboard | B | 3 days | Starter+ | Task 3 (sentiment data) |
-| 5 | Source Opportunities | B | 2 days | Pro+ | None |
-| 6 | Prompt Research Tool | C | 5 days | Starter+ | Schema migration |
-| 7 | Monthly Audience Estimate | C | 1 day | All plans | None |
-| 8 | Regional/Language Filtering | C | 5 days | Pro+ | Schema migration |
+| #   | Feature                     | Phase | Effort | Plan Gate | Depends On              |
+| --- | --------------------------- | ----- | ------ | --------- | ----------------------- |
+| 1   | Cited Pages Report          | A     | 1 day  | All plans | Schema migration        |
+| 2   | AI Crawlability Audit       | A     | 1 day  | All plans | None                    |
+| 3   | Brand Sentiment Analysis    | B     | 4 days | Starter+  | Schema migration        |
+| 4   | Brand Performance Dashboard | B     | 3 days | Starter+  | Task 3 (sentiment data) |
+| 5   | Source Opportunities        | B     | 2 days | Pro+      | None                    |
+| 6   | Prompt Research Tool        | C     | 5 days | Starter+  | Schema migration        |
+| 7   | Monthly Audience Estimate   | C     | 1 day  | All plans | None                    |
+| 8   | Regional/Language Filtering | C     | 5 days | Pro+      | Schema migration        |
 
 **Total estimated effort: ~22 days**
+
+## Executable Backlog (GAP-001 -> GAP-008)
+
+| Gap ID  | Feature                     | Depends On                         | Target Week                 | Required Deliverables                                                                  |
+| ------- | --------------------------- | ---------------------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
+| GAP-001 | Cited Pages Report          | None                               | Week 1 (Mar 2-8, 2026)      | schema + migration, API route, UI table, API client method, tests                      |
+| GAP-002 | AI Crawlability Audit       | GAP-001                            | Week 2 (Mar 9-15, 2026)     | crawl audit API, overview integration, pass/warn/fail UX, tests                        |
+| GAP-003 | Brand Sentiment Analysis    | GAP-001, GAP-002                   | Week 3 (Mar 16-22, 2026)    | sentiment storage + extraction, API aggregation, visibility UI sentiment blocks, tests |
+| GAP-004 | Brand Performance Dashboard | GAP-003                            | Week 4 (Mar 23-29, 2026)    | weekly SoV dashboard cards/charts, trend endpoints, telemetry, tests                   |
+| GAP-005 | Source Opportunities        | GAP-003                            | Week 5 (Mar 30-Apr 5, 2026) | source opportunity scoring endpoint, visibility tab actions, plan gate checks, tests   |
+| GAP-006 | Prompt Research Tool        | GAP-003, GAP-005                   | Week 6 (Apr 6-12, 2026)     | prompt research data model, APIs, workspace UX, exports, tests                         |
+| GAP-007 | Monthly Audience Estimate   | GAP-004, GAP-006                   | Week 7 (Apr 13-19, 2026)    | audience estimate in AI score metadata, KPI UI, trend delta, tests                     |
+| GAP-008 | Regional/Language Filtering | GAP-001, GAP-003, GAP-004, GAP-007 | Week 8 (Apr 20-26, 2026)    | locale columns + migration, provider locale handling, filtering UI, plan gates, tests  |
+
+## Weekly Deliverables (No-Wait Sequence)
+
+### Week 1 (March 2-8, 2026) — GAP-001
+
+- Deliver cited URL persistence and cited pages report end-to-end.
+- Ship table UX in visibility tab with empty/error states.
+- Exit gate: cited pages route and table both validated in integration + component tests.
+
+### Week 2 (March 9-15, 2026) — GAP-002
+
+- Deliver AI crawlability audit route and overview card.
+- Add explicit pass/warn/fail summaries and critical issue count.
+- Exit gate: latest crawl shows audit card with deterministic aggregation in tests.
+
+### Week 3 (March 16-22, 2026) — GAP-003
+
+- Deliver sentiment extraction and storage on visibility checks.
+- Add sentiment rollups and distributions for visibility analytics.
+- Exit gate: sentiment pipeline handles positive/neutral/negative samples in automated tests.
+
+### Week 4 (March 23-29, 2026) — GAP-004
+
+- Deliver weekly brand performance dashboard from sentiment + visibility trends.
+- Add trend APIs and dashboard blocks with freshness metadata.
+- Exit gate: weekly dashboard renders without null-state regressions and passes route/component tests.
+
+### Week 5 (March 30-April 5, 2026) — GAP-005
+
+- Deliver source opportunities ranking and actionable CTA paths.
+- Add plan-gated messaging and upgrade-safe disabled states.
+- Exit gate: source opportunities endpoint and visibility card behavior are fully covered.
+
+### Week 6 (April 6-12, 2026) — GAP-006
+
+- Deliver prompt research tool (data model + APIs + project workspace UI).
+- Add saved prompt runs, analysis summaries, and export handoff.
+- Exit gate: prompt research CRUD and run/summary flows validated by integration + component tests.
+
+### Week 7 (April 13-19, 2026) — GAP-007
+
+- Deliver monthly audience estimate in AI visibility score metadata and UI KPI.
+- Add growth delta and fallback behavior when historical data is sparse.
+- Exit gate: audience KPI appears with stable calculations and test coverage.
+
+### Week 8 (April 20-26, 2026) — GAP-008
+
+- Deliver region/language filtering with plan-aware availability.
+- Add locale-aware provider prompts and filtered trend endpoints.
+- Exit gate: locale filters work across all visibility routes and UI controls with regression tests.
+
+## Strict Consecutive YOLO Run Sequence
+
+1. Execute gaps in numeric order only: `GAP-001` -> `GAP-002` -> ... -> `GAP-008`.
+2. For each gap, complete all layers before moving on: schema/migration -> DB queries -> API routes -> API client -> UI -> tests -> docs.
+3. Do not pause for approval between gaps; automatically start the next gap after the current exit gate passes.
+4. If blocked by missing credentials/external dependency, implement a backward-compatible fallback, log the risk in this plan, and continue to the next gap.
+5. Treat each gap as done only when all required checks pass or the blocker is explicitly documented with mitigation.
+
+## Execution Update (2026-03-01)
+
+- GAP-006 follow-up completed:
+  - Added `POST /api/prompt-research/:projectId/check` to run prompt-level visibility checks.
+  - Added prompt tracking update persistence (`yourMentioned`, `competitorsMentioned`) after checks.
+  - Added Prompt Research UI actions: `Run Check` and `Track Weekly`.
+  - Added Prompt Research UI filters for category + mentioned status + difficulty range, and CSV export.
+  - Added regression tests:
+    - `apps/api/src/__tests__/integration/prompt-research.test.ts`
+    - `apps/web/src/components/visibility/prompt-research-panel.test.tsx`
+- GAP-008 follow-up completed:
+  - Added locale filter propagation for brand sentiment endpoint and UI consumption.
+  - Centralized plan-based locale resolver (`free/starter` forced `us/en`, Pro region validation, Agency unrestricted 2-letter locale).
+  - Enforced locale gating on prompt research checks and brand perception routes.
+  - Wired prompt check execution from UI to selected region/language context.
+  - Added regression test:
+    - `apps/api/src/__tests__/integration/brand-performance.test.ts`
+    - `apps/api/src/__tests__/integration/prompt-research.test.ts`
+    - `apps/web/src/components/visibility/prompt-research-panel.test.tsx`
+- GAP-003 follow-up completed:
+  - Added Brand Perception trend chart (`BrandPerceptionChart`) powered by weekly sentiment history snapshots.
+  - Added provider-level perception API (`GET /api/brand/:projectId/perception`) and typed client method.
+  - Surfaced provider-level perception in the visibility UI with platform sentiment score, sample count, and latest description snippets.
+  - Wired perception UI filtering to selected region/language context.
+  - Added regression/component tests:
+    - `apps/web/src/components/visibility/brand-perception-chart.test.tsx`
+    - `apps/api/src/__tests__/integration/brand-performance.test.ts`
+- GAP-007 follow-up completed:
+  - Added regression coverage for `GET /api/visibility/:projectId/ai-score/trend` audience estimation and growth deltas.
+  - Added sparse-history fallback validation (`previous = null`, `audienceGrowth = 0`).
+  - Added tests:
+    - `apps/api/src/__tests__/integration/visibility.test.ts`
+
+### Mandatory Validation Pack per Gap
+
+```bash
+pnpm -C packages/db test
+pnpm -C apps/api test
+pnpm -C apps/web test
+pnpm -C apps/web typecheck
+BASE_URL=http://localhost:3000 HEADLESS=1 pnpm -C apps/web exec playwright test e2e/smoke.spec.ts --reporter=line
+```
+
+### Optional Authenticated Journey Gate (run when E2E credentials are configured)
+
+```bash
+BASE_URL=http://localhost:3000 E2E_EMAIL=... E2E_PASSWORD=... E2E_PROJECT_ID=... \
+pnpm -C apps/web exec playwright test e2e/journeys.spec.ts --reporter=line
+```
 
 ## Testing Strategy
 

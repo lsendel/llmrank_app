@@ -7,6 +7,9 @@ export const API_TOKEN_SCOPES = [
   "metrics:read",
   "scores:read",
   "visibility:read",
+  "projects:read",
+  "visibility:write",
+  "crawls:write",
 ] as const;
 
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];

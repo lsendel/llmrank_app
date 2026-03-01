@@ -1,6 +1,5 @@
 import { normalizeDomain } from "@llm-boost/shared";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+import { apiUrl } from "./api-base-url";
 
 // ─── Error handling ─────────────────────────────────────────────────
 
@@ -33,6 +32,15 @@ export interface PaginatedResponse<T> {
     total: number;
     totalPages: number;
   };
+}
+
+export type ProjectsDefaultPreset =
+  | "seo_manager"
+  | "content_lead"
+  | "exec_summary";
+
+export interface AccountPreferences {
+  projectsDefaultPreset: ProjectsDefaultPreset | null;
 }
 
 export interface ExtractedFact {
@@ -391,6 +399,12 @@ export interface ShareInfo {
   expiresAt: string | null;
 }
 
+export interface RecommendationConfidence {
+  label: "High" | "Medium" | "Low";
+  variant: "success" | "warning" | "destructive";
+  score?: number;
+}
+
 export interface PublicReport {
   shareLevel: string;
   crawlId: string;
@@ -440,6 +454,8 @@ export interface PublicReport {
     message: string;
     recommendation: string;
     affectedPages: number;
+    dataTimestamp?: string | null;
+    confidence?: RecommendationConfidence;
   }>;
 }
 
@@ -580,11 +596,16 @@ export interface QuickWin {
   pillar?: string;
   docsUrl?: string;
   effort?: "low" | "medium" | "high";
+  dataTimestamp?: string | null;
+  confidence?: RecommendationConfidence;
 }
 
 export interface PublicScanResult {
+  id?: string;
+  scanResultId?: string;
   url: string;
   domain: string;
+  createdAt?: string;
   scores: {
     overall: number;
     technical: number;
@@ -594,8 +615,8 @@ export interface PublicScanResult {
     letterGrade: string;
   };
   issues: PageIssue[];
-  quickWins: QuickWin[];
-  meta: {
+  quickWins?: QuickWin[];
+  meta?: {
     title: string | null;
     description: string | null;
     wordCount: number;
@@ -607,11 +628,27 @@ export interface PublicScanResult {
     ogTags: Record<string, string>;
     siteContext?: SiteContext;
   };
-  visibility?: {
-    provider: string;
-    brandMentioned: boolean;
-    urlCited: boolean;
-  } | null;
+  siteContext?: SiteContext;
+  visibility?:
+    | {
+        provider: string;
+        brandMentioned: boolean;
+        urlCited: boolean;
+        citationPosition?: number | null;
+        competitorMentions?:
+          | {
+              domain: string;
+              mentioned: boolean;
+              position: number | null;
+            }[]
+          | null;
+      }[]
+    | {
+        provider: string;
+        brandMentioned: boolean;
+        urlCited: boolean;
+      }
+    | null;
 }
 
 export interface IntegrationCatalogItem {
@@ -723,6 +760,30 @@ export interface BrandSentiment {
   sampleSize: number;
 }
 
+export interface BrandSentimentSnapshot {
+  id: string;
+  projectId: string;
+  period: string;
+  overallSentiment: "positive" | "neutral" | "negative" | "mixed" | null;
+  sentimentScore: number | null;
+  keyAttributes: unknown;
+  brandNarrative: string | null;
+  strengthTopics: unknown;
+  weaknessTopics: unknown;
+  providerBreakdown: unknown;
+  sampleSize: number;
+  createdAt: string | Date;
+}
+
+export interface BrandPerceptionProvider {
+  provider: string;
+  sampleSize: number;
+  overallSentiment: "positive" | "neutral" | "negative";
+  sentimentScore: number;
+  distribution: { positive: number; neutral: number; negative: number };
+  descriptions: string[];
+}
+
 export interface BrandPerformance {
   period: string;
   yourBrand: {
@@ -768,6 +829,15 @@ export interface AIPrompt {
   competitorsMentioned: unknown;
   source: string;
   discoveredAt: string;
+}
+
+export interface PromptCheckResult {
+  promptId?: string;
+  prompt: string;
+  checkCount: number;
+  yourMentioned: boolean;
+  competitorsMentioned: string[];
+  checks: VisibilityCheck[];
 }
 
 export interface AIScoreTrend {
@@ -1052,6 +1122,7 @@ export interface PortfolioPriorityItem {
   dueDate: string;
   expectedImpact: "high" | "medium" | "low";
   impactScore: number;
+  trendDelta: number;
   effort: "low" | "medium" | "high";
   freshness: {
     generatedAt: string;
@@ -1232,6 +1303,31 @@ export interface TeamDetail extends Omit<Team, "role"> {
   role: string;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  userId: string;
+  name: string | null;
+  email: string;
+  role: "owner" | "admin" | "member" | "viewer";
+  joinedAt: string;
+}
+
+export interface OrganizationInvite {
+  id: string;
+  email: string;
+  role: "admin" | "member" | "viewer";
+  status: "pending" | "accepted" | "expired";
+  expiresAt: string;
+  createdAt: string;
+}
+
 export interface Benchmarks {
   p10: number;
   p25: number;
@@ -1261,6 +1357,7 @@ export interface ActionItem {
   title: string;
   description: string | null;
   assigneeId: string | null;
+  dueAt: string | null;
   verifiedAt: string | null;
   verifiedByCrawlId: string | null;
   createdAt: string;
@@ -1333,7 +1430,7 @@ async function request<T>(
   headers.set("Content-Type", "application/json");
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(apiUrl(path), {
       ...init,
       headers,
       credentials: "include",
@@ -1434,7 +1531,7 @@ async function postDownload(path: string): Promise<{
   contentType: string | null;
   content: string;
 }> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(apiUrl(path), {
     method: "POST",
     credentials: "include",
     headers: { Accept: "*/*" },
@@ -1645,7 +1742,7 @@ export const api = {
       if (format === "csv") {
         // For CSV, we need the raw response
         const res = await fetch(
-          `${API_BASE_URL}/api/crawls/${crawlId}/export?format=csv`,
+          apiUrl(`/api/crawls/${crawlId}/export?format=csv`),
           {
             headers: { Accept: "text/csv" },
             credentials: "include",
@@ -2046,39 +2143,72 @@ export const api = {
       return res.data;
     },
 
-    async getTrends(projectId: string): Promise<VisibilityTrend[]> {
+    async getTrends(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<VisibilityTrend[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<VisibilityTrend[]>>(
-        `/api/visibility/${projectId}/trends`,
+        `/api/visibility/${projectId}/trends${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
 
-    async getGaps(projectId: string): Promise<VisibilityGap[]> {
+    async getGaps(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<VisibilityGap[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<VisibilityGap[]>>(
-        `/api/visibility/${projectId}/gaps`,
+        `/api/visibility/${projectId}/gaps${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
 
-    async getCitedPages(projectId: string): Promise<CitedPage[]> {
+    async getCitedPages(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<CitedPage[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<CitedPage[]>>(
-        `/api/visibility/${projectId}/cited-pages`,
+        `/api/visibility/${projectId}/cited-pages${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
 
-    async getBrandPerformance(projectId: string): Promise<BrandPerformance> {
+    async getBrandPerformance(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<BrandPerformance> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<BrandPerformance>>(
-        `/api/visibility/${projectId}/brand-performance`,
+        `/api/visibility/${projectId}/brand-performance${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
 
     async getSourceOpportunities(
       projectId: string,
+      filters?: { region?: string; language?: string },
     ): Promise<SourceOpportunity[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<SourceOpportunity[]>>(
-        `/api/visibility/${projectId}/source-opportunities`,
+        `/api/visibility/${projectId}/source-opportunities${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
@@ -2115,7 +2245,14 @@ export const api = {
       },
     },
 
-    async getAIScore(projectId: string) {
+    async getAIScore(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<
         ApiEnvelope<{
           overall: number;
@@ -2133,7 +2270,7 @@ export const api = {
             referringDomains: number;
           };
         }>
-      >(`/api/visibility/${projectId}/ai-score`);
+      >(`/api/visibility/${projectId}/ai-score${qs ? `?${qs}` : ""}`);
       return res.data;
     },
 
@@ -2168,9 +2305,14 @@ export const api = {
 
     async getRecommendations(
       projectId: string,
+      filters?: { region?: string; language?: string },
     ): Promise<VisibilityRecommendation[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<VisibilityRecommendation[]>>(
-        `/api/visibility/${projectId}/recommendations`,
+        `/api/visibility/${projectId}/recommendations${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
@@ -2178,16 +2320,39 @@ export const api = {
 
   // ── Brand ────────────────────────────────────────────────────
   brand: {
-    async getSentiment(projectId: string): Promise<BrandSentiment> {
+    async getSentiment(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<BrandSentiment> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
       const res = await apiClient.get<ApiEnvelope<BrandSentiment>>(
-        `/api/brand/${projectId}/sentiment`,
+        `/api/brand/${projectId}/sentiment${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
 
-    async getSentimentHistory(projectId: string) {
-      const res = await apiClient.get<ApiEnvelope<unknown[]>>(
+    async getSentimentHistory(
+      projectId: string,
+    ): Promise<BrandSentimentSnapshot[]> {
+      const res = await apiClient.get<ApiEnvelope<BrandSentimentSnapshot[]>>(
         `/api/brand/${projectId}/sentiment/history`,
+      );
+      return res.data;
+    },
+
+    async getPerception(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<BrandPerceptionProvider[]> {
+      const params = new URLSearchParams();
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+      const qs = params.toString();
+      const res = await apiClient.get<ApiEnvelope<BrandPerceptionProvider[]>>(
+        `/api/brand/${projectId}/perception${qs ? `?${qs}` : ""}`,
       );
       return res.data;
     },
@@ -2215,6 +2380,27 @@ export const api = {
 
     async remove(projectId: string, promptId: string): Promise<void> {
       await apiClient.delete(`/api/prompt-research/${projectId}/${promptId}`);
+    },
+
+    async check(data: {
+      projectId: string;
+      promptId?: string;
+      prompt?: string;
+      providers?: string[];
+      region?: string;
+      language?: string;
+    }): Promise<PromptCheckResult> {
+      const res = await apiClient.post<ApiEnvelope<PromptCheckResult>>(
+        `/api/prompt-research/${data.projectId}/check`,
+        {
+          promptId: data.promptId,
+          prompt: data.prompt,
+          providers: data.providers,
+          region: data.region,
+          language: data.language,
+        },
+      );
+      return res.data;
     },
   },
 
@@ -2503,6 +2689,23 @@ export const api = {
       return res.data;
     },
 
+    async getPreferences(): Promise<AccountPreferences> {
+      const res = await apiClient.get<ApiEnvelope<AccountPreferences>>(
+        "/api/account/preferences",
+      );
+      return res.data;
+    },
+
+    async updatePreferences(
+      data: Partial<AccountPreferences>,
+    ): Promise<AccountPreferences> {
+      const res = await apiClient.put<ApiEnvelope<AccountPreferences>>(
+        "/api/account/preferences",
+        data,
+      );
+      return res.data;
+    },
+
     async updateProfile(data: {
       name?: string;
       phone?: string;
@@ -2683,12 +2886,9 @@ export const api = {
     },
 
     async download(reportId: string): Promise<Blob> {
-      const res = await fetch(
-        `${API_BASE_URL}/api/reports/${reportId}/download`,
-        {
-          credentials: "include",
-        },
-      );
+      const res = await fetch(apiUrl(`/api/reports/${reportId}/download`), {
+        credentials: "include",
+      });
       if (!res.ok) {
         const text = await res.text();
         console.error("Report download failed:", res.status, text);
@@ -2996,9 +3196,7 @@ export const api = {
     },
 
     async getPublicReport(token: string): Promise<PublicReport> {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/public/reports/${token}`,
-      );
+      const res = await fetch(apiUrl(`/api/public/reports/${token}`));
       if (!res.ok) throw new Error("Report not found");
       const json = await res.json();
       return json.data;
@@ -3166,53 +3364,160 @@ export const api = {
   },
 
   // ── Teams ───────────────────────────────────────────────────
-  teams: {
-    async list(): Promise<Team[]> {
-      const res = await apiClient.get<ApiEnvelope<Team[]>>("/api/teams");
+  organizations: {
+    async getCurrent(): Promise<Organization | null> {
+      const res =
+        await apiClient.get<ApiEnvelope<Organization | null>>("/api/orgs");
       return res.data;
     },
-    async create(name: string): Promise<Team> {
-      const res = await apiClient.post<ApiEnvelope<Team>>("/api/teams", {
-        name,
-      });
+    async create(data: { name: string; slug: string }): Promise<Organization> {
+      const res = await apiClient.post<ApiEnvelope<Organization>>(
+        "/api/orgs",
+        data,
+      );
       return res.data;
     },
-    async getById(id: string): Promise<TeamDetail> {
-      const res = await apiClient.get<ApiEnvelope<TeamDetail>>(
-        `/api/teams/${id}`,
+    async getById(id: string): Promise<Organization> {
+      const res = await apiClient.get<ApiEnvelope<Organization>>(
+        `/api/orgs/${id}`,
+      );
+      return res.data;
+    },
+    async listMembers(orgId: string): Promise<OrganizationMember[]> {
+      const res = await apiClient.get<ApiEnvelope<OrganizationMember[]>>(
+        `/api/orgs/${orgId}/members`,
       );
       return res.data;
     },
     async invite(
-      teamId: string,
-      data: { email: string; role?: string },
-    ): Promise<unknown> {
-      const res = await apiClient.post<ApiEnvelope<unknown>>(
-        `/api/teams/${teamId}/invite`,
-        data,
+      orgId: string,
+      data: { email: string; role?: "admin" | "member" | "viewer" },
+    ): Promise<OrganizationInvite> {
+      const res = await apiClient.post<ApiEnvelope<OrganizationInvite>>(
+        `/api/orgs/${orgId}/invites`,
+        {
+          email: data.email,
+          role: data.role ?? "member",
+        },
+      );
+      return res.data;
+    },
+    async listInvites(orgId: string): Promise<OrganizationInvite[]> {
+      const res = await apiClient.get<ApiEnvelope<OrganizationInvite[]>>(
+        `/api/orgs/${orgId}/invites`,
       );
       return res.data;
     },
     async acceptInvite(token: string): Promise<unknown> {
       const res = await apiClient.post<ApiEnvelope<unknown>>(
-        "/api/teams/accept-invite",
+        "/api/orgs/accept-invite",
         { token },
       );
       return res.data;
+    },
+    async updateMemberRole(
+      orgId: string,
+      memberId: string,
+      role: "admin" | "member" | "viewer",
+    ): Promise<OrganizationMember> {
+      const res = await apiClient.patch<ApiEnvelope<OrganizationMember>>(
+        `/api/orgs/${orgId}/members/${memberId}`,
+        { role },
+      );
+      return res.data;
+    },
+    async removeMember(orgId: string, memberId: string): Promise<void> {
+      await apiClient.delete(`/api/orgs/${orgId}/members/${memberId}`);
+    },
+  },
+
+  // ── Teams (Legacy compatibility adapter) ─────────────────────
+  teams: {
+    async list(): Promise<Team[]> {
+      const org = await api.organizations.getCurrent();
+      if (!org) return [];
+      return [
+        {
+          id: org.id,
+          name: org.name,
+          ownerId: "",
+          plan: "",
+          role: "owner",
+          createdAt: org.createdAt,
+        },
+      ];
+    },
+    async create(name: string): Promise<Team> {
+      const slug = name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 64);
+      const org = await api.organizations.create({
+        name,
+        slug,
+      });
+      return {
+        id: org.id,
+        name: org.name,
+        ownerId: "",
+        plan: "",
+        role: "owner",
+        createdAt: org.createdAt,
+      };
+    },
+    async getById(id: string): Promise<TeamDetail> {
+      const [org, members] = await Promise.all([
+        api.organizations.getById(id),
+        api.organizations.listMembers(id),
+      ]);
+      return {
+        id: org.id,
+        name: org.name,
+        ownerId: "",
+        plan: "",
+        createdAt: org.createdAt,
+        role: "owner",
+        members: members.map((m) => ({
+          id: m.id,
+          teamId: org.id,
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          role: m.role === "member" ? "editor" : m.role,
+          joinedAt: m.joinedAt,
+        })),
+      };
+    },
+    async invite(
+      teamId: string,
+      data: { email: string; role?: string },
+    ): Promise<unknown> {
+      return api.organizations.invite(teamId, {
+        email: data.email,
+        role:
+          data.role === "admin" || data.role === "viewer"
+            ? data.role
+            : "member",
+      });
+    },
+    async acceptInvite(token: string): Promise<unknown> {
+      return api.organizations.acceptInvite(token);
     },
     async updateRole(
       teamId: string,
       memberId: string,
       role: string,
     ): Promise<unknown> {
-      const res = await apiClient.patch<ApiEnvelope<unknown>>(
-        `/api/teams/${teamId}/members/${memberId}`,
-        { role },
+      return api.organizations.updateMemberRole(
+        teamId,
+        memberId,
+        role === "admin" || role === "viewer" ? role : "member",
       );
-      return res.data;
     },
     async removeMember(teamId: string, memberId: string): Promise<void> {
-      await apiClient.delete(`/api/teams/${teamId}/members/${memberId}`);
+      await api.organizations.removeMember(teamId, memberId);
     },
   },
 
@@ -3238,7 +3543,7 @@ export const api = {
   exports: {
     download(projectId: string, format: "csv" | "json") {
       window.open(
-        `${API_BASE_URL}/api/projects/${projectId}/export?format=${format}`,
+        apiUrl(`/api/projects/${projectId}/export?format=${format}`),
         "_blank",
       );
     },
@@ -3379,6 +3684,48 @@ export const api = {
 
   // ── Action Items ───────────────────────────────────────────────
   actionItems: {
+    async create(data: {
+      projectId: string;
+      issueCode: string;
+      status?: ActionItemStatus;
+      severity?: "critical" | "warning" | "info";
+      category?:
+        | "technical"
+        | "content"
+        | "ai_readiness"
+        | "performance"
+        | "schema"
+        | "llm_visibility";
+      scoreImpact?: number;
+      title: string;
+      description?: string | null;
+      assigneeId?: string | null;
+      dueAt?: string | null;
+    }): Promise<ActionItem> {
+      const res = await apiClient.post<ApiEnvelope<ActionItem>>(
+        "/api/action-items",
+        data,
+      );
+      return res.data;
+    },
+
+    async update(
+      id: string,
+      data: Partial<{
+        status: ActionItemStatus;
+        assigneeId: string | null;
+        dueAt: string | null;
+        title: string;
+        description: string | null;
+      }>,
+    ): Promise<ActionItem> {
+      const res = await apiClient.patch<ApiEnvelope<ActionItem>>(
+        `/api/action-items/${id}`,
+        data,
+      );
+      return res.data;
+    },
+
     async list(projectId: string): Promise<ActionItem[]> {
       const res = await apiClient.get<ApiEnvelope<ActionItem[]>>(
         `/api/action-items?projectId=${projectId}`,

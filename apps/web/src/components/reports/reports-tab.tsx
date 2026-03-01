@@ -30,6 +30,77 @@ interface Props {
   crawlJobId: string | undefined;
 }
 
+type ReportAudience = "executive" | "seo_lead" | "content_lead";
+
+const REPORT_AUDIENCE_PRESETS: Record<
+  ReportAudience,
+  {
+    label: string;
+    description: string;
+    format: "pdf" | "docx";
+    type: "summary" | "detailed";
+  }
+> = {
+  executive: {
+    label: "Executive Summary",
+    description: "High-level outcomes for leadership updates.",
+    format: "pdf",
+    type: "summary",
+  },
+  seo_lead: {
+    label: "SEO Lead",
+    description: "Detailed technical and visibility context for SEO owners.",
+    format: "pdf",
+    type: "detailed",
+  },
+  content_lead: {
+    label: "Content Lead",
+    description: "Detailed findings optimized for editorial execution.",
+    format: "docx",
+    type: "detailed",
+  },
+};
+
+const REPORT_AUDIENCE_ORDER: ReportAudience[] = [
+  "executive",
+  "seo_lead",
+  "content_lead",
+];
+
+function parseRecipientEmails(rawInput: string): {
+  valid: string[];
+  invalid: string[];
+} {
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  const invalid: string[] = [];
+
+  for (const token of rawInput.split(/[,\n;]+/g)) {
+    const normalized = token.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+
+    if (EMAIL_RE.test(normalized)) {
+      valid.push(normalized);
+    } else {
+      invalid.push(normalized);
+    }
+  }
+
+  return { valid, invalid };
+}
+
+function inferAudienceFromSchedule(
+  schedule: ReportSchedule,
+): ReportAudience | null {
+  const match = REPORT_AUDIENCE_ORDER.find((audience) => {
+    const preset = REPORT_AUDIENCE_PRESETS[audience];
+    return preset.format === schedule.format && preset.type === schedule.type;
+  });
+  return match ?? null;
+}
+
 export default function ReportsTab({ projectId, crawlJobId }: Props) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,20 +233,38 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
       )}
 
       {/* Auto-Report Settings */}
-      <AutoReportSettings projectId={projectId} />
+      <AutoReportSettings
+        projectId={projectId}
+        crawlJobId={crawlJobId}
+        onReportGenerated={fetchReports}
+      />
     </div>
   );
 }
 
-function AutoReportSettings({ projectId }: { projectId: string }) {
+function AutoReportSettings({
+  projectId,
+  crawlJobId,
+  onReportGenerated,
+}: {
+  projectId: string;
+  crawlJobId?: string;
+  onReportGenerated?: () => Promise<void> | void;
+}) {
   const [schedules, setSchedules] = useState<ReportSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
-  const [email, setEmail] = useState("");
+  const [audience, setAudience] = useState<ReportAudience>("executive");
+  const [recipientInput, setRecipientInput] = useState("");
   const [format, setFormat] = useState<"pdf" | "docx">("pdf");
   const [type, setType] = useState<"summary" | "detailed">("summary");
   const [saving, setSaving] = useState(false);
+  const [sendingNowScheduleId, setSendingNowScheduleId] = useState<
+    string | null
+  >(null);
   const { toast } = useToast();
+
+  const selectedPreset = REPORT_AUDIENCE_PRESETS[audience];
 
   const fetchSchedules = useCallback(async () => {
     try {
@@ -197,19 +286,90 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
     fetchSchedules();
   }, [fetchSchedules]);
 
+  function handleAudienceSelect(nextAudience: ReportAudience) {
+    setAudience(nextAudience);
+    const preset = REPORT_AUDIENCE_PRESETS[nextAudience];
+    setFormat(preset.format);
+    setType(preset.type);
+  }
+
   async function handleCreate() {
-    if (!email || locked) return;
+    if (!recipientInput || locked) return;
+    const { valid, invalid } = parseRecipientEmails(recipientInput);
+    if (valid.length === 0) {
+      toast({
+        title: "Add at least one valid email",
+        description:
+          invalid.length > 0
+            ? `Invalid addresses: ${invalid.join(", ")}`
+            : "Enter one or more recipient emails.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (invalid.length > 0) {
+      toast({
+        title: "Some emails were ignored",
+        description: `Invalid addresses: ${invalid.join(", ")}`,
+        variant: "destructive",
+      });
+    }
+
     setSaving(true);
     try {
-      const schedule = await api.reports.schedules.create({
-        projectId,
-        format,
-        type,
-        recipientEmail: email,
-      });
-      setSchedules((prev) => [...prev, schedule]);
-      setEmail("");
-      toast({ title: "Schedule created" });
+      const created: ReportSchedule[] = [];
+      const failed: string[] = [];
+      let planLocked = false;
+
+      await Promise.all(
+        valid.map(async (recipientEmail) => {
+          try {
+            const schedule = await api.reports.schedules.create({
+              projectId,
+              format,
+              type,
+              recipientEmail,
+            });
+            created.push(schedule);
+          } catch (err) {
+            if (err instanceof ApiError && err.status === 403) {
+              planLocked = true;
+            }
+            failed.push(recipientEmail);
+          }
+        }),
+      );
+
+      if (planLocked) {
+        setLocked(true);
+      }
+
+      if (created.length > 0) {
+        setSchedules((prev) => [...prev, ...created]);
+        setRecipientInput("");
+      }
+
+      if (failed.length === 0) {
+        toast({
+          title:
+            created.length === 1 ? "Schedule created" : "Schedules created",
+          description:
+            created.length > 1
+              ? `${created.length} recipients added.`
+              : undefined,
+        });
+      } else if (created.length > 0) {
+        toast({
+          title: "Partial success",
+          description: `Created ${created.length} schedules. Failed: ${failed.join(", ")}`,
+          variant: "destructive",
+        });
+      } else {
+        throw new Error(
+          "Could not create report schedules for the provided recipients.",
+        );
+      }
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
         setLocked(true);
@@ -222,6 +382,42 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSendNow(schedule: ReportSchedule) {
+    if (!crawlJobId) {
+      toast({
+        title: "No completed crawl yet",
+        description: "Run a crawl before sending a scheduled report now.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingNowScheduleId(schedule.id);
+    try {
+      await api.reports.generate({
+        projectId,
+        crawlJobId,
+        format: schedule.format,
+        type: schedule.type,
+        config: { preparedFor: schedule.recipientEmail },
+      });
+      await onReportGenerated?.();
+      toast({
+        title: "Report queued",
+        description: `A ${schedule.type} ${schedule.format.toUpperCase()} report is generating now.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to send now",
+        description:
+          err instanceof Error ? err.message : "Could not generate the report.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingNowScheduleId(null);
     }
   }
 
@@ -279,41 +475,104 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
           </div>
         )}
 
+        {!locked && (
+          <div className="space-y-3 rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">1. Choose audience preset</p>
+              <p className="text-xs text-muted-foreground">
+                Presets configure report depth and output format.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {REPORT_AUDIENCE_ORDER.map((presetAudience) => {
+                const preset = REPORT_AUDIENCE_PRESETS[presetAudience];
+                const selected = audience === presetAudience;
+                return (
+                  <button
+                    key={presetAudience}
+                    type="button"
+                    onClick={() => handleAudienceSelect(presetAudience)}
+                    className={`rounded-md border p-3 text-left transition-colors ${
+                      selected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:bg-muted/50"
+                    }`}
+                  >
+                    <p className="text-sm font-medium">{preset.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {preset.description}
+                    </p>
+                    <p className="mt-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {preset.type} • {preset.format}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              Selected preset:{" "}
+              <span className="font-medium">{selectedPreset.label}</span> (
+              {selectedPreset.type}, {selectedPreset.format.toUpperCase()})
+            </div>
+          </div>
+        )}
+
         {/* Existing schedules */}
         {schedules.length > 0 && (
           <div className="space-y-2">
-            {schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">
-                    {schedule.recipientEmail}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {schedule.format.toUpperCase()} &bull;{" "}
-                    {schedule.type === "detailed" ? "Detailed" : "Summary"}
-                  </p>
+            {schedules.map((schedule) => {
+              const inferredAudience = inferAudienceFromSchedule(schedule);
+              return (
+                <div
+                  key={schedule.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">
+                      {schedule.recipientEmail}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {schedule.format.toUpperCase()} &bull;{" "}
+                      {schedule.type === "detailed" ? "Detailed" : "Summary"}
+                    </p>
+                    {inferredAudience && (
+                      <p className="text-xs text-muted-foreground">
+                        Audience:{" "}
+                        {REPORT_AUDIENCE_PRESETS[inferredAudience].label}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={
+                        !crawlJobId || sendingNowScheduleId === schedule.id
+                      }
+                      onClick={() => handleSendNow(schedule)}
+                    >
+                      {sendingNowScheduleId === schedule.id
+                        ? "Sending..."
+                        : "Send now"}
+                    </Button>
+                    <Badge
+                      variant={schedule.enabled ? "success" : "secondary"}
+                      className="cursor-pointer"
+                      onClick={() => handleToggle(schedule)}
+                    >
+                      {schedule.enabled ? "Active" : "Paused"}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(schedule.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={schedule.enabled ? "success" : "secondary"}
-                    className="cursor-pointer"
-                    onClick={() => handleToggle(schedule)}
-                  >
-                    {schedule.enabled ? "Active" : "Paused"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(schedule.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -323,12 +582,16 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
             <Label htmlFor="schedule-email">Recipient Email</Label>
             <Input
               id="schedule-email"
-              type="email"
-              placeholder="client@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="client@example.com, team@example.com"
+              value={recipientInput}
+              onChange={(e) => setRecipientInput(e.target.value)}
               disabled={locked}
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              2. Add one or more recipients separated by comma, semicolon, or
+              new line.
+            </p>
           </div>
           <div>
             <Label>Format</Label>
@@ -365,10 +628,10 @@ function AutoReportSettings({ projectId }: { projectId: string }) {
         </div>
         <Button
           onClick={handleCreate}
-          disabled={saving || !email || locked}
+          disabled={saving || !recipientInput || locked}
           size="sm"
         >
-          {saving ? "Creating..." : "Add Schedule"}
+          {saving ? "Creating..." : "3. Add Schedule"}
         </Button>
       </CardContent>
     </Card>

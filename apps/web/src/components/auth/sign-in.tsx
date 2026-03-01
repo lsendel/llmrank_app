@@ -2,36 +2,84 @@
 
 import { signIn } from "@/lib/auth-client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { track } from "@/lib/telemetry";
+import {
+  clearPendingAuthRedirect,
+  setPendingAuthRedirect,
+} from "@/components/auth-redirect-tracker";
 
 export function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const redirectTarget = (() => {
+    const redirect = searchParams.get("redirect");
+    if (!redirect || !redirect.startsWith("/")) return "/dashboard";
+    return redirect;
+  })();
 
   const handleSignIn = async () => {
     setLoading(true);
-    await signIn.email({
-      email,
-      password,
-      fetchOptions: {
-        onSuccess: () => {
-          router.push("/dashboard");
+    setError(null);
+
+    try {
+      await signIn.email({
+        email,
+        password,
+        fetchOptions: {
+          onSuccess: () => {
+            setPendingAuthRedirect(redirectTarget, "sign-in", "email");
+            track("auth.sign_in_success", {
+              auth_method: "email",
+              redirect_target: redirectTarget,
+            });
+            router.push(redirectTarget);
+          },
+          onError: (ctx) => {
+            track("auth.sign_in_failed", {
+              auth_method: "email",
+              error: ctx.error.message,
+            });
+            setError(ctx.error.message);
+            setLoading(false);
+          },
         },
-        onError: (ctx) => {
-          alert(ctx.error.message);
-          setLoading(false);
-        },
-      },
-    });
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed.");
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    await signIn.social({
-      provider: "google",
-      callbackURL: window.location.origin + "/dashboard",
-    });
+    setError(null);
+    setSocialLoading(true);
+
+    try {
+      setPendingAuthRedirect(redirectTarget, "sign-in", "google");
+      track("auth.sign_in_started", {
+        auth_method: "google",
+        redirect_target: redirectTarget,
+      });
+      await signIn.social({
+        provider: "google",
+        callbackURL: window.location.origin + redirectTarget,
+      });
+    } catch (err) {
+      clearPendingAuthRedirect();
+      track("auth.sign_in_failed", {
+        auth_method: "google",
+        error: err instanceof Error ? err.message : "google_sign_in_failed",
+      });
+      setError(err instanceof Error ? err.message : "Google sign in failed.");
+      setSocialLoading(false);
+    }
   };
 
   return (
@@ -59,7 +107,7 @@ export function SignIn() {
       </div>
       <button
         onClick={handleSignIn}
-        disabled={loading}
+        disabled={loading || socialLoading}
         className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50"
       >
         {loading ? "Signing in..." : "Sign In"}
@@ -76,10 +124,12 @@ export function SignIn() {
 
       <button
         onClick={handleGoogleSignIn}
-        className="flex items-center justify-center gap-2 border p-2 rounded hover:bg-gray-50"
+        disabled={loading || socialLoading}
+        className="flex items-center justify-center gap-2 border p-2 rounded hover:bg-gray-50 disabled:opacity-50"
       >
-        Google
+        {socialLoading ? "Connecting..." : "Google"}
       </button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

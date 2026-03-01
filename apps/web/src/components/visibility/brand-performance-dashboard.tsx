@@ -46,14 +46,16 @@ function TrendIndicator({ value }: { value: number }) {
 
 export function BrandPerformanceDashboard({
   projectId,
+  filters,
 }: {
   projectId: string;
+  filters?: { region?: string; language?: string };
 }) {
   const { data: perf, isLoading } = useApiSWR<BrandPerformance>(
-    `brand-performance-${projectId}`,
+    `brand-performance-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
     useCallback(
-      () => api.visibility.getBrandPerformance(projectId),
-      [projectId],
+      () => api.visibility.getBrandPerformance(projectId, filters),
+      [projectId, filters],
     ),
   );
 

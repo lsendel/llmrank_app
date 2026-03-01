@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GeneralSection } from "@/components/settings/general-section";
 import { BrandingSection } from "@/components/settings/branding-section";
 import { NotificationChannelsSection } from "@/components/settings/notification-channels-section";
 import { ApiTokensSection } from "@/components/settings/api-tokens-section";
 import { DigestPreferencesSection } from "@/components/settings/digest-preferences-section";
+import { apiUrl } from "@/lib/api-base-url";
+import { StateMessage } from "@/components/ui/state";
 import { extractOrgIdFromPayload } from "./org-response";
+import { DEFAULT_SETTINGS_TAB, normalizeSettingsTab } from "./tab-state";
 
 const TeamSection = dynamic(
   () =>
@@ -17,9 +21,12 @@ const TeamSection = dynamic(
     })),
   {
     loading: () => (
-      <p className="py-8 text-center text-muted-foreground">
-        Loading team settings...
-      </p>
+      <StateMessage
+        variant="loading"
+        title="Loading team settings"
+        compact
+        className="py-8"
+      />
     ),
   },
 );
@@ -31,9 +38,12 @@ const SsoConfiguration = dynamic(
     })),
   {
     loading: () => (
-      <p className="py-8 text-center text-muted-foreground">
-        Loading SSO settings...
-      </p>
+      <StateMessage
+        variant="loading"
+        title="Loading SSO settings"
+        compact
+        className="py-8"
+      />
     ),
   },
 );
@@ -45,25 +55,79 @@ const AuditLogSection = dynamic(
     })),
   {
     loading: () => (
-      <p className="py-8 text-center text-muted-foreground">
-        Loading audit log...
-      </p>
+      <StateMessage
+        variant="loading"
+        title="Loading audit log"
+        compact
+        className="py-8"
+      />
     ),
   },
 );
 
 export default function SettingsPage() {
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgResolved, setOrgResolved] = useState(false);
+  const [orgLoadError, setOrgLoadError] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
-    fetch(`${baseUrl}/api/orgs`, { credentials: "include" })
+  const rawTab = searchParams.get("tab");
+  const hasOrganizationAccess = orgResolved ? Boolean(orgId) : true;
+  const activeTab = normalizeSettingsTab(rawTab, hasOrganizationAccess);
+
+  const loadOrganization = useCallback((reset = false) => {
+    if (reset) {
+      setOrgResolved(false);
+      setOrgLoadError(false);
+    }
+    return fetch(apiUrl("/api/orgs"), { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         setOrgId(extractOrgIdFromPayload(json));
+        setOrgLoadError(false);
       })
-      .catch(() => {});
+      .catch(() => {
+        setOrgLoadError(true);
+        setOrgId(null);
+      })
+      .finally(() => setOrgResolved(true));
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadOrganization();
+  }, [loadOrganization]);
+
+  useEffect(() => {
+    if (!rawTab || !orgResolved) return;
+    if (rawTab === activeTab) return;
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (activeTab === DEFAULT_SETTINGS_TAB) {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", activeTab);
+    }
+
+    const qs = nextParams.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [activeTab, orgResolved, pathname, rawTab, router, searchParams]);
+
+  function handleTabChange(value: string) {
+    const nextTab = normalizeSettingsTab(value, Boolean(orgId));
+    const nextParams = new URLSearchParams(searchParams.toString());
+
+    if (nextTab === DEFAULT_SETTINGS_TAB) {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+
+    const qs = nextParams.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   return (
     <div className="space-y-8">
@@ -74,7 +138,17 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="general">
+      {orgLoadError && (
+        <StateMessage
+          variant="error"
+          compact
+          title="Could not load organization settings"
+          description="Team, SSO, and audit tabs may be limited until this is resolved."
+          retry={{ onClick: () => void loadOrganization(true) }}
+        />
+      )}
+
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>

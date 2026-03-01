@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn, scoreColor } from "@/lib/utils";
 import {
   Loader2,
@@ -238,6 +239,78 @@ export default function OnboardingPage() {
               {state.stepError && (
                 <p className="text-sm text-destructive">{state.stepError}</p>
               )}
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                <p className="text-sm font-medium">Confirm default setup</p>
+                <p className="text-xs text-muted-foreground">
+                  Choose what should be enabled before your first crawl starts.
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-xs">Crawl cadence</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { value: "weekly", label: "Weekly (recommended)" },
+                        { value: "manual", label: "Manual" },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          dispatch({
+                            type: "SET_DEFAULT_CRAWL_SCHEDULE",
+                            schedule: option.value,
+                          })
+                        }
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:border-primary/60",
+                          state.defaultCrawlSchedule === option.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border",
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={state.defaultAutoRunOnCrawl}
+                    onCheckedChange={(checked) =>
+                      dispatch({
+                        type: "SET_DEFAULT_AUTO_RUN_ON_CRAWL",
+                        enabled: checked === true,
+                      })
+                    }
+                  />
+                  <span>Enable post-crawl automation pipeline</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={state.defaultVisibilityScheduleEnabled}
+                    onCheckedChange={(checked) =>
+                      dispatch({
+                        type: "SET_DEFAULT_VISIBILITY_SCHEDULE_ENABLED",
+                        enabled: checked === true,
+                      })
+                    }
+                  />
+                  <span>Create weekly visibility monitoring schedule</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox
+                    checked={state.defaultWeeklyDigestEnabled}
+                    onCheckedChange={(checked) =>
+                      dispatch({
+                        type: "SET_DEFAULT_WEEKLY_DIGEST_ENABLED",
+                        enabled: checked === true,
+                      })
+                    }
+                  />
+                  <span>Enable weekly digest if currently off</span>
+                </label>
+              </div>
               <div className="flex gap-3">
                 <Button
                   variant="ghost"

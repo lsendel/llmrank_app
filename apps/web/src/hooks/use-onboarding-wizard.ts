@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { track } from "@/lib/telemetry";
 import { isActiveCrawlStatus } from "@/components/crawl-progress";
 import type { CrawlStatus } from "@/components/crawl-progress";
+import { applyProjectWorkspaceDefaults } from "@/lib/project-workspace-defaults";
 
 // ---------------------------------------------------------------------------
 // CrawlData (duplicated from page — rendering concern lives in the page,
@@ -45,6 +46,10 @@ export interface WizardState {
   // Step 1
   domain: string;
   projectName: string;
+  defaultCrawlSchedule: "manual" | "daily" | "weekly" | "monthly";
+  defaultAutoRunOnCrawl: boolean;
+  defaultVisibilityScheduleEnabled: boolean;
+  defaultWeeklyDigestEnabled: boolean;
   submitting: boolean;
   stepError: string | null;
   // Step 2
@@ -66,6 +71,10 @@ const initialState: WizardState = {
   teamSize: null,
   domain: "",
   projectName: "",
+  defaultCrawlSchedule: "weekly",
+  defaultAutoRunOnCrawl: true,
+  defaultVisibilityScheduleEnabled: true,
+  defaultWeeklyDigestEnabled: true,
   submitting: false,
   stepError: null,
   projectId: null,
@@ -89,6 +98,13 @@ export type Action =
   | { type: "SET_TEAM_SIZE"; teamSize: string | null }
   | { type: "SET_DOMAIN"; domain: string }
   | { type: "SET_PROJECT_NAME"; projectName: string }
+  | {
+      type: "SET_DEFAULT_CRAWL_SCHEDULE";
+      schedule: "manual" | "daily" | "weekly" | "monthly";
+    }
+  | { type: "SET_DEFAULT_AUTO_RUN_ON_CRAWL"; enabled: boolean }
+  | { type: "SET_DEFAULT_VISIBILITY_SCHEDULE_ENABLED"; enabled: boolean }
+  | { type: "SET_DEFAULT_WEEKLY_DIGEST_ENABLED"; enabled: boolean }
   | { type: "SET_SUBMITTING"; submitting: boolean }
   | { type: "SET_STEP_ERROR"; error: string | null }
   | { type: "SET_PROJECT_ID"; projectId: string }
@@ -129,6 +145,14 @@ export function reducer(state: WizardState, action: Action): WizardState {
       return { ...state, domain: action.domain };
     case "SET_PROJECT_NAME":
       return { ...state, projectName: action.projectName };
+    case "SET_DEFAULT_CRAWL_SCHEDULE":
+      return { ...state, defaultCrawlSchedule: action.schedule };
+    case "SET_DEFAULT_AUTO_RUN_ON_CRAWL":
+      return { ...state, defaultAutoRunOnCrawl: action.enabled };
+    case "SET_DEFAULT_VISIBILITY_SCHEDULE_ENABLED":
+      return { ...state, defaultVisibilityScheduleEnabled: action.enabled };
+    case "SET_DEFAULT_WEEKLY_DIGEST_ENABLED":
+      return { ...state, defaultWeeklyDigestEnabled: action.enabled };
     case "SET_SUBMITTING":
       return { ...state, submitting: action.submitting };
     case "SET_STEP_ERROR":
@@ -377,15 +401,37 @@ export function useOnboardingWizard(tipsLength: number) {
 
       // Fire profile update + project creation + optional persona classification
       // Persona is best-effort — use allSettled so it never blocks onboarding
+      const projectCreationPromise = api.projects
+        .create({
+          name: state.projectName.trim(),
+          domain: normalizedDomain,
+        })
+        .then(async (project) => {
+          const defaults = await applyProjectWorkspaceDefaults({
+            projectId: project.id,
+            domainOrUrl: normalizedDomain,
+            defaults: {
+              schedule: state.defaultCrawlSchedule,
+              autoRunOnCrawl: state.defaultAutoRunOnCrawl,
+              enableVisibilitySchedule: state.defaultVisibilityScheduleEnabled,
+              enableWeeklyDigest: state.defaultWeeklyDigestEnabled,
+            },
+          });
+          if (defaults.failed.length > 0) {
+            track("onboarding_workspace_defaults_partial_failure", {
+              projectId: project.id,
+              failed: defaults.failed.join(","),
+            });
+          }
+          return project;
+        });
+
       const promises: Promise<unknown>[] = [
         api.account.updateProfile({
           name: state.name.trim(),
           onboardingComplete: true,
         }),
-        api.projects.create({
-          name: state.projectName.trim(),
-          domain: normalizedDomain,
-        }),
+        projectCreationPromise,
       ];
 
       if (state.workStyle) {
@@ -433,6 +479,10 @@ export function useOnboardingWizard(tipsLength: number) {
     state.name,
     state.workStyle,
     state.teamSize,
+    state.defaultCrawlSchedule,
+    state.defaultAutoRunOnCrawl,
+    state.defaultVisibilityScheduleEnabled,
+    state.defaultWeeklyDigestEnabled,
   ]);
 
   const handleRetry = useCallback(() => {

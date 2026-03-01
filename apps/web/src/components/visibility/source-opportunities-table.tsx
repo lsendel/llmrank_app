@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,20 +15,26 @@ import {
 } from "@/components/ui/table";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, ApiError, type SourceOpportunity } from "@/lib/api";
-import { Target } from "lucide-react";
+import { ExternalLink, Target } from "lucide-react";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { StateCard } from "@/components/ui/state";
 
-export function SourceOpportunitiesTable({ projectId }: { projectId: string }) {
+export function SourceOpportunitiesTable({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const {
     data: opportunities,
     isLoading,
     error,
   } = useApiSWR<SourceOpportunity[]>(
-    `source-opportunities-${projectId}`,
+    `source-opportunities-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
     useCallback(
-      () => api.visibility.getSourceOpportunities(projectId),
-      [projectId],
+      () => api.visibility.getSourceOpportunities(projectId, filters),
+      [projectId, filters],
     ),
   );
 
@@ -82,6 +90,7 @@ export function SourceOpportunitiesTable({ projectId }: { projectId: string }) {
               <TableHead>Competitor Domain</TableHead>
               <TableHead className="text-center">Times Cited</TableHead>
               <TableHead>Queries They Appear In</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -110,6 +119,16 @@ export function SourceOpportunitiesTable({ projectId }: { projectId: string }) {
                       </Badge>
                     )}
                   </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      href={`/dashboard/projects/${projectId}?tab=competitors&focus=${encodeURIComponent(opp.domain)}`}
+                    >
+                      Get cited by this source
+                      <ExternalLink className="ml-1 h-3 w-3" />
+                    </Link>
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

@@ -27,48 +27,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// ─── Types ───────────────────────────────────────────────────────────
-
-interface Org {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: string;
-}
-
-interface OrgMember {
-  id: string;
-  userId: string;
-  name: string | null;
-  email: string;
-  role: "owner" | "admin" | "member" | "viewer";
-  joinedAt: string;
-}
-
-interface OrgInvite {
-  id: string;
-  email: string;
-  role: "admin" | "member" | "viewer";
-  status: "pending" | "accepted" | "expired";
-  expiresAt: string;
-  createdAt: string;
-}
-
-// ─── Fetch helper ────────────────────────────────────────────────────
-
-async function orgFetch(path: string, options?: RequestInit) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787"}${path}`,
-    {
-      ...options,
-      credentials: "include",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-    },
-  );
-  if (!res.ok) throw new Error("Request failed");
-  return res.json();
-}
+import {
+  api,
+  ApiError,
+  type Organization,
+  type OrganizationInvite,
+  type OrganizationMember,
+} from "@/lib/api";
 
 // ─── Role badge colors ──────────────────────────────────────────────
 
@@ -91,9 +56,9 @@ function roleBadgeVariant(
 
 export function TeamSection() {
   // Organization state
-  const [org, setOrg] = useState<Org | null>(null);
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [invites, setInvites] = useState<OrgInvite[]>([]);
+  const [org, setOrg] = useState<Organization | null>(null);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [invites, setInvites] = useState<OrganizationInvite[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Create org form
@@ -121,16 +86,16 @@ export function TeamSection() {
     async function loadOrg() {
       setLoading(true);
       try {
-        const data = await orgFetch("/api/orgs");
-        if (data.data) {
-          setOrg(data.data);
+        const currentOrg = await api.organizations.getCurrent();
+        if (currentOrg) {
+          setOrg(currentOrg);
           // Load members and invites in parallel
           const [membersRes, invitesRes] = await Promise.all([
-            orgFetch(`/api/orgs/${data.data.id}/members`),
-            orgFetch(`/api/orgs/${data.data.id}/invites`),
+            api.organizations.listMembers(currentOrg.id),
+            api.organizations.listInvites(currentOrg.id),
           ]);
-          setMembers(membersRes.data ?? []);
-          setInvites(invitesRes.data ?? []);
+          setMembers(membersRes);
+          setInvites(invitesRes);
         }
       } catch {
         // No org found or request failed — show create form
@@ -162,16 +127,20 @@ export function TeamSection() {
 
     setCreatingOrg(true);
     try {
-      const res = await orgFetch("/api/orgs", {
-        method: "POST",
-        body: JSON.stringify({ name: orgName.trim(), slug: orgSlug.trim() }),
+      const createdOrg = await api.organizations.create({
+        name: orgName.trim(),
+        slug: orgSlug.trim(),
       });
-      setOrg(res.data);
-      setMembers(res.data.members ?? []);
+      setOrg(createdOrg);
+      setMembers([]);
       setInvites([]);
     } catch (err) {
       setCreateOrgError(
-        err instanceof Error ? err.message : "Failed to create organization",
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to create organization",
       );
     } finally {
       setCreatingOrg(false);
@@ -191,17 +160,21 @@ export function TeamSection() {
 
     setSendingInvite(true);
     try {
-      const res = await orgFetch(`/api/orgs/${org.id}/invites`, {
-        method: "POST",
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      const invite = await api.organizations.invite(org.id, {
+        email: inviteEmail.trim(),
+        role: inviteRole,
       });
-      setInvites((prev) => [...prev, res.data]);
+      setInvites((prev) => [...prev, invite]);
       setInviteEmail("");
       setInviteRole("member");
       setInviteSuccess(true);
     } catch (err) {
       setInviteError(
-        err instanceof Error ? err.message : "Failed to send invite",
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to send invite",
       );
     } finally {
       setSendingInvite(false);
@@ -214,13 +187,16 @@ export function TeamSection() {
     if (!org) return;
     setUpdatingMemberId(memberId);
     try {
-      await orgFetch(`/api/orgs/${org.id}/members/${memberId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ role: newRole }),
-      });
+      await api.organizations.updateMemberRole(
+        org.id,
+        memberId,
+        newRole as "admin" | "member" | "viewer",
+      );
       setMembers((prev) =>
         prev.map((m) =>
-          m.id === memberId ? { ...m, role: newRole as OrgMember["role"] } : m,
+          m.id === memberId
+            ? { ...m, role: newRole as OrganizationMember["role"] }
+            : m,
         ),
       );
     } catch (err) {
@@ -236,9 +212,7 @@ export function TeamSection() {
     if (!org) return;
     setRemovingMemberId(memberId);
     try {
-      await orgFetch(`/api/orgs/${org.id}/members/${memberId}`, {
-        method: "DELETE",
-      });
+      await api.organizations.removeMember(org.id, memberId);
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
     } catch (err) {
       console.error("Failed to remove member:", err);

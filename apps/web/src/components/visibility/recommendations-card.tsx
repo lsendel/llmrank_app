@@ -31,12 +31,18 @@ const IMPACT_STYLES: Record<string, string> = {
   low: "bg-blue-100 text-blue-800",
 };
 
-export function RecommendationsCard({ projectId }: { projectId: string }) {
+export function RecommendationsCard({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const { data, isLoading } = useApiSWR<VisibilityRecommendation[]>(
-    `recommendations-${projectId}`,
+    `recommendations-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
     useCallback(
-      () => api.visibility.getRecommendations(projectId),
-      [projectId],
+      () => api.visibility.getRecommendations(projectId, filters),
+      [projectId, filters],
     ),
   );
 

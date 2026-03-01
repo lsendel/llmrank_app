@@ -6,8 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { PageScoreDetail } from "@/lib/api";
+import type { ActionItem, PageIssue, PageScoreDetail } from "@/lib/api";
 import { AiFixButton } from "@/components/ai-fix-button";
+import { Input } from "@/components/ui/input";
+import { useUser } from "@/lib/auth-hooks";
+import { useToast } from "@/components/ui/use-toast";
+import { useApiSWR } from "@/lib/use-api-swr";
+import { api } from "@/lib/api";
 
 interface PageOptimizationWorkspaceProps {
   page: PageScoreDetail;
@@ -22,6 +27,11 @@ interface OptimizationTask {
   suggested: string;
   impactScore: number;
   rationale: string;
+}
+
+function toDateInput(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.slice(0, 10);
 }
 
 function impactBadge(score: number): "destructive" | "warning" | "secondary" {
@@ -51,10 +61,16 @@ export function PageOptimizationWorkspace({
   page,
   projectId,
 }: PageOptimizationWorkspaceProps) {
+  const { user } = useUser();
+  const { toast } = useToast();
   const [userOverrides, setUserOverrides] = useState<Record<string, string>>(
     {},
   );
   const [implemented, setImplemented] = useState<Record<string, boolean>>({});
+  const [dueDateDrafts, setDueDateDrafts] = useState<Record<string, string>>(
+    {},
+  );
+  const [savingTaskKey, setSavingTaskKey] = useState<string | null>(null);
   const recommendations = page.score?.recommendations ?? [];
   const issuesByCode = new Set(page.issues.map((issue) => issue.code));
   const detail = (page.score?.detail ?? {}) as Record<string, unknown>;
@@ -65,6 +81,30 @@ export function PageOptimizationWorkspace({
   const internalLinks = Array.isArray(extracted.internal_links)
     ? extracted.internal_links.length
     : null;
+
+  const { data: actionItems, mutate: mutateActionItems } = useApiSWR<
+    ActionItem[]
+  >(`page-optimization-action-items-${projectId}`, () =>
+    api.actionItems.list(projectId),
+  );
+
+  const actionItemByCode = useMemo(() => {
+    const map = new Map<string, ActionItem>();
+    for (const item of actionItems ?? []) {
+      if (!map.has(item.issueCode)) {
+        map.set(item.issueCode, item);
+      }
+    }
+    return map;
+  }, [actionItems]);
+
+  const pageIssueByCode = useMemo(() => {
+    const map = new Map<string, PageIssue>();
+    for (const issue of page.issues) {
+      if (!map.has(issue.code)) map.set(issue.code, issue);
+    }
+    return map;
+  }, [page.issues]);
 
   const tasks = useMemo<OptimizationTask[]>(() => {
     const recByIssue = new Map(
@@ -175,6 +215,58 @@ export function PageOptimizationWorkspace({
     return base;
   }, [tasks, userOverrides]);
 
+  async function handleSaveTask(task: OptimizationTask) {
+    if (!task.issueCode) return;
+    setSavingTaskKey(task.key);
+    const dueDate = dueDateDrafts[task.key];
+    const dueAt = dueDate
+      ? new Date(`${dueDate}T12:00:00.000Z`).toISOString()
+      : null;
+
+    try {
+      const existing = actionItemByCode.get(task.issueCode);
+      if (existing) {
+        await api.actionItems.update(existing.id, {
+          assigneeId: user?.id ?? null,
+          dueAt,
+          description: drafts[task.key] ?? null,
+          status: existing.status,
+        });
+      } else {
+        const pageIssue = pageIssueByCode.get(task.issueCode);
+        await api.actionItems.create({
+          projectId,
+          issueCode: task.issueCode,
+          status: "pending",
+          severity: pageIssue?.severity ?? "warning",
+          category: pageIssue?.category ?? "technical",
+          scoreImpact: Math.round(task.impactScore),
+          title: pageIssue?.message ?? `${task.label} optimization`,
+          description: drafts[task.key] ?? task.rationale,
+          assigneeId: user?.id ?? null,
+          dueAt,
+        });
+      }
+
+      await mutateActionItems();
+      toast({
+        title: "Task saved",
+        description: `${task.label} task updated with owner and due date.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Task update failed",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Could not save action item controls.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTaskKey(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {tasks.map((task) => (
@@ -252,6 +344,53 @@ export function PageOptimizationWorkspace({
                 Mark Implemented
               </Button>
             </div>
+            {task.issueCode && (
+              <div className="rounded-md border bg-muted/20 p-3">
+                <p className="text-xs font-medium">Execution Task Controls</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Assign owner and due date for this optimization from page
+                  context.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">
+                    Status:{" "}
+                    {actionItemByCode.get(task.issueCode)?.status ?? "pending"}
+                  </Badge>
+                  <Badge variant="outline">
+                    Owner:{" "}
+                    {actionItemByCode.get(task.issueCode)?.assigneeId
+                      ? "Assigned"
+                      : "Unassigned"}
+                  </Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Input
+                    type="date"
+                    className="h-8 w-[180px]"
+                    value={
+                      dueDateDrafts[task.key] ??
+                      toDateInput(actionItemByCode.get(task.issueCode)?.dueAt)
+                    }
+                    onChange={(event) =>
+                      setDueDateDrafts((prev) => ({
+                        ...prev,
+                        [task.key]: event.target.value,
+                      }))
+                    }
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSaveTask(task)}
+                    disabled={savingTaskKey === task.key}
+                  >
+                    {savingTaskKey === task.key
+                      ? "Saving..."
+                      : "Save Task Plan"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}

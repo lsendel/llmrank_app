@@ -37,10 +37,19 @@ interface ChartDataPoint {
   [provider: string]: number | string;
 }
 
-export function ShareOfVoiceChart({ projectId }: { projectId: string }) {
+export function ShareOfVoiceChart({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const { data: trends, isLoading: loading } = useApiSWR<VisibilityTrend[]>(
-    `sov-trends-${projectId}`,
-    useCallback(() => api.visibility.getTrends(projectId), [projectId]),
+    `sov-trends-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
+    useCallback(
+      () => api.visibility.getTrends(projectId, filters),
+      [projectId, filters],
+    ),
   );
 
   if (loading) {

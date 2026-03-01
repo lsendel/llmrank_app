@@ -21,7 +21,15 @@ import {
 } from "@/components/ui/select";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, ApiError, type AIPrompt } from "@/lib/api";
-import { Sparkles, Loader2, Trash2, Search } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  Trash2,
+  Search,
+  Download,
+  Radar,
+  CalendarClock,
+} from "lucide-react";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -50,9 +58,19 @@ function DifficultyBar({ value }: { value: number }) {
   );
 }
 
-export function PromptResearchPanel({ projectId }: { projectId: string }) {
+export function PromptResearchPanel({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [mentionedFilter, setMentionedFilter] = useState<string>("all");
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
+  const [runningPromptId, setRunningPromptId] = useState<string | null>(null);
+  const [trackingPromptId, setTrackingPromptId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const {
@@ -80,10 +98,36 @@ export function PromptResearchPanel({ projectId }: { projectId: string }) {
   const prompts = result?.data ?? [];
   const meta = result?.meta;
 
-  const filtered =
-    categoryFilter === "all"
-      ? prompts
-      : prompts.filter((p) => p.category === categoryFilter);
+  const filtered = prompts.filter((prompt) => {
+    if (categoryFilter !== "all" && prompt.category !== categoryFilter) {
+      return false;
+    }
+    if (mentionedFilter === "all") {
+      return true;
+    }
+    if (mentionedFilter === "mentioned") {
+      return Boolean(prompt.yourMentioned);
+    }
+    if (mentionedFilter === "not_mentioned" && prompt.yourMentioned !== false) {
+      return false;
+    }
+
+    if (difficultyFilter === "all" || prompt.difficulty == null) {
+      return true;
+    }
+
+    if (difficultyFilter === "easy") {
+      return prompt.difficulty <= 33;
+    }
+    if (difficultyFilter === "medium") {
+      return prompt.difficulty > 33 && prompt.difficulty <= 66;
+    }
+    if (difficultyFilter === "hard") {
+      return prompt.difficulty > 66;
+    }
+
+    return true;
+  });
 
   async function handleDiscover() {
     setIsDiscovering(true);
@@ -114,6 +158,94 @@ export function PromptResearchPanel({ projectId }: { projectId: string }) {
         variant: "destructive",
       });
     }
+  }
+
+  async function handleRunCheck(prompt: AIPrompt) {
+    setRunningPromptId(prompt.id);
+    try {
+      const result = await api.promptResearch.check({
+        projectId,
+        promptId: prompt.id,
+        ...(filters?.region ? { region: filters.region } : {}),
+        ...(filters?.language ? { language: filters.language } : {}),
+      });
+      await mutate();
+      toast({
+        title: "Prompt check complete",
+        description: result.yourMentioned
+          ? "Your brand was mentioned in this prompt."
+          : "Your brand is not mentioned yet for this prompt.",
+      });
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to run prompt check";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setRunningPromptId(null);
+    }
+  }
+
+  async function handleTrackPrompt(prompt: AIPrompt) {
+    setTrackingPromptId(prompt.id);
+    try {
+      await api.visibility.schedules.create({
+        projectId,
+        query: prompt.prompt,
+        providers: ["chatgpt", "claude", "perplexity", "gemini"],
+        frequency: "weekly",
+      });
+      toast({
+        title: "Tracking enabled",
+        description: "Added weekly visibility tracking for this prompt.",
+      });
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to create tracking schedule";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setTrackingPromptId(null);
+    }
+  }
+
+  function handleExportCsv() {
+    if (filtered.length === 0) return;
+
+    const escape = (value: string | number | null | undefined) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const headers = [
+      "Prompt",
+      "Category",
+      "EstimatedVolume",
+      "Difficulty",
+      "Intent",
+      "DiscoveredAt",
+    ];
+    const rows = filtered.map((prompt) => [
+      prompt.prompt,
+      prompt.category,
+      prompt.estimatedVolume,
+      prompt.difficulty,
+      prompt.intent,
+      prompt.discoveredAt,
+    ]);
+
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(","));
+    const blob = new Blob([csv.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `prompt-research-${projectId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "CSV exported",
+      description: `${filtered.length} prompt${filtered.length === 1 ? "" : "s"} exported.`,
+    });
   }
 
   if (isLoading) {
@@ -186,6 +318,39 @@ export function PromptResearchPanel({ projectId }: { projectId: string }) {
                 <SelectItem value="general">General</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={mentionedFilter} onValueChange={setMentionedFilter}>
+              <SelectTrigger className="h-8 w-[150px]">
+                <SelectValue placeholder="Mentioned status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All prompts</SelectItem>
+                <SelectItem value="mentioned">Mentioned</SelectItem>
+                <SelectItem value="not_mentioned">Not mentioned</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={difficultyFilter}
+              onValueChange={setDifficultyFilter}
+            >
+              <SelectTrigger className="h-8 w-[140px]">
+                <SelectValue placeholder="Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All difficulty</SelectItem>
+                <SelectItem value="easy">Easy (0-33)</SelectItem>
+                <SelectItem value="medium">Medium (34-66)</SelectItem>
+                <SelectItem value="hard">Hard (67-100)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportCsv}
+              disabled={filtered.length === 0}
+            >
+              <Download className="mr-1 h-3 w-3" />
+              Export CSV
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -211,7 +376,8 @@ export function PromptResearchPanel({ projectId }: { projectId: string }) {
               <TableHead className="text-right">Est. Volume</TableHead>
               <TableHead>Difficulty</TableHead>
               <TableHead>Intent</TableHead>
-              <TableHead className="w-[40px]" />
+              <TableHead>Mentioned</TableHead>
+              <TableHead className="w-[280px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -248,14 +414,60 @@ export function PromptResearchPanel({ projectId }: { projectId: string }) {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => handleDelete(prompt.id)}
+                  <Badge
+                    variant={
+                      prompt.yourMentioned === true
+                        ? "success"
+                        : prompt.yourMentioned === false
+                          ? "outline"
+                          : "secondary"
+                    }
+                    className="text-xs"
                   >
-                    <Trash2 className="h-3 w-3 text-muted-foreground" />
-                  </Button>
+                    {prompt.yourMentioned === true
+                      ? "Yes"
+                      : prompt.yourMentioned === false
+                        ? "No"
+                        : "Unknown"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRunCheck(prompt)}
+                      disabled={runningPromptId === prompt.id}
+                    >
+                      {runningPromptId === prompt.id ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Radar className="mr-1 h-3 w-3" />
+                      )}
+                      Run Check
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTrackPrompt(prompt)}
+                      disabled={trackingPromptId === prompt.id}
+                    >
+                      {trackingPromptId === prompt.id ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <CalendarClock className="mr-1 h-3 w-3" />
+                      )}
+                      Track Weekly
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDelete(prompt.id)}
+                    >
+                      <Trash2 className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

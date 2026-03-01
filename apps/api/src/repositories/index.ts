@@ -44,10 +44,48 @@ export interface ProjectRepository {
       offset?: number;
     },
   ): ReturnType<ReturnType<typeof projectQueries>["listByUser"]>;
+  listPortfolioByUser(
+    userId: string,
+    query?: {
+      q?: string;
+      sort?:
+        | "activity_desc"
+        | "score_desc"
+        | "score_asc"
+        | "name_asc"
+        | "name_desc"
+        | "created_desc"
+        | "created_asc";
+      health?:
+        | "all"
+        | "good"
+        | "needs_work"
+        | "poor"
+        | "no_crawl"
+        | "in_progress"
+        | "failed";
+      limit?: number;
+      offset?: number;
+    },
+  ): ReturnType<ReturnType<typeof projectQueries>["listPortfolioByUser"]>;
   countByUser(
     userId: string,
     query?: { q?: string },
   ): ReturnType<ReturnType<typeof projectQueries>["countByUser"]>;
+  countPortfolioByUser(
+    userId: string,
+    query?: {
+      q?: string;
+      health?:
+        | "all"
+        | "good"
+        | "needs_work"
+        | "poor"
+        | "no_crawl"
+        | "in_progress"
+        | "failed";
+    },
+  ): ReturnType<ReturnType<typeof projectQueries>["countPortfolioByUser"]>;
   getById(id: string): ReturnType<ReturnType<typeof projectQueries>["getById"]>;
   create(data: {
     userId: string;
@@ -78,7 +116,11 @@ export function createProjectRepository(db: Database): ProjectRepository {
   const queries = projectQueries(db);
   return {
     listByUser: (userId, query) => queries.listByUser(userId, query),
+    listPortfolioByUser: (userId, query) =>
+      queries.listPortfolioByUser(userId, query),
     countByUser: (userId, query) => queries.countByUser(userId, query),
+    countPortfolioByUser: (userId, query) =>
+      queries.countPortfolioByUser(userId, query),
     getById: (id) => queries.getById(id),
     create: (data) => queries.create(data),
     update: (id, data) => queries.update(id, data),
@@ -304,6 +346,7 @@ export interface VisibilityRepository {
   ): ReturnType<ReturnType<typeof visibilityQueries>["listByProject"]>;
   getTrends(
     projectId: string,
+    filters?: { region?: string; language?: string },
   ): ReturnType<ReturnType<typeof visibilityQueries>["getTrends"]>;
   create(
     data: Parameters<ReturnType<typeof visibilityQueries>["create"]>[0],
@@ -316,7 +359,7 @@ export function createVisibilityRepository(db: Database): VisibilityRepository {
   return {
     listByProject: (projectId, filters) =>
       queries.listByProject(projectId, filters),
-    getTrends: (projectId) => queries.getTrends(projectId),
+    getTrends: (projectId, filters) => queries.getTrends(projectId, filters),
     create: (data) => queries.create(data),
     async countSince(projectId, since) {
       const rows = await db

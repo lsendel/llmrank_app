@@ -41,10 +41,19 @@ const PROVIDER_LABELS: Record<string, string> = {
   grok: "Grok",
 };
 
-export function BrandSentimentCard({ projectId }: { projectId: string }) {
+export function BrandSentimentCard({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const { data: sentiment, isLoading } = useApiSWR<BrandSentiment>(
-    `brand-sentiment-${projectId}`,
-    useCallback(() => api.brand.getSentiment(projectId), [projectId]),
+    `brand-sentiment-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
+    useCallback(
+      () => api.brand.getSentiment(projectId, filters),
+      [projectId, filters],
+    ),
   );
 
   if (isLoading) {

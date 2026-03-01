@@ -1,10 +1,17 @@
 import { useSyncExternalStore } from "react";
 
+export type ToastVariant =
+  | "default"
+  | "destructive"
+  | "warning"
+  | "success"
+  | "info";
+
 interface Toast {
   id: string;
   title?: string;
   description?: string;
-  variant?: string;
+  variant?: ToastVariant;
 }
 
 let toasts: Toast[] = [];
@@ -29,10 +36,15 @@ export function dismissToast(id: string) {
   emit();
 }
 
+export function clearToasts() {
+  toasts = [];
+  emit();
+}
+
 function addToast(args: {
   title?: string;
   description?: string;
-  variant?: string;
+  variant?: Toast["variant"];
 }) {
   const id = String(++nextId);
   toasts = [...toasts, { id, ...args }];

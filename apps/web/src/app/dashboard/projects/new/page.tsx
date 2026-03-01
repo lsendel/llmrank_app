@@ -14,6 +14,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api";
+import { applyProjectWorkspaceDefaults } from "@/lib/project-workspace-defaults";
 import { normalizeDomain } from "@llm-boost/shared";
 
 export default function NewProjectPage() {
@@ -68,17 +69,26 @@ export default function NewProjectPage() {
     setSubmitting(true);
 
     try {
-      const result = await api.projects.create({ name, domain });
+      const normalizedDomain = normalizeDomain(domain);
+      const result = await api.projects.create({
+        name,
+        domain: normalizedDomain || domain,
+      });
 
-      if (enableWeeklyDigest) {
-        try {
-          await api.account.updateDigestPreferences({
-            digestFrequency: "weekly",
-            digestDay: 1,
-          });
-        } catch {
-          // Don't block project creation flow on digest preference update failure.
-        }
+      try {
+        await applyProjectWorkspaceDefaults({
+          projectId: result.id,
+          domainOrUrl: normalizedDomain || domain,
+          defaults: {
+            schedule: "weekly",
+            autoRunOnCrawl: true,
+            enableVisibilitySchedule: true,
+            enableWeeklyDigest,
+          },
+        });
+      } catch {
+        // Non-blocking: continue with project creation flow even if
+        // one or more workspace defaults cannot be applied right now.
       }
 
       if (autoStartCrawl) {

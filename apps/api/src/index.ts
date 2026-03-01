@@ -239,6 +239,7 @@ app.route("/api/keywords", keywordRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/narratives", narrativeRoutes);
 app.route("/api/action-items", actionItemRoutes);
+app.route("/api/action-plan", actionItemRoutes);
 app.route("/api/alerts", alertRoutes);
 app.route("/api/pipeline", pipelineRoutes);
 app.route("/api/trial", trialRoutes);

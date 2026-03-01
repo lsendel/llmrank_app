@@ -93,25 +93,33 @@ crawlRoutes.post(
       );
     }
 
-    // Blocklist check
+    // Blocklist check (best effort): if admin/domain tables are unavailable,
+    // continue and let service-level ownership/limits checks handle the request.
     const db = c.get("db");
-    const project = await projectQueries(db).getById(projectId);
-    if (project) {
-      const adminQ = adminQueries(db);
-      const blockedDomain = await adminQ.isBlocked(
-        normalizeDomain(project.domain),
-      );
-      if (blockedDomain) {
-        return c.json(
-          {
-            error: {
-              code: "DOMAIN_BLOCKED",
-              message: "This domain cannot be crawled",
-            },
-          },
-          403,
+    try {
+      const project = await projectQueries(db).getById(projectId);
+      if (project) {
+        const adminQ = adminQueries(db);
+        const blockedDomain = await adminQ.isBlocked(
+          normalizeDomain(project.domain),
         );
+        if (blockedDomain) {
+          return c.json(
+            {
+              error: {
+                code: "DOMAIN_BLOCKED",
+                message: "This domain cannot be crawled",
+              },
+            },
+            403,
+          );
+        }
       }
+    } catch (error) {
+      console.warn(
+        "[crawls] Skipping blocked-domain check due to query failure",
+        error instanceof Error ? error.message : String(error),
+      );
     }
 
     const { crawlService } = c.get("container");

@@ -20,7 +20,9 @@ const {
   mockUpdateCredentials: vi.fn(),
   mockCreateBatch: vi.fn(),
   mockUpdateLastSync: vi.fn(),
-  mockRunEnrichments: vi.fn().mockResolvedValue([]),
+  mockRunEnrichments: vi
+    .fn()
+    .mockResolvedValue({ results: [], providerResults: [] }),
   mockDecrypt: vi.fn(),
   mockEncrypt: vi.fn(),
   mockRefreshAccessToken: vi.fn(),
@@ -145,13 +147,16 @@ describe("runIntegrationEnrichments", () => {
         tokenExpiresAt: null,
       },
     ]);
-    mockRunEnrichments.mockResolvedValue([
-      {
-        pageUrl: "https://example.com/page1",
-        provider: "psi",
-        data: { score: 95 },
-      },
-    ]);
+    mockRunEnrichments.mockResolvedValue({
+      results: [
+        {
+          pageUrl: "https://example.com/page1",
+          provider: "psi",
+          data: { score: 95 },
+        },
+      ],
+      providerResults: [],
+    });
 
     await runIntegrationEnrichments(baseInput());
 
@@ -201,7 +206,7 @@ describe("runIntegrationEnrichments", () => {
       accessToken: "new-token",
       expiresIn: 3600,
     });
-    mockRunEnrichments.mockResolvedValue([]);
+    mockRunEnrichments.mockResolvedValue({ results: [], providerResults: [] });
 
     await runIntegrationEnrichments(baseInput());
 
@@ -236,7 +241,7 @@ describe("runIntegrationEnrichments", () => {
         refreshToken: "refresh-token",
       }),
     );
-    mockRunEnrichments.mockResolvedValue([]);
+    mockRunEnrichments.mockResolvedValue({ results: [], providerResults: [] });
 
     await runIntegrationEnrichments(baseInput());
 
@@ -255,7 +260,7 @@ describe("runIntegrationEnrichments", () => {
         tokenExpiresAt: expiredDate,
       },
     ]);
-    mockRunEnrichments.mockResolvedValue([]);
+    mockRunEnrichments.mockResolvedValue({ results: [], providerResults: [] });
 
     await runIntegrationEnrichments(baseInput());
 
@@ -273,13 +278,16 @@ describe("runIntegrationEnrichments", () => {
         tokenExpiresAt: null,
       },
     ]);
-    mockRunEnrichments.mockResolvedValue([
-      {
-        pageUrl: "https://unknown.com/not-in-batch",
-        provider: "psi",
-        data: { score: 50 },
-      },
-    ]);
+    mockRunEnrichments.mockResolvedValue({
+      results: [
+        {
+          pageUrl: "https://unknown.com/not-in-batch",
+          provider: "psi",
+          data: { score: 50 },
+        },
+      ],
+      providerResults: [],
+    });
 
     await runIntegrationEnrichments(baseInput());
 
@@ -305,7 +313,7 @@ describe("runIntegrationEnrichments", () => {
         tokenExpiresAt: null,
       },
     ]);
-    mockRunEnrichments.mockResolvedValue([]);
+    mockRunEnrichments.mockResolvedValue({ results: [], providerResults: [] });
 
     await runIntegrationEnrichments(baseInput());
 

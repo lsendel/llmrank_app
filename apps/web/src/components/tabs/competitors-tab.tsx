@@ -25,6 +25,7 @@ import { useApi } from "@/lib/use-api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
 import { cn, scoreColor } from "@/lib/utils";
+import { StateCard, StateMessage } from "@/components/ui/state";
 import { CompetitorDiscoveryBanner } from "@/components/competitor-discovery-banner";
 import { ContentGapAnalysis } from "@/components/content-gap-analysis";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -62,6 +63,9 @@ export function CompetitorsTab({ projectId }: Props) {
   const [newDomain, setNewDomain] = useState("");
   const [benchmarking, setBenchmarking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedAction, setLastFailedAction] = useState<
+    (() => Promise<void>) | null
+  >(null);
   const [rebenchmarkingId, setRebenchmarkingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -82,6 +86,7 @@ export function CompetitorsTab({ projectId }: Props) {
     if (!newDomain.trim()) return;
     setBenchmarking(true);
     setError(null);
+    setLastFailedAction(null);
     try {
       await withAuth(() =>
         api.benchmarks.trigger({
@@ -93,6 +98,7 @@ export function CompetitorsTab({ projectId }: Props) {
       mutate(); // refetch
       mutateStrategy();
     } catch (err: unknown) {
+      setLastFailedAction(() => handleBenchmark);
       setError(
         err instanceof Error ? err.message : "Failed to benchmark competitor",
       );
@@ -103,10 +109,13 @@ export function CompetitorsTab({ projectId }: Props) {
 
   async function handleRebenchmark(competitorId: string) {
     setRebenchmarkingId(competitorId);
+    setError(null);
+    setLastFailedAction(null);
     try {
       await withAuth(() => api.competitorMonitoring.rebenchmark(competitorId));
       mutate();
     } catch (err: unknown) {
+      setLastFailedAction(() => () => handleRebenchmark(competitorId));
       setError(err instanceof Error ? err.message : "Failed to re-benchmark");
     } finally {
       setRebenchmarkingId(null);
@@ -118,6 +127,8 @@ export function CompetitorsTab({ projectId }: Props) {
     currentlyEnabled: boolean,
   ) {
     setTogglingId(competitorId);
+    setError(null);
+    setLastFailedAction(null);
     try {
       await withAuth(() =>
         api.competitorMonitoring.updateMonitoring(competitorId, {
@@ -126,6 +137,9 @@ export function CompetitorsTab({ projectId }: Props) {
       );
       mutateStrategy();
     } catch (err: unknown) {
+      setLastFailedAction(
+        () => () => handleToggleMonitoring(competitorId, currentlyEnabled),
+      );
       setError(
         err instanceof Error ? err.message : "Failed to update monitoring",
       );
@@ -215,29 +229,48 @@ export function CompetitorsTab({ projectId }: Props) {
                 </Button>
               </div>
               {error && (
-                <p className="mt-2 text-sm text-destructive">{error}</p>
+                <StateMessage
+                  variant="error"
+                  compact
+                  title="Competitor action failed"
+                  description={error}
+                  className="items-start py-3 text-left"
+                  retry={{
+                    onClick: () => {
+                      if (lastFailedAction) {
+                        void lastFailedAction();
+                      }
+                    },
+                    label: "Retry action",
+                    disabled:
+                      lastFailedAction === null ||
+                      benchmarking ||
+                      rebenchmarkingId !== null ||
+                      togglingId !== null,
+                  }}
+                />
               )}
             </CardContent>
           </Card>
 
           {/* Loading state */}
           {isLoading && (
-            <div className="py-8 text-center text-muted-foreground">
-              Loading benchmarks...
-            </div>
+            <StateCard
+              variant="loading"
+              title="Loading competitor benchmarks"
+              description="Fetching latest benchmark snapshots and monitoring status."
+              contentClassName="p-0"
+            />
           )}
 
           {/* Empty state */}
           {!isLoading && competitors.length === 0 && (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Trophy className="mx-auto h-12 w-12 text-muted-foreground/30" />
-                <p className="mt-4 text-muted-foreground">
-                  No competitors benchmarked yet. Add a competitor domain above
-                  to get started.
-                </p>
-              </CardContent>
-            </Card>
+            <StateCard
+              variant="empty"
+              icon={<Trophy className="h-12 w-12 text-muted-foreground/30" />}
+              title="No competitor benchmarks yet"
+              description="Add a competitor domain above to start benchmarking and trend monitoring."
+            />
           )}
 
           {/* Competitor cards */}

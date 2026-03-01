@@ -34,13 +34,14 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
 
     // Check user status
     const user = await userQueries(db).getById(tokenCtx.userId);
-    if (!user || user.status !== "active") {
+    const status = user?.status ?? "active";
+    if (!user || status !== "active") {
       return c.json(
         {
           error: {
             code: "ACCOUNT_SUSPENDED",
             message:
-              user?.status === "banned"
+              status === "banned"
                 ? "Your account has been permanently banned."
                 : "Your account has been suspended.",
           },
@@ -73,13 +74,14 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     // Check if user is blocked/suspended
     const db = c.get("db");
     const user = await userQueries(db).getById(session.user.id);
-    if (user && user.status !== "active") {
+    const status = user?.status ?? "active";
+    if (user && status !== "active") {
       return c.json(
         {
           error: {
             code: "ACCOUNT_SUSPENDED",
             message:
-              user.status === "banned"
+              status === "banned"
                 ? "Your account has been permanently banned."
                 : "Your account has been suspended. Contact support for assistance.",
           },

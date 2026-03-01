@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -9,6 +9,8 @@ import {
   Clock,
   XCircle,
   Circle,
+  UserCheck,
+  CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ActionItemStatus } from "@/lib/api";
 import { AiFixButton } from "@/components/ai-fix-button";
+import { Input } from "@/components/ui/input";
 
 interface IssueCardProps {
   code: string;
@@ -37,9 +40,22 @@ interface IssueCardProps {
   className?: string;
   actionItemId?: string;
   actionItemStatus?: ActionItemStatus;
+  actionItemAssigneeId?: string | null;
+  actionItemDueAt?: string | null;
   onStatusChange?: (
     id: string,
     status: ActionItemStatus,
+  ) => void | Promise<void>;
+  onTaskCreate?: (args: {
+    assigneeId: string | null;
+    dueAt: string | null;
+  }) => void | Promise<void>;
+  onTaskUpdate?: (
+    id: string,
+    updates: {
+      assigneeId?: string | null;
+      dueAt?: string | null;
+    },
   ) => void | Promise<void>;
 }
 
@@ -95,9 +111,47 @@ export function IssueCard({
   className,
   actionItemId,
   actionItemStatus,
+  actionItemAssigneeId,
+  actionItemDueAt,
   onStatusChange,
+  onTaskCreate,
+  onTaskUpdate,
 }: IssueCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [dueDateDraft, setDueDateDraft] = useState(
+    actionItemDueAt ? actionItemDueAt.slice(0, 10) : "",
+  );
+  const assignedToSomeone = Boolean(actionItemAssigneeId);
+
+  // Keep local draft in sync when backend due date changes.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDueDateDraft(actionItemDueAt ? actionItemDueAt.slice(0, 10) : "");
+  }, [actionItemDueAt]);
+
+  async function handleSaveDueDate() {
+    if (!actionItemId || !onTaskUpdate) return;
+    await onTaskUpdate(actionItemId, {
+      dueAt: dueDateDraft
+        ? new Date(`${dueDateDraft}T12:00:00.000Z`).toISOString()
+        : null,
+    });
+  }
+
+  async function handleAssignToMe() {
+    if (!actionItemId || !onTaskUpdate) return;
+    await onTaskUpdate(actionItemId, { assigneeId: "me" });
+  }
+
+  async function handleCreateTask() {
+    if (!onTaskCreate) return;
+    await onTaskCreate({
+      assigneeId: "me",
+      dueAt: dueDateDraft
+        ? new Date(`${dueDateDraft}T12:00:00.000Z`).toISOString()
+        : null,
+    });
+  }
 
   const isFaded =
     actionItemStatus === "fixed" || actionItemStatus === "dismissed";
@@ -207,6 +261,39 @@ export function IssueCard({
                   Optimize with AI
                 </Button>
               )}
+              {actionItemId && onTaskUpdate ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAssignToMe}
+                    disabled={assignedToSomeone}
+                  >
+                    <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+                    {assignedToSomeone ? "Assigned" : "Assign to me"}
+                  </Button>
+                  <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="date"
+                      className="h-7 w-[150px] border-0 p-0 text-xs shadow-none focus-visible:ring-0"
+                      value={dueDateDraft}
+                      onChange={(event) => setDueDateDraft(event.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleSaveDueDate}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </>
+              ) : onTaskCreate ? (
+                <Button size="sm" variant="outline" onClick={handleCreateTask}>
+                  Create Task
+                </Button>
+              ) : null}
             </div>
             {data && Object.keys(data).length > 0 && (
               <div>

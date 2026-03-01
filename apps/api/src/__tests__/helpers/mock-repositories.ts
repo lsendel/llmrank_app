@@ -49,7 +49,9 @@ export function createMockProjectRepo(
   return applyOverrides(
     {
       listByUser: vi.fn().mockResolvedValue([]),
+      listPortfolioByUser: vi.fn().mockResolvedValue([]),
       countByUser: vi.fn().mockResolvedValue(0),
+      countPortfolioByUser: vi.fn().mockResolvedValue(0),
       getById: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ id: "project-1" }),
       update: vi.fn().mockResolvedValue(undefined),

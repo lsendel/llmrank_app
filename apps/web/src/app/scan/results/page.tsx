@@ -22,6 +22,15 @@ import { useUser } from "@/lib/auth-hooks";
 import { api, ApiError } from "@/lib/api";
 import type { PublicScanResult, QuickWin } from "@/lib/api";
 import { normalizeDomain } from "@llm-boost/shared";
+import { WORKFLOW_CTA_COPY } from "@/lib/microcopy";
+import {
+  applyProjectWorkspaceDefaults,
+  deriveProjectName,
+} from "@/lib/project-workspace-defaults";
+import {
+  confidenceFromPageSample,
+  relativeTimeLabel,
+} from "@/lib/insight-metadata";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -29,54 +38,31 @@ const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   high: { label: "Significant", color: "bg-destructive/10 text-destructive" },
 };
 
+const VISIBILITY_PROVIDER_LABELS: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  perplexity: "Perplexity",
+  gemini: "Gemini",
+  copilot: "Copilot",
+  gemini_ai_mode: "Gemini AI Mode",
+  grok: "Grok",
+};
+
+function providerLabel(provider: string): string {
+  return VISIBILITY_PROVIDER_LABELS[provider] ?? provider;
+}
+
 type ScanResultCta =
   | "create_project"
   | "connect_integration"
   | "schedule_recurring_scan";
-
-const DEFAULT_SCAN_VISIBILITY_PROVIDERS = [
-  "chatgpt",
-  "claude",
-  "perplexity",
-  "gemini",
-] as const;
-
-function toTitleCase(value: string): string {
-  return value
-    .split(/\s+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function deriveProjectName(domainOrUrl: string, title?: string | null): string {
-  const cleanedTitle = title?.split(/[|:\-•]/)[0]?.trim() ?? "";
-  if (cleanedTitle.length >= 3 && cleanedTitle.length <= 80) {
-    return cleanedTitle;
-  }
-
-  const normalized = normalizeDomain(domainOrUrl);
-  const labels = normalized.split(".");
-  const secondLevel =
-    labels.length >= 2
-      ? labels[labels.length - 2]
-      : (labels[0] ?? "Website Project");
-  const name = secondLevel.replace(/[-_]+/g, " ").trim();
-  return name ? toTitleCase(name) : "Website Project";
-}
-
-function deriveVisibilitySeedQuery(
-  domainOrUrl: string,
-  title?: string | null,
-): string {
-  const projectName = deriveProjectName(domainOrUrl, title);
-  return `${projectName} reviews`;
-}
 
 function ScanResultsContent() {
   const router = useRouter();
   const { isSignedIn } = useUser();
   const searchParams = useSearchParams();
   const scanId = searchParams.get("id");
+  const entrySource = searchParams.get("source") ?? "direct";
 
   const [result, setResult] = useState<PublicScanResult | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -185,6 +171,27 @@ function ScanResultsContent() {
   const { scores, issues, quickWins, meta } = result;
   const domain = result.url ?? result.domain;
   const normalizedDomain = normalizeDomain(domain);
+  const siteContext = meta?.siteContext ?? result.siteContext;
+  const pagesSampled = Math.max(
+    siteContext?.sitemapAnalysis?.discoveredPageCount ?? 0,
+    issues.length,
+    1,
+  );
+  const sampleConfidence = confidenceFromPageSample(pagesSampled);
+  const visibilityChecks = Array.isArray(result.visibility)
+    ? result.visibility
+    : result.visibility
+      ? [result.visibility]
+      : [];
+  const visibilityProviders = Array.from(
+    new Set(visibilityChecks.map((item) => item.provider).filter(Boolean)),
+  );
+  const anyVisibilityMention = visibilityChecks.some(
+    (item) => item.brandMentioned,
+  );
+  const recurringScanDestination = isSignedIn
+    ? "/dashboard/projects"
+    : "/pricing";
 
   function trackCtaClick(
     cta: ScanResultCta,
@@ -197,6 +204,7 @@ function ScanResultsContent() {
       placement,
       scanResultId: scanId ?? "session-storage",
       domain,
+      entrySource,
     });
   }
 
@@ -216,40 +224,23 @@ function ScanResultsContent() {
         domain: normalizedDomain,
       });
 
-      await Promise.allSettled([
-        api.projects.update(project.id, {
-          settings: {
-            schedule: "weekly",
-          },
-        }),
-        api.pipeline.updateSettings(project.id, {
-          autoRunOnCrawl: true,
-        }),
-      ]);
-
-      await Promise.allSettled([
-        api.visibility.schedules.create({
-          projectId: project.id,
-          query: deriveVisibilitySeedQuery(domain, meta?.title),
-          providers: [...DEFAULT_SCAN_VISIBILITY_PROVIDERS],
-          frequency: "weekly",
-        }),
-        (async () => {
-          const prefs = await api.account.getDigestPreferences();
-          if (prefs.digestFrequency === "off") {
-            await api.account.updateDigestPreferences({
-              digestFrequency: "weekly",
-              digestDay: 1,
-            });
-          }
-        })(),
-      ]);
+      const defaults = await applyProjectWorkspaceDefaults({
+        projectId: project.id,
+        domainOrUrl: domain,
+        title: meta?.title,
+      });
 
       track("scan_result_workspace_created", {
         scanResultId: scanId ?? "session-storage",
         domain: normalizedDomain,
         projectId: project.id,
       });
+      if (defaults.failed.length > 0) {
+        track("scan_result_workspace_defaults_partial_failure", {
+          projectId: project.id,
+          failed: defaults.failed.join(","),
+        });
+      }
       router.push(`/dashboard/projects/${project.id}?tab=overview&source=scan`);
     } catch (err) {
       const message =
@@ -276,9 +267,23 @@ function ScanResultsContent() {
           Scan another site
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">
-          AI Visibility Report
+          AI visibility report
         </h1>
         <p className="text-muted-foreground">{result.url}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">
+            Last scanned: {relativeTimeLabel(result.createdAt)}
+          </Badge>
+          <Badge variant="secondary">Pages sampled: {pagesSampled}</Badge>
+          <Badge variant={sampleConfidence.variant}>
+            Confidence: {sampleConfidence.label}
+          </Badge>
+          {visibilityChecks.length > 0 ? (
+            <Badge variant="outline">
+              LLM probes: {visibilityChecks.length}
+            </Badge>
+          ) : null}
+        </div>
       </div>
 
       {/* Score Overview */}
@@ -328,11 +333,11 @@ function ScanResultsContent() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-primary">
-              Unlock the full issue list
+              Unlock full issue coverage
             </p>
             <p className="text-sm text-muted-foreground">
-              Get full quick wins for this {scores.letterGrade ?? "-"} grade
-              page, plus exportable summaries for your team.
+              Get complete quick wins for this {scores.letterGrade ?? "-"} grade
+              page and share-ready summaries for your team.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -343,12 +348,12 @@ function ScanResultsContent() {
                   trackCtaClick("create_project", "/sign-up", "unlock_banner")
                 }
               >
-                Create Free Account
+                Create free account
               </Link>
             </Button>
             {!isUnlocked && (
               <Button size="sm" variant="outline" asChild>
-                <a href="#unlock">Unlock Report</a>
+                <a href="#unlock">Unlock report</a>
               </Button>
             )}
           </div>
@@ -404,11 +409,11 @@ function ScanResultsContent() {
       )}
 
       {/* AI Visibility Preview */}
-      {result.visibility && (
+      {visibilityChecks.length > 0 && (
         <Card
           className={cn(
             "border-2",
-            result.visibility.brandMentioned
+            anyVisibilityMention
               ? "border-success/30 bg-success/5"
               : "border-warning/30 bg-warning/5",
           )}
@@ -421,9 +426,14 @@ function ScanResultsContent() {
           </CardHeader>
           <CardContent>
             <p className="text-sm">
-              We queried <span className="font-medium">Perplexity</span> for
-              your brand.{" "}
-              {result.visibility.brandMentioned ? (
+              We queried{" "}
+              <span className="font-medium">
+                {visibilityProviders
+                  .map((provider) => providerLabel(provider))
+                  .join(", ")}
+              </span>{" "}
+              for your brand.{" "}
+              {anyVisibilityMention ? (
                 <span className="font-semibold text-success">
                   Your site was mentioned.
                 </span>
@@ -433,7 +443,7 @@ function ScanResultsContent() {
                 </span>
               )}
             </p>
-            {!result.visibility.brandMentioned && (
+            {!anyVisibilityMention && (
               <p className="mt-2 text-sm text-muted-foreground">
                 This is an opportunity to strengthen structured answers,
                 authority signals, and citation-focused content.
@@ -457,7 +467,7 @@ function ScanResultsContent() {
           <h2 className="mb-4 text-lg font-semibold">
             {isUnlocked
               ? `All Detected Issues (${issues.length})`
-              : `Top Issues to Fix (${issues.length})`}
+              : `Top issues to fix (${issues.length})`}
           </h2>
           <div className="space-y-3">
             {issues.map((issue, i) => (
@@ -498,13 +508,15 @@ function ScanResultsContent() {
       {/* Next Actions */}
       <Card className="bg-primary/5 p-8">
         <h2 className="text-center text-xl font-bold">
-          Recommended Next Actions
+          Recommended next actions
         </h2>
         <p className="mt-2 text-center text-muted-foreground">
-          Move from one-time audit to repeatable execution with a project
-          workspace, integrations, and recurring monitoring.
+          Move from one-time audit to repeatable execution.
         </p>
         <div className="mt-5 space-y-3">
+          <p className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Primary action
+          </p>
           {isSignedIn ? (
             <Button
               size="lg"
@@ -513,8 +525,8 @@ function ScanResultsContent() {
               disabled={creatingWorkspace}
             >
               {creatingWorkspace
-                ? "Creating Project Workspace..."
-                : "Create Project Workspace"}
+                ? "Creating Workspace..."
+                : WORKFLOW_CTA_COPY.createWorkspace}
             </Button>
           ) : (
             <Button size="lg" className="w-full" asChild>
@@ -528,7 +540,7 @@ function ScanResultsContent() {
                   )
                 }
               >
-                Create Project Workspace
+                {WORKFLOW_CTA_COPY.createWorkspace}
               </Link>
             </Button>
           )}
@@ -543,6 +555,9 @@ function ScanResultsContent() {
               {workspaceError}
             </div>
           )}
+          <p className="pt-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Secondary actions
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Button size="lg" variant="outline" className="w-full" asChild>
               <Link
@@ -555,24 +570,29 @@ function ScanResultsContent() {
                   )
                 }
               >
-                Connect Integrations
+                {WORKFLOW_CTA_COPY.connectIntegrations}
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="w-full" asChild>
               <Link
-                href="/pricing"
+                href={recurringScanDestination}
                 onClick={() =>
                   trackCtaClick(
                     "schedule_recurring_scan",
-                    "/pricing",
+                    recurringScanDestination,
                     "results_next_actions",
                   )
                 }
               >
-                Schedule Recurring Scans
+                {WORKFLOW_CTA_COPY.scheduleRecurringScans}
               </Link>
             </Button>
           </div>
+          <p className="text-center text-xs text-muted-foreground">
+            {isSignedIn
+              ? "Use any existing workspace to enable recurring crawl cadence."
+              : "Sign up to activate recurring scans and reporting."}
+          </p>
         </div>
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Need another baseline first?{" "}

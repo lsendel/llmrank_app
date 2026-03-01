@@ -1,6 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import DashboardPage from "@/app/dashboard/page";
 import { vi } from "vitest";
+
+const { mockGetMe } = vi.hoisted(() => ({
+  mockGetMe: vi.fn().mockResolvedValue({ persona: null }),
+}));
 
 // Mock hooks
 vi.mock("@/lib/auth-hooks", () => ({
@@ -59,7 +63,7 @@ vi.mock("@/hooks/use-persona-layout", () => ({
 vi.mock("@/lib/api", () => ({
   api: {
     account: {
-      getMe: vi.fn().mockResolvedValue({ persona: null }),
+      getMe: mockGetMe,
     },
   },
 }));
@@ -69,30 +73,37 @@ vi.mock("@/lib/telemetry", () => ({
 }));
 
 describe("Dashboard Page", () => {
-  it("renders welcome message with user name", () => {
+  it("renders welcome message with user name", async () => {
     render(<DashboardPage />);
     // "Test User" becomes "Test" due to split(" ")[0]
-    expect(screen.getByText(/Welcome back, Test/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Welcome back, Test/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText("Since your last visit"),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mockGetMe).toHaveBeenCalled());
   });
 
-  it("renders stats widgets correctly", () => {
+  it("renders stats widgets correctly", async () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Total Projects")).toBeInTheDocument();
-    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(await screen.findByText("Total Projects")).toBeInTheDocument();
+    expect(await screen.findByText("5")).toBeInTheDocument();
     // Adjusted to match actual component text
-    expect(screen.getByText("Average Score")).toBeInTheDocument();
-    expect(screen.getByText("85")).toBeInTheDocument();
+    expect(await screen.findByText("Average Score")).toBeInTheDocument();
+    expect(await screen.findByText("85")).toBeInTheDocument();
+    await waitFor(() => expect(mockGetMe).toHaveBeenCalled());
   });
 
-  it("renders recent activity", () => {
+  it("renders recent activity", async () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Test Project")).toBeInTheDocument();
-    expect(screen.getByText("90")).toBeInTheDocument();
+    expect(await screen.findByText("Test Project")).toBeInTheDocument();
+    expect(await screen.findByText("90")).toBeInTheDocument();
+    await waitFor(() => expect(mockGetMe).toHaveBeenCalled());
   });
 
-  it("renders Quick Tools widget", () => {
+  it("renders Quick Tools widget", async () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Strategy & Personas")).toBeInTheDocument();
-    expect(screen.getByText("Competitor Tracking")).toBeInTheDocument();
+    expect(await screen.findByText("Strategy & Personas")).toBeInTheDocument();
+    expect(await screen.findByText("Competitor Tracking")).toBeInTheDocument();
+    await waitFor(() => expect(mockGetMe).toHaveBeenCalled());
   });
 });

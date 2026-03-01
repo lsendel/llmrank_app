@@ -1,48 +1,99 @@
 "use client";
 
-import { signUp } from "@/lib/auth-client";
+import { signIn, signUp } from "@/lib/auth-client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { track } from "@/lib/telemetry";
+import {
+  clearPendingAuthRedirect,
+  setPendingAuthRedirect,
+} from "@/components/auth-redirect-tracker";
 
 export function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const redirectTarget = (() => {
+    const redirect = searchParams.get("redirect");
+    if (!redirect || !redirect.startsWith("/")) return "/dashboard";
+    return redirect;
+  })();
+  const hasMinLength = password.length >= 8;
+  const hasLetter = /[a-z]/i.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasUpperAndLower = /[A-Z]/.test(password) && /[a-z]/.test(password);
+  const passwordReady = hasMinLength && hasLetter && hasNumber;
+
+  const passwordStrength = (() => {
+    if (!password) return "None";
+    if (password.length >= 10 && hasUpperAndLower && hasNumber) return "Strong";
+    if (passwordReady) return "Medium";
+    return "Weak";
+  })();
 
   const handleSignUp = async () => {
     setLoading(true);
-    await signUp.email({
-      email,
-      password,
-      name,
-      fetchOptions: {
-        onSuccess: () => {
-          router.push("/dashboard");
+    setError(null);
+
+    try {
+      await signUp.email({
+        email,
+        password,
+        name,
+        fetchOptions: {
+          onSuccess: () => {
+            setPendingAuthRedirect(redirectTarget, "sign-up", "email");
+            track("auth.sign_up_success", {
+              auth_method: "email",
+              redirect_target: redirectTarget,
+            });
+            router.push(redirectTarget);
+          },
+          onError: (ctx) => {
+            track("auth.sign_up_failed", {
+              auth_method: "email",
+              error: ctx.error.message,
+            });
+            setError(ctx.error.message);
+            setLoading(false);
+          },
         },
-        onError: (ctx) => {
-          alert(ctx.error.message);
-          setLoading(false);
-        },
-      },
-    });
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign up failed.");
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    // For sign up, we can use the same social sign in method
-    // verifying if we need signUp.social or just signIn.social
-    // Better Auth usually treats social login as sign up if user doesn't exist.
-    // Let's check imports. signIn is imported.
-    // Actually, typically authClient.signIn.social works for both.
-    // But let's stick to consistent API if signUp has social.
-    // checking docs/types... usually it's just signIn.social
-    import("@/lib/auth-client").then(({ signIn }) => {
-      signIn.social({
-        provider: "google",
-        callbackURL: window.location.origin + "/dashboard",
+    setError(null);
+    setSocialLoading(true);
+
+    try {
+      setPendingAuthRedirect(redirectTarget, "sign-up", "google");
+      track("auth.sign_up_started", {
+        auth_method: "google",
+        redirect_target: redirectTarget,
       });
-    });
+      await signIn.social({
+        provider: "google",
+        callbackURL: window.location.origin + redirectTarget,
+      });
+    } catch (err) {
+      clearPendingAuthRedirect();
+      track("auth.sign_up_failed", {
+        auth_method: "google",
+        error: err instanceof Error ? err.message : "google_sign_up_failed",
+      });
+      setError(err instanceof Error ? err.message : "Google sign in failed.");
+      setSocialLoading(false);
+    }
   };
 
   return (
@@ -77,10 +128,37 @@ export function SignUp() {
           onChange={(e) => setPassword(e.target.value)}
           className="border p-2 rounded"
         />
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>
+            Strength:{" "}
+            <span
+              className={
+                passwordStrength === "Strong"
+                  ? "text-green-600"
+                  : passwordStrength === "Medium"
+                    ? "text-amber-600"
+                    : passwordStrength === "Weak"
+                      ? "text-destructive"
+                      : ""
+              }
+            >
+              {passwordStrength}
+            </span>
+          </p>
+          <p className={hasMinLength ? "text-green-600" : ""}>
+            {hasMinLength ? "✓" : "•"} At least 8 characters
+          </p>
+          <p className={hasLetter ? "text-green-600" : ""}>
+            {hasLetter ? "✓" : "•"} At least one letter
+          </p>
+          <p className={hasNumber ? "text-green-600" : ""}>
+            {hasNumber ? "✓" : "•"} At least one number
+          </p>
+        </div>
       </div>
       <button
         onClick={handleSignUp}
-        disabled={loading}
+        disabled={loading || socialLoading || !passwordReady}
         className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50"
       >
         {loading ? "Signing up..." : "Sign Up"}
@@ -97,10 +175,12 @@ export function SignUp() {
 
       <button
         onClick={handleGoogleSignIn}
-        className="flex items-center justify-center gap-2 border p-2 rounded hover:bg-gray-50"
+        disabled={loading || socialLoading}
+        className="flex items-center justify-center gap-2 border p-2 rounded hover:bg-gray-50 disabled:opacity-50"
       >
-        Google
+        {socialLoading ? "Connecting..." : "Google"}
       </button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

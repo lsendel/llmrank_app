@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StateMessage } from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -41,6 +42,7 @@ import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix"
 import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
 import { CitedPagesTable } from "@/components/visibility/cited-pages-table";
 import { BrandSentimentCard } from "@/components/visibility/brand-sentiment-card";
+import { BrandPerceptionChart } from "@/components/visibility/brand-perception-chart";
 import { BrandPerformanceDashboard } from "@/components/visibility/brand-performance-dashboard";
 import { SourceOpportunitiesTable } from "@/components/visibility/source-opportunities-table";
 import { PromptResearchPanel } from "@/components/visibility/prompt-research-panel";
@@ -62,6 +64,10 @@ import {
   type StrategyCompetitor,
   type ScheduledQuery,
 } from "@/lib/api";
+import {
+  confidenceFromVisibilityCoverage,
+  relativeTimeLabel,
+} from "@/lib/insight-metadata";
 import {
   Plus,
   Trash2,
@@ -146,44 +152,6 @@ const REGION_LANGUAGES: Record<string, string> = {
   kr: "ko",
 };
 
-function relativeTimeLabel(value: string | null | undefined): string {
-  if (!value) return "Unknown";
-
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "Unknown";
-
-  const diff = Date.now() - timestamp;
-  if (diff < 60_000) return "Just now";
-
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(diff / 3_600_000);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(diff / 86_400_000);
-  if (days < 30) return `${days}d ago`;
-
-  return new Date(value).toLocaleDateString();
-}
-
-function visibilityConfidence(
-  checks: number,
-  providers: number,
-  queries: number,
-): {
-  label: "High" | "Medium" | "Low";
-  variant: "success" | "warning" | "destructive";
-} {
-  if (checks >= 30 && providers >= 4 && queries >= 5) {
-    return { label: "High", variant: "success" };
-  }
-  if (checks >= 12 && providers >= 3 && queries >= 3) {
-    return { label: "Medium", variant: "warning" };
-  }
-  return { label: "Low", variant: "destructive" };
-}
-
 function recommendedProvidersForIntent(
   intent: VisibilityIntent,
   isProOrAbove: boolean,
@@ -233,14 +201,29 @@ export default function VisibilityTab({
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Compute region/language filter for API calls
+  const regionFilter = useMemo(
+    () =>
+      selectedRegion !== "all" && canFilterRegion
+        ? {
+            region: selectedRegion,
+            language: REGION_LANGUAGES[selectedRegion] ?? "en",
+          }
+        : undefined,
+    [selectedRegion, canFilterRegion],
+  );
+
   const { data: competitors } = useApiSWR<StrategyCompetitor[]>(
     `competitors-${projectId}`,
     useCallback(() => api.strategy.getCompetitors(projectId), [projectId]),
   );
 
   const { data: gaps } = useApiSWR<VisibilityGap[]>(
-    `visibility-gaps-${projectId}`,
-    useCallback(() => api.visibility.getGaps(projectId), [projectId]),
+    `visibility-gaps-${projectId}-${regionFilter?.region ?? "all"}-${regionFilter?.language ?? "all"}`,
+    useCallback(
+      () => api.visibility.getGaps(projectId, regionFilter),
+      [projectId, regionFilter],
+    ),
   );
 
   // Scheduled checks state
@@ -275,25 +258,13 @@ export default function VisibilityTab({
       providerCount: providers.size,
       queryCount: queries.size,
       latestCheckedAt,
-      confidence: visibilityConfidence(
+      confidence: confidenceFromVisibilityCoverage(
         history.length,
         providers.size,
         queries.size,
       ),
     };
   }, [history]);
-
-  // Compute region/language filter for API calls
-  const regionFilter = useMemo(
-    () =>
-      selectedRegion !== "all" && canFilterRegion
-        ? {
-            region: selectedRegion,
-            language: REGION_LANGUAGES[selectedRegion] ?? "en",
-          }
-        : undefined,
-    [selectedRegion, canFilterRegion],
-  );
 
   // Load history on mount and when region changes
   useEffect(() => {
@@ -680,9 +651,27 @@ export default function VisibilityTab({
               )}
 
               {error && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                </div>
+                <StateMessage
+                  variant="error"
+                  compact
+                  title="Visibility check failed"
+                  description={error}
+                  className="rounded-md border border-destructive/20 bg-destructive/5 py-3"
+                  action={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRunCheck}
+                      disabled={
+                        loading ||
+                        selectedKeywordIds.length === 0 ||
+                        selectedProviders.length === 0
+                      }
+                    >
+                      Retry
+                    </Button>
+                  }
+                />
               )}
               <Button
                 onClick={handleRunCheck}
@@ -782,10 +771,18 @@ export default function VisibilityTab({
 
         <TabsContent value="analyze-gaps" className="space-y-6">
           {/* AI Visibility Score Header */}
-          <AIVisibilityScoreHeader projectId={projectId} />
+          <AIVisibilityScoreHeader
+            projectId={projectId}
+            filters={regionFilter}
+          />
 
           {/* Brand Performance Dashboard (Starter+) */}
-          {!isFree && <BrandPerformanceDashboard projectId={projectId} />}
+          {!isFree && (
+            <BrandPerformanceDashboard
+              projectId={projectId}
+              filters={regionFilter}
+            />
+          )}
 
           {isFree && (
             <UpgradePrompt
@@ -797,19 +794,28 @@ export default function VisibilityTab({
           )}
 
           {/* Actionable Recommendations */}
-          <RecommendationsCard projectId={projectId} />
+          <RecommendationsCard projectId={projectId} filters={regionFilter} />
 
           {/* Platform Readiness Matrix */}
           {latestCrawlId && <PlatformReadinessMatrix crawlId={latestCrawlId} />}
 
           {/* Share of Voice Chart */}
-          <ShareOfVoiceChart projectId={projectId} />
+          <ShareOfVoiceChart projectId={projectId} filters={regionFilter} />
 
           {/* Cited Pages */}
-          <CitedPagesTable projectId={projectId} />
+          <CitedPagesTable projectId={projectId} filters={regionFilter} />
 
           {/* Brand Perception (Starter+) */}
-          {!isFree && <BrandSentimentCard projectId={projectId} />}
+          {!isFree && (
+            <BrandSentimentCard projectId={projectId} filters={regionFilter} />
+          )}
+
+          {!isFree && (
+            <BrandPerceptionChart
+              projectId={projectId}
+              filters={regionFilter}
+            />
+          )}
 
           {/* Competitor Comparison */}
           {history.length > 0 && competitors && (
@@ -856,10 +862,13 @@ export default function VisibilityTab({
           )}
 
           {/* Prompt Research (Starter+) */}
-          <PromptResearchPanel projectId={projectId} />
+          <PromptResearchPanel projectId={projectId} filters={regionFilter} />
 
           {/* Source Opportunities (Pro+) */}
-          <SourceOpportunitiesTable projectId={projectId} />
+          <SourceOpportunitiesTable
+            projectId={projectId}
+            filters={regionFilter}
+          />
         </TabsContent>
       </Tabs>
 
@@ -930,13 +939,12 @@ function ScheduledChecksSection({
       </CardHeader>
       <CardContent>
         {schedules.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Clock className="mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No scheduled checks yet. Add a schedule to automatically monitor
-              your visibility across LLM providers.
-            </p>
-          </div>
+          <StateMessage
+            variant="empty"
+            title="No scheduled checks yet"
+            description="Add a schedule to automatically monitor your visibility across LLM providers."
+            icon={<Clock className="h-10 w-10 text-muted-foreground/50" />}
+          />
         ) : (
           <div className="space-y-3">
             {schedules.map((schedule) => (
@@ -1154,9 +1162,13 @@ function AddScheduleDialog({
           </Select>
         </div>
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
+          <StateMessage
+            variant="error"
+            compact
+            title="Schedule creation failed"
+            description={error}
+            className="rounded-md border border-destructive/20 bg-destructive/5 py-3"
+          />
         )}
       </div>
       <DialogFooter>

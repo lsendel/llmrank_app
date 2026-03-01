@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StateCard, StateMessage } from "@/components/ui/state";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
@@ -34,6 +35,7 @@ export function LogsTab({ projectId }: { projectId: string }) {
 
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedFile, setLastFailedFile] = useState<File | null>(null);
   const [latestSummary, setLatestSummary] = useState<LogAnalysisSummary | null>(
     null,
   );
@@ -50,6 +52,7 @@ export function LogsTab({ projectId }: { projectId: string }) {
   async function handleFileUpload(file: File) {
     setUploading(true);
     setError(null);
+    setLastFailedFile(null);
     try {
       const content = await file.text();
       await withAuth(async () => {
@@ -61,6 +64,7 @@ export function LogsTab({ projectId }: { projectId: string }) {
         mutate();
       });
     } catch (err) {
+      setLastFailedFile(file);
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
@@ -136,6 +140,31 @@ export function LogsTab({ projectId }: { projectId: string }) {
               description={error}
               compact
               className="mt-3 rounded-md border border-destructive/20 bg-destructive/5 px-3"
+              action={
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (lastFailedFile) {
+                        void handleFileUpload(lastFailedFile);
+                      }
+                    }}
+                    disabled={!lastFailedFile || uploading}
+                  >
+                    Retry upload
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setError(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              }
             />
           )}
         </CardContent>
@@ -229,6 +258,15 @@ export function LogsTab({ projectId }: { projectId: string }) {
             </Card>
           )}
         </>
+      )}
+
+      {isLoading && (
+        <StateCard
+          variant="loading"
+          cardTitle="Upload History"
+          description="Loading previous log uploads..."
+          contentClassName="p-0"
+        />
       )}
 
       {!isLoading && uploads && uploads.length > 0 && (

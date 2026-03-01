@@ -41,7 +41,7 @@ const BENEFITS = [
     icon: Shield,
     title: "Enterprise-Grade Security",
     description:
-      "Your data is encrypted at rest and in transit. Authentication powered by Clerk with SOC 2 compliance.",
+      "Your data is encrypted at rest and in transit with secure session-based authentication.",
   },
 ];
 

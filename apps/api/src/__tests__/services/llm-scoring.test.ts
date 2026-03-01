@@ -4,7 +4,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks - must be declared before imports
 // ---------------------------------------------------------------------------
 
+const mockUpdate = vi.fn().mockResolvedValue(undefined);
 const mockUpdateDetail = vi.fn().mockResolvedValue(undefined);
+const mockClearIssues = vi.fn().mockResolvedValue(undefined);
+const mockCreateIssues = vi.fn().mockResolvedValue(undefined);
 const mockScoreContent = vi.fn();
 const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
@@ -12,7 +15,10 @@ const mockListPagesByJob = vi.fn().mockResolvedValue([]);
 vi.mock("@llm-boost/db", () => ({
   createDb: vi.fn().mockReturnValue({}),
   scoreQueries: vi.fn(() => ({
+    update: mockUpdate,
     updateDetail: mockUpdateDetail,
+    clearIssues: mockClearIssues,
+    createIssues: mockCreateIssues,
     listByJob: mockListByJob,
   })),
   pageQueries: vi.fn(() => ({
@@ -24,6 +30,20 @@ vi.mock("@llm-boost/llm", () => ({
   LLMScorer: vi.fn().mockImplementation(() => ({
     scoreContent: mockScoreContent,
   })),
+}));
+
+vi.mock("@llm-boost/scoring", () => ({
+  scorePage: vi.fn().mockReturnValue({
+    overallScore: 81,
+    technicalScore: 80,
+    contentScore: 82,
+    aiReadinessScore: 83,
+    performanceScore: 79,
+    letterGrade: "B",
+    platformScores: {},
+    issues: [],
+  }),
+  generateRecommendations: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock("../../lib/logger", () => ({
@@ -128,14 +148,22 @@ describe("runLLMScoring", () => {
     });
   });
 
-  it("scores a page and updates the detail", async () => {
+  it("scores a page and updates aggregate score fields", async () => {
     const input = baseLLMInput();
     await runLLMScoring(input as any);
 
     expect(mockScoreContent).toHaveBeenCalledTimes(1);
-    expect(mockUpdateDetail).toHaveBeenCalledWith("score-1", {
-      llmContentScores: { clarity: 8, authority: 7, structure: 9 },
-    });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      "score-1",
+      expect.objectContaining({
+        overallScore: 81,
+        detail: expect.objectContaining({
+          llmContentScores: { clarity: 8, authority: 7, structure: 9 },
+        }),
+      }),
+    );
+    expect(mockClearIssues).toHaveBeenCalledWith("page-1");
+    expect(mockCreateIssues).toHaveBeenCalledWith([]);
   });
 
   it("skips pages with word_count < 200", async () => {
@@ -151,7 +179,7 @@ describe("runLLMScoring", () => {
     await runLLMScoring(input as any);
 
     expect(mockScoreContent).not.toHaveBeenCalled();
-    expect(mockUpdateDetail).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("skips pages without content_hash", async () => {
@@ -191,7 +219,7 @@ describe("runLLMScoring", () => {
     await runLLMScoring(input as any);
 
     expect(mockScoreContent).toHaveBeenCalledTimes(1);
-    expect(mockUpdateDetail).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("catches errors and continues without throwing", async () => {
@@ -199,7 +227,7 @@ describe("runLLMScoring", () => {
     const input = baseLLMInput();
 
     await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
-    expect(mockUpdateDetail).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 

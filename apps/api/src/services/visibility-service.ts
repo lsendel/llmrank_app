@@ -145,13 +145,17 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
       return deps.visibility.listByProject(projectId, filters);
     },
 
-    async getTrends(userId: string, projectId: string) {
+    async getTrends(
+      userId: string,
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
       const project = await deps.projects.getById(projectId);
       if (!project || project.userId !== userId) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Project not found");
       }
-      return deps.visibility.getTrends(projectId);
+      return deps.visibility.getTrends(projectId, filters);
     },
   };
 }

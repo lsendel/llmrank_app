@@ -23,9 +23,52 @@ import {
 } from "@/components/ui/table";
 import { ScoreCircle } from "@/components/score-circle";
 import { Progress } from "@/components/ui/progress";
+import { StateMessage } from "@/components/ui/state";
+import {
+  confidenceFromRecommendation,
+  relativeTimeLabel,
+} from "@/lib/insight-metadata";
 import { cn, gradeColor } from "@/lib/utils";
-import { api, ApiError, type SharedReport } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  type RecommendationConfidence,
+  type SharedReport,
+} from "@/lib/api";
 import { EmailCaptureGate } from "@/components/email-capture-gate";
+
+function recommendationMeta(
+  win: SharedReport["quickWins"][number],
+  totalPages: number,
+  fallbackTimestamp: string | null | undefined,
+): {
+  confidence: RecommendationConfidence;
+  dataTimestamp: string | null;
+} {
+  const confidence =
+    win.confidence ??
+    confidenceFromRecommendation({
+      severity: win.severity,
+      scoreImpact: win.scoreImpact,
+      affectedPages: win.affectedPages,
+      totalPages,
+    });
+  return {
+    confidence,
+    dataTimestamp: win.dataTimestamp ?? fallbackTimestamp ?? null,
+  };
+}
+
+function recommendationDataLabel(timestamp: string | null | undefined): string {
+  if (!timestamp) return "Data unavailable";
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return "Data unavailable";
+  return `Data ${parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}
 
 export default function SharedReportPage() {
   const params = useParams<{ token: string }>();
@@ -55,20 +98,28 @@ export default function SharedReportPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading report...</p>
-      </div>
+      <StateMessage
+        variant="loading"
+        title="Loading report"
+        description="Preparing shared score summary, actions, and page details."
+        className="min-h-screen"
+      />
     );
   }
 
   if (error || !report) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">{error ?? "Report not found."}</p>
-        <Link href="/scan">
-          <Button>Scan Your Site Free</Button>
-        </Link>
-      </div>
+      <StateMessage
+        variant="error"
+        title="Report unavailable"
+        description={error ?? "Report not found."}
+        className="min-h-screen"
+        action={
+          <Button asChild>
+            <Link href="/scan">Scan Your Site Free</Link>
+          </Button>
+        }
+      />
     );
   }
 
@@ -77,6 +128,8 @@ export default function SharedReportPage() {
   const isAgencyReport = !!project.branding?.companyName;
   const brandColor = project.branding?.primaryColor || "#4f46e5";
   const coverageHighlights = (readinessCoverage ?? []).slice(0, 4);
+  const evidencePages = Math.max(pages.length, report.pagesScored ?? 0);
+  const dataFreshness = relativeTimeLabel(report.completedAt);
   const deltaRows = [
     { label: "Overall", value: scoreDeltas.overall },
     { label: "Technical", value: scoreDeltas.technical },
@@ -204,6 +257,59 @@ export default function SharedReportPage() {
         </Card>
       )}
 
+      {quickWins.length > 0 && (
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Executive Action Brief</CardTitle>
+            <CardDescription>
+              Prioritized actions to unlock the fastest score improvement.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+              <Badge variant="outline">Updated: {dataFreshness}</Badge>
+              <Badge variant="outline">Evidence: {evidencePages} pages</Badge>
+            </div>
+            {quickWins.slice(0, 3).map((win, i) => {
+              const meta = recommendationMeta(
+                win,
+                evidencePages,
+                report.completedAt,
+              );
+              return (
+                <div
+                  key={`${win.code}-brief-${i}`}
+                  className="rounded-lg border border-border/70 bg-muted/20 p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {i + 1}
+                    </span>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">{win.message}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                        <Badge variant="outline">
+                          Impact: +{win.scoreImpact}
+                        </Badge>
+                        <Badge variant={meta.confidence.variant}>
+                          Confidence: {meta.confidence.label}
+                        </Badge>
+                        <Badge variant="outline">
+                          {win.affectedPages} pages affected
+                        </Badge>
+                        <Badge variant="outline">
+                          {recommendationDataLabel(meta.dataTimestamp)}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       {(coverageHighlights.length > 0 ||
         deltaRows.some((d) => d.value !== 0)) && (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -286,59 +392,81 @@ export default function SharedReportPage() {
                 Top Recommended Improvements
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                {quickWins.map((win, i) => (
-                  <Card
-                    key={win.code}
-                    className="shadow-sm border-l-4 border-l-primary"
-                    style={{ borderLeftColor: brandColor }}
-                  >
-                    <CardContent className="pt-6">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-white text-xs font-bold"
-                          style={{ backgroundColor: brandColor }}
-                        >
-                          {i + 1}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">{win.message}</p>
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                            {win.recommendation}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                            <span>Owner: {win.owner ?? "SEO"}</span>
-                            <span>Effort: {win.effort ?? win.effortLevel}</span>
-                            {win.pillar && <span>{win.pillar}</span>}
+                {quickWins.map((win, i) => {
+                  const meta = recommendationMeta(
+                    win,
+                    evidencePages,
+                    report.completedAt,
+                  );
+
+                  return (
+                    <Card
+                      key={win.code}
+                      className="shadow-sm border-l-4 border-l-primary"
+                      style={{ borderLeftColor: brandColor }}
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-white text-xs font-bold"
+                            style={{ backgroundColor: brandColor }}
+                          >
+                            {i + 1}
                           </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] uppercase font-semibold"
-                            >
-                              Impact: +{win.scoreImpact} pts
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] uppercase"
-                            >
-                              {win.affectedPages} pages
-                            </Badge>
-                            {win.docsUrl && (
-                              <a
-                                href={win.docsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[10px] text-primary hover:underline"
+                          <div>
+                            <p className="text-sm font-bold">{win.message}</p>
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                              {win.recommendation}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                              <span>Owner: {win.owner ?? "SEO"}</span>
+                              <span>
+                                Effort: {win.effort ?? win.effortLevel}
+                              </span>
+                              {win.pillar && <span>{win.pillar}</span>}
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] uppercase font-semibold"
                               >
-                                Playbook ↗
-                              </a>
-                            )}
+                                Impact: +{win.scoreImpact} pts
+                              </Badge>
+                              <Badge
+                                variant={meta.confidence.variant}
+                                className="text-[10px] uppercase"
+                              >
+                                Confidence: {meta.confidence.label}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] uppercase"
+                              >
+                                {win.affectedPages} pages
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] uppercase"
+                              >
+                                {recommendationDataLabel(meta.dataTimestamp)}
+                              </Badge>
+                              {win.docsUrl && (
+                                <a
+                                  href={win.docsUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[10px] text-primary hover:underline"
+                                >
+                                  Playbook ↗
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Sparkles, Trash2, User, Loader2, Wand2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { StateCard } from "@/components/ui/state";
 
 const FUNNEL_COLORS = {
   education: "bg-blue-100 text-blue-800",
@@ -32,6 +33,7 @@ export function PersonasTab({ projectId }: { projectId: string }) {
   const { toast } = useToast();
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [roleName, setRoleName] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -39,20 +41,24 @@ export function PersonasTab({ projectId }: { projectId: string }) {
   const [refining, setRefining] = useState<string | null>(null);
 
   const loadPersonas = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const data = await api.personas.list(projectId);
       setPersonas(data);
     } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Please refresh and try again.";
+      setLoadError(message);
       toast({
         title: "Failed to load personas",
-        description:
-          err instanceof Error ? err.message : "Please refresh and try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, toast]);
 
   useEffect(() => {
     loadPersonas();
@@ -117,9 +123,28 @@ export function PersonasTab({ projectId }: { projectId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <StateCard
+        variant="loading"
+        title="Loading personas"
+        description="Fetching audience segments and generated query sets."
+        contentClassName="p-0"
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <StateCard
+        variant="error"
+        title="Could not load personas"
+        description={loadError}
+        action={
+          <Button size="sm" variant="outline" onClick={loadPersonas}>
+            Retry
+          </Button>
+        }
+        contentClassName="p-0"
+      />
     );
   }
 
@@ -175,15 +200,13 @@ export function PersonasTab({ projectId }: { projectId: string }) {
       </div>
 
       {personas.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <User className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No personas yet. Add one to start tracking AI visibility by
-              audience segment.
-            </p>
-          </CardContent>
-        </Card>
+        <StateCard
+          variant="empty"
+          icon={<User className="h-12 w-12 text-muted-foreground" />}
+          title="No personas yet"
+          description="Add a persona to start tracking AI visibility by audience segment."
+          contentClassName="p-0"
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {personas.map((persona) => (

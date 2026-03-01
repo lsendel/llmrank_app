@@ -84,7 +84,21 @@ export function visibilityQueries(db: Database) {
     /**
      * Pages cited by AI platforms, grouped by URL with provider breakdown.
      */
-    async getCitedPages(projectId: string) {
+    async getCitedPages(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
+      const conditions = [
+        eq(visibilityChecks.projectId, projectId),
+        eq(visibilityChecks.urlCited, true),
+        isNotNull(visibilityChecks.citedUrl),
+      ];
+      if (filters?.region) {
+        conditions.push(eq(visibilityChecks.region, filters.region));
+      }
+      if (filters?.language) {
+        conditions.push(eq(visibilityChecks.language, filters.language));
+      }
       return db
         .select({
           citedUrl: visibilityChecks.citedUrl,
@@ -96,13 +110,7 @@ export function visibilityQueries(db: Database) {
           lastCited: sql<string>`max(${visibilityChecks.checkedAt})::text`,
         })
         .from(visibilityChecks)
-        .where(
-          and(
-            eq(visibilityChecks.projectId, projectId),
-            eq(visibilityChecks.urlCited, true),
-            isNotNull(visibilityChecks.citedUrl),
-          ),
-        )
+        .where(and(...conditions))
         .groupBy(visibilityChecks.citedUrl)
         .orderBy(desc(sql`count(*)`));
     },
@@ -110,12 +118,22 @@ export function visibilityQueries(db: Database) {
     /**
      * Competitor domains that appear in AI responses when user's brand is NOT mentioned.
      */
-    async getSourceOpportunities(projectId: string) {
+    async getSourceOpportunities(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
+      const conditions = [
+        eq(visibilityChecks.projectId, projectId),
+        eq(visibilityChecks.brandMentioned, false),
+      ];
+      if (filters?.region) {
+        conditions.push(eq(visibilityChecks.region, filters.region));
+      }
+      if (filters?.language) {
+        conditions.push(eq(visibilityChecks.language, filters.language));
+      }
       const checks = await db.query.visibilityChecks.findMany({
-        where: and(
-          eq(visibilityChecks.projectId, projectId),
-          eq(visibilityChecks.brandMentioned, false),
-        ),
+        where: and(...conditions),
       });
 
       const competitorData = new Map<
@@ -153,7 +171,17 @@ export function visibilityQueries(db: Database) {
      * Weekly aggregation of brand mention and citation rates per provider.
      * Returns rows sorted by week ascending for charting.
      */
-    async getTrends(projectId: string): Promise<VisibilityTrendRow[]> {
+    async getTrends(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<VisibilityTrendRow[]> {
+      const conditions = [eq(visibilityChecks.projectId, projectId)];
+      if (filters?.region) {
+        conditions.push(eq(visibilityChecks.region, filters.region));
+      }
+      if (filters?.language) {
+        conditions.push(eq(visibilityChecks.language, filters.language));
+      }
       const rows = await db
         .select({
           weekStart: sql<string>`date_trunc('week', ${visibilityChecks.checkedAt})::date::text`,
@@ -163,7 +191,7 @@ export function visibilityQueries(db: Database) {
           citationRate: sql<number>`round(avg(case when ${visibilityChecks.urlCited} then 1 else 0 end)::numeric, 2)`,
         })
         .from(visibilityChecks)
-        .where(eq(visibilityChecks.projectId, projectId))
+        .where(and(...conditions))
         .groupBy(
           sql`date_trunc('week', ${visibilityChecks.checkedAt})`,
           visibilityChecks.llmProvider,
@@ -183,7 +211,22 @@ export function visibilityQueries(db: Database) {
     /**
      * Get sentiment breakdown for a project: distribution + per-provider stats.
      */
-    async getSentimentSummary(projectId: string) {
+    async getSentimentSummary(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ) {
+      const conditions = [
+        eq(visibilityChecks.projectId, projectId),
+        eq(visibilityChecks.brandMentioned, true),
+        isNotNull(visibilityChecks.sentiment),
+      ];
+      if (filters?.region) {
+        conditions.push(eq(visibilityChecks.region, filters.region));
+      }
+      if (filters?.language) {
+        conditions.push(eq(visibilityChecks.language, filters.language));
+      }
+
       const checks = await db
         .select({
           sentiment: visibilityChecks.sentiment,
@@ -192,13 +235,7 @@ export function visibilityQueries(db: Database) {
           checkedAt: visibilityChecks.checkedAt,
         })
         .from(visibilityChecks)
-        .where(
-          and(
-            eq(visibilityChecks.projectId, projectId),
-            eq(visibilityChecks.brandMentioned, true),
-            isNotNull(visibilityChecks.sentiment),
-          ),
-        )
+        .where(and(...conditions))
         .orderBy(desc(visibilityChecks.checkedAt))
         .limit(200);
       return checks;

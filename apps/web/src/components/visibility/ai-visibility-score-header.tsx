@@ -29,10 +29,19 @@ const SIGNAL_LABELS = [
   { key: "backlinkAuthority", label: "Backlink Authority", max: 10 },
 ] as const;
 
-export function AIVisibilityScoreHeader({ projectId }: { projectId: string }) {
+export function AIVisibilityScoreHeader({
+  projectId,
+  filters,
+}: {
+  projectId: string;
+  filters?: { region?: string; language?: string };
+}) {
   const { data, isLoading } = useApiSWR<AIScoreTrend>(
-    `ai-score-trend-${projectId}`,
-    useCallback(() => api.visibility.getScoreTrend(projectId), [projectId]),
+    `ai-score-trend-${projectId}-${filters?.region ?? "all"}-${filters?.language ?? "all"}`,
+    useCallback(
+      () => api.visibility.getScoreTrend(projectId, filters),
+      [projectId, filters],
+    ),
   );
 
   if (isLoading || !data) {

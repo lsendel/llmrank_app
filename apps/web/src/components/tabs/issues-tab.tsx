@@ -10,6 +10,8 @@ import { IssueHeatmap } from "@/components/charts/issue-heatmap";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { usePlan } from "@/hooks/use-plan";
 import { useApiSWR } from "@/lib/use-api-swr";
+import { track } from "@/lib/telemetry";
+import { useUser } from "@/lib/auth-hooks";
 import {
   api,
   type PageIssue,
@@ -71,6 +73,52 @@ function FixRateBanner({ stats }: FixRateBannerProps) {
   );
 }
 
+interface ExecutionLaneSummaryProps {
+  items: ActionItem[];
+}
+
+function ExecutionLaneSummary({ items }: ExecutionLaneSummaryProps) {
+  const [now] = useState(() => Date.now());
+  const openItems = items.filter(
+    (item) => item.status === "pending" || item.status === "in_progress",
+  );
+  const openOver14d = openItems.filter((item) => {
+    const ageMs = now - new Date(item.createdAt).getTime();
+    return ageMs > 14 * 24 * 60 * 60 * 1000;
+  }).length;
+  const ownerless = openItems.filter((item) => !item.assigneeId).length;
+  const overdue = openItems.filter((item) => {
+    if (!item.dueAt) return false;
+    return new Date(item.dueAt).getTime() < now;
+  }).length;
+
+  if (openItems.length === 0) return null;
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">Execution Lanes</p>
+          <p className="text-xs text-muted-foreground">
+            Track aging, ownership, and deadlines for active issue tasks.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <Badge variant={openOver14d > 0 ? "warning" : "secondary"}>
+            Open {">"}14d: {openOver14d}
+          </Badge>
+          <Badge variant={ownerless > 0 ? "warning" : "secondary"}>
+            Ownerless: {ownerless}
+          </Badge>
+          <Badge variant={overdue > 0 ? "destructive" : "secondary"}>
+            Overdue: {overdue}
+          </Badge>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Status Filter Buttons
 // ---------------------------------------------------------------------------
@@ -97,6 +145,7 @@ export function IssuesTab({
   crawlId?: string;
   projectId?: string;
 }) {
+  const { user } = useUser();
   const { isFree } = usePlan();
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -130,10 +179,69 @@ export function IssuesTab({
   const handleStatusChange = useCallback(
     async (actionItemId: string, newStatus: ActionItemStatus) => {
       await api.actionItems.updateStatus(actionItemId, newStatus);
+      if (newStatus === "fixed") {
+        const item = (actionItems ?? []).find(
+          (candidate) => candidate.id === actionItemId,
+        );
+        track("fix_applied", {
+          projectId,
+          actionItemId,
+          issueCode: item?.issueCode ?? null,
+          source: "issues_tab",
+        });
+      }
       mutateItems();
       mutateStats();
     },
-    [mutateItems, mutateStats],
+    [actionItems, mutateItems, mutateStats, projectId],
+  );
+
+  const handleTaskUpdate = useCallback(
+    async (
+      actionItemId: string,
+      updates: {
+        assigneeId?: string | null;
+        dueAt?: string | null;
+      },
+    ) => {
+      const assigneeId =
+        updates.assigneeId === "me" ? (user?.id ?? null) : updates.assigneeId;
+      await api.actionItems.update(actionItemId, {
+        ...(assigneeId !== undefined ? { assigneeId } : {}),
+        ...(updates.dueAt !== undefined ? { dueAt: updates.dueAt } : {}),
+      });
+      mutateItems();
+      mutateStats();
+    },
+    [mutateItems, mutateStats, user?.id],
+  );
+
+  const handleCreateTask = useCallback(
+    async (
+      issue: PageIssue,
+      args: {
+        assigneeId: string | null;
+        dueAt: string | null;
+      },
+    ) => {
+      if (!projectId) return;
+      const assigneeId = args.assigneeId === "me" ? (user?.id ?? null) : null;
+      await api.actionItems.create({
+        projectId,
+        issueCode: issue.code,
+        status: "pending",
+        severity: issue.severity,
+        category: issue.category,
+        scoreImpact: 0,
+        title: issue.message,
+        description: issue.recommendation,
+        assigneeId,
+        dueAt: args.dueAt,
+      });
+      mutateItems();
+      mutateStats();
+    },
+    [mutateItems, mutateStats, projectId, user?.id],
   );
 
   const filtered = useMemo(() => {
@@ -168,6 +276,9 @@ export function IssuesTab({
     <div className="space-y-4">
       {/* Fix Rate Banner */}
       {stats && stats.total > 0 && <FixRateBanner stats={stats} />}
+      {actionItems && actionItems.length > 0 && (
+        <ExecutionLaneSummary items={actionItems} />
+      )}
 
       {/* Issue Heatmap */}
       {crawlId && projectId && (
@@ -265,7 +376,11 @@ export function IssuesTab({
                 pageId={issue.pageId}
                 actionItemId={actionItem?.id}
                 actionItemStatus={actionItem?.status}
+                actionItemAssigneeId={actionItem?.assigneeId}
+                actionItemDueAt={actionItem?.dueAt}
                 onStatusChange={actionItem ? handleStatusChange : undefined}
+                onTaskCreate={(args) => handleCreateTask(issue, args)}
+                onTaskUpdate={actionItem ? handleTaskUpdate : undefined}
               />
             );
           })

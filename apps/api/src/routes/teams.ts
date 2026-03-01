@@ -6,6 +6,11 @@ import { z } from "zod";
 
 export const teamRoutes = new Hono<AppEnv>();
 teamRoutes.use("*", authMiddleware);
+teamRoutes.use("*", async (c, next) => {
+  c.header("Deprecation", "true");
+  c.header("Link", '</api/orgs>; rel="successor-version"');
+  await next();
+});
 
 // POST / — Create team
 teamRoutes.post("/", async (c) => {

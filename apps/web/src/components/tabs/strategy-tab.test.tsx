@@ -79,4 +79,11 @@ describe("Strategy Tab", () => {
     expect(screen.getByText("Persona Discovery")).toBeInTheDocument();
     expect(screen.getByText("Discover Personas")).toBeInTheDocument();
   });
+
+  it("renders demand model flow controls", () => {
+    render(<StrategyTab projectId="proj-1" />);
+    expect(screen.getByText("Demand Model Flow")).toBeInTheDocument();
+    expect(screen.getByText("Accept All Recommended")).toBeInTheDocument();
+    expect(screen.getByText("Run Guided Setup")).toBeInTheDocument();
+  });
 });

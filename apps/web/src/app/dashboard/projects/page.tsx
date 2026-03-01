@@ -46,11 +46,12 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { cn, gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
-import { api, type Project } from "@/lib/api";
+import { api, type Project, type ProjectsDefaultPreset } from "@/lib/api";
 import { normalizeDomain } from "@llm-boost/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QueueList } from "./_components/queue-list";
 import { PriorityFeedCard } from "./_components/priority-feed-card";
+import { StateMessage } from "@/components/ui/state";
 
 const PROJECTS_PER_PAGE = 12;
 
@@ -202,6 +203,17 @@ const DEFAULT_PRESET_STORAGE_KEY = "projects-default-view-preset";
 const PROJECTS_LAST_VISIT_STORAGE_KEY = "projects-last-visit-at";
 const STALE_CRAWL_THRESHOLD_DAYS = 14;
 
+function isViewPreset(value: string | null | undefined): value is ViewPreset {
+  if (!value) return false;
+  return value in VIEW_PRESETS;
+}
+
+function defaultPresetFromPersona(persona?: string | null): ViewPreset {
+  if (persona === "agency" || persona === "freelancer") return "seo_manager";
+  if (persona === "in_house" || persona === "developer") return "content_lead";
+  return "exec_summary";
+}
+
 function gradeBadgeVariant(
   score: number,
 ): "success" | "warning" | "destructive" {
@@ -332,6 +344,7 @@ export default function ProjectsPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkCrawling, setBulkCrawling] = useState(false);
   const [bulkEnablingPipeline, setBulkEnablingPipeline] = useState(false);
+  const [savingDefaultPreset, setSavingDefaultPreset] = useState(false);
   const [lastVisitedAt, setLastVisitedAt] = useState<string | null>(null);
   const hasBootstrappedPreset = useRef(false);
 
@@ -392,6 +405,19 @@ export default function ProjectsPage() {
     setSelectedIds(new Set());
   }, [searchQuery, healthFilter, sortBy, anomalyFilter, currentPage]);
 
+  const { data: accountMe, isLoading: accountMeLoading } = useApiSWR(
+    "account-me",
+    useCallback(() => api.account.getMe(), []),
+  );
+  const {
+    data: accountPreferences,
+    isLoading: accountPreferencesLoading,
+    mutate: mutateAccountPreferences,
+  } = useApiSWR(
+    "account-preferences",
+    useCallback(() => api.account.getPreferences(), []),
+  );
+
   const activePreset = useMemo(() => {
     for (const [key, preset] of Object.entries(VIEW_PRESETS)) {
       if (preset.health === healthFilter && preset.sort === sortBy) {
@@ -402,11 +428,19 @@ export default function ProjectsPage() {
   }, [healthFilter, sortBy]);
 
   const defaultPreset = useMemo(() => {
+    const serverPreset = isViewPreset(
+      accountPreferences?.projectsDefaultPreset ?? null,
+    )
+      ? accountPreferences?.projectsDefaultPreset
+      : null;
+    if (serverPreset) return serverPreset;
+
     if (typeof window === "undefined") return null;
     const stored = localStorage.getItem(DEFAULT_PRESET_STORAGE_KEY);
-    if (!stored || !(stored in VIEW_PRESETS)) return null;
-    return stored as ViewPreset;
-  }, []);
+    if (isViewPreset(stored)) return stored;
+
+    return defaultPresetFromPersona(accountMe?.persona);
+  }, [accountMe?.persona, accountPreferences?.projectsDefaultPreset]);
 
   const applyPreset = useCallback(
     (preset: ViewPreset) => {
@@ -425,6 +459,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (hasBootstrappedPreset.current) return;
+    if (accountPreferencesLoading || accountMeLoading) return;
     hasBootstrappedPreset.current = true;
 
     const hasQueryOverrides =
@@ -437,7 +472,13 @@ export default function ProjectsPage() {
     if (defaultPreset) {
       applyPreset(defaultPreset);
     }
-  }, [applyPreset, defaultPreset, searchParams]);
+  }, [
+    accountMeLoading,
+    accountPreferencesLoading,
+    applyPreset,
+    defaultPreset,
+    searchParams,
+  ]);
 
   const {
     data: result,
@@ -1071,9 +1112,12 @@ export default function ProjectsPage() {
           <PriorityFeedCard />
 
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <p className="text-muted-foreground">Loading projects...</p>
-            </div>
+            <StateMessage
+              variant="loading"
+              title="Loading projects"
+              description="Fetching portfolio health, score trends, and anomaly signals."
+              className="py-16"
+            />
           ) : (
             <>
               {projects.length > 0 || totalFiltered > 0 ? (
@@ -1187,20 +1231,47 @@ export default function ProjectsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={!activePreset}
-                          onClick={() => {
+                          disabled={!activePreset || savingDefaultPreset}
+                          onClick={async () => {
                             if (!activePreset) return;
                             localStorage.setItem(
                               DEFAULT_PRESET_STORAGE_KEY,
                               activePreset,
                             );
-                            toast({
-                              title: "Default view updated",
-                              description: `${VIEW_PRESETS[activePreset].label} will load by default.`,
-                            });
+                            setSavingDefaultPreset(true);
+                            try {
+                              const updated =
+                                await api.account.updatePreferences({
+                                  projectsDefaultPreset:
+                                    activePreset as ProjectsDefaultPreset,
+                                });
+                              await mutateAccountPreferences(updated, {
+                                revalidate: false,
+                              });
+                              toast({
+                                title: "Default view updated",
+                                description: `${VIEW_PRESETS[activePreset].label} will load by default.`,
+                              });
+                            } catch {
+                              toast({
+                                title: "Saved only on this browser",
+                                description:
+                                  "Could not sync default view to your account right now.",
+                                variant: "warning",
+                              });
+                            } finally {
+                              setSavingDefaultPreset(false);
+                            }
                           }}
                         >
-                          Set As Default View
+                          {savingDefaultPreset ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Set As Default View"
+                          )}
                         </Button>
                       </div>
 

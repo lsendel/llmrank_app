@@ -19,11 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+import { apiUrl, getApiBaseUrl } from "@/lib/api-base-url";
 
 async function orgFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...options,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -43,6 +42,9 @@ export function SsoConfiguration({
   ssoEnabled = false,
   ssoProvider = null,
 }: SsoConfigurationProps) {
+  const metadataBaseUrl =
+    getApiBaseUrl() ||
+    (typeof window !== "undefined" ? window.location.origin : "");
   const [provider, setProvider] = useState(ssoProvider ?? "saml");
   const [metadataUrl, setMetadataUrl] = useState("");
   const [entityId, setEntityId] = useState("");
@@ -187,7 +189,7 @@ export function SsoConfiguration({
                 Provide this URL to your IdP for SP-initiated login:
               </p>
               <code className="mt-2 block rounded bg-muted px-2 py-1 text-xs">
-                {API_BASE}/api/orgs/{orgId}/sso/metadata
+                {metadataBaseUrl}/api/orgs/{orgId}/sso/metadata
               </code>
             </div>
           )}

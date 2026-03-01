@@ -96,8 +96,19 @@ describe("Project Page", () => {
 
   it("renders tabs correctly", async () => {
     render(<ProjectPage />);
-    expect(await screen.findByText("Overview")).toBeInTheDocument();
-    expect(screen.getByText("Pages")).toBeInTheDocument();
-    expect(screen.getByText("Strategy")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("tab", { name: "Analyze" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Grow Visibility" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Automate & Operate" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Configure" })).toBeInTheDocument();
+
+    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Pages" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Issues" })).toBeInTheDocument();
   });
 });

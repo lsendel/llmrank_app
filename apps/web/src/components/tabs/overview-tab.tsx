@@ -27,6 +27,10 @@ import {
   type PageIssue,
   type ProjectProgress,
 } from "@/lib/api";
+import {
+  confidenceFromPageSample,
+  relativeTimeLabel,
+} from "@/lib/insight-metadata";
 import { AiInsightCard } from "@/components/narrative/ai-insight-card";
 import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
 import { PlatformReadinessBadges } from "@/components/platform-readiness-badges";
@@ -36,36 +40,6 @@ import { IntegrationPromptBanner } from "@/components/integration-prompt-banner"
 import { ScoreTrendChart } from "@/components/charts/score-trend-chart";
 import { ProjectProgressCard } from "@/components/cards/project-progress-card";
 import { RegressionAlert } from "@/components/cards/regression-alert";
-
-function relativeTimeLabel(value: string | null | undefined): string {
-  if (!value) return "Unknown";
-
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "Unknown";
-
-  const diff = Date.now() - timestamp;
-  if (diff < 60_000) return "Just now";
-
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(diff / 3_600_000);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(diff / 86_400_000);
-  if (days < 30) return `${days}d ago`;
-
-  return new Date(value).toLocaleDateString();
-}
-
-function confidenceFromSample(pagesSampled: number): {
-  label: "High" | "Medium" | "Low";
-  variant: "success" | "warning" | "destructive";
-} {
-  if (pagesSampled >= 75) return { label: "High", variant: "success" };
-  if (pagesSampled >= 25) return { label: "Medium", variant: "warning" };
-  return { label: "Low", variant: "destructive" };
-}
 
 export function OverviewTab({
   latestCrawl,
@@ -97,7 +71,7 @@ export function OverviewTab({
     latestCrawl?.pagesFound ?? 0,
   );
   const crawlTimestamp = latestCrawl?.completedAt ?? latestCrawl?.createdAt;
-  const dataConfidence = confidenceFromSample(pagesSampled);
+  const dataConfidence = confidenceFromPageSample(pagesSampled);
 
   if (!hasScores) {
     const isFailed = latestCrawl?.status === "failed";

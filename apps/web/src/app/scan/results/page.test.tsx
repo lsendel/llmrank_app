@@ -103,6 +103,7 @@ describe("Scan Results conversion actions", () => {
     const scheduleRecurring = screen.getByRole("link", {
       name: "Schedule Recurring Scans",
     });
+    expect(scheduleRecurring).toHaveAttribute("href", "/pricing");
 
     fireEvent.click(createProject);
     fireEvent.click(connectIntegrations);
@@ -116,6 +117,7 @@ describe("Scan Results conversion actions", () => {
         placement: "results_next_actions",
         scanResultId: "scan-1",
         domain: "https://example.com",
+        entrySource: "direct",
       }),
     );
 
@@ -195,6 +197,11 @@ describe("Scan Results conversion actions", () => {
     } as never);
 
     render(<ScanResultsPage />);
+
+    const scheduleRecurring = await screen.findByRole("link", {
+      name: "Schedule Recurring Scans",
+    });
+    expect(scheduleRecurring).toHaveAttribute("href", "/dashboard/projects");
 
     const createWorkspace = await screen.findByRole("button", {
       name: "Create Project Workspace",

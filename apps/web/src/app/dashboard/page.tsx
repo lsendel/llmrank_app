@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
 import {
@@ -44,6 +44,7 @@ import { useDashboardStats, useRecentActivity } from "@/hooks/use-dashboard";
 import { track } from "@/lib/telemetry";
 import { formatRelativeTime } from "@/lib/format";
 import { getStatusBadgeVariant } from "@/lib/status";
+import { StateMessage } from "@/components/ui/state";
 import type { DashboardWidgetId } from "@llm-boost/shared";
 
 function formatDashboardDelta(delta: number) {
@@ -59,6 +60,45 @@ const pillarLabels: Record<string, string> = {
   content: "Content",
   ai_readiness: "AI Readiness",
 };
+const DASHBOARD_LAST_VISIT_KEY = "dashboard.last_visit_at";
+
+function activityTimestamp(item: {
+  completedAt: string | null;
+  createdAt: string;
+}) {
+  const candidate = item.completedAt ?? item.createdAt;
+  const ts = new Date(candidate).getTime();
+  return Number.isFinite(ts) ? ts : null;
+}
+
+function sinceVisitNarrative(input: {
+  hasBaseline: boolean;
+  completed: number;
+  failed: number;
+  inProgress: number;
+}): string {
+  if (!input.hasBaseline) {
+    return "This is your first dashboard visit from this browser. We will summarize crawl outcomes and anomalies after your next visit.";
+  }
+
+  if (input.completed === 0 && input.failed === 0 && input.inProgress === 0) {
+    return "No new crawl activity since your last visit. Run a crawl to refresh insights.";
+  }
+
+  const parts: string[] = [];
+  if (input.completed > 0) {
+    parts.push(
+      `${input.completed} crawl${input.completed === 1 ? "" : "s"} completed`,
+    );
+  }
+  if (input.failed > 0) {
+    parts.push(`${input.failed} failed`);
+  }
+  if (input.inProgress > 0) {
+    parts.push(`${input.inProgress} in progress`);
+  }
+  return `Since your last visit: ${parts.join(", ")}.`;
+}
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -66,6 +106,16 @@ export default function DashboardPage() {
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("ai-features-banner-dismissed") === "1";
+  });
+  const [lastVisitAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+
+    const previous = window.localStorage.getItem(DASHBOARD_LAST_VISIT_KEY);
+    window.localStorage.setItem(
+      DASHBOARD_LAST_VISIT_KEY,
+      new Date().toISOString(),
+    );
+    return previous;
   });
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
@@ -108,22 +158,72 @@ export default function DashboardPage() {
   }, [stats, accountData, isPersonalized, widgetOrder]);
 
   const loading = statsLoading || activityLoading;
+  const sinceLastVisit = useMemo(() => {
+    const baseline = lastVisitAt ? new Date(lastVisitAt).getTime() : null;
+    const hasBaseline = baseline != null && Number.isFinite(baseline);
+    const source = activity ?? [];
+
+    const feedSinceVisit = hasBaseline
+      ? source.filter((item) => {
+          const ts = activityTimestamp(item);
+          return ts != null && ts > baseline;
+        })
+      : source;
+
+    const completed = feedSinceVisit.filter(
+      (item) => item.status === "complete",
+    ).length;
+    const failed = feedSinceVisit.filter(
+      (item) => item.status === "failed",
+    ).length;
+    const inProgress = feedSinceVisit.filter(
+      (item) =>
+        item.status === "pending" ||
+        item.status === "crawling" ||
+        item.status === "scoring",
+    ).length;
+
+    return {
+      hasBaseline,
+      completed,
+      failed,
+      inProgress,
+      projectsTouched: new Set(feedSinceVisit.map((item) => item.projectId))
+        .size,
+      feedEvents: feedSinceVisit.length,
+      narrative: sinceVisitNarrative({
+        hasBaseline,
+        completed,
+        failed,
+        inProgress,
+      }),
+    };
+  }, [activity, lastVisitAt]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">Loading dashboard...</p>
-      </div>
+      <StateMessage
+        variant="loading"
+        title="Loading dashboard"
+        description="Fetching portfolio stats and recent crawl activity."
+        className="py-16"
+      />
     );
   }
 
   if (!stats) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">
-          No data yet. Create your first project to get started.
-        </p>
-      </div>
+      <StateMessage
+        variant="empty"
+        title="No project data yet"
+        description="Create your first project to start crawl-based insights and automation."
+        className="py-16"
+        action={
+          <Button asChild>
+            <Link href="/dashboard/projects/new">Create Project</Link>
+          </Button>
+        }
+      />
     );
   }
 
@@ -156,6 +256,46 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Since your last visit</CardTitle>
+          <CardDescription>
+            {sinceLastVisit.hasBaseline && lastVisitAt
+              ? `Last seen ${formatRelativeTime(lastVisitAt)}`
+              : "First visit from this browser"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">
+              Feed events: {sinceLastVisit.feedEvents}
+            </Badge>
+            <Badge variant="secondary">
+              Projects touched: {sinceLastVisit.projectsTouched}
+            </Badge>
+            <Badge variant="success">
+              Completed: {sinceLastVisit.completed}
+            </Badge>
+            <Badge
+              variant={sinceLastVisit.failed > 0 ? "destructive" : "secondary"}
+            >
+              Failed: {sinceLastVisit.failed}
+            </Badge>
+            <Badge
+              variant={sinceLastVisit.inProgress > 0 ? "warning" : "secondary"}
+            >
+              In progress: {sinceLastVisit.inProgress}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {sinceLastVisit.narrative}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Based on your latest dashboard activity feed.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* What to Do Next */}
       <NextStepsCard stats={stats} activity={activity ?? []} />

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
+import { track } from "@/lib/telemetry";
 
 interface Props {
   projectId: string;
@@ -34,6 +35,12 @@ export function AiFixButton({
   const { toast } = useToast();
 
   async function handleGenerate() {
+    track("issue_optimize_ai_clicked", {
+      projectId,
+      pageId: pageId ?? null,
+      issueCode,
+      surface: "issue_card",
+    });
     setLoading(true);
     try {
       const result = await api.fixes.generate({ projectId, pageId, issueCode });

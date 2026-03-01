@@ -79,13 +79,14 @@ export const apiTokenAuth = createMiddleware<AppEnv>(async (c, next) => {
   }
 
   // Check user status
-  if (user.status !== "active") {
+  const status = user.status ?? "active";
+  if (status !== "active") {
     return c.json(
       {
         error: {
           code: "ACCOUNT_SUSPENDED",
           message:
-            user.status === "banned"
+            status === "banned"
               ? "Your account has been permanently banned."
               : "Your account has been suspended.",
         },

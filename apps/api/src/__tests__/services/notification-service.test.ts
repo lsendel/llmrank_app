@@ -336,7 +336,7 @@ describe("NotificationService", () => {
       );
     });
 
-    it("skips non-email event types", async () => {
+    it("skips non-notification event types", async () => {
       const events = [
         {
           id: "evt-1",
@@ -357,10 +357,8 @@ describe("NotificationService", () => {
       await service.processQueue();
 
       expect(resendSendMock).not.toHaveBeenCalled();
-      // Should still mark as completed
-      expect(setMock).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "completed" }),
-      );
+      expect(updateMock).not.toHaveBeenCalled();
+      expect(setMock).not.toHaveBeenCalled();
     });
 
     it("does nothing when no pending events exist", async () => {

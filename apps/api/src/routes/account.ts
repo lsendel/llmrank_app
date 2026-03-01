@@ -11,6 +11,50 @@ import { classifyPersona } from "../services/persona-classifier";
 export const accountRoutes = new Hono<AppEnv>();
 accountRoutes.use("*", authMiddleware);
 
+const ACCOUNT_PREFERENCES_KEY_PREFIX = "account:preferences:";
+const PROJECT_DEFAULT_PRESET_VALUES = [
+  "seo_manager",
+  "content_lead",
+  "exec_summary",
+] as const;
+type ProjectDefaultPreset = (typeof PROJECT_DEFAULT_PRESET_VALUES)[number];
+
+type AccountPreferences = {
+  projectsDefaultPreset: ProjectDefaultPreset | null;
+};
+
+function accountPreferencesKey(userId: string) {
+  return `${ACCOUNT_PREFERENCES_KEY_PREFIX}${userId}`;
+}
+
+function normalizeProjectDefaultPreset(
+  value: unknown,
+): ProjectDefaultPreset | null {
+  if (typeof value !== "string") return null;
+  if (
+    (PROJECT_DEFAULT_PRESET_VALUES as readonly string[]).includes(
+      value as string,
+    )
+  ) {
+    return value as ProjectDefaultPreset;
+  }
+  return null;
+}
+
+function parseAccountPreferences(raw: string | null): AccountPreferences {
+  if (!raw) return { projectsDefaultPreset: null };
+  try {
+    const parsed = JSON.parse(raw) as { projectsDefaultPreset?: unknown };
+    return {
+      projectsDefaultPreset: normalizeProjectDefaultPreset(
+        parsed.projectsDefaultPreset,
+      ),
+    };
+  } catch {
+    return { projectsDefaultPreset: null };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // GET / — Get current user info
 // ---------------------------------------------------------------------------
@@ -254,4 +298,65 @@ accountRoutes.put("/digest", async (c) => {
     update,
   );
   return c.json({ data: updated });
+});
+
+// ---------------------------------------------------------------------------
+// GET /preferences — Get account-level UI preferences
+// ---------------------------------------------------------------------------
+
+accountRoutes.get("/preferences", async (c) => {
+  const userId = c.get("userId");
+  const raw = await c.env.KV.get(accountPreferencesKey(userId));
+  return c.json({ data: parseAccountPreferences(raw) });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /preferences — Update account-level UI preferences
+// ---------------------------------------------------------------------------
+
+accountRoutes.put("/preferences", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid JSON body" } },
+      422,
+    );
+  }
+
+  if (!("projectsDefaultPreset" in body)) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectsDefaultPreset is required",
+        },
+      },
+      422,
+    );
+  }
+
+  const nextPreset =
+    body.projectsDefaultPreset === null
+      ? null
+      : normalizeProjectDefaultPreset(body.projectsDefaultPreset);
+
+  if (body.projectsDefaultPreset !== null && !nextPreset) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `projectsDefaultPreset must be one of: ${PROJECT_DEFAULT_PRESET_VALUES.join(", ")}, or null`,
+        },
+      },
+      422,
+    );
+  }
+
+  const next: AccountPreferences = {
+    projectsDefaultPreset: nextPreset,
+  };
+
+  await c.env.KV.put(accountPreferencesKey(userId), JSON.stringify(next));
+  return c.json({ data: next });
 });

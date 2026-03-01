@@ -35,6 +35,16 @@ const mockOutboxRepo = {
   enqueue: vi.fn().mockResolvedValue(undefined),
 };
 
+const mockCrawlInsightRepo = {
+  replaceForCrawl: vi.fn().mockResolvedValue(undefined),
+  listByCrawl: vi.fn().mockResolvedValue([]),
+};
+
+const mockPageInsightRepo = {
+  replaceForCrawl: vi.fn().mockResolvedValue(undefined),
+  listByCrawl: vi.fn().mockResolvedValue([]),
+};
+
 vi.mock("../../repositories", () => ({
   createProjectRepository: () => ({}),
   createUserRepository: () => ({}),
@@ -42,6 +52,8 @@ vi.mock("../../repositories", () => ({
   createScoreRepository: () => mockScoreRepo,
   createPageRepository: () => mockPageRepo,
   createOutboxRepository: () => mockOutboxRepo,
+  createCrawlInsightRepository: () => mockCrawlInsightRepo,
+  createPageInsightRepository: () => mockPageInsightRepo,
 }));
 
 // Mock LLM scoring to prevent real API calls

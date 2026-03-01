@@ -29,6 +29,7 @@ import { api } from "@/lib/api";
 import { PdfDownloadButton } from "@/components/report/pdf-download-button";
 import { ShareModal } from "@/components/share/share-modal";
 import { IssuesTab } from "@/components/tabs/issues-tab";
+import { StateMessage } from "@/components/ui/state";
 
 export default function CrawlDetailPage() {
   const params = useParams<{ id: string }>();
@@ -85,19 +86,30 @@ export default function CrawlDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">Loading crawl details...</p>
-      </div>
+      <StateMessage
+        variant="loading"
+        title="Loading crawl details"
+        description="Pulling crawl status, score summary, and fix recommendations."
+        className="py-16"
+      />
     );
   }
 
   if (error || !crawl) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-muted-foreground">
-          {error instanceof Error ? error.message : "Crawl not found."}
-        </p>
-      </div>
+      <StateMessage
+        variant="error"
+        title="Could not load crawl details"
+        description={
+          error instanceof Error ? error.message : "Crawl not found."
+        }
+        className="py-16"
+        action={
+          <Button asChild variant="outline">
+            <Link href="/dashboard/projects">Back to projects</Link>
+          </Button>
+        }
+      />
     );
   }
 

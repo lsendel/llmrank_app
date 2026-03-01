@@ -1,6 +1,23 @@
-import { pgTable, pgEnum, text, integer, real, boolean, timestamp, jsonb, index, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  real,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
-import { crawlStatusEnum, issueCategoryEnum, issueSeverityEnum, insightCategoryEnum, shareLevelEnum } from "./enums";
+import {
+  crawlStatusEnum,
+  issueCategoryEnum,
+  issueSeverityEnum,
+  insightCategoryEnum,
+  shareLevelEnum,
+} from "./enums";
 import { users } from "./identity";
 import { projects } from "./projects";
 
@@ -233,6 +250,7 @@ export const actionItems = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     assigneeId: text("assignee_id").references(() => users.id),
+    dueAt: timestamp("due_at"),
     verifiedAt: timestamp("verified_at"),
     verifiedByCrawlId: uuid("verified_by_crawl_id").references(
       () => crawlJobs.id,
@@ -245,4 +263,3 @@ export const actionItems = pgTable(
     index("idx_action_items_status").on(t.status),
   ],
 );
-

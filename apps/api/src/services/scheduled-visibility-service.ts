@@ -1,13 +1,27 @@
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { ServiceError } from "./errors";
 
-const VALID_FREQUENCIES = ["hourly", "daily", "weekly"] as const;
-type ScheduleFrequency = (typeof VALID_FREQUENCIES)[number];
+export const SCHEDULED_VISIBILITY_FREQUENCIES = [
+  "hourly",
+  "daily",
+  "weekly",
+] as const;
+export type ScheduleFrequency =
+  (typeof SCHEDULED_VISIBILITY_FREQUENCIES)[number];
+
+export function isScheduledVisibilityFrequency(
+  frequency: unknown,
+): frequency is ScheduleFrequency {
+  return (
+    typeof frequency === "string" &&
+    (SCHEDULED_VISIBILITY_FREQUENCIES as readonly string[]).includes(frequency)
+  );
+}
 
 function assertValidFrequency(
   frequency: unknown,
 ): asserts frequency is ScheduleFrequency {
-  if (!(VALID_FREQUENCIES as readonly string[]).includes(String(frequency))) {
+  if (!isScheduledVisibilityFrequency(frequency)) {
     throw new ServiceError(
       "VALIDATION_ERROR",
       422,

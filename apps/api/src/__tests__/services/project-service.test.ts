@@ -37,6 +37,10 @@ describe("ProjectService", () => {
     projects.getById.mockResolvedValue(project);
     projects.listByUser.mockResolvedValue([project]);
     projects.countByUser.mockResolvedValue(1);
+    projects.listPortfolioByUser.mockResolvedValue([
+      { ...project, latestCrawl: null },
+    ]);
+    projects.countPortfolioByUser.mockResolvedValue(1);
     users = createMockUserRepo();
     users.getById.mockResolvedValue(user);
     crawls = createMockCrawlRepo();
@@ -162,9 +166,10 @@ describe("ProjectService", () => {
     it("paginates results correctly", async () => {
       const pageProjects = Array.from({ length: 5 }, (_, i) => ({
         ...buildProject({ id: `proj-${i}` }),
+        latestCrawl: null,
       }));
-      projects.listByUser.mockResolvedValue(pageProjects);
-      projects.countByUser.mockResolvedValue(12);
+      projects.listPortfolioByUser.mockResolvedValue(pageProjects);
+      projects.countPortfolioByUser.mockResolvedValue(12);
       const service = createProjectService({ projects, users, crawls, scores });
 
       const result = await service.listForUser("user-1", { page: 2, limit: 5 });
@@ -172,12 +177,16 @@ describe("ProjectService", () => {
       expect(result.data).toHaveLength(5);
       expect(result.pagination.total).toBe(12);
       expect(result.pagination.totalPages).toBe(3);
-      expect(projects.listByUser).toHaveBeenCalledWith(
+      expect(projects.listPortfolioByUser).toHaveBeenCalledWith(
         "user-1",
         expect.objectContaining({
           limit: 5,
           offset: 5,
         }),
+      );
+      expect(projects.countPortfolioByUser).toHaveBeenCalledWith(
+        "user-1",
+        expect.objectContaining({}),
       );
     });
   });

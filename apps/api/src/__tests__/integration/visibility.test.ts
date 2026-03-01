@@ -69,11 +69,21 @@ const mockSavedKeywordQueries = {
     ]),
 };
 
+const mockDiscoveredLinkQueries = {
+  getSummary: vi.fn().mockResolvedValue({
+    referringDomains: 25,
+    totalBacklinks: 125,
+    dofollowLinks: 80,
+    nofollowLinks: 45,
+  }),
+};
+
 vi.mock("@llm-boost/db", async () => {
   const actual = await vi.importActual("@llm-boost/db");
   return {
     ...(actual as Record<string, unknown>),
     savedKeywordQueries: () => mockSavedKeywordQueries,
+    discoveredLinkQueries: () => mockDiscoveredLinkQueries,
   };
 });
 
@@ -138,6 +148,44 @@ describe("Visibility Routes", () => {
       const body: any = await res.json();
       expect(body.error.code).toBe("NOT_FOUND");
     });
+
+    it("forces free plan queries to US English locale filters", async () => {
+      mockUserRepo.getById.mockResolvedValue(
+        buildUser({ id: "test-user-id", plan: "free" }),
+      );
+
+      const res = await request("/api/visibility/proj-1?region=gb&language=fr");
+      expect(res.status).toBe(200);
+      expect(mockVisibilityRepo.listByProject).toHaveBeenCalledWith("proj-1", {
+        region: "us",
+        language: "en",
+      });
+    });
+
+    it("returns 422 when Pro requests unsupported region", async () => {
+      mockUserRepo.getById.mockResolvedValue(
+        buildUser({ id: "test-user-id", plan: "pro" }),
+      );
+
+      const res = await request("/api/visibility/proj-1?region=mx");
+      expect(res.status).toBe(422);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("allows agency locale filters for any valid 2-letter codes", async () => {
+      mockUserRepo.getById.mockResolvedValue(
+        buildUser({ id: "test-user-id", plan: "agency" }),
+      );
+
+      const res = await request("/api/visibility/proj-1?region=mx&language=es");
+      expect(res.status).toBe(200);
+      expect(mockVisibilityRepo.listByProject).toHaveBeenCalledWith("proj-1", {
+        region: "mx",
+        language: "es",
+      });
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -175,6 +223,30 @@ describe("Visibility Routes", () => {
       const body: any = await res.json();
       expect(body.error.code).toBe("VALIDATION_ERROR");
     });
+
+    it("forces free plan check locale to US English", async () => {
+      mockUserRepo.getById.mockResolvedValue(
+        buildUser({ id: "test-user-id", plan: "free" }),
+      );
+
+      await request("/api/visibility/check", {
+        method: "POST",
+        json: {
+          projectId: "proj-1",
+          keywordIds: ["kw-1"],
+          providers: ["chatgpt"],
+          region: "gb",
+          language: "fr",
+        },
+      });
+
+      expect(mockVisibilityRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          region: "us",
+          language: "en",
+        }),
+      );
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -193,6 +265,80 @@ describe("Visibility Routes", () => {
       expect(body.data).toBeInstanceOf(Array);
       expect(body.data[0]).toHaveProperty("weekStart");
       expect(body.data[0]).toHaveProperty("mentionRate");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /api/visibility/:projectId/ai-score/trend
+  // -----------------------------------------------------------------------
+
+  describe("GET /api/visibility/:projectId/ai-score/trend", () => {
+    it("returns audience estimate and growth based on current vs previous periods", async () => {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      mockVisibilityRepo.listByProject.mockResolvedValue([
+        buildVisibilityCheck({
+          projectId: "proj-1",
+          query: "best llm rank tools",
+          brandMentioned: true,
+          competitorMentions: [],
+          checkedAt: new Date(now - day),
+        }),
+        buildVisibilityCheck({
+          projectId: "proj-1",
+          id: "vis-2",
+          query: "llm rank alternatives",
+          brandMentioned: true,
+          competitorMentions: [],
+          checkedAt: new Date(now - 2 * day),
+        }),
+        buildVisibilityCheck({
+          projectId: "proj-1",
+          id: "vis-3",
+          query: "ai seo platform reviews",
+          brandMentioned: true,
+          competitorMentions: [],
+          checkedAt: new Date(now - 8 * day),
+        }),
+      ]);
+
+      const res = await request("/api/visibility/proj-1/ai-score/trend");
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data.period).toBe("weekly");
+      expect(body.data.meta.referringDomains).toBe(25);
+      expect(body.data.meta.currentChecks).toBe(2);
+      expect(body.data.meta.previousChecks).toBe(1);
+      expect(body.data.meta.estimatedMonthlyAudience).toBe(200);
+      expect(body.data.meta.audienceGrowth).toBe(100);
+      expect(body.data.previous).toBeTruthy();
+    });
+
+    it("keeps audience growth at zero when there is no previous period data", async () => {
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+
+      mockVisibilityRepo.listByProject.mockResolvedValue([
+        buildVisibilityCheck({
+          projectId: "proj-1",
+          query: "llm rank platform",
+          brandMentioned: true,
+          competitorMentions: [],
+          checkedAt: new Date(now - day),
+        }),
+      ]);
+
+      const res = await request("/api/visibility/proj-1/ai-score/trend");
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data.meta.currentChecks).toBe(1);
+      expect(body.data.meta.previousChecks).toBe(0);
+      expect(body.data.meta.estimatedMonthlyAudience).toBe(100);
+      expect(body.data.meta.audienceGrowth).toBe(0);
+      expect(body.data.previous).toBeNull();
     });
   });
 });

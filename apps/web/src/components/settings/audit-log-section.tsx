@@ -20,12 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { apiUrl } from "@/lib/api-base-url";
 import { ScrollText, Clock, Filter, ChevronDown, Loader2 } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
-
 async function orgFetcher(path: string): Promise<AuditLogResponse> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
   });

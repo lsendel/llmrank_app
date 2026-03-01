@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { StateCard, StateMessage } from "@/components/ui/state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -390,9 +391,26 @@ export default function IntegrationsTab({
         </div>
       )}
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
+        <StateMessage
+          variant="error"
+          compact
+          title="Integration action failed"
+          description={error}
+          className="rounded-md border border-destructive/20 bg-destructive/5 py-3"
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                setError(null);
+                await refreshIntegrations();
+                await refreshInsights();
+              }}
+            >
+              Retry Sync
+            </Button>
+          }
+        />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -642,16 +660,23 @@ export default function IntegrationsTab({
         </CardHeader>
         <CardContent>
           {integrationInsights === undefined ? (
-            <p className="text-sm text-muted-foreground">Loading insights…</p>
+            <StateCard
+              variant="loading"
+              title="Loading integration insights"
+              description="Fetching enrichment metrics and provider signals."
+              contentClassName="p-0"
+            />
           ) : !integrationInsights.integrations ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-xl">
-              <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p className="text-sm text-muted-foreground max-w-sm">
-                We&apos;ll surface GSC queries, GA4 engagement, and Clarity UX
-                alerts here as soon as you connect an integration and a crawl
-                finishes.
-              </p>
-            </div>
+            <StateCard
+              variant="empty"
+              icon={
+                <BarChart3 className="h-12 w-12 text-muted-foreground/30" />
+              }
+              title="No integration insights yet"
+              description="Connect at least one integration and complete a crawl to surface enrichment insights."
+              cardClassName="border-2 border-dashed"
+              contentClassName="p-0"
+            />
           ) : (
             <IntegrationInsightsView
               insights={integrationInsights}
@@ -772,7 +797,15 @@ export default function IntegrationsTab({
                 />
               </div>
             )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <StateMessage
+                variant="error"
+                compact
+                title="Could not connect integration"
+                description={error}
+                className="items-start py-2 text-left"
+              />
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConnectModal(null)}>

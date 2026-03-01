@@ -50,10 +50,14 @@ vi.mock("../../repositories", () => ({
 // ---------------------------------------------------------------------------
 
 describe("Account Routes", () => {
-  const { request } = createTestApp();
+  const { request, kv } = createTestApp();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const keys = await kv.list();
+    for (const key of keys.keys) {
+      await kv.delete(key.name);
+    }
   });
 
   // -----------------------------------------------------------------------
@@ -150,6 +154,62 @@ describe("Account Routes", () => {
       const res = await request("/api/account", {
         method: "PUT",
         json: { name: "", phone: "+12025551234" },
+      });
+      expect(res.status).toBe(422);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("VALIDATION_ERROR");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Account preferences
+  // -----------------------------------------------------------------------
+
+  describe("GET/PUT /api/account/preferences", () => {
+    it("returns null preset when no server preference is stored", async () => {
+      const res = await request("/api/account/preferences");
+      expect(res.status).toBe(200);
+      const body: any = await res.json();
+      expect(body.data).toEqual({ projectsDefaultPreset: null });
+    });
+
+    it("persists and reads back projects default preset", async () => {
+      const put = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { projectsDefaultPreset: "content_lead" },
+      });
+      expect(put.status).toBe(200);
+
+      const storedRaw = await kv.get("account:preferences:test-user-id");
+      expect(storedRaw).toContain("content_lead");
+
+      const get = await request("/api/account/preferences");
+      expect(get.status).toBe(200);
+      const body: any = await get.json();
+      expect(body.data).toEqual({ projectsDefaultPreset: "content_lead" });
+    });
+
+    it("accepts null to clear projects default preset", async () => {
+      await kv.put(
+        "account:preferences:test-user-id",
+        JSON.stringify({ projectsDefaultPreset: "seo_manager" }),
+      );
+
+      const put = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { projectsDefaultPreset: null },
+      });
+      expect(put.status).toBe(200);
+
+      const body: any = await put.json();
+      expect(body.data).toEqual({ projectsDefaultPreset: null });
+    });
+
+    it("returns 422 for invalid preset value", async () => {
+      const res = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { projectsDefaultPreset: "invalid_preset" },
       });
       expect(res.status).toBe(422);
 

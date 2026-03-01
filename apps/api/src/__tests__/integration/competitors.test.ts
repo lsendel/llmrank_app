@@ -191,8 +191,13 @@ describe("Competitors Routes", () => {
       expect(body.error.code).toBe("NOT_FOUND");
     });
 
-    it("returns 403 for free plan users", async () => {
+    it("allows free plan users within competitor limit", async () => {
       mockUserGetById.mockResolvedValue({ id: "test-user-id", plan: "free" });
+      mockBenchmarkCompetitor.mockResolvedValue({
+        id: "bench-free-1",
+        competitorDomain: "competitor.com",
+        overallScore: 68,
+      });
 
       const res = await request("/api/competitors/benchmark", {
         method: "POST",
@@ -201,10 +206,13 @@ describe("Competitors Routes", () => {
           competitorDomain: "competitor.com",
         },
       });
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(201);
 
       const body: any = await res.json();
-      expect(body.error.code).toBe("PLAN_LIMIT_REACHED");
+      expect(body.data.id).toBe("bench-free-1");
+      expect(mockBenchmarkCompetitor).toHaveBeenCalledWith(
+        expect.objectContaining({ competitorLimit: 1 }),
+      );
     });
 
     it("returns 201 on successful benchmark", async () => {

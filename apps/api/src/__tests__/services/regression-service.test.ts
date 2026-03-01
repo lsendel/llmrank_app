@@ -358,6 +358,7 @@ describe("RegressionService", () => {
           category: "technical",
           scoreImpact: 30,
           assigneeId: "u1",
+          dueAt: expect.any(Date),
         }),
       );
       expect(createActionItemMock).toHaveBeenCalledWith(

@@ -22,7 +22,13 @@ import { useApi } from "@/lib/use-api";
 import { api } from "@/lib/api";
 import { usePlan } from "@/hooks/use-plan";
 
-type CrawlSchedule = "manual" | "daily" | "weekly" | "monthly";
+export const CRAWL_SCHEDULE_OPTIONS = [
+  "manual",
+  "daily",
+  "weekly",
+  "monthly",
+] as const;
+type CrawlSchedule = (typeof CRAWL_SCHEDULE_OPTIONS)[number];
 
 interface CrawlSettingsFormProps {
   projectId: string;
@@ -30,6 +36,15 @@ interface CrawlSettingsFormProps {
     ignoreRobots?: boolean;
     schedule?: CrawlSchedule;
     allowHttpFallback?: boolean;
+  };
+}
+
+export function crawlScheduleAccess(isFree: boolean) {
+  const locked = isFree;
+  return {
+    dailyDisabled: locked,
+    weeklyDisabled: locked,
+    monthlyDisabled: locked,
   };
 }
 
@@ -82,7 +97,7 @@ export function CrawlSettingsForm({
   initialSettings,
 }: CrawlSettingsFormProps) {
   const { withAuth } = useApi();
-  const { isFree, isStarter } = usePlan();
+  const { isFree } = usePlan();
   const [loading, setLoading] = useState(false);
   const [ignoreRobots, setIgnoreRobots] = useState(
     initialSettings?.ignoreRobots ?? false,
@@ -120,13 +135,14 @@ export function CrawlSettingsForm({
   }
 
   const nextCrawlDate = getNextCrawlDate(schedule);
+  const scheduleAccess = crawlScheduleAccess(isFree);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Crawl Settings</CardTitle>
         <CardDescription>
-          Configure how the crawler discovers and accesses pages on your site.
+          Set crawl cadence and crawler behavior for this workspace.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -141,14 +157,23 @@ export function CrawlSettingsForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="manual">Manual only</SelectItem>
-              <SelectItem value="daily" disabled={isFree || isStarter}>
-                Daily (every day) {(isFree || isStarter) && "\u2014 Pro+"}
+              <SelectItem value="daily" disabled={scheduleAccess.dailyDisabled}>
+                Daily (every day){" "}
+                {scheduleAccess.dailyDisabled && "\u2014 Starter+"}
               </SelectItem>
-              <SelectItem value="monthly" disabled={isFree}>
-                Monthly (1st of each month) {isFree && "\u2014 Starter+"}
+              <SelectItem
+                value="weekly"
+                disabled={scheduleAccess.weeklyDisabled}
+              >
+                Weekly (every Monday){" "}
+                {scheduleAccess.weeklyDisabled && "\u2014 Starter+"}
               </SelectItem>
-              <SelectItem value="weekly" disabled={isFree || isStarter}>
-                Weekly (every Monday) {(isFree || isStarter) && "\u2014 Pro+"}
+              <SelectItem
+                value="monthly"
+                disabled={scheduleAccess.monthlyDisabled}
+              >
+                Monthly (1st of each month){" "}
+                {scheduleAccess.monthlyDisabled && "\u2014 Starter+"}
               </SelectItem>
             </SelectContent>
           </Select>

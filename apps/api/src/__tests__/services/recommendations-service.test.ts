@@ -4,7 +4,9 @@ const mockGetById = vi.fn();
 const mockListByUser = vi.fn();
 const mockGetLatestByProject = vi.fn();
 const mockGetLatestByProjects = vi.fn();
+const mockListCompletedByProject = vi.fn();
 const mockGetIssuesByJob = vi.fn();
+const mockListByJobs = vi.fn();
 const mockCountByProject = vi.fn();
 const mockListByProject = vi.fn();
 const mockGetLatestPipeline = vi.fn();
@@ -17,8 +19,12 @@ vi.mock("@llm-boost/db", () => ({
   crawlQueries: () => ({
     getLatestByProject: mockGetLatestByProject,
     getLatestByProjects: mockGetLatestByProjects,
+    listCompletedByProject: mockListCompletedByProject,
   }),
-  scoreQueries: () => ({ getIssuesByJob: mockGetIssuesByJob }),
+  scoreQueries: () => ({
+    getIssuesByJob: mockGetIssuesByJob,
+    listByJobs: mockListByJobs,
+  }),
   savedKeywordQueries: () => ({ countByProject: mockCountByProject }),
   competitorQueries: () => ({ listByProject: mockListByProject }),
   pipelineRunQueries: () => ({ getLatestByProject: mockGetLatestPipeline }),
@@ -31,6 +37,8 @@ describe("createRecommendationsService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockListCompletedByProject.mockResolvedValue([]);
+    mockListByJobs.mockResolvedValue([]);
   });
 
   it("returns critical crawl recommendation when no crawl exists", async () => {
@@ -150,6 +158,14 @@ describe("createRecommendationsService", () => {
     mockGetIssuesByJob.mockResolvedValueOnce([
       { severity: "critical", message: "AI crawlers blocked" },
     ]);
+    mockListCompletedByProject.mockResolvedValueOnce([
+      { id: "crawl-a" },
+      { id: "crawl-a-prev" },
+    ]);
+    mockListByJobs.mockResolvedValueOnce([
+      { jobId: "crawl-a", overallScore: 88 },
+      { jobId: "crawl-a-prev", overallScore: 74 },
+    ]);
     mockCountByProject.mockResolvedValueOnce(8);
     mockListByProject.mockResolvedValueOnce([{ id: "comp-1" }]);
 
@@ -166,8 +182,72 @@ describe("createRecommendationsService", () => {
       projectId: "proj-a",
       category: "issues",
       priority: "critical",
-      source: { signals: ["issue_severity", "issue_count"] },
+      trendDelta: 14,
     });
+    expect(feed[1].source.signals).toEqual(
+      expect.arrayContaining([
+        "issue_severity",
+        "issue_count",
+        "score_trend_delta",
+      ]),
+    );
     expect(feed[1].freshness.generatedAt).toBeTruthy();
+  });
+
+  it("ranks same-priority items using trend delta when impact/confidence/effort are similar", async () => {
+    mockListByUser.mockResolvedValueOnce([
+      { id: "proj-drop", name: "Drop", domain: "drop.com" },
+      { id: "proj-up", name: "Up", domain: "up.com" },
+    ]);
+    mockGetLatestByProjects.mockResolvedValueOnce([
+      {
+        id: "crawl-drop",
+        projectId: "proj-drop",
+        status: "complete",
+        completedAt: new Date(),
+        createdAt: new Date(),
+      },
+      {
+        id: "crawl-up",
+        projectId: "proj-up",
+        status: "complete",
+        completedAt: new Date(),
+        createdAt: new Date(),
+      },
+    ]);
+
+    mockGetIssuesByJob
+      .mockResolvedValueOnce([
+        { severity: "warning", message: "Issue A1" },
+        { severity: "warning", message: "Issue A2" },
+      ])
+      .mockResolvedValueOnce([
+        { severity: "warning", message: "Issue B1" },
+        { severity: "warning", message: "Issue B2" },
+      ]);
+    mockCountByProject.mockResolvedValue(10);
+    mockListByProject.mockResolvedValue([{ id: "comp-1" }]);
+
+    mockListCompletedByProject
+      .mockResolvedValueOnce([{ id: "crawl-drop" }, { id: "crawl-drop-prev" }])
+      .mockResolvedValueOnce([{ id: "crawl-up" }, { id: "crawl-up-prev" }]);
+    mockListByJobs
+      .mockResolvedValueOnce([
+        { jobId: "crawl-drop", overallScore: 58 },
+        { jobId: "crawl-drop-prev", overallScore: 74 },
+      ])
+      .mockResolvedValueOnce([
+        { jobId: "crawl-up", overallScore: 81 },
+        { jobId: "crawl-up-prev", overallScore: 70 },
+      ]);
+
+    const service = createRecommendationsService(fakeDb);
+    const feed = await service.getPortfolioPriorityFeed("u-1", { limit: 10 });
+
+    expect(feed).toHaveLength(2);
+    expect(feed[0].projectId).toBe("proj-drop");
+    expect(feed[0].trendDelta).toBe(-16);
+    expect(feed[1].projectId).toBe("proj-up");
+    expect(feed[1].trendDelta).toBe(11);
   });
 });

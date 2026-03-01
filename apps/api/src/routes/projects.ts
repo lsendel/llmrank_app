@@ -124,8 +124,17 @@ projectRoutes.post("/", async (c) => {
   }
 
   // Blocklist check
-  const adminQ = adminQueries(c.get("db"));
-  const blocked = await adminQ.isBlocked(parsed.data.domain);
+  let blocked = false;
+  try {
+    const adminQ = adminQueries(c.get("db"));
+    blocked = await adminQ.isBlocked(parsed.data.domain);
+  } catch (error) {
+    const logger = c.get("logger");
+    logger?.warn("Failed to evaluate blocked-domain list for project create", {
+      domain: parsed.data.domain,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   if (blocked) {
     return c.json(
       {

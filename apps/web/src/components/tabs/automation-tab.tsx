@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -25,6 +26,7 @@ import {
   type PipelineRun,
   type PipelineRunStatus,
 } from "@/lib/api";
+import { getPipelineRemediationTarget } from "./pipeline-remediation";
 
 const PIPELINE_STEPS = [
   {
@@ -141,6 +143,9 @@ export function AutomationTab({ projectId }: { projectId: string }) {
     useState<PipelineHealthCheckResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [lastFailedAction, setLastFailedAction] = useState<
+    "rerun" | "health" | null
+  >(null);
   const [autoRunOnCrawl, setAutoRunOnCrawl] = useState(true);
   const [skipSteps, setSkipSteps] = useState<PipelineStepId[]>([]);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -190,10 +195,12 @@ export function AutomationTab({ projectId }: { projectId: string }) {
   async function handleRerun() {
     setIsRerunning(true);
     setActionError(null);
+    setLastFailedAction(null);
     try {
       await api.projects.rerunAutoGeneration(projectId);
       await Promise.all([mutateLatest(), mutateRuns()]);
     } catch (err) {
+      setLastFailedAction("rerun");
       setActionError(
         err instanceof Error ? err.message : "Could not rerun automation.",
       );
@@ -205,10 +212,12 @@ export function AutomationTab({ projectId }: { projectId: string }) {
   async function handleHealthCheck() {
     setHealthLoading(true);
     setActionError(null);
+    setLastFailedAction(null);
     try {
       const result = await api.pipeline.healthCheck(projectId);
       setHealthResult(result);
     } catch (err) {
+      setLastFailedAction("health");
       setActionError(
         err instanceof Error ? err.message : "Could not run health check.",
       );
@@ -269,6 +278,16 @@ export function AutomationTab({ projectId }: { projectId: string }) {
       });
     } finally {
       setSettingsSaving(false);
+    }
+  }
+
+  async function retryLastAction() {
+    if (lastFailedAction === "rerun") {
+      await handleRerun();
+      return;
+    }
+    if (lastFailedAction === "health") {
+      await handleHealthCheck();
     }
   }
 
@@ -349,6 +368,12 @@ export function AutomationTab({ projectId }: { projectId: string }) {
               variant="error"
               title="Automation action failed"
               description={actionError}
+              retry={{
+                onClick: retryLastAction,
+                label: "Retry action",
+                disabled:
+                  lastFailedAction === null || isRerunning || healthLoading,
+              }}
               compact
               className="rounded-md border border-destructive/20 bg-destructive/5 px-3"
             />
@@ -435,6 +460,11 @@ export function AutomationTab({ projectId }: { projectId: string }) {
               variant="error"
               title="Settings update failed"
               description={settingsError}
+              retry={{
+                onClick: handleSaveSettings,
+                label: "Retry save",
+                disabled: settingsSaving || !settingsReady,
+              }}
               compact
               className="rounded-md border border-destructive/20 bg-destructive/5 px-3"
             />
@@ -474,15 +504,31 @@ export function AutomationTab({ projectId }: { projectId: string }) {
             <CardTitle className="text-base">Latest Failed Steps</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {failedSteps.map((step) => (
-              <div
-                key={step.step}
-                className="rounded-md border border-red-200 bg-red-50 p-3"
-              >
-                <p className="text-sm font-medium text-red-800">{step.step}</p>
-                <p className="mt-1 text-xs text-red-700">{step.error}</p>
-              </div>
-            ))}
+            {failedSteps.map((step) => {
+              const remediationTarget = getPipelineRemediationTarget(
+                projectId,
+                step.step,
+              );
+              return (
+                <div
+                  key={step.step}
+                  className="rounded-md border border-red-200 bg-red-50 p-3"
+                >
+                  <p className="text-sm font-medium text-red-800">
+                    {step.step}
+                  </p>
+                  <p className="mt-1 text-xs text-red-700">{step.error}</p>
+                  <p className="mt-2 text-xs text-red-800/90">
+                    {remediationTarget.description}
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="mt-3">
+                    <Link href={remediationTarget.href}>
+                      Open {remediationTarget.label}
+                    </Link>
+                  </Button>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}

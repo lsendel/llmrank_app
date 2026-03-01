@@ -48,6 +48,24 @@ export function actionItemQueries(db: Database) {
       return updated;
     },
 
+    async update(
+      id: string,
+      data: Partial<{
+        status: ActionItemStatus;
+        assigneeId: string | null;
+        dueAt: Date | null;
+        title: string;
+        description: string | null;
+      }>,
+    ) {
+      const [updated] = await db
+        .update(actionItems)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(actionItems.id, id))
+        .returning();
+      return updated;
+    },
+
     async getStats(projectId: string) {
       const rows = await db
         .select({

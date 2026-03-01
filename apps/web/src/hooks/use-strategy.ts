@@ -37,14 +37,16 @@ export function usePersonas(projectId: string) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function generatePersonas(niche: string) {
+  async function generatePersonas(niche: string): Promise<StrategyPersona[]> {
     setGenerating(true);
     setError(null);
     try {
       const data = await withAuth(() =>
         api.strategy.generatePersonas(projectId, { niche }),
       );
-      setPersonas(data as StrategyPersona[]);
+      const result = data as StrategyPersona[];
+      setPersonas(result);
+      return result;
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to generate personas",

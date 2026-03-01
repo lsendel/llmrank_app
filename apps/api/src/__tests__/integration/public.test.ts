@@ -280,6 +280,14 @@ describe("Public Routes", () => {
       expect(body.data).toHaveProperty("pages");
       expect(body.data.pages).toBeInstanceOf(Array);
       expect(body.data).toHaveProperty("quickWins");
+      expect(body.data.quickWins[0]).toMatchObject({
+        dataTimestamp: expect.any(String),
+        confidence: {
+          label: expect.stringMatching(/^(High|Medium|Low)$/),
+          variant: expect.stringMatching(/^(success|warning|destructive)$/),
+          score: expect.any(Number),
+        },
+      });
       expect(body.data.readinessCoverage).toBeInstanceOf(Array);
       expect(body.data.scoreDeltas).toHaveProperty("overall");
     });

@@ -18,6 +18,8 @@ const mockScoreListByJobWithPages = vi.fn();
 const mockScoreGetIssuesByJob = vi.fn();
 const mockVisListByProject = vi.fn();
 const mockVisGetTrends = vi.fn();
+const mockProjectGetById = vi.fn();
+const mockActionItemsListByProject = vi.fn();
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -38,10 +40,13 @@ vi.mock("../../services/api-token-service", async (importOriginal) => {
 
 vi.mock("@llm-boost/db", () => ({
   apiTokenQueries: vi.fn(() => ({})),
-  projectQueries: vi.fn(() => ({ getById: vi.fn() })),
+  projectQueries: vi.fn(() => ({ getById: mockProjectGetById })),
   userQueries: vi.fn(() => ({ getById: mockUserGetById })),
   crawlQueries: vi.fn(() => ({
     getLatestByProject: mockCrawlGetLatest,
+  })),
+  actionItemQueries: vi.fn(() => ({
+    listByProject: mockActionItemsListByProject,
   })),
   scoreQueries: vi.fn(() => ({
     listByJob: mockScoreListByJob,
@@ -124,6 +129,8 @@ describe("apiTokenAuth middleware", () => {
     mockScoreGetIssuesByJob.mockResolvedValue([]);
     mockVisListByProject.mockResolvedValue([]);
     mockVisGetTrends.mockResolvedValue([]);
+    mockProjectGetById.mockResolvedValue({ id: "proj-1", userId: "user-1" });
+    mockActionItemsListByProject.mockResolvedValue([]);
   });
 
   function createTokenAuthApp(kvOverrides: Record<string, string> = {}) {
@@ -491,6 +498,8 @@ describe("v1Routes (token-authenticated)", () => {
     mockScoreGetIssuesByJob.mockResolvedValue([]);
     mockVisListByProject.mockResolvedValue([]);
     mockVisGetTrends.mockResolvedValue([]);
+    mockProjectGetById.mockResolvedValue({ id: "proj-1", userId: "user-1" });
+    mockActionItemsListByProject.mockResolvedValue([]);
   });
 
   function createV1App(tokenCtx: TokenContext | null = null) {
@@ -844,6 +853,89 @@ describe("v1Routes (token-authenticated)", () => {
       expect(body.data.checks[0].provider).toBe("chatgpt");
       expect(body.data.trends).toHaveLength(1);
       expect(body.data.trends[0].mentionRate).toBe(0.8);
+    });
+  });
+
+  describe("GET /api/v1/projects/:id/action-items", () => {
+    it("returns 403 when scores:read scope is missing", async () => {
+      const app = createV1App({
+        tokenId: "token-1",
+        userId: "user-1",
+        projectId: "proj-1",
+        scopes: ["metrics:read"],
+      });
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/v1/projects/proj-1/action-items", {
+          headers: { Authorization: "Bearer llmb_test_token_123" },
+        }),
+      );
+
+      expect(res.status).toBe(403);
+    });
+
+    it("returns action items for valid request", async () => {
+      const app = createV1App({
+        tokenId: "token-1",
+        userId: "user-1",
+        projectId: "proj-1",
+        scopes: ["scores:read"],
+      });
+
+      mockActionItemsListByProject.mockResolvedValue([
+        {
+          id: "act-1",
+          issueCode: "MISSING_META_DESC",
+          status: "pending",
+          severity: "warning",
+          category: "technical",
+          scoreImpact: 8,
+          title: "Meta description missing",
+          description: "Add 140-160 chars",
+          assigneeId: null,
+          dueAt: null,
+          verifiedAt: null,
+          createdAt: new Date("2026-02-28T00:00:00.000Z"),
+          updatedAt: new Date("2026-02-28T00:00:00.000Z"),
+        },
+      ]);
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/v1/projects/proj-1/action-items", {
+          headers: { Authorization: "Bearer llmb_test_token_123" },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { projectId: string; actionItems: Array<{ id: string }> };
+      };
+      expect(body.data.projectId).toBe("proj-1");
+      expect(body.data.actionItems).toHaveLength(1);
+      expect(body.data.actionItems[0].id).toBe("act-1");
+    });
+  });
+
+  describe("GET /api/v1/projects/:id/action-plan", () => {
+    it("returns legacy action-plan alias with deprecation header", async () => {
+      const app = createV1App({
+        tokenId: "token-1",
+        userId: "user-1",
+        projectId: "proj-1",
+        scopes: ["scores:read"],
+      });
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/v1/projects/proj-1/action-plan", {
+          headers: { Authorization: "Bearer llmb_test_token_123" },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Deprecation")).toBe("true");
+      expect(res.headers.get("Link")).toContain(
+        "/api/v1/projects/proj-1/action-items",
+      );
     });
   });
 });

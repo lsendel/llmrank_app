@@ -4,14 +4,22 @@ import type { ReactNode } from "react";
 import { AlertTriangle, Inbox, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 type StateVariant = "loading" | "empty" | "error";
+
+interface RetryAction {
+  onClick: () => void | Promise<void>;
+  label?: string;
+  disabled?: boolean;
+}
 
 interface StateMessageProps {
   variant: StateVariant;
   title?: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
+  retry?: RetryAction;
   icon?: ReactNode;
   className?: string;
   compact?: boolean;
@@ -44,10 +52,25 @@ export function StateMessage({
   title,
   description,
   action,
+  retry,
   icon,
   className,
   compact = false,
 }: StateMessageProps) {
+  const resolvedAction =
+    action ??
+    (retry ? (
+      <Button
+        type="button"
+        size={compact ? "sm" : "default"}
+        variant="outline"
+        onClick={retry.onClick}
+        disabled={retry.disabled}
+      >
+        {retry.label ?? "Retry"}
+      </Button>
+    ) : null);
+
   return (
     <div
       className={cn(
@@ -78,7 +101,7 @@ export function StateMessage({
           </p>
         )}
       </div>
-      {action}
+      {resolvedAction}
     </div>
   );
 }
@@ -88,6 +111,7 @@ export function StateCard({
   title,
   description,
   action,
+  retry,
   icon,
   cardTitle,
   className,
@@ -108,6 +132,7 @@ export function StateCard({
           title={title}
           description={description}
           action={action}
+          retry={retry}
           icon={icon}
           className={className}
           compact={compact}

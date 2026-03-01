@@ -19,6 +19,9 @@ vi.mock("../../middleware/auth", () => ({
 
 const mockProjectRepo = {
   listByUser: vi.fn().mockResolvedValue([]),
+  listPortfolioByUser: vi.fn().mockResolvedValue([]),
+  countByUser: vi.fn().mockResolvedValue(0),
+  countPortfolioByUser: vi.fn().mockResolvedValue(0),
   getById: vi.fn().mockResolvedValue(null),
   create: vi.fn().mockResolvedValue({ id: "proj-new" }),
   update: vi.fn().mockResolvedValue(undefined),
@@ -36,6 +39,7 @@ const mockCrawlRepo = {
   create: vi.fn().mockResolvedValue(buildCrawlJob()),
   getById: vi.fn().mockResolvedValue(null),
   getLatestByProject: vi.fn().mockResolvedValue(null),
+  getLatestByProjects: vi.fn().mockResolvedValue([]),
   listByProject: vi.fn().mockResolvedValue([]),
   updateStatus: vi.fn().mockResolvedValue(undefined),
   generateShareToken: vi.fn().mockResolvedValue("token"),
@@ -44,6 +48,7 @@ const mockCrawlRepo = {
 
 const mockScoreRepo = {
   listByJob: vi.fn().mockResolvedValue([]),
+  listByJobs: vi.fn().mockResolvedValue([]),
   getIssuesByJob: vi.fn().mockResolvedValue([]),
   listByJobWithPages: vi.fn().mockResolvedValue([]),
   getByPageWithIssues: vi.fn().mockResolvedValue(null),
@@ -70,6 +75,9 @@ describe("Project Routes", () => {
     vi.clearAllMocks();
     mockUserRepo.getById.mockResolvedValue(buildUser({ id: "test-user-id" }));
     mockProjectRepo.listByUser.mockResolvedValue([]);
+    mockProjectRepo.listPortfolioByUser.mockResolvedValue([]);
+    mockProjectRepo.countByUser.mockResolvedValue(0);
+    mockProjectRepo.countPortfolioByUser.mockResolvedValue(0);
     mockProjectRepo.getById.mockResolvedValue(null);
     mockProjectRepo.create.mockResolvedValue({ id: "proj-new" });
   });
@@ -81,7 +89,10 @@ describe("Project Routes", () => {
   describe("GET /api/projects", () => {
     it("returns 200 with paginated project list", async () => {
       const project = buildProject({ userId: "test-user-id" });
-      mockProjectRepo.listByUser.mockResolvedValue([project]);
+      mockProjectRepo.listPortfolioByUser.mockResolvedValue([
+        { ...project, latestCrawl: null },
+      ]);
+      mockProjectRepo.countPortfolioByUser.mockResolvedValue(1);
 
       const res = await request("/api/projects");
       expect(res.status).toBe(200);
@@ -95,7 +106,8 @@ describe("Project Routes", () => {
     });
 
     it("returns empty array when user has no projects", async () => {
-      mockProjectRepo.listByUser.mockResolvedValue([]);
+      mockProjectRepo.listPortfolioByUser.mockResolvedValue([]);
+      mockProjectRepo.countPortfolioByUser.mockResolvedValue(0);
 
       const res = await request("/api/projects");
       expect(res.status).toBe(200);

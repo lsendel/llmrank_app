@@ -28,6 +28,7 @@ interface RegressionServiceDeps {
       title: string;
       description?: string;
       assigneeId?: string | null;
+      dueAt?: Date | null;
     }) => Promise<any>;
     getOpenByProjectIssueCode: (
       projectId: string,
@@ -79,6 +80,10 @@ function defaultDueDate(days: number): string {
   const due = new Date();
   due.setDate(due.getDate() + days);
   return due.toISOString().slice(0, 10);
+}
+
+function dueDateToTimestamp(date: string): Date {
+  return new Date(`${date}T12:00:00.000Z`);
 }
 
 export function createRegressionService(deps: RegressionServiceDeps) {
@@ -195,6 +200,7 @@ export function createRegressionService(deps: RegressionServiceDeps) {
                 `Detected score drop: ${regression.previousScore} -> ${regression.currentScore} (${regression.delta}). ` +
                 `Due by ${dueDate}.`,
               assigneeId: args.userId,
+              dueAt: dueDateToTimestamp(dueDate),
             });
           }),
         );

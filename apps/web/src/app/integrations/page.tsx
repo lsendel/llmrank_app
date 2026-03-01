@@ -6,6 +6,7 @@ import {
   webPageSchema,
   breadcrumbSchema,
 } from "@/components/seo/json-ld";
+import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
 import { IntegrationCatalogClient } from "./catalog-client";
 
 export const metadata: Metadata = {
@@ -69,23 +70,22 @@ export default function IntegrationsPage() {
             Integrations
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Connect your existing analytics and workflow stack to move from
-            insight to action faster.
+            {WORKFLOW_TONE_COPY.integrationsHeroSubtitle}
           </p>
         </div>
 
         <h2 className="mb-6 text-2xl font-bold text-foreground">
-          Integration Catalog
+          Integration catalog
         </h2>
         <IntegrationCatalogClient />
 
         <div className="my-20">
           <h2 className="text-2xl font-bold text-foreground">
-            How Integrations Work
+            How integrations work
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Connect once, sync automatically, and act on unified data inside the
-            project workspace.
+            Connect once, sync automatically, and execute from one project
+            workspace.
           </p>
           <div className="mt-8 grid gap-8 md:grid-cols-3">
             <div className="space-y-3">
@@ -94,8 +94,8 @@ export default function IntegrationsPage() {
               </div>
               <h3 className="font-semibold text-foreground">Connect</h3>
               <p className="text-sm text-muted-foreground">
-                Choose an integration and authorize access with the provider.
-                Most connections are read-only and can be revoked anytime.
+                Choose a provider and authorize access. Most connections are
+                read-only and can be revoked at any time.
               </p>
             </div>
             <div className="space-y-3">
@@ -104,8 +104,7 @@ export default function IntegrationsPage() {
               </div>
               <h3 className="font-semibold text-foreground">Sync</h3>
               <p className="text-sm text-muted-foreground">
-                Data is synced into your workspace so rankings, traffic, and
-                readiness signals can be reviewed together.
+                Pull rankings, traffic, and readiness signals into one view.
               </p>
             </div>
             <div className="space-y-3">
@@ -114,8 +113,8 @@ export default function IntegrationsPage() {
               </div>
               <h3 className="font-semibold text-foreground">Execute</h3>
               <p className="text-sm text-muted-foreground">
-                Use automated alerts and prioritized actions to assign work and
-                close visibility gaps faster.
+                Use prioritized actions to assign work and close visibility
+                gaps.
               </p>
             </div>
           </div>
@@ -152,8 +151,8 @@ export default function IntegrationsPage() {
             Start with one connection
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create a free account to connect tools and start tracking AI
-            visibility with your existing analytics.
+            Create a free account to connect tools and start recurring
+            AI-visibility monitoring.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
             <Link
