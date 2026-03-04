@@ -6,15 +6,18 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
+import { usePlan } from "@/hooks/use-plan";
 
 export function TrialBanner() {
+  const { isFree } = usePlan();
   const { data, mutate } = useApiSWR(
-    "trial-status",
+    isFree ? "trial-status" : null,
     useCallback(() => api.trial.status(), []),
   );
   const [starting, setStarting] = useState(false);
 
-  if (!data) return null;
+  // Only show trial banner for free-plan users
+  if (!isFree || !data) return null;
 
   const { eligible, active, daysRemaining } = data;
 

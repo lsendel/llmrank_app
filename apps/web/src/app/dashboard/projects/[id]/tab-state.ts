@@ -1,5 +1,6 @@
 export const PROJECT_TABS = [
   "overview",
+  "actions",
   "pages",
   "issues",
   "history",
@@ -49,6 +50,7 @@ export function normalizeProjectTab(tab: string | null): ProjectTab {
 export function projectTabGroup(tab: ProjectTab): ProjectTabGroup {
   if (
     tab === "overview" ||
+    tab === "actions" ||
     tab === "pages" ||
     tab === "issues" ||
     tab === "history"

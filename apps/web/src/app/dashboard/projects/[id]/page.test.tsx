@@ -51,15 +51,6 @@ vi.mock("@/lib/use-api-swr", () => ({
 }));
 
 // Mock components used in OverviewTab to avoid complex rendering needs
-// (Unless we want to test OverviewTab integration fully, but mocking helps isolation)
-// Actually, OverviewTab uses ScoreCircle which might just render text.
-// Let's verify if OverviewTab renders "Score: 88".
-// Looking at OverviewTab.tsx:
-// <ScoreCircle score={latestCrawl!.overallScore ?? 0} ... />
-// ScoreCircle likely renders the number.
-// If not mocked, ScoreCircle should render 88.
-
-// Let's mock OverviewTab to be safe and specific about what we test in ProjectPage
 vi.mock("@/components/tabs/overview-tab", () => ({
   OverviewTab: () => <div>Score: 88</div>,
 }));
@@ -83,10 +74,12 @@ vi.mock("@/components/cards/project-recommendations-card", () => ({
 describe("Project Page", () => {
   it("renders project name and domain", async () => {
     render(<ProjectPage />);
-    // Wait for data to load if needed, but our mock is sync return { data: ... }
-    // However, useEffects might cause rerenders.
-    expect(await screen.findByText("Test Project")).toBeInTheDocument();
-    expect(screen.getByText("example.com")).toBeInTheDocument();
+    // Project name appears in both the page header and sidebar
+    const projectNames = await screen.findAllByText("Test Project");
+    expect(projectNames.length).toBeGreaterThanOrEqual(1);
+    // Domain appears in page header and sidebar
+    const domains = screen.getAllByText("example.com");
+    expect(domains.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders overview tab by default", async () => {
@@ -94,21 +87,24 @@ describe("Project Page", () => {
     expect(await screen.findByText("Score: 88")).toBeInTheDocument();
   });
 
-  it("renders tabs correctly", async () => {
+  it("renders sidebar navigation items", async () => {
     render(<ProjectPage />);
-    expect(
-      await screen.findByRole("tab", { name: "Analyze" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: "Grow Visibility" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: "Automate & Operate" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Configure" })).toBeInTheDocument();
+    // Wait for content to render
+    await screen.findAllByText("Test Project");
 
-    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Pages" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Issues" })).toBeInTheDocument();
+    // Sidebar group labels
+    expect(screen.getByText("Analyze")).toBeInTheDocument();
+    expect(screen.getByText("Grow")).toBeInTheDocument();
+    expect(screen.getByText("Operate")).toBeInTheDocument();
+
+    // Nav items appear in both sidebar and mobile nav
+    const overviews = screen.getAllByText("Overview");
+    expect(overviews.length).toBeGreaterThanOrEqual(1);
+    const actions = screen.getAllByText("Actions");
+    expect(actions.length).toBeGreaterThanOrEqual(1);
+    const pages = screen.getAllByText("Pages");
+    expect(pages.length).toBeGreaterThanOrEqual(1);
+    const issues = screen.getAllByText("Issues");
+    expect(issues.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -474,11 +474,16 @@ export default function ProjectPage() {
         <div className="min-w-0 flex-1 space-y-6 py-4 md:pl-6">
           {/* Banners */}
           <AlertBanner projectId={project.id} />
-          <TrialBanner />
-          <PostCrawlChecklist projectId={project.id} />
-          <ProjectRecommendationsCard projectId={project.id} />
 
           {/* Tab content */}
+          {currentTab === "actions" && (
+            <div className="space-y-6">
+              <TrialBanner />
+              <PostCrawlChecklist projectId={project.id} />
+              <ProjectRecommendationsCard projectId={project.id} />
+            </div>
+          )}
+
           {currentTab === "overview" && (
             <TabErrorBoundary>
               <OverviewTab

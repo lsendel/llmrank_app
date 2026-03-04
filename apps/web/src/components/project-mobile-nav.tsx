@@ -17,6 +17,7 @@ import {
   Play,
   Route,
   Settings,
+  Zap,
 } from "lucide-react";
 import type { ProjectTab } from "@/app/dashboard/projects/[id]/tab-state";
 
@@ -28,6 +29,7 @@ type NavItem = {
 
 const ALL_NAV_ITEMS: NavItem[] = [
   { tab: "overview", label: "Overview", icon: BarChart3 },
+  { tab: "actions", label: "Actions", icon: Zap },
   { tab: "pages", label: "Pages", icon: FileText },
   { tab: "issues", label: "Issues", icon: Bug },
   { tab: "history", label: "History", icon: History },
