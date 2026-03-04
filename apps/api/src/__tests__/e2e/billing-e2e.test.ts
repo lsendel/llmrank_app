@@ -25,8 +25,12 @@ import {
 } from "./billing-e2e.config";
 
 let cfg: E2EConfig;
+const hasBillingE2EEnv =
+  !!process.env.BILLING_E2E_BASE_URL && !!process.env.BILLING_E2E_AUTH_COOKIE;
+const describeBillingE2E = hasBillingE2EEnv ? describe : describe.skip;
 
 beforeAll(() => {
+  if (!hasBillingE2EEnv) return;
   cfg = loadConfig();
 });
 
@@ -34,7 +38,7 @@ beforeAll(() => {
 // GET /api/billing/subscription
 // ---------------------------------------------------------------------------
 
-describe("GET /api/billing/subscription", () => {
+describeBillingE2E("GET /api/billing/subscription", () => {
   it("returns 200 with subscription data or null", async () => {
     const res = await billingRequest(cfg, "/api/billing/subscription");
     expect(res.status).toBe(200);
@@ -53,7 +57,7 @@ describe("GET /api/billing/subscription", () => {
 // GET /api/billing/usage
 // ---------------------------------------------------------------------------
 
-describe("GET /api/billing/usage", () => {
+describeBillingE2E("GET /api/billing/usage", () => {
   it("returns 200 with plan limits and credit info", async () => {
     const res = await billingRequest(cfg, "/api/billing/usage");
     expect(res.status).toBe(200);
@@ -74,7 +78,7 @@ describe("GET /api/billing/usage", () => {
 // GET /api/billing/payments
 // ---------------------------------------------------------------------------
 
-describe("GET /api/billing/payments", () => {
+describeBillingE2E("GET /api/billing/payments", () => {
   it("returns 200 with payment array", async () => {
     const res = await billingRequest(cfg, "/api/billing/payments");
     expect(res.status).toBe(200);
@@ -94,7 +98,7 @@ describe("GET /api/billing/payments", () => {
 // POST /api/billing/checkout
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/checkout", () => {
+describeBillingE2E("POST /api/billing/checkout", () => {
   const PLANS = ["starter", "pro", "agency"] as const;
 
   for (const plan of PLANS) {
@@ -164,7 +168,7 @@ describe("POST /api/billing/checkout", () => {
 // POST /api/billing/upgrade
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/upgrade", () => {
+describeBillingE2E("POST /api/billing/upgrade", () => {
   it("returns 200 with upgrade/checkout result for starter", async () => {
     const res = await billingRequest(cfg, "/api/billing/upgrade", {
       method: "POST",
@@ -247,7 +251,7 @@ describe("POST /api/billing/upgrade", () => {
 // POST /api/billing/downgrade
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/downgrade", () => {
+describeBillingE2E("POST /api/billing/downgrade", () => {
   it("returns 422 when plan is missing", async () => {
     const res = await billingRequest(cfg, "/api/billing/downgrade", {
       method: "POST",
@@ -277,7 +281,7 @@ describe("POST /api/billing/downgrade", () => {
 // POST /api/billing/cancel
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/cancel", () => {
+describeBillingE2E("POST /api/billing/cancel", () => {
   it("returns structured response (422 if no subscription)", async () => {
     const res = await billingRequest(cfg, "/api/billing/cancel", {
       method: "POST",
@@ -299,7 +303,7 @@ describe("POST /api/billing/cancel", () => {
 // POST /api/billing/portal
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/portal", () => {
+describeBillingE2E("POST /api/billing/portal", () => {
   it("returns 422 when returnUrl is missing", async () => {
     const res = await billingRequest(cfg, "/api/billing/portal", {
       method: "POST",
@@ -333,7 +337,7 @@ describe("POST /api/billing/portal", () => {
 // POST /api/billing/webhook
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/webhook", () => {
+describeBillingE2E("POST /api/billing/webhook", () => {
   it("returns 401 when stripe-signature header is missing", async () => {
     const res = await billingRequest(cfg, "/api/billing/webhook", {
       method: "POST",
@@ -362,7 +366,7 @@ describe("POST /api/billing/webhook", () => {
 // POST /api/billing/validate-promo
 // ---------------------------------------------------------------------------
 
-describe("POST /api/billing/validate-promo", () => {
+describeBillingE2E("POST /api/billing/validate-promo", () => {
   it("returns 422 when code is missing", async () => {
     const res = await billingRequest(cfg, "/api/billing/validate-promo", {
       method: "POST",
@@ -390,7 +394,7 @@ describe("POST /api/billing/validate-promo", () => {
 // Auth guard — unauthenticated requests
 // ---------------------------------------------------------------------------
 
-describe("Auth guards", () => {
+describeBillingE2E("Auth guards", () => {
   it("returns 401 for unauthenticated /api/billing/usage", async () => {
     const url = `${cfg.baseUrl}/api/billing/usage`;
     const res = await fetch(url, {

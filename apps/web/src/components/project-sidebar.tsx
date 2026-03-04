@@ -8,8 +8,6 @@ import {
   Compass,
   Trophy,
   Bot,
-  Radar,
-  Eye,
   User,
   Key,
   Plug,
@@ -48,9 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { tab: "strategy", label: "Strategy", icon: Compass },
       { tab: "competitors", label: "Competitors", icon: Trophy },
-      { tab: "ai-visibility", label: "AI Visibility", icon: Bot },
-      { tab: "ai-analysis", label: "AI Analysis", icon: Radar },
-      { tab: "visibility", label: "Visibility", icon: Eye },
+      { tab: "visibility", label: "Visibility Hub", icon: Bot },
       { tab: "personas", label: "Personas", icon: User },
       { tab: "keywords", label: "Keywords", icon: Key },
     ],
@@ -79,6 +75,12 @@ interface ProjectSidebarProps {
   onTabChange: (tab: ProjectTab) => void;
 }
 
+function isVisibilityTab(tab: ProjectTab): boolean {
+  return (
+    tab === "visibility" || tab === "ai-visibility" || tab === "ai-analysis"
+  );
+}
+
 export function ProjectSidebar({
   projectName,
   domain,
@@ -104,7 +106,10 @@ export function ProjectSidebar({
             </p>
             {group.items.map((item) => {
               const Icon = item.icon;
-              const isActive = currentTab === item.tab;
+              const isActive =
+                item.tab === "visibility"
+                  ? isVisibilityTab(currentTab)
+                  : currentTab === item.tab;
               return (
                 <button
                   key={item.tab}

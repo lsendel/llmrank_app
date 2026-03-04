@@ -38,6 +38,21 @@ const VALID_CATEGORIES = [
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_BULK_ITEMS = 100;
+
+type ActionItemUpsertBody = {
+  projectId?: string;
+  pageId?: string | null;
+  issueCode?: string;
+  status?: ActionItemStatus;
+  severity?: (typeof VALID_SEVERITIES)[number];
+  category?: (typeof VALID_CATEGORIES)[number];
+  scoreImpact?: number;
+  title?: string;
+  description?: string | null;
+  assigneeId?: string | null;
+  dueAt?: string | null;
+};
 
 function parseDueAt(raw: unknown): Date | null | "invalid" {
   if (raw === undefined) return null;
@@ -66,23 +81,92 @@ function normalizeOptionalAssignee(assigneeId: unknown): string | null {
   return value.length > 0 ? value : null;
 }
 
+async function upsertActionItem(
+  db: AppEnv["Variables"]["db"],
+  body: ActionItemUpsertBody,
+) {
+  const pageId = parseOptionalPageId(body.pageId);
+  if (pageId === "invalid") {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "pageId must be a valid UUID when provided",
+      },
+      status: 422 as const,
+    };
+  }
+
+  const dueAt = parseDueAt(body.dueAt);
+  if (dueAt === "invalid") {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "dueAt must be a valid ISO date string or null",
+      },
+      status: 422 as const,
+    };
+  }
+
+  if (pageId && body.projectId) {
+    const page = await pageQueries(db).getById(pageId);
+    if (!page || page.projectId !== body.projectId) {
+      return {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "pageId must belong to the project",
+        },
+        status: 422 as const,
+      };
+    }
+  }
+
+  const normalizedIssueCode = (body.issueCode ?? "").trim().toUpperCase();
+  const existing = await actionItemQueries(db).getOpenByProjectIssueCode(
+    body.projectId!,
+    normalizedIssueCode,
+    pageId,
+  );
+
+  if (existing) {
+    const nextStatus = isValidStatus(existing.status)
+      ? existing.status
+      : "pending";
+    const updated = await actionItemQueries(db).update(existing.id, {
+      status: body.status ?? nextStatus,
+      assigneeId:
+        body.assigneeId !== undefined
+          ? normalizeOptionalAssignee(body.assigneeId)
+          : existing.assigneeId,
+      dueAt:
+        body.dueAt !== undefined
+          ? dueAt
+          : ((existing as { dueAt?: Date | null }).dueAt ?? null),
+    });
+    return { data: updated, operation: "updated" as const };
+  }
+
+  const created = await actionItemQueries(db).create({
+    projectId: body.projectId!,
+    pageId,
+    issueCode: normalizedIssueCode,
+    status: body.status ?? "pending",
+    severity: body.severity ?? "warning",
+    category: body.category ?? "technical",
+    scoreImpact: Math.max(0, Number(body.scoreImpact ?? 0)),
+    title: body.title!.trim(),
+    description:
+      typeof body.description === "string" ? body.description.trim() : null,
+    assigneeId: normalizeOptionalAssignee(body.assigneeId),
+    dueAt,
+  });
+  return { data: created, operation: "created" as const };
+}
+
 // POST /api/action-items — Create a manual action item for a project/issue
 actionItemRoutes.post("/", async (c) => {
   const db = c.get("db");
   const userId = c.get("userId");
-  const body = await c.req.json<{
-    projectId?: string;
-    pageId?: string | null;
-    issueCode?: string;
-    status?: ActionItemStatus;
-    severity?: (typeof VALID_SEVERITIES)[number];
-    category?: (typeof VALID_CATEGORIES)[number];
-    scoreImpact?: number;
-    title?: string;
-    description?: string | null;
-    assigneeId?: string | null;
-    dueAt?: string | null;
-  }>();
+  const body = await c.req.json<ActionItemUpsertBody>();
 
   if (!body.projectId || !UUID_RE.test(body.projectId)) {
     return c.json(
@@ -156,26 +240,63 @@ actionItemRoutes.post("/", async (c) => {
     );
   }
 
-  const pageId = parseOptionalPageId(body.pageId);
-  if (pageId === "invalid") {
+  const project = await projectQueries(db).getById(body.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const upserted = await upsertActionItem(db, body);
+  if ("error" in upserted) {
+    return c.json({ error: upserted.error }, upserted.status);
+  }
+  return c.json(
+    { data: upserted.data },
+    upserted.operation === "created" ? 201 : 200,
+  );
+});
+
+// POST /api/action-items/bulk — Create or update multiple action items in one request
+actionItemRoutes.post("/bulk", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const body = await c.req.json<{
+    projectId?: string;
+    items?: ActionItemUpsertBody[];
+  }>();
+
+  if (!body.projectId || !UUID_RE.test(body.projectId)) {
     return c.json(
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: "pageId must be a valid UUID when provided",
+          message: "projectId (uuid) is required",
         },
       },
       422,
     );
   }
 
-  const dueAt = parseDueAt(body.dueAt);
-  if (dueAt === "invalid") {
+  if (!Array.isArray(body.items) || body.items.length === 0) {
     return c.json(
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: "dueAt must be a valid ISO date string or null",
+          message: "items must contain at least one action item",
+        },
+      },
+      422,
+    );
+  }
+
+  if (body.items.length > MAX_BULK_ITEMS) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `items cannot exceed ${MAX_BULK_ITEMS} action items per request`,
         },
       },
       422,
@@ -190,61 +311,106 @@ actionItemRoutes.post("/", async (c) => {
     );
   }
 
-  if (pageId) {
-    const page = await pageQueries(db).getById(pageId);
-    if (!page || page.projectId !== body.projectId) {
+  let created = 0;
+  let updated = 0;
+  const items = [];
+
+  for (const [index, item] of body.items.entries()) {
+    if (!item.issueCode || item.issueCode.trim().length === 0) {
       return c.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: "pageId must belong to the project",
+            message: `items[${index}].issueCode is required`,
           },
         },
         422,
       );
     }
-  }
 
-  const normalizedIssueCode = body.issueCode.trim().toUpperCase();
-  const existing = await actionItemQueries(db).getOpenByProjectIssueCode(
-    body.projectId,
-    normalizedIssueCode,
-    pageId,
-  );
-  if (existing) {
-    const nextStatus = isValidStatus(existing.status)
-      ? existing.status
-      : "pending";
-    const updated = await actionItemQueries(db).update(existing.id, {
-      status: body.status ?? nextStatus,
-      assigneeId:
-        body.assigneeId !== undefined
-          ? normalizeOptionalAssignee(body.assigneeId)
-          : existing.assigneeId,
-      dueAt:
-        body.dueAt !== undefined
-          ? dueAt
-          : ((existing as { dueAt?: Date | null }).dueAt ?? null),
+    if (!item.title || item.title.trim().length === 0) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `items[${index}].title is required`,
+          },
+        },
+        422,
+      );
+    }
+
+    if (item.status !== undefined && !isValidStatus(item.status)) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `items[${index}].status is invalid`,
+          },
+        },
+        422,
+      );
+    }
+
+    if (item.severity && !VALID_SEVERITIES.includes(item.severity)) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `items[${index}].severity is invalid`,
+          },
+        },
+        422,
+      );
+    }
+
+    if (item.category && !VALID_CATEGORIES.includes(item.category)) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `items[${index}].category is invalid`,
+          },
+        },
+        422,
+      );
+    }
+
+    const upserted = await upsertActionItem(db, {
+      ...item,
+      projectId: body.projectId,
     });
-    return c.json({ data: updated }, 200);
+    if ("error" in upserted) {
+      const errorCode = upserted.error?.code ?? "VALIDATION_ERROR";
+      const errorMessage =
+        upserted.error?.message ?? "Invalid action item payload";
+      return c.json(
+        {
+          error: {
+            code: errorCode,
+            message: `items[${index}]: ${errorMessage}`,
+          },
+        },
+        upserted.status,
+      );
+    }
+
+    if (upserted.operation === "created") {
+      created += 1;
+    } else {
+      updated += 1;
+    }
+
+    items.push(upserted.data);
   }
 
-  const created = await actionItemQueries(db).create({
-    projectId: body.projectId,
-    pageId,
-    issueCode: normalizedIssueCode,
-    status: body.status ?? "pending",
-    severity: body.severity ?? "warning",
-    category: body.category ?? "technical",
-    scoreImpact: Math.max(0, Number(body.scoreImpact ?? 0)),
-    title: body.title.trim(),
-    description:
-      typeof body.description === "string" ? body.description.trim() : null,
-    assigneeId: normalizeOptionalAssignee(body.assigneeId),
-    dueAt,
+  return c.json({
+    data: {
+      items,
+      created,
+      updated,
+    },
   });
-
-  return c.json({ data: created }, 201);
 });
 
 // GET /api/action-items?projectId=xxx — List action items for a project

@@ -218,9 +218,21 @@ const VISIBILITY_MODES = [
   "ai-analysis",
 ] as const;
 type VisibilityMode = (typeof VISIBILITY_MODES)[number];
+const VISIBILITY_MODE_STORAGE_PREFIX = "llmrank:project:visibility-mode";
 
 function isVisibilityMode(tab: ProjectTab): tab is VisibilityMode {
   return (VISIBILITY_MODES as readonly string[]).includes(tab);
+}
+
+function asVisibilityMode(value: string | null): VisibilityMode | null {
+  if (!value) return null;
+  return (VISIBILITY_MODES as readonly string[]).includes(value)
+    ? (value as VisibilityMode)
+    : null;
+}
+
+function visibilityModeStorageKey(projectId: string): string {
+  return `${VISIBILITY_MODE_STORAGE_PREFIX}:${projectId}`;
 }
 
 const CONFIGURE_SECTION_META: Record<
@@ -293,6 +305,24 @@ export default function ProjectPage() {
     router.replace(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
   }, [currentConfigureSection, params.id, rawConfigure, router, searchParams]);
 
+  useEffect(() => {
+    if (!isVisibilityMode(currentTab) || typeof window === "undefined") return;
+    window.localStorage.setItem(
+      visibilityModeStorageKey(params.id),
+      currentTab,
+    );
+  }, [currentTab, params.id]);
+
+  const resolveVisibilityModeTab = useCallback((): VisibilityMode => {
+    if (isVisibilityMode(currentTab)) return currentTab;
+    if (typeof window === "undefined") return "visibility";
+    return (
+      asVisibilityMode(
+        window.localStorage.getItem(visibilityModeStorageKey(params.id)),
+      ) ?? "visibility"
+    );
+  }, [currentTab, params.id]);
+
   const setProjectTab = useCallback(
     (tab: ProjectTab, mode: "push" | "replace" = "push") => {
       const newParams = new URLSearchParams(searchParams.toString());
@@ -309,9 +339,14 @@ export default function ProjectPage() {
 
   const handleTabChange = useCallback(
     (tab: ProjectTab) => {
+      if (tab === "visibility") {
+        setProjectTab(resolveVisibilityModeTab());
+        return;
+      }
+
       setProjectTab(tab);
     },
-    [setProjectTab],
+    [resolveVisibilityModeTab, setProjectTab],
   );
 
   const handleVisibilityModeChange = useCallback(

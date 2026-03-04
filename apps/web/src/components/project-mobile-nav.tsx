@@ -8,8 +8,6 @@ import {
   Compass,
   Trophy,
   Bot,
-  Radar,
-  Eye,
   User,
   Key,
   Plug,
@@ -35,9 +33,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { tab: "history", label: "History", icon: History },
   { tab: "strategy", label: "Strategy", icon: Compass },
   { tab: "competitors", label: "Competitors", icon: Trophy },
-  { tab: "ai-visibility", label: "AI Visibility", icon: Bot },
-  { tab: "ai-analysis", label: "AI Analysis", icon: Radar },
-  { tab: "visibility", label: "Visibility", icon: Eye },
+  { tab: "visibility", label: "Visibility", icon: Bot },
   { tab: "personas", label: "Personas", icon: User },
   { tab: "keywords", label: "Keywords", icon: Key },
   { tab: "integrations", label: "Integrations", icon: Plug },
@@ -52,6 +48,12 @@ interface ProjectMobileNavProps {
   onTabChange: (tab: ProjectTab) => void;
 }
 
+function isVisibilityTab(tab: ProjectTab): boolean {
+  return (
+    tab === "visibility" || tab === "ai-visibility" || tab === "ai-analysis"
+  );
+}
+
 export function ProjectMobileNav({
   currentTab,
   onTabChange,
@@ -61,7 +63,10 @@ export function ProjectMobileNav({
       <div className="flex items-center gap-2 overflow-x-auto">
         {ALL_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = currentTab === item.tab;
+          const isActive =
+            item.tab === "visibility"
+              ? isVisibilityTab(currentTab)
+              : currentTab === item.tab;
           return (
             <button
               key={item.tab}

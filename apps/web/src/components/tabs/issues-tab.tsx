@@ -317,13 +317,10 @@ export function IssuesTab({
     setAutoPlanning(true);
 
     const candidates = highPriorityBacklog.slice(0, MAX_AUTO_PLAN_ITEMS);
-    let createdCount = 0;
-    let failedCount = 0;
-
-    for (const issue of candidates) {
-      try {
-        await api.actionItems.create({
-          projectId,
+    try {
+      const result = await api.actionItems.bulkCreate({
+        projectId,
+        items: candidates.map((issue) => ({
           pageId: issue.pageId ?? null,
           issueCode: issue.code,
           status: "pending",
@@ -334,36 +331,39 @@ export function IssuesTab({
           description: issue.recommendation,
           assigneeId: currentUserId,
           dueAt: defaultDueAtIsoBySeverity(issue.severity),
-        });
-        createdCount += 1;
-      } catch {
-        failedCount += 1;
-      }
-    }
-
-    await Promise.all([mutateItems(), mutateStats()]);
-    setAutoPlanning(false);
-
-    const remaining = highPriorityBacklog.length - candidates.length;
-    if (createdCount > 0) {
-      toast({
-        title: "High-priority tasks planned",
-        description:
-          remaining > 0
-            ? `Created ${createdCount} tasks. ${remaining} additional issues remain for the next batch.`
-            : `Created ${createdCount} tasks with owners and due dates.`,
+        })),
       });
-    }
 
-    if (createdCount === 0 || failedCount > 0) {
+      await Promise.all([mutateItems(), mutateStats()]);
+
+      const remaining = highPriorityBacklog.length - candidates.length;
+      const upsertedCount = result.created + result.updated;
+      if (upsertedCount > 0) {
+        toast({
+          title: "High-priority tasks planned",
+          description:
+            remaining > 0
+              ? `Processed ${upsertedCount} tasks. ${remaining} additional issues remain for the next batch.`
+              : `Processed ${upsertedCount} tasks with owners and due dates.`,
+        });
+      } else {
+        toast({
+          title: "No changes applied",
+          description:
+            "The selected high-priority issues were already covered by open tasks.",
+        });
+      }
+    } catch (err) {
       toast({
-        title: "Some tasks could not be created",
+        title: "Task planning failed",
         description:
-          createdCount === 0
-            ? "No new tasks were created. Please retry."
-            : `${failedCount} task(s) failed to create.`,
+          err instanceof Error
+            ? err.message
+            : "Could not create high-priority task plans.",
         variant: "destructive",
       });
+    } finally {
+      setAutoPlanning(false);
     }
   }, [
     highPriorityBacklog,

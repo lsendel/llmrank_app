@@ -1387,6 +1387,12 @@ export interface ActionItemStats {
   fixRate: number;
 }
 
+export interface ActionItemBulkResult {
+  items: ActionItem[];
+  created: number;
+  updated: number;
+}
+
 export interface PipelineRecommendation {
   priority: "critical" | "high" | "medium" | "low";
   category: string;
@@ -3742,6 +3748,34 @@ export const api = {
     }): Promise<ActionItem> {
       const res = await apiClient.post<ApiEnvelope<ActionItem>>(
         "/api/action-items",
+        data,
+      );
+      return res.data;
+    },
+
+    async bulkCreate(data: {
+      projectId: string;
+      items: Array<{
+        pageId?: string | null;
+        issueCode: string;
+        status?: ActionItemStatus;
+        severity?: "critical" | "warning" | "info";
+        category?:
+          | "technical"
+          | "content"
+          | "ai_readiness"
+          | "performance"
+          | "schema"
+          | "llm_visibility";
+        scoreImpact?: number;
+        title: string;
+        description?: string | null;
+        assigneeId?: string | null;
+        dueAt?: string | null;
+      }>;
+    }): Promise<ActionItemBulkResult> {
+      const res = await apiClient.post<ApiEnvelope<ActionItemBulkResult>>(
+        "/api/action-items/bulk",
         data,
       );
       return res.data;

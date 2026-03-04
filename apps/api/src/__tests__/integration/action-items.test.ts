@@ -59,6 +59,8 @@ describe("Action Item Routes", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Prevent mock implementation leakage across tests.
+    mockActionItems.getOpenByProjectIssueCode.mockResolvedValue(undefined);
     mockProjects.getById.mockResolvedValue(
       buildProject({ id: projectId, userId: "test-user-id" }),
     );
@@ -189,6 +191,94 @@ describe("Action Item Routes", () => {
     expect(res.status).toBe(422);
     const body: any = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("creates action items in bulk", async () => {
+    mockActionItems.create
+      .mockResolvedValueOnce({
+        id: "bulk-1",
+        projectId,
+        issueCode: "MISSING_META_DESC",
+      })
+      .mockResolvedValueOnce({
+        id: "bulk-2",
+        projectId,
+        issueCode: "MISSING_TITLE",
+      });
+
+    const res = await request("/api/action-items/bulk", {
+      method: "POST",
+      json: {
+        projectId,
+        items: [
+          {
+            pageId,
+            issueCode: "missing_meta_desc",
+            title: "Meta description missing",
+          },
+          {
+            issueCode: "missing_title",
+            title: "Title missing",
+          },
+        ],
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockActionItems.create).toHaveBeenCalledTimes(2);
+
+    const body: any = await res.json();
+    expect(body.data.created).toBe(2);
+    expect(body.data.updated).toBe(0);
+    expect(body.data.items).toHaveLength(2);
+  });
+
+  it("updates existing open action items in bulk instead of creating duplicates", async () => {
+    mockActionItems.getOpenByProjectIssueCode.mockResolvedValueOnce({
+      id: "existing-1",
+      projectId,
+      issueCode: "MISSING_META_DESC",
+      status: "pending",
+      assigneeId: null,
+      dueAt: null,
+    });
+    mockActionItems.update.mockResolvedValueOnce({
+      id: "existing-1",
+      projectId,
+      issueCode: "MISSING_META_DESC",
+      status: "pending",
+      assigneeId: "test-user-id",
+      dueAt: "2026-03-10T00:00:00.000Z",
+    });
+
+    const res = await request("/api/action-items/bulk", {
+      method: "POST",
+      json: {
+        projectId,
+        items: [
+          {
+            issueCode: "missing_meta_desc",
+            title: "Meta description missing",
+            assigneeId: "test-user-id",
+            dueAt: "2026-03-10T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockActionItems.create).not.toHaveBeenCalled();
+    expect(mockActionItems.update).toHaveBeenCalledWith(
+      "existing-1",
+      expect.objectContaining({
+        assigneeId: "test-user-id",
+        dueAt: expect.any(Date),
+      }),
+    );
+
+    const body: any = await res.json();
+    expect(body.data.created).toBe(0);
+    expect(body.data.updated).toBe(1);
   });
 
   it("returns 422 for invalid dueAt on create", async () => {
