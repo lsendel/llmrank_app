@@ -265,6 +265,7 @@ export default function ProjectPage() {
 
   const rawTab = searchParams.get("tab");
   const rawConfigure = searchParams.get("configure");
+  const requestedCrawlId = searchParams.get("crawlId");
   const connectProvider = asIntegrationProvider(searchParams.get("connect"));
   const connectedProvider = asIntegrationProvider(
     searchParams.get("connected"),
@@ -341,17 +342,21 @@ export default function ProjectPage() {
   const { data: project, isLoading: projectLoading } = useProject(params.id);
 
   const latestCrawlId = project?.latestCrawl?.id;
+  const selectedCrawlId = requestedCrawlId ?? latestCrawlId;
 
   const { data: crawlHistoryData } = useCrawlHistory(params.id);
 
   const { data: pagesData } = useApiSWR(
-    latestCrawlId ? `pages-${latestCrawlId}` : null,
-    useCallback(() => api.pages.list(latestCrawlId!), [latestCrawlId]),
+    selectedCrawlId ? `pages-${selectedCrawlId}` : null,
+    useCallback(() => api.pages.list(selectedCrawlId!), [selectedCrawlId]),
   );
 
   const { data: issuesData } = useApiSWR(
-    latestCrawlId ? `issues-${latestCrawlId}` : null,
-    useCallback(() => api.issues.listForCrawl(latestCrawlId!), [latestCrawlId]),
+    selectedCrawlId ? `issues-${selectedCrawlId}` : null,
+    useCallback(
+      () => api.issues.listForCrawl(selectedCrawlId!),
+      [selectedCrawlId],
+    ),
   );
 
   async function handleStartCrawl() {
@@ -505,7 +510,7 @@ export default function ProjectPage() {
             <TabErrorBoundary>
               <IssuesTab
                 issues={issuesData?.data ?? []}
-                crawlId={latestCrawlId}
+                crawlId={selectedCrawlId}
                 projectId={project?.id}
               />
             </TabErrorBoundary>
@@ -596,9 +601,7 @@ export default function ProjectPage() {
 
               {visibilityMode === "ai-analysis" && (
                 <TabErrorBoundary>
-                  <AiAnalysisTab
-                    crawlJobId={searchParams.get("crawlId") ?? latestCrawlId}
-                  />
+                  <AiAnalysisTab crawlJobId={selectedCrawlId} />
                 </TabErrorBoundary>
               )}
             </div>
@@ -617,7 +620,7 @@ export default function ProjectPage() {
           )}
 
           {currentTab === "reports" && (
-            <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
+            <ReportsTab projectId={params.id} crawlJobId={selectedCrawlId} />
           )}
 
           {currentTab === "automation" && (

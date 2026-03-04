@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 
 interface Props {
   projectId: string;
@@ -555,13 +554,15 @@ function AutoReportSettings({
                         ? "Sending..."
                         : "Send now"}
                     </Button>
-                    <Badge
-                      variant={schedule.enabled ? "success" : "secondary"}
-                      className="cursor-pointer"
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={schedule.enabled ? "default" : "outline"}
+                      aria-pressed={schedule.enabled}
                       onClick={() => handleToggle(schedule)}
                     >
                       {schedule.enabled ? "Active" : "Paused"}
-                    </Badge>
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

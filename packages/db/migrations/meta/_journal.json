@@ -92,6 +92,13 @@
       "when": 1772263200000,
       "tag": "0012_action_item_due_at",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772638763000,
+      "tag": "0013_action_item_page_scope",
+      "breakpoints": true
     }
   ]
 }

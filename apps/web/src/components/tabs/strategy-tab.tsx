@@ -172,21 +172,7 @@ export function StrategyTab({ projectId }: { projectId: string }) {
   async function handleDiscoverKeywordSuggestions() {
     setDiscoveringKeywords(true);
     try {
-      const suggested = await api.visibility.suggestKeywords(projectId);
-      const existing = new Set(
-        (savedKeywords ?? []).map((keyword) => keyword.keyword.toLowerCase()),
-      );
-      const filtered = suggested.filter(
-        (keyword) => !existing.has(keyword.toLowerCase()),
-      );
-      setKeywordSuggestions(filtered);
-      setSelectedSuggestions(filtered.slice(0, 10));
-      if (filtered.length === 0) {
-        toast({
-          title: "No new keyword suggestions",
-          description: "Your current keyword list already covers suggestions.",
-        });
-      }
+      await discoverKeywordSuggestions();
     } catch (err) {
       toast({
         title: "Keyword suggestions failed",
@@ -199,17 +185,41 @@ export function StrategyTab({ projectId }: { projectId: string }) {
     }
   }
 
-  async function handleAcceptSuggestedKeywords() {
-    if (selectedSuggestions.length === 0) return;
+  async function discoverKeywordSuggestions(): Promise<string[]> {
+    const suggested = await api.visibility.suggestKeywords(projectId);
+    const existing = new Set(
+      (savedKeywords ?? []).map((keyword) => keyword.keyword.toLowerCase()),
+    );
+    const filtered = suggested.filter(
+      (keyword) => !existing.has(keyword.toLowerCase()),
+    );
+    const autoSelected = filtered.slice(0, 10);
+
+    setKeywordSuggestions(filtered);
+    setSelectedSuggestions(autoSelected);
+
+    if (filtered.length === 0) {
+      toast({
+        title: "No new keyword suggestions",
+        description: "Your current keyword list already covers suggestions.",
+      });
+    }
+
+    return autoSelected;
+  }
+
+  async function handleAcceptSuggestedKeywords(suggestions?: string[]) {
+    const keywordsToAccept = suggestions ?? selectedSuggestions;
+    if (keywordsToAccept.length === 0) return;
     setAcceptingKeywords(true);
     try {
-      await api.keywords.createBatch(projectId, selectedSuggestions);
+      await api.keywords.createBatch(projectId, keywordsToAccept);
       await mutateSavedKeywords();
 
       if ((visibilitySchedules?.length ?? 0) === 0) {
         await api.visibility.schedules.create({
           projectId,
-          query: selectedSuggestions[0],
+          query: keywordsToAccept[0],
           providers: ["chatgpt", "claude", "perplexity", "gemini"],
           frequency: "weekly",
         });
@@ -218,7 +228,7 @@ export function StrategyTab({ projectId }: { projectId: string }) {
 
       toast({
         title: "Demand model updated",
-        description: `${selectedSuggestions.length} keywords accepted and pushed into tracking.`,
+        description: `${keywordsToAccept.length} keywords accepted and pushed into tracking.`,
       });
     } catch (err) {
       toast({
@@ -267,11 +277,14 @@ export function StrategyTab({ projectId }: { projectId: string }) {
         "AI SEO and Content Optimization",
       );
       await persistGeneratedPersonas(generated);
+
+      let suggestionsToAccept = selectedSuggestions;
       if (keywordSuggestions.length === 0) {
-        await handleDiscoverKeywordSuggestions();
+        suggestionsToAccept = await discoverKeywordSuggestions();
       }
-      if (selectedSuggestions.length > 0) {
-        await handleAcceptSuggestedKeywords();
+
+      if (suggestionsToAccept.length > 0) {
+        await handleAcceptSuggestedKeywords(suggestionsToAccept);
       }
       if (recommendedCompetitorDomains.length > 0) {
         await handleAcceptRecommendedCompetitors();
@@ -280,6 +293,15 @@ export function StrategyTab({ projectId }: { projectId: string }) {
         title: "Guided demand flow completed",
         description:
           "Personas, keywords, competitors, and schedules were advanced.",
+      });
+    } catch (err) {
+      toast({
+        title: "Guided setup failed",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Could not complete guided demand setup.",
+        variant: "destructive",
       });
     } finally {
       setRunningDemandFlow(false);
@@ -379,7 +401,7 @@ export function StrategyTab({ projectId }: { projectId: string }) {
             </Button>
             <Button
               variant="outline"
-              onClick={handleAcceptSuggestedKeywords}
+              onClick={() => void handleAcceptSuggestedKeywords()}
               disabled={acceptingKeywords || selectedSuggestions.length === 0}
             >
               {acceptingKeywords ? (

@@ -57,6 +57,21 @@ function toText(value: unknown, fallback = "Not available"): string {
   return fallback;
 }
 
+function defaultDueAtIsoBySeverity(
+  severity: "critical" | "warning" | "info",
+): string {
+  const daysToAdd =
+    severity === "critical" ? 3 : severity === "warning" ? 7 : 14;
+  const due = new Date();
+  due.setUTCDate(due.getUTCDate() + daysToAdd);
+  due.setUTCHours(12, 0, 0, 0);
+  return due.toISOString();
+}
+
+function actionItemIdentityKey(issueCode: string, pageId?: string | null) {
+  return `${issueCode}::${pageId ?? ""}`;
+}
+
 export function PageOptimizationWorkspace({
   page,
   projectId,
@@ -71,8 +86,14 @@ export function PageOptimizationWorkspace({
     {},
   );
   const [savingTaskKey, setSavingTaskKey] = useState<string | null>(null);
-  const recommendations = page.score?.recommendations ?? [];
-  const issuesByCode = new Set(page.issues.map((issue) => issue.code));
+  const recommendations = useMemo(
+    () => page.score?.recommendations ?? [],
+    [page.score?.recommendations],
+  );
+  const issuesByCode = useMemo(
+    () => new Set(page.issues.map((issue) => issue.code)),
+    [page.issues],
+  );
   const detail = (page.score?.detail ?? {}) as Record<string, unknown>;
   const extracted = (detail.extracted ?? {}) as Record<string, unknown>;
   const h1 = Array.isArray(extracted.h1)
@@ -88,15 +109,44 @@ export function PageOptimizationWorkspace({
     api.actionItems.list(projectId),
   );
 
-  const actionItemByCode = useMemo(() => {
-    const map = new Map<string, ActionItem>();
+  const actionItemIndex = useMemo(() => {
+    const byIssuePage = new Map<string, ActionItem>();
+    const legacyByIssue = new Map<string, ActionItem>();
+    const scopedIssueCodes = new Set<string>();
     for (const item of actionItems ?? []) {
-      if (!map.has(item.issueCode)) {
-        map.set(item.issueCode, item);
+      if (item.pageId) {
+        const key = actionItemIdentityKey(item.issueCode, item.pageId);
+        if (!byIssuePage.has(key)) {
+          byIssuePage.set(key, item);
+        }
+        scopedIssueCodes.add(item.issueCode);
+        continue;
+      }
+
+      if (!legacyByIssue.has(item.issueCode)) {
+        legacyByIssue.set(item.issueCode, item);
       }
     }
-    return map;
+
+    return { byIssuePage, legacyByIssue, scopedIssueCodes };
   }, [actionItems]);
+
+  const getActionItemForCode = useMemo(
+    () =>
+      (issueCode: string): ActionItem | undefined => {
+        const scoped = actionItemIndex.byIssuePage.get(
+          actionItemIdentityKey(issueCode, page.id),
+        );
+        if (scoped) return scoped;
+
+        if (actionItemIndex.scopedIssueCodes.has(issueCode)) {
+          return undefined;
+        }
+
+        return actionItemIndex.legacyByIssue.get(issueCode);
+      },
+    [actionItemIndex, page.id],
+  );
 
   const pageIssueByCode = useMemo(() => {
     const map = new Map<string, PageIssue>();
@@ -222,9 +272,10 @@ export function PageOptimizationWorkspace({
     const dueAt = dueDate
       ? new Date(`${dueDate}T12:00:00.000Z`).toISOString()
       : null;
+    const pageIssue = pageIssueByCode.get(task.issueCode);
 
     try {
-      const existing = actionItemByCode.get(task.issueCode);
+      const existing = getActionItemForCode(task.issueCode);
       if (existing) {
         await api.actionItems.update(existing.id, {
           assigneeId: user?.id ?? null,
@@ -233,9 +284,9 @@ export function PageOptimizationWorkspace({
           status: existing.status,
         });
       } else {
-        const pageIssue = pageIssueByCode.get(task.issueCode);
         await api.actionItems.create({
           projectId,
+          pageId: page.id,
           issueCode: task.issueCode,
           status: "pending",
           severity: pageIssue?.severity ?? "warning",
@@ -244,7 +295,9 @@ export function PageOptimizationWorkspace({
           title: pageIssue?.message ?? `${task.label} optimization`,
           description: drafts[task.key] ?? task.rationale,
           assigneeId: user?.id ?? null,
-          dueAt,
+          dueAt:
+            dueAt ??
+            defaultDueAtIsoBySeverity(pageIssue?.severity ?? "warning"),
         });
       }
 
@@ -269,131 +322,134 @@ export function PageOptimizationWorkspace({
 
   return (
     <div className="space-y-4">
-      {tasks.map((task) => (
-        <Card key={task.key}>
-          <CardHeader className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-base">{task.label}</CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant={impactBadge(task.impactScore)}>
-                  Impact {Math.round(task.impactScore)}
-                </Badge>
-                {implemented[task.key] && (
-                  <Badge variant="success">Implemented</Badge>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">{task.rationale}</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Before
-                </p>
-                <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                  {task.before}
+      {tasks.map((task) => {
+        const actionItem = task.issueCode
+          ? getActionItemForCode(task.issueCode)
+          : undefined;
+
+        return (
+          <Card key={task.key}>
+            <CardHeader className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base">{task.label}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant={impactBadge(task.impactScore)}>
+                    Impact {Math.round(task.impactScore)}
+                  </Badge>
+                  {implemented[task.key] && (
+                    <Badge variant="success">Implemented</Badge>
+                  )}
                 </div>
               </div>
-
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Suggested
-                </p>
-                <Textarea
-                  value={drafts[task.key] ?? ""}
-                  onChange={(event) =>
-                    setUserOverrides((prev) => ({
-                      ...prev,
-                      [task.key]: event.target.value,
-                    }))
-                  }
-                  rows={4}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {task.issueCode && (
-                <AiFixButton
-                  projectId={projectId}
-                  pageId={page.id}
-                  issueCode={task.issueCode}
-                  issueTitle={task.label}
-                />
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  navigator.clipboard
-                    .writeText(drafts[task.key] ?? "")
-                    .catch(() => {})
-                }
-              >
-                <Copy className="mr-1.5 h-3.5 w-3.5" />
-                Copy Suggested
-              </Button>
-              <Button
-                size="sm"
-                onClick={() =>
-                  setImplemented((prev) => ({ ...prev, [task.key]: true }))
-                }
-              >
-                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                Mark Implemented
-              </Button>
-            </div>
-            {task.issueCode && (
-              <div className="rounded-md border bg-muted/20 p-3">
-                <p className="text-xs font-medium">Execution Task Controls</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Assign owner and due date for this optimization from page
-                  context.
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">
-                    Status:{" "}
-                    {actionItemByCode.get(task.issueCode)?.status ?? "pending"}
-                  </Badge>
-                  <Badge variant="outline">
-                    Owner:{" "}
-                    {actionItemByCode.get(task.issueCode)?.assigneeId
-                      ? "Assigned"
-                      : "Unassigned"}
-                  </Badge>
+              <p className="text-xs text-muted-foreground">{task.rationale}</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Before
+                  </p>
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                    {task.before}
+                  </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Input
-                    type="date"
-                    className="h-8 w-[180px]"
-                    value={
-                      dueDateDrafts[task.key] ??
-                      toDateInput(actionItemByCode.get(task.issueCode)?.dueAt)
-                    }
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Suggested
+                  </p>
+                  <Textarea
+                    value={drafts[task.key] ?? ""}
                     onChange={(event) =>
-                      setDueDateDrafts((prev) => ({
+                      setUserOverrides((prev) => ({
                         ...prev,
                         [task.key]: event.target.value,
                       }))
                     }
+                    rows={4}
                   />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSaveTask(task)}
-                    disabled={savingTaskKey === task.key}
-                  >
-                    {savingTaskKey === task.key
-                      ? "Saving..."
-                      : "Save Task Plan"}
-                  </Button>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+
+              <div className="flex flex-wrap gap-2">
+                {task.issueCode && (
+                  <AiFixButton
+                    projectId={projectId}
+                    pageId={page.id}
+                    issueCode={task.issueCode}
+                    issueTitle={task.label}
+                  />
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigator.clipboard
+                      .writeText(drafts[task.key] ?? "")
+                      .catch(() => {})
+                  }
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  Copy Suggested
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setImplemented((prev) => ({ ...prev, [task.key]: true }))
+                  }
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                  Mark Implemented
+                </Button>
+              </div>
+              {task.issueCode && (
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-xs font-medium">Execution Task Controls</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Assign owner and due date for this optimization from page
+                    context.
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      Status: {actionItem?.status ?? "pending"}
+                    </Badge>
+                    <Badge variant="outline">
+                      Owner:{" "}
+                      {actionItem?.assigneeId ? "Assigned" : "Unassigned"}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Input
+                      type="date"
+                      className="h-8 w-[180px]"
+                      value={
+                        dueDateDrafts[task.key] ??
+                        toDateInput(actionItem?.dueAt)
+                      }
+                      onChange={(event) =>
+                        setDueDateDrafts((prev) => ({
+                          ...prev,
+                          [task.key]: event.target.value,
+                        }))
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSaveTask(task)}
+                      disabled={savingTaskKey === task.key}
+                    >
+                      {savingTaskKey === task.key
+                        ? "Saving..."
+                        : "Save Task Plan"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

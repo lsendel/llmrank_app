@@ -12,6 +12,7 @@ import { usePlan } from "@/hooks/use-plan";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { track } from "@/lib/telemetry";
 import { useUser } from "@/lib/auth-hooks";
+import { useToast } from "@/components/ui/use-toast";
 import {
   api,
   type PageIssue,
@@ -19,7 +20,13 @@ import {
   type ActionItemStatus,
   type ActionItemStats,
 } from "@/lib/api";
-import { CheckCircle2, Clock, ListChecks, TrendingUp } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  ListChecks,
+  Loader2,
+  TrendingUp,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Fix Rate Banner
@@ -132,6 +139,23 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "fixed", label: "Fixed" },
 ];
 
+const MAX_AUTO_PLAN_ITEMS = 25;
+
+function defaultDueAtIsoBySeverity(
+  severity: "critical" | "warning" | "info",
+): string {
+  const daysToAdd =
+    severity === "critical" ? 3 : severity === "warning" ? 7 : 14;
+  const due = new Date();
+  due.setUTCDate(due.getUTCDate() + daysToAdd);
+  due.setUTCHours(12, 0, 0, 0);
+  return due.toISOString();
+}
+
+function actionItemIdentityKey(issueCode: string, pageId?: string | null) {
+  return `${issueCode}::${pageId ?? ""}`;
+}
+
 // ---------------------------------------------------------------------------
 // Issues Tab
 // ---------------------------------------------------------------------------
@@ -146,10 +170,13 @@ export function IssuesTab({
   projectId?: string;
 }) {
   const { user } = useUser();
+  const currentUserId = user?.id ?? null;
+  const { toast } = useToast();
   const { isFree } = usePlan();
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [autoPlanning, setAutoPlanning] = useState(false);
 
   // Fetch action items and stats for the project
   const { data: actionItems, mutate: mutateItems } = useApiSWR<ActionItem[]>(
@@ -162,19 +189,48 @@ export function IssuesTab({
     () => api.actionItems.stats(projectId!),
   );
 
-  // Build a lookup from issueCode to action item for quick matching
-  const actionItemsByCode = useMemo(() => {
-    const map = new Map<string, ActionItem>();
-    if (!actionItems) return map;
+  // Build lookups that prioritize page-scoped identity with legacy fallback.
+  const actionItemIndex = useMemo(() => {
+    const byIssuePage = new Map<string, ActionItem>();
+    const legacyByIssue = new Map<string, ActionItem>();
+    const scopedIssueCodes = new Set<string>();
+    if (!actionItems) {
+      return { byIssuePage, legacyByIssue, scopedIssueCodes };
+    }
     for (const item of actionItems) {
-      // Use issueCode as the key; if multiple action items share a code,
-      // the first one wins (most recent is first due to desc ordering)
-      if (!map.has(item.issueCode)) {
-        map.set(item.issueCode, item);
+      if (item.pageId) {
+        const key = actionItemIdentityKey(item.issueCode, item.pageId);
+        if (!byIssuePage.has(key)) {
+          byIssuePage.set(key, item);
+        }
+        scopedIssueCodes.add(item.issueCode);
+        continue;
+      }
+
+      if (!legacyByIssue.has(item.issueCode)) {
+        legacyByIssue.set(item.issueCode, item);
       }
     }
-    return map;
+    return { byIssuePage, legacyByIssue, scopedIssueCodes };
   }, [actionItems]);
+
+  const getActionItemForIssue = useCallback(
+    (issue: PageIssue): ActionItem | undefined => {
+      if (issue.pageId) {
+        const scoped = actionItemIndex.byIssuePage.get(
+          actionItemIdentityKey(issue.code, issue.pageId),
+        );
+        if (scoped) return scoped;
+
+        if (actionItemIndex.scopedIssueCodes.has(issue.code)) {
+          return undefined;
+        }
+      }
+
+      return actionItemIndex.legacyByIssue.get(issue.code);
+    },
+    [actionItemIndex],
+  );
 
   const handleStatusChange = useCallback(
     async (actionItemId: string, newStatus: ActionItemStatus) => {
@@ -205,7 +261,7 @@ export function IssuesTab({
       },
     ) => {
       const assigneeId =
-        updates.assigneeId === "me" ? (user?.id ?? null) : updates.assigneeId;
+        updates.assigneeId === "me" ? currentUserId : updates.assigneeId;
       await api.actionItems.update(actionItemId, {
         ...(assigneeId !== undefined ? { assigneeId } : {}),
         ...(updates.dueAt !== undefined ? { dueAt: updates.dueAt } : {}),
@@ -213,7 +269,7 @@ export function IssuesTab({
       mutateItems();
       mutateStats();
     },
-    [mutateItems, mutateStats, user?.id],
+    [currentUserId, mutateItems, mutateStats],
   );
 
   const handleCreateTask = useCallback(
@@ -225,9 +281,10 @@ export function IssuesTab({
       },
     ) => {
       if (!projectId) return;
-      const assigneeId = args.assigneeId === "me" ? (user?.id ?? null) : null;
+      const assigneeId = args.assigneeId === "me" ? currentUserId : null;
       await api.actionItems.create({
         projectId,
+        pageId: issue.pageId ?? null,
         issueCode: issue.code,
         status: "pending",
         severity: issue.severity,
@@ -236,13 +293,86 @@ export function IssuesTab({
         title: issue.message,
         description: issue.recommendation,
         assigneeId,
-        dueAt: args.dueAt,
+        dueAt: args.dueAt ?? defaultDueAtIsoBySeverity(issue.severity),
       });
       mutateItems();
       mutateStats();
     },
-    [mutateItems, mutateStats, projectId, user?.id],
+    [currentUserId, mutateItems, mutateStats, projectId],
   );
+
+  const highPriorityBacklog = useMemo(
+    () =>
+      issues.filter((issue) => {
+        const isHighPriority =
+          issue.severity === "critical" || issue.severity === "warning";
+        if (!isHighPriority) return false;
+        return !getActionItemForIssue(issue);
+      }),
+    [issues, getActionItemForIssue],
+  );
+
+  const handleAutoPlanHighPriority = useCallback(async () => {
+    if (!projectId || highPriorityBacklog.length === 0) return;
+    setAutoPlanning(true);
+
+    const candidates = highPriorityBacklog.slice(0, MAX_AUTO_PLAN_ITEMS);
+    let createdCount = 0;
+    let failedCount = 0;
+
+    for (const issue of candidates) {
+      try {
+        await api.actionItems.create({
+          projectId,
+          pageId: issue.pageId ?? null,
+          issueCode: issue.code,
+          status: "pending",
+          severity: issue.severity,
+          category: issue.category,
+          scoreImpact: 0,
+          title: issue.message,
+          description: issue.recommendation,
+          assigneeId: currentUserId,
+          dueAt: defaultDueAtIsoBySeverity(issue.severity),
+        });
+        createdCount += 1;
+      } catch {
+        failedCount += 1;
+      }
+    }
+
+    await Promise.all([mutateItems(), mutateStats()]);
+    setAutoPlanning(false);
+
+    const remaining = highPriorityBacklog.length - candidates.length;
+    if (createdCount > 0) {
+      toast({
+        title: "High-priority tasks planned",
+        description:
+          remaining > 0
+            ? `Created ${createdCount} tasks. ${remaining} additional issues remain for the next batch.`
+            : `Created ${createdCount} tasks with owners and due dates.`,
+      });
+    }
+
+    if (createdCount === 0 || failedCount > 0) {
+      toast({
+        title: "Some tasks could not be created",
+        description:
+          createdCount === 0
+            ? "No new tasks were created. Please retry."
+            : `${failedCount} task(s) failed to create.`,
+        variant: "destructive",
+      });
+    }
+  }, [
+    highPriorityBacklog,
+    mutateItems,
+    mutateStats,
+    projectId,
+    toast,
+    currentUserId,
+  ]);
 
   const filtered = useMemo(() => {
     return issues.filter((issue) => {
@@ -255,7 +385,7 @@ export function IssuesTab({
 
       // Status filter: match against action item status
       if (statusFilter !== "all") {
-        const actionItem = actionItemsByCode.get(issue.code);
+        const actionItem = getActionItemForIssue(issue);
         const itemStatus = actionItem?.status ?? "pending";
 
         if (statusFilter === "open") {
@@ -270,7 +400,13 @@ export function IssuesTab({
 
       return true;
     });
-  }, [issues, severityFilter, categoryFilter, statusFilter, actionItemsByCode]);
+  }, [
+    issues,
+    severityFilter,
+    categoryFilter,
+    statusFilter,
+    getActionItemForIssue,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -278,6 +414,36 @@ export function IssuesTab({
       {stats && stats.total > 0 && <FixRateBanner stats={stats} />}
       {actionItems && actionItems.length > 0 && (
         <ExecutionLaneSummary items={actionItems} />
+      )}
+      {highPriorityBacklog.length > 0 && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Auto-plan priority fixes</p>
+              <p className="text-xs text-muted-foreground">
+                {highPriorityBacklog.length} critical or warning issues do not
+                have tasks yet.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => void handleAutoPlanHighPriority()}
+              disabled={autoPlanning}
+            >
+              {autoPlanning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Planning...
+                </>
+              ) : (
+                `Create up to ${Math.min(
+                  highPriorityBacklog.length,
+                  MAX_AUTO_PLAN_ITEMS,
+                )} tasks`
+              )}
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* Issue Heatmap */}
@@ -367,7 +533,7 @@ export function IssuesTab({
           />
         ) : (
           filtered.map((issue, i) => {
-            const actionItem = actionItemsByCode.get(issue.code);
+            const actionItem = getActionItemForIssue(issue);
             return (
               <IssueCard
                 key={`${issue.code}-${issue.pageUrl ?? ""}-${i}`}

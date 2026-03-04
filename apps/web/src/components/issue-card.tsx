@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { ActionItemStatus } from "@/lib/api";
 import { AiFixButton } from "@/components/ai-fix-button";
 import { Input } from "@/components/ui/input";
+import { useUser } from "@/lib/auth-hooks";
 
 interface IssueCardProps {
   code: string;
@@ -98,6 +99,17 @@ const statusConfig: Record<
   },
 };
 
+function defaultDueDateInputBySeverity(
+  severity: "critical" | "warning" | "info",
+): string {
+  const daysToAdd =
+    severity === "critical" ? 3 : severity === "warning" ? 7 : 14;
+  const due = new Date();
+  due.setUTCDate(due.getUTCDate() + daysToAdd);
+  due.setUTCHours(12, 0, 0, 0);
+  return due.toISOString().slice(0, 10);
+}
+
 export function IssueCard({
   code,
   category,
@@ -117,17 +129,32 @@ export function IssueCard({
   onTaskCreate,
   onTaskUpdate,
 }: IssueCardProps) {
+  const { user } = useUser();
+  const defaultDueDate = defaultDueDateInputBySeverity(severity);
   const [expanded, setExpanded] = useState(false);
   const [dueDateDraft, setDueDateDraft] = useState(
-    actionItemDueAt ? actionItemDueAt.slice(0, 10) : "",
+    actionItemDueAt
+      ? actionItemDueAt.slice(0, 10)
+      : actionItemId
+        ? ""
+        : defaultDueDate,
   );
   const assignedToSomeone = Boolean(actionItemAssigneeId);
+  const assignedToMe = Boolean(
+    actionItemAssigneeId && user?.id && actionItemAssigneeId === user.id,
+  );
 
   // Keep local draft in sync when backend due date changes.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDueDateDraft(actionItemDueAt ? actionItemDueAt.slice(0, 10) : "");
-  }, [actionItemDueAt]);
+    setDueDateDraft(
+      actionItemDueAt
+        ? actionItemDueAt.slice(0, 10)
+        : actionItemId
+          ? ""
+          : defaultDueDate,
+    );
+  }, [actionItemDueAt, actionItemId, defaultDueDate]);
 
   async function handleSaveDueDate() {
     if (!actionItemId || !onTaskUpdate) return;
@@ -267,10 +294,14 @@ export function IssueCard({
                     size="sm"
                     variant="outline"
                     onClick={handleAssignToMe}
-                    disabled={assignedToSomeone}
+                    disabled={assignedToMe}
                   >
                     <UserCheck className="mr-1.5 h-3.5 w-3.5" />
-                    {assignedToSomeone ? "Assigned" : "Assign to me"}
+                    {assignedToMe
+                      ? "Assigned to me"
+                      : assignedToSomeone
+                        ? "Take ownership"
+                        : "Assign to me"}
                   </Button>
                   <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
                     <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />

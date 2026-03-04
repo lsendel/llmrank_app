@@ -1,4 +1,4 @@
-import { eq, desc, count, and, inArray } from "drizzle-orm";
+import { eq, desc, count, and, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../client";
 import { actionItems } from "../schema";
 
@@ -28,11 +28,19 @@ export function actionItemQueries(db: Database) {
       });
     },
 
-    async getOpenByProjectIssueCode(projectId: string, issueCode: string) {
+    async getOpenByProjectIssueCode(
+      projectId: string,
+      issueCode: string,
+      pageId?: string | null,
+    ) {
+      const pageFilter = pageId
+        ? eq(actionItems.pageId, pageId)
+        : isNull(actionItems.pageId);
       return db.query.actionItems.findFirst({
         where: and(
           eq(actionItems.projectId, projectId),
           eq(actionItems.issueCode, issueCode),
+          pageFilter,
           inArray(actionItems.status, ["pending", "in_progress"]),
         ),
         orderBy: [desc(actionItems.createdAt)],

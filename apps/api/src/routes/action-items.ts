@@ -4,6 +4,7 @@ import { authMiddleware } from "../middleware/auth";
 import { handleServiceError } from "../services/errors";
 import {
   actionItemQueries,
+  pageQueries,
   projectQueries,
   type ActionItemStatus,
 } from "@llm-boost/db";
@@ -46,6 +47,14 @@ function parseDueAt(raw: unknown): Date | null | "invalid" {
   return Number.isNaN(parsed.getTime()) ? "invalid" : parsed;
 }
 
+function parseOptionalPageId(raw: unknown): string | null | "invalid" {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "string") return "invalid";
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  return UUID_RE.test(trimmed) ? trimmed : "invalid";
+}
+
 function isValidStatus(status: unknown): status is ActionItemStatus {
   return VALID_STATUSES.includes(status as ActionItemStatus);
 }
@@ -63,6 +72,7 @@ actionItemRoutes.post("/", async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json<{
     projectId?: string;
+    pageId?: string | null;
     issueCode?: string;
     status?: ActionItemStatus;
     severity?: (typeof VALID_SEVERITIES)[number];
@@ -146,6 +156,19 @@ actionItemRoutes.post("/", async (c) => {
     );
   }
 
+  const pageId = parseOptionalPageId(body.pageId);
+  if (pageId === "invalid") {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "pageId must be a valid UUID when provided",
+        },
+      },
+      422,
+    );
+  }
+
   const dueAt = parseDueAt(body.dueAt);
   if (dueAt === "invalid") {
     return c.json(
@@ -167,10 +190,26 @@ actionItemRoutes.post("/", async (c) => {
     );
   }
 
+  if (pageId) {
+    const page = await pageQueries(db).getById(pageId);
+    if (!page || page.projectId !== body.projectId) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "pageId must belong to the project",
+          },
+        },
+        422,
+      );
+    }
+  }
+
   const normalizedIssueCode = body.issueCode.trim().toUpperCase();
   const existing = await actionItemQueries(db).getOpenByProjectIssueCode(
     body.projectId,
     normalizedIssueCode,
+    pageId,
   );
   if (existing) {
     const nextStatus = isValidStatus(existing.status)
@@ -192,6 +231,7 @@ actionItemRoutes.post("/", async (c) => {
 
   const created = await actionItemQueries(db).create({
     projectId: body.projectId,
+    pageId,
     issueCode: normalizedIssueCode,
     status: body.status ?? "pending",
     severity: body.severity ?? "warning",

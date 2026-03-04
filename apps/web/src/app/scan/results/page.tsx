@@ -663,31 +663,40 @@ function QuickWinCard({ win, rank }: { win: QuickWin; rank: number }) {
   const effort = EFFORT_LABELS[win.effortLevel] ?? EFFORT_LABELS.medium;
 
   return (
-    <Card
-      className="cursor-pointer transition-colors hover:bg-muted/30"
-      onClick={() => setExpanded(!expanded)}
-    >
-      <CardContent className="flex items-start gap-4 py-4">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-          {rank}
-        </div>
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{win.message}</span>
-            <Badge variant="secondary" className={cn("text-xs", effort.color)}>
-              {effort.label}
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              {Math.abs(win.scoreImpact)} pts
-            </Badge>
+    <Card className="transition-colors hover:bg-muted/30">
+      <CardContent className="py-4">
+        <button
+          type="button"
+          className="flex w-full items-start gap-4 text-left"
+          onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+        >
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+            {rank}
           </div>
-          <p className="text-sm text-muted-foreground">{win.recommendation}</p>
-          {expanded && win.implementationSnippet && (
-            <pre className="mt-3 overflow-x-auto rounded-md bg-muted p-3 text-xs">
-              <code>{win.implementationSnippet}</code>
-            </pre>
-          )}
-        </div>
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{win.message}</span>
+              <Badge
+                variant="secondary"
+                className={cn("text-xs", effort.color)}
+              >
+                {effort.label}
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                {Math.abs(win.scoreImpact)} pts
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {win.recommendation}
+            </p>
+            {expanded && win.implementationSnippet && (
+              <pre className="mt-3 overflow-x-auto rounded-md bg-muted p-3 text-xs">
+                <code>{win.implementationSnippet}</code>
+              </pre>
+            )}
+          </div>
+        </button>
       </CardContent>
     </Card>
   );

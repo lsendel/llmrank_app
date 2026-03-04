@@ -170,7 +170,7 @@ export default function HistoryPage() {
                           className="h-8 px-2"
                         >
                           <Link
-                            href={`/dashboard/projects/${job.projectId}?crawlId=${job.id}`}
+                            href={`/dashboard/projects/${job.projectId}?tab=reports&crawlId=${job.id}`}
                           >
                             View Report
                           </Link>

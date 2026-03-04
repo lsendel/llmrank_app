@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback, useSyncExternalStore } from "react";
 import { CheckCircle, Circle, X, ArrowRight, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,12 @@ const STEPS: ChecklistStep[] = [
     label: "Generate your first report",
     tab: "reports",
     checkFn: (d) => d.reportCount > 0,
+  },
+  {
+    id: "action-plan",
+    label: "Create your first action item",
+    tab: "issues",
+    checkFn: (d) => d.actionItemCount > 0,
   },
   {
     id: "schedule",
@@ -197,12 +204,12 @@ export function PostCrawlChecklist({ projectId }: { projectId: string }) {
                   {step.label}
                 </span>
                 {!done && (
-                  <a
+                  <Link
                     href={`?tab=${step.tab}`}
                     className="ml-auto text-primary text-xs flex items-center gap-0.5 hover:underline"
                   >
                     Go <ArrowRight className="h-3 w-3" />
-                  </a>
+                  </Link>
                 )}
               </li>
             );

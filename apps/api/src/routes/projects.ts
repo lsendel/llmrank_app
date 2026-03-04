@@ -20,6 +20,7 @@ import {
   personaQueries,
   reportQueries,
   scheduledVisibilityQueryQueries,
+  actionItemQueries,
   projectQueries,
   competitorQueries,
   pageQueries,
@@ -290,14 +291,14 @@ projectRoutes.get(
     const projectId = c.req.param("id");
     const db = c.get("db");
 
-    const [visChecks, personaCount, reports, scheduleCount] = await Promise.all(
-      [
+    const [visChecks, personaCount, reports, scheduleCount, actionItems] =
+      await Promise.all([
         visibilityQueries(db).listByProject(projectId),
         personaQueries(db).countByProject(projectId),
         reportQueries(db).listByProject(projectId),
         scheduledVisibilityQueryQueries(db).countByProject(projectId),
-      ],
-    );
+        actionItemQueries(db).listByProject(projectId),
+      ]);
 
     return c.json({
       data: {
@@ -305,6 +306,7 @@ projectRoutes.get(
         personaCount,
         reportCount: reports.length,
         scheduleCount,
+        actionItemCount: actionItems.length,
       },
     });
   },

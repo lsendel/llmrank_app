@@ -1158,6 +1158,7 @@ export interface ChecklistData {
   personaCount: number;
   reportCount: number;
   scheduleCount: number;
+  actionItemCount: number;
 }
 
 export interface ProjectProgress {
@@ -1361,6 +1362,7 @@ export type ActionItemStatus =
 export interface ActionItem {
   id: string;
   projectId: string;
+  pageId?: string | null;
   issueCode: string;
   status: ActionItemStatus;
   severity: "critical" | "warning" | "info";
@@ -3721,6 +3723,7 @@ export const api = {
   actionItems: {
     async create(data: {
       projectId: string;
+      pageId?: string | null;
       issueCode: string;
       status?: ActionItemStatus;
       severity?: "critical" | "warning" | "info";

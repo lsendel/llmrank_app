@@ -188,10 +188,19 @@ export function PagesTab({
           {sorted.map((page) => (
             <React.Fragment key={page.id}>
               <TableRow
-                className="cursor-pointer"
+                className="cursor-pointer focus-within:bg-muted/30"
+                tabIndex={0}
+                role="button"
+                aria-expanded={expandedRow === page.id}
                 onClick={() =>
                   setExpandedRow(expandedRow === page.id ? null : page.id)
                 }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setExpandedRow(expandedRow === page.id ? null : page.id);
+                  }
+                }}
               >
                 <TableCell className="font-mono text-xs">
                   <span className="inline-flex items-center gap-1.5">

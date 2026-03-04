@@ -34,6 +34,20 @@ function actionHref(projectId: string, action?: string): string {
   }
 }
 
+function actionLabel(action?: string): string {
+  switch (action) {
+    case "get_action_items":
+      return "Review issues";
+    case "discover_keywords_from_visibility":
+      return "Open keywords";
+    case "run_full_analysis":
+      return "Run analysis";
+    case "start_crawl":
+    default:
+      return "Start crawl";
+  }
+}
+
 export function ProjectRecommendationsCard({
   projectId,
 }: {
@@ -113,7 +127,7 @@ export function ProjectRecommendationsCard({
             </div>
             <Button asChild size="sm" variant="outline">
               <Link href={actionHref(projectId, rec.action)}>
-                Act
+                {actionLabel(rec.action)}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>

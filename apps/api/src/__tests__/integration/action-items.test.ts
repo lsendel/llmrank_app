@@ -29,12 +29,17 @@ const mockProjects = {
   getById: vi.fn().mockResolvedValue(null),
 };
 
+const mockPages = {
+  getById: vi.fn().mockResolvedValue(null),
+};
+
 vi.mock("@llm-boost/db", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@llm-boost/db")>();
   return {
     ...orig,
     actionItemQueries: () => mockActionItems,
     projectQueries: () => mockProjects,
+    pageQueries: () => mockPages,
   };
 });
 
@@ -49,6 +54,7 @@ vi.mock("../../repositories", () => ({
 describe("Action Item Routes", () => {
   const { request } = createTestApp();
   const projectId = "11111111-1111-1111-1111-111111111111";
+  const pageId = "33333333-3333-3333-3333-333333333333";
   const actionId = "22222222-2222-2222-2222-222222222222";
 
   beforeEach(() => {
@@ -56,12 +62,14 @@ describe("Action Item Routes", () => {
     mockProjects.getById.mockResolvedValue(
       buildProject({ id: projectId, userId: "test-user-id" }),
     );
+    mockPages.getById.mockResolvedValue({ id: pageId, projectId });
   });
 
   it("creates a manual action item with due date", async () => {
     mockActionItems.create.mockResolvedValue({
       id: actionId,
       projectId,
+      pageId,
       issueCode: "MISSING_META_DESC",
       status: "pending",
       severity: "warning",
@@ -81,6 +89,7 @@ describe("Action Item Routes", () => {
       method: "POST",
       json: {
         projectId,
+        pageId,
         issueCode: "missing_meta_desc",
         title: "Meta description missing",
         severity: "warning",
@@ -96,6 +105,7 @@ describe("Action Item Routes", () => {
     expect(mockActionItems.create).toHaveBeenCalledWith(
       expect.objectContaining({
         issueCode: "MISSING_META_DESC",
+        pageId,
         assigneeId: "test-user-id",
         dueAt: expect.any(Date),
       }),
@@ -106,6 +116,7 @@ describe("Action Item Routes", () => {
     mockActionItems.getOpenByProjectIssueCode.mockResolvedValue({
       id: actionId,
       projectId,
+      pageId,
       issueCode: "MISSING_META_DESC",
       status: "pending",
       assigneeId: null,
@@ -121,6 +132,7 @@ describe("Action Item Routes", () => {
       method: "POST",
       json: {
         projectId,
+        pageId,
         issueCode: "missing_meta_desc",
         title: "Meta description missing",
         assigneeId: "test-user-id",
@@ -129,6 +141,11 @@ describe("Action Item Routes", () => {
     });
 
     expect(res.status).toBe(200);
+    expect(mockActionItems.getOpenByProjectIssueCode).toHaveBeenCalledWith(
+      projectId,
+      "MISSING_META_DESC",
+      pageId,
+    );
     expect(mockActionItems.create).not.toHaveBeenCalled();
     expect(mockActionItems.update).toHaveBeenCalledWith(
       actionId,
@@ -137,6 +154,41 @@ describe("Action Item Routes", () => {
         dueAt: expect.any(Date),
       }),
     );
+  });
+
+  it("returns 422 for invalid pageId on create", async () => {
+    const res = await request("/api/action-items", {
+      method: "POST",
+      json: {
+        projectId,
+        pageId: "not-a-uuid",
+        issueCode: "MISSING_META_DESC",
+        title: "Meta description missing",
+      },
+    });
+    expect(res.status).toBe(422);
+    const body: any = await res.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns 422 when pageId does not belong to project", async () => {
+    mockPages.getById.mockResolvedValue({
+      id: pageId,
+      projectId: "other-proj",
+    });
+
+    const res = await request("/api/action-items", {
+      method: "POST",
+      json: {
+        projectId,
+        pageId,
+        issueCode: "MISSING_META_DESC",
+        title: "Meta description missing",
+      },
+    });
+    expect(res.status).toBe(422);
+    const body: any = await res.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("returns 422 for invalid dueAt on create", async () => {

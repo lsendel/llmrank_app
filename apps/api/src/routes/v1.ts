@@ -657,6 +657,7 @@ async function getProjectActionItemsResponse(c: any, projectId: string) {
       projectId,
       actionItems: items.map((item) => ({
         id: item.id,
+        pageId: item.pageId,
         issueCode: item.issueCode,
         status: item.status,
         severity: item.severity,

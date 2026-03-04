@@ -242,6 +242,7 @@ export const actionItems = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id").references(() => pages.id, { onDelete: "cascade" }),
     issueCode: text("issue_code").notNull(),
     status: text("status").notNull().default("pending"),
     severity: issueSeverityEnum("severity").notNull(),
@@ -260,6 +261,8 @@ export const actionItems = pgTable(
   },
   (t) => [
     index("idx_action_items_project").on(t.projectId),
+    index("idx_action_items_page").on(t.pageId),
     index("idx_action_items_status").on(t.status),
+    index("idx_action_items_issue_page").on(t.projectId, t.issueCode, t.pageId),
   ],
 );
