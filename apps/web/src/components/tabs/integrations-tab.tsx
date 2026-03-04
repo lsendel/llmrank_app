@@ -42,6 +42,7 @@ import {
   Gauge,
   Activity,
   MousePointerClick,
+  ExternalLink,
 } from "lucide-react";
 
 const INTEGRATIONS = [
@@ -52,6 +53,8 @@ const INTEGRATIONS = [
     description: "Indexed pages, search queries, crawl stats",
     minPlan: "pro",
     icon: Search,
+    signupUrl: "https://search.google.com/search-console",
+    signupHint: "Go to Search Console and click Add property",
     dataCollected: [
       "Top search queries with impressions, clicks, and position",
       "Page-level index coverage status",
@@ -70,6 +73,7 @@ const INTEGRATIONS = [
     description: "Core Web Vitals and lab performance scores",
     minPlan: "pro",
     icon: Gauge,
+    docsUrl: "https://developers.google.com/speed/docs/insights/v5/get-started",
     dataCollected: [
       "Core Web Vitals (LCP, FID, CLS) per page",
       "Lab performance scores from Lighthouse",
@@ -88,6 +92,7 @@ const INTEGRATIONS = [
     description: "Engagement metrics, bounce rate, sessions",
     minPlan: "agency",
     icon: Activity,
+    signupUrl: "https://analytics.google.com",
     dataCollected: [
       "Average engagement time per page",
       "Bounce rate and session duration",
@@ -593,6 +598,37 @@ export default function IntegrationsTab({
                       </ul>
                     </div>
 
+                    {"signupUrl" in meta && meta.signupUrl && (
+                      <p className="text-xs text-muted-foreground">
+                        {"signupHint" in meta && meta.signupHint ? (
+                          <>
+                            <a
+                              href={meta.signupUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                            >
+                              {meta.signupHint}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </>
+                        ) : (
+                          <>
+                            Don&apos;t have an account?{" "}
+                            <a
+                              href={meta.signupUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                            >
+                              Sign up here
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    )}
+
                     <Button
                       size="sm"
                       className="w-full"
@@ -773,6 +809,34 @@ export default function IntegrationsTab({
             <DialogTitle>Connect {connectModal?.label}</DialogTitle>
             <DialogDescription>
               Enter your API key to connect this integration.
+              {connectModal?.provider === "psi" && (
+                <>
+                  {" "}
+                  <a
+                    href="https://developers.google.com/speed/docs/insights/v5/get-started"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    Get your API key
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </>
+              )}
+              {connectModal?.provider === "clarity" && (
+                <>
+                  {" "}
+                  <a
+                    href="https://clarity.microsoft.com/projects"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    Get your API key
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
