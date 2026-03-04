@@ -208,9 +208,11 @@ function isViewPreset(value: string | null | undefined): value is ViewPreset {
   return value in VIEW_PRESETS;
 }
 
-function defaultPresetFromPersona(persona?: string | null): ViewPreset {
-  if (persona === "agency" || persona === "freelancer") return "seo_manager";
-  if (persona === "in_house" || persona === "developer") return "content_lead";
+function defaultPresetFromPersona(_persona?: string | null): ViewPreset {
+  // Always default to "exec_summary" (health: all, sort: activity_desc) so
+  // that every project is visible on first visit.  Users who want a filtered
+  // default can save one via the "Set As Default View" button, which is
+  // persisted server-side and takes priority over this fallback.
   return "exec_summary";
 }
 
