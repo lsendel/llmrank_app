@@ -92,10 +92,15 @@ describe("Project Page", () => {
     // Wait for content to render
     await screen.findAllByText("Test Project");
 
-    // Sidebar group labels
-    expect(screen.getByText("Analyze")).toBeInTheDocument();
-    expect(screen.getByText("Grow")).toBeInTheDocument();
-    expect(screen.getByText("Operate")).toBeInTheDocument();
+    // Workspace and sidebar group labels
+    expect(screen.getAllByText("Analyze").length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText("Grow Visibility").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText("Automate & Operate").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Configure").length).toBeGreaterThanOrEqual(1);
 
     // Nav items appear in both sidebar and mobile nav
     const overviews = screen.getAllByText("Overview");

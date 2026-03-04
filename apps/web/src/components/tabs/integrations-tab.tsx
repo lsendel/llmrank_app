@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -27,13 +27,17 @@ import { useApiSWR } from "@/lib/use-api-swr";
 import {
   api,
   ApiError,
+  type CrawledPage,
   type ProjectIntegration,
   type BillingInfo,
   type IntegrationInsights,
 } from "@/lib/api";
 import { IntegrationInsightsView } from "@/components/integration-insights-view";
 import { track } from "@/lib/telemetry";
+import { useUser } from "@/lib/auth-hooks";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
   BarChart3,
   Info,
   RefreshCw,
@@ -44,6 +48,7 @@ import {
   MousePointerClick,
   ExternalLink,
   Share2,
+  Sparkles,
 } from "lucide-react";
 
 const INTEGRATIONS = [
@@ -145,12 +150,142 @@ const INTEGRATIONS = [
 ] as const;
 
 const PLAN_ORDER = ["free", "starter", "pro", "agency"];
+const MAX_SIGNAL_TASKS = 30;
 
 function planAllows(userPlan: string, requiredPlan: string): boolean {
   return PLAN_ORDER.indexOf(userPlan) >= PLAN_ORDER.indexOf(requiredPlan);
 }
 
 type SupportedProvider = "gsc" | "psi" | "ga4" | "clarity" | "meta";
+
+type DeltaDirection = "positive" | "negative" | "neutral";
+
+type IntegrationDeltaMetric = {
+  id: string;
+  label: string;
+  currentValue: string;
+  deltaValue: string;
+  direction: DeltaDirection;
+};
+
+type FormattedDelta = Omit<IntegrationDeltaMetric, "id" | "label">;
+
+type SignalTaskDraft = {
+  pageId?: string | null;
+  issueCode: string;
+  status: "pending";
+  severity: "critical" | "warning" | "info";
+  category: "technical" | "content" | "ai_readiness" | "performance";
+  scoreImpact: number;
+  title: string;
+  description: string;
+  assigneeId?: string | null;
+  dueAt?: string | null;
+};
+
+function dueAtDaysFromNow(days: number): string {
+  const due = new Date();
+  due.setUTCDate(due.getUTCDate() + days);
+  due.setUTCHours(12, 0, 0, 0);
+  return due.toISOString();
+}
+
+function normalizePath(path: string): string {
+  if (!path) return "/";
+  const trimmed =
+    path.endsWith("/") && path.length > 1 ? path.slice(0, -1) : path;
+  return trimmed || "/";
+}
+
+function parseUrlKeys(raw: string): { full: string; path: string } | null {
+  if (!raw || raw.trim().length === 0) return null;
+  try {
+    const parsed = new URL(raw);
+    const path = normalizePath(parsed.pathname);
+    const full = `${parsed.origin}${path}`.toLowerCase();
+    return { full, path: path.toLowerCase() };
+  } catch {
+    return null;
+  }
+}
+
+function buildPageUrlLookup(pages: CrawledPage[]): {
+  byFull: Map<string, string>;
+  byPath: Map<string, string>;
+} {
+  const byFull = new Map<string, string>();
+  const byPath = new Map<string, string>();
+
+  for (const page of pages) {
+    const keys = parseUrlKeys(page.url);
+    if (!keys) continue;
+    if (!byFull.has(keys.full)) {
+      byFull.set(keys.full, page.id);
+    }
+    if (!byPath.has(keys.path)) {
+      byPath.set(keys.path, page.id);
+    }
+  }
+
+  return { byFull, byPath };
+}
+
+function resolvePageIdForSignalUrl(
+  rawUrl: string,
+  lookup: { byFull: Map<string, string>; byPath: Map<string, string> },
+): string | null {
+  const keys = parseUrlKeys(rawUrl);
+  if (!keys) return null;
+  return lookup.byFull.get(keys.full) ?? lookup.byPath.get(keys.path) ?? null;
+}
+
+function truncateUrlPath(rawUrl: string): string {
+  const keys = parseUrlKeys(rawUrl);
+  if (!keys) return rawUrl;
+  return keys.path.length > 42 ? `${keys.path.slice(0, 39)}...` : keys.path;
+}
+
+function isNonIndexedStatus(status: string): boolean {
+  const normalized = status.toLowerCase();
+  return (
+    normalized.includes("not") ||
+    normalized.includes("error") ||
+    normalized.includes("excluded") ||
+    normalized.includes("blocked")
+  );
+}
+
+function formatDeltaNumber(
+  current: number,
+  previous: number,
+  options?: {
+    decimals?: number;
+    suffix?: string;
+    higherIsBetter?: boolean;
+  },
+): FormattedDelta {
+  const decimals = options?.decimals ?? 0;
+  const suffix = options?.suffix ?? "";
+  const higherIsBetter = options?.higherIsBetter ?? true;
+  const delta = current - previous;
+
+  const formatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  const deltaAbs = Math.abs(delta);
+  let direction: DeltaDirection = "neutral";
+  if (deltaAbs > 0.0001) {
+    const improved = higherIsBetter ? delta > 0 : delta < 0;
+    direction = improved ? "positive" : "negative";
+  }
+
+  return {
+    currentValue: `${formatter.format(current)}${suffix}`,
+    deltaValue: `${delta > 0 ? "+" : ""}${formatter.format(delta)}${suffix}`,
+    direction,
+  };
+}
 
 export default function IntegrationsTab({
   projectId,
@@ -163,6 +298,8 @@ export default function IntegrationsTab({
 }) {
   const { withAuth } = useApi();
   const { toast } = useToast();
+  const { user } = useUser();
+  const currentUserId = user?.id ?? null;
 
   const { data: billing } = useApiSWR<BillingInfo>(
     "billing-info",
@@ -181,6 +318,36 @@ export default function IntegrationsTab({
       `integrations-insights-${projectId}`,
       useCallback(() => api.integrations.insights(projectId), [projectId]),
     );
+
+  const { data: crawlHistory } = useApiSWR(
+    `integrations-crawls-${projectId}`,
+    useCallback(() => api.crawls.list(projectId, { limit: 2 }), [projectId]),
+  );
+
+  const latestCrawlId = integrationInsights?.crawlId ?? null;
+  const previousCrawlId = useMemo(() => {
+    const crawls = crawlHistory?.data ?? [];
+    if (crawls.length < 2) return null;
+    return crawls.find((crawl) => crawl.id !== latestCrawlId)?.id ?? null;
+  }, [crawlHistory, latestCrawlId]);
+
+  const { data: previousInsights } = useApiSWR<IntegrationInsights>(
+    previousCrawlId
+      ? `integrations-insights-previous-${projectId}-${previousCrawlId}`
+      : null,
+    useCallback(
+      () => api.integrations.insights(projectId, previousCrawlId!),
+      [projectId, previousCrawlId],
+    ),
+  );
+
+  const { data: crawlPages } = useApiSWR<CrawledPage[]>(
+    latestCrawlId ? `integration-pages-${latestCrawlId}` : null,
+    useCallback(async () => {
+      const pages = await api.pages.list(latestCrawlId!);
+      return pages.data;
+    }, [latestCrawlId]),
+  );
 
   const currentPlan = billing?.plan ?? "free";
 
@@ -207,6 +374,7 @@ export default function IntegrationsTab({
 
   // Sync state
   const [syncing, setSyncing] = useState(false);
+  const [autoPlanningSignals, setAutoPlanningSignals] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const autoConnectAttempted = useRef<SupportedProvider | null>(null);
@@ -215,9 +383,256 @@ export default function IntegrationsTab({
     (i) => i.hasCredentials && i.enabled,
   );
 
-  function getIntegration(provider: string): ProjectIntegration | undefined {
-    return integrations?.find((i) => i.provider === provider);
-  }
+  const pageUrlLookup = useMemo(
+    () => buildPageUrlLookup(crawlPages ?? []),
+    [crawlPages],
+  );
+
+  const integrationDeltaMetrics = useMemo<IntegrationDeltaMetric[]>(() => {
+    if (!integrationInsights?.integrations || !previousInsights?.integrations) {
+      return [];
+    }
+
+    const metrics: IntegrationDeltaMetric[] = [];
+    const current = integrationInsights.integrations;
+    const previous = previousInsights.integrations;
+
+    if (current.gsc && previous.gsc) {
+      const clicks = formatDeltaNumber(
+        current.gsc.totalClicks ?? 0,
+        previous.gsc.totalClicks ?? 0,
+        { higherIsBetter: true },
+      );
+      metrics.push({
+        id: "gsc-clicks",
+        label: "GSC Clicks",
+        currentValue: clicks.currentValue,
+        deltaValue: clicks.deltaValue,
+        direction: clicks.direction,
+      });
+
+      const nonIndexedCurrent = current.gsc.indexedPages.filter((page) =>
+        isNonIndexedStatus(page.status),
+      ).length;
+      const nonIndexedPrevious = previous.gsc.indexedPages.filter((page) =>
+        isNonIndexedStatus(page.status),
+      ).length;
+      const nonIndexed = formatDeltaNumber(
+        nonIndexedCurrent,
+        nonIndexedPrevious,
+        {
+          higherIsBetter: false,
+        },
+      );
+      metrics.push({
+        id: "gsc-non-indexed",
+        label: "Non-indexed pages",
+        currentValue: nonIndexed.currentValue,
+        deltaValue: nonIndexed.deltaValue,
+        direction: nonIndexed.direction,
+      });
+    }
+
+    if (current.ga4 && previous.ga4) {
+      const bounce = formatDeltaNumber(
+        current.ga4.bounceRate ?? 0,
+        previous.ga4.bounceRate ?? 0,
+        { decimals: 1, suffix: "%", higherIsBetter: false },
+      );
+      metrics.push({
+        id: "ga4-bounce",
+        label: "GA4 bounce rate",
+        currentValue: bounce.currentValue,
+        deltaValue: bounce.deltaValue,
+        direction: bounce.direction,
+      });
+    }
+
+    if (current.clarity && previous.clarity) {
+      const uxScore = formatDeltaNumber(
+        current.clarity.avgUxScore ?? 0,
+        previous.clarity.avgUxScore ?? 0,
+        { decimals: 1, higherIsBetter: true },
+      );
+      metrics.push({
+        id: "clarity-ux",
+        label: "Clarity UX score",
+        currentValue: uxScore.currentValue,
+        deltaValue: uxScore.deltaValue,
+        direction: uxScore.direction,
+      });
+    }
+
+    if (current.meta && previous.meta) {
+      const currentEngagement =
+        current.meta.totalShares +
+        current.meta.totalReactions +
+        current.meta.totalComments;
+      const previousEngagement =
+        previous.meta.totalShares +
+        previous.meta.totalReactions +
+        previous.meta.totalComments;
+      const engagement = formatDeltaNumber(
+        currentEngagement,
+        previousEngagement,
+        {
+          higherIsBetter: true,
+        },
+      );
+      metrics.push({
+        id: "meta-engagement",
+        label: "Meta engagement",
+        currentValue: engagement.currentValue,
+        deltaValue: engagement.deltaValue,
+        direction: engagement.direction,
+      });
+    }
+
+    return metrics;
+  }, [integrationInsights, previousInsights]);
+
+  const signalTaskPlan = useMemo(() => {
+    const reasons: string[] = [];
+    const items: SignalTaskDraft[] = [];
+    const integrationsData = integrationInsights?.integrations;
+    if (!integrationsData) {
+      return { reasons, items };
+    }
+
+    const gsc = integrationsData.gsc;
+    if (gsc) {
+      const nonIndexedPages = gsc.indexedPages.filter((page) =>
+        isNonIndexedStatus(page.status),
+      );
+      if (nonIndexedPages.length > 0) {
+        reasons.push(
+          `${nonIndexedPages.length} page${nonIndexedPages.length === 1 ? "" : "s"} are not indexed in Google.`,
+        );
+        const severity: "critical" | "warning" =
+          nonIndexedPages.length >= 10 ? "critical" : "warning";
+        const dueAt =
+          severity === "critical" ? dueAtDaysFromNow(3) : dueAtDaysFromNow(7);
+        let unmappedCount = 0;
+
+        for (const page of nonIndexedPages.slice(0, 15)) {
+          const pageId = resolvePageIdForSignalUrl(page.url, pageUrlLookup);
+          if (!pageId) {
+            unmappedCount += 1;
+            continue;
+          }
+          items.push({
+            pageId,
+            issueCode: "INTEGRATION_GSC_NOT_INDEXED",
+            status: "pending",
+            severity,
+            category: "technical",
+            scoreImpact: severity === "critical" ? 10 : 8,
+            title: `Fix Google indexing issue: ${truncateUrlPath(page.url)}`,
+            description: `Google Search Console reported "${page.status}" for this page.`,
+            assigneeId: currentUserId,
+            dueAt,
+          });
+        }
+
+        if (unmappedCount > 0) {
+          items.push({
+            issueCode: "INTEGRATION_GSC_NOT_INDEXED_UNMAPPED",
+            status: "pending",
+            severity,
+            category: "technical",
+            scoreImpact: 7,
+            title: "Review non-indexed pages from Google Search Console",
+            description: `${unmappedCount} non-indexed page URL${unmappedCount === 1 ? "" : "s"} could not be mapped to crawl pages.`,
+            assigneeId: currentUserId,
+            dueAt,
+          });
+        }
+      }
+    }
+
+    const clarity = integrationsData.clarity;
+    if (clarity && clarity.rageClickPages.length > 0) {
+      reasons.push(
+        `${clarity.rageClickPages.length} page${clarity.rageClickPages.length === 1 ? "" : "s"} have rage-click events in Clarity.`,
+      );
+      const severity: "critical" | "warning" =
+        clarity.rageClickPages.length >= 6 ? "critical" : "warning";
+      const dueAt =
+        severity === "critical" ? dueAtDaysFromNow(3) : dueAtDaysFromNow(7);
+
+      for (const url of clarity.rageClickPages.slice(0, 10)) {
+        items.push({
+          pageId: resolvePageIdForSignalUrl(url, pageUrlLookup),
+          issueCode: "INTEGRATION_CLARITY_RAGE_CLICKS",
+          status: "pending",
+          severity,
+          category: "performance",
+          scoreImpact: severity === "critical" ? 8 : 6,
+          title: `Investigate rage clicks: ${truncateUrlPath(url)}`,
+          description:
+            "Microsoft Clarity detected repeated rage clicks that indicate UX friction.",
+          assigneeId: currentUserId,
+          dueAt,
+        });
+      }
+    }
+
+    const ga4 = integrationsData.ga4;
+    if (ga4 && ga4.bounceRate >= 65) {
+      reasons.push(
+        `GA4 bounce rate is ${ga4.bounceRate.toFixed(1)}%, above the 65% review threshold.`,
+      );
+      const severity: "critical" | "warning" =
+        ga4.bounceRate >= 75 ? "critical" : "warning";
+      items.push({
+        issueCode: "INTEGRATION_GA4_HIGH_BOUNCE",
+        status: "pending",
+        severity,
+        category: "content",
+        scoreImpact: severity === "critical" ? 8 : 6,
+        title: "Reduce bounce rate on top landing pages",
+        description: `Current bounce rate is ${ga4.bounceRate.toFixed(1)}% with average engagement ${ga4.avgEngagement.toFixed(0)} seconds.`,
+        assigneeId: currentUserId,
+        dueAt:
+          severity === "critical" ? dueAtDaysFromNow(3) : dueAtDaysFromNow(7),
+      });
+    }
+
+    return { reasons, items };
+  }, [integrationInsights, pageUrlLookup, currentUserId]);
+
+  const getIntegration = useCallback(
+    (provider: string): ProjectIntegration | undefined =>
+      integrations?.find((i) => i.provider === provider),
+    [integrations],
+  );
+
+  const handleOAuthConnect = useCallback(
+    async (provider: "gsc" | "ga4" | "meta", adAccountId?: string) => {
+      setError(null);
+      try {
+        await withAuth(async () => {
+          if (provider === "meta") {
+            const { url } = await api.integrations.startMetaOAuth(
+              projectId,
+              adAccountId,
+            );
+            window.location.href = url;
+          } else {
+            const { url } = await api.integrations.startGoogleOAuth(
+              projectId,
+              provider,
+            );
+            window.location.href = url;
+          }
+        });
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError("Failed to start OAuth flow.");
+      }
+    },
+    [projectId, withAuth],
+  );
 
   useEffect(() => {
     if (!connectProvider) return;
@@ -259,7 +674,13 @@ export default function IntegrationsTab({
       provider: connectProvider as "psi" | "clarity",
       label: targetMeta.label,
     });
-  }, [connectProvider, currentPlan, integrations]);
+  }, [
+    connectProvider,
+    currentPlan,
+    getIntegration,
+    handleOAuthConnect,
+    integrations,
+  ]);
 
   async function handleSync() {
     setSyncing(true);
@@ -310,6 +731,53 @@ export default function IntegrationsTab({
     }
   }
 
+  async function handleAutoPlanSignalTasks() {
+    if (!projectId || signalTaskPlan.items.length === 0) return;
+
+    setAutoPlanningSignals(true);
+    const candidates = signalTaskPlan.items.slice(0, MAX_SIGNAL_TASKS);
+    try {
+      const result = await withAuth(() =>
+        api.actionItems.bulkCreate({
+          projectId,
+          items: candidates,
+        }),
+      );
+
+      const remaining = signalTaskPlan.items.length - candidates.length;
+      const processed = result.created + result.updated;
+      toast({
+        title:
+          processed > 0
+            ? "Integration tasks planned"
+            : "No integration task changes",
+        description:
+          processed > 0
+            ? remaining > 0
+              ? `Processed ${processed} tasks. ${remaining} additional recommendations remain.`
+              : `Processed ${processed} tasks from integration signals.`
+            : "Open tasks already exist for the current integration signals.",
+      });
+      track("integration.auto_plan_tasks", {
+        projectId,
+        candidates: candidates.length,
+        created: result.created,
+        updated: result.updated,
+      });
+    } catch (err) {
+      toast({
+        title: "Integration task planning failed",
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "Could not create tasks from integration signals.",
+        variant: "destructive",
+      });
+    } finally {
+      setAutoPlanningSignals(false);
+    }
+  }
+
   async function handleConnect() {
     if (!connectModal) return;
     setConnecting(true);
@@ -332,33 +800,6 @@ export default function IntegrationsTab({
       else setError("Failed to connect integration.");
     } finally {
       setConnecting(false);
-    }
-  }
-
-  async function handleOAuthConnect(
-    provider: "gsc" | "ga4" | "meta",
-    adAccountId?: string,
-  ) {
-    setError(null);
-    try {
-      await withAuth(async () => {
-        if (provider === "meta") {
-          const { url } = await api.integrations.startMetaOAuth(
-            projectId,
-            adAccountId,
-          );
-          window.location.href = url;
-        } else {
-          const { url } = await api.integrations.startGoogleOAuth(
-            projectId,
-            provider,
-          );
-          window.location.href = url;
-        }
-      });
-    } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
-      else setError("Failed to start OAuth flow.");
     }
   }
 
@@ -768,6 +1209,116 @@ export default function IntegrationsTab({
           )}
         </CardContent>
       </Card>
+
+      {integrationInsights?.integrations && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Insight Delta & Action Shortcuts
+            </CardTitle>
+            <CardDescription>
+              Compare integration performance to the previous crawl and convert
+              signal spikes into tasks.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Delta since previous crawl</p>
+              {!previousCrawlId ? (
+                <p className="text-xs text-muted-foreground">
+                  Run one more crawl to unlock trend comparisons between
+                  integration snapshots.
+                </p>
+              ) : previousInsights === undefined ? (
+                <p className="text-xs text-muted-foreground">
+                  Loading previous crawl insights...
+                </p>
+              ) : integrationDeltaMetrics.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No overlapping provider data between the latest two crawls
+                  yet.
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {integrationDeltaMetrics.map((metric) => (
+                    <div
+                      key={metric.id}
+                      className="rounded-lg border bg-muted/20 p-3"
+                    >
+                      <p className="text-xs text-muted-foreground">
+                        {metric.label}
+                      </p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {metric.currentValue}
+                      </p>
+                      <p
+                        className={`mt-1 inline-flex items-center gap-1 text-xs font-medium ${
+                          metric.direction === "positive"
+                            ? "text-emerald-600"
+                            : metric.direction === "negative"
+                              ? "text-destructive"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {metric.direction === "positive" && (
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        )}
+                        {metric.direction === "negative" && (
+                          <ArrowDownRight className="h-3.5 w-3.5" />
+                        )}
+                        {metric.deltaValue} vs previous
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    Auto-plan tasks from integration signals
+                  </p>
+                  {signalTaskPlan.items.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No urgent integration anomalies detected right now.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {signalTaskPlan.items.length} recommended task
+                      {signalTaskPlan.items.length === 1 ? "" : "s"} from GSC,
+                      GA4, and Clarity signals.
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => void handleAutoPlanSignalTasks()}
+                  disabled={
+                    autoPlanningSignals || signalTaskPlan.items.length === 0
+                  }
+                >
+                  {autoPlanningSignals
+                    ? "Planning tasks..."
+                    : `Create up to ${Math.min(
+                        signalTaskPlan.items.length,
+                        MAX_SIGNAL_TASKS,
+                      )} tasks`}
+                </Button>
+              </div>
+              {signalTaskPlan.reasons.length > 0 && (
+                <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                  {signalTaskPlan.reasons.map((reason) => (
+                    <li key={reason}>- {reason}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* How this data enhances your reports */}
       {hasConnectedIntegrations && (

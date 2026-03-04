@@ -41,7 +41,14 @@ import { ProjectRecommendationsCard } from "@/components/cards/project-recommend
 import { ProjectSidebar } from "@/components/project-sidebar";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
-import { normalizeProjectTab, type ProjectTab } from "./tab-state";
+import {
+  GROUP_DEFAULT_TABS,
+  normalizeProjectTab,
+  projectTabGroup,
+  PROJECT_TAB_GROUPS,
+  type ProjectTab,
+  type ProjectTabGroup,
+} from "./tab-state";
 import {
   normalizeConfigureSection,
   type ConfigureSection,
@@ -219,6 +226,31 @@ const VISIBILITY_MODES = [
 ] as const;
 type VisibilityMode = (typeof VISIBILITY_MODES)[number];
 const VISIBILITY_MODE_STORAGE_PREFIX = "llmrank:project:visibility-mode";
+const WORKSPACE_LAST_TAB_STORAGE_PREFIX = "llmrank:project:workspace-last-tab";
+
+const WORKSPACE_META: Record<
+  ProjectTabGroup,
+  { label: string; description: string }
+> = {
+  analyze: {
+    label: "Analyze",
+    description: "Track score health, crawl output, and issue backlog.",
+  },
+  "grow-visibility": {
+    label: "Grow Visibility",
+    description:
+      "Build strategy, monitor competitors, and improve AI presence.",
+  },
+  "automate-operate": {
+    label: "Automate & Operate",
+    description:
+      "Run integrations, reporting, automation, and operational logs.",
+  },
+  configure: {
+    label: "Configure",
+    description: "Set crawl defaults, branding, scoring, and site context.",
+  },
+};
 
 function isVisibilityMode(tab: ProjectTab): tab is VisibilityMode {
   return (VISIBILITY_MODES as readonly string[]).includes(tab);
@@ -233,6 +265,23 @@ function asVisibilityMode(value: string | null): VisibilityMode | null {
 
 function visibilityModeStorageKey(projectId: string): string {
   return `${VISIBILITY_MODE_STORAGE_PREFIX}:${projectId}`;
+}
+
+function workspaceLastTabStorageKey(
+  projectId: string,
+  workspace: ProjectTabGroup,
+): string {
+  return `${WORKSPACE_LAST_TAB_STORAGE_PREFIX}:${projectId}:${workspace}`;
+}
+
+function parseWorkspaceStoredTab(
+  rawTab: string | null,
+  workspace: ProjectTabGroup,
+): ProjectTab | null {
+  if (!rawTab) return null;
+  const normalized = normalizeProjectTab(rawTab);
+  if (normalized !== rawTab) return null;
+  return projectTabGroup(normalized) === workspace ? normalized : null;
 }
 
 const CONFIGURE_SECTION_META: Record<
@@ -283,6 +332,7 @@ export default function ProjectPage() {
     searchParams.get("connected"),
   );
   const currentTab = normalizeProjectTab(rawTab);
+  const currentWorkspace = projectTabGroup(currentTab);
   const visibilityMode: VisibilityMode = isVisibilityMode(currentTab)
     ? currentTab
     : "visibility";
@@ -313,6 +363,14 @@ export default function ProjectPage() {
     );
   }, [currentTab, params.id]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      workspaceLastTabStorageKey(params.id, currentWorkspace),
+      currentTab,
+    );
+  }, [currentTab, currentWorkspace, params.id]);
+
   const resolveVisibilityModeTab = useCallback((): VisibilityMode => {
     if (isVisibilityMode(currentTab)) return currentTab;
     if (typeof window === "undefined") return "visibility";
@@ -322,6 +380,22 @@ export default function ProjectPage() {
       ) ?? "visibility"
     );
   }, [currentTab, params.id]);
+
+  const resolveWorkspaceTab = useCallback(
+    (workspace: ProjectTabGroup): ProjectTab => {
+      if (projectTabGroup(currentTab) === workspace) return currentTab;
+      if (typeof window === "undefined") return GROUP_DEFAULT_TABS[workspace];
+
+      const stored = parseWorkspaceStoredTab(
+        window.localStorage.getItem(
+          workspaceLastTabStorageKey(params.id, workspace),
+        ),
+        workspace,
+      );
+      return stored ?? GROUP_DEFAULT_TABS[workspace];
+    },
+    [currentTab, params.id],
+  );
 
   const setProjectTab = useCallback(
     (tab: ProjectTab, mode: "push" | "replace" = "push") => {
@@ -354,6 +428,13 @@ export default function ProjectPage() {
       setProjectTab(mode);
     },
     [setProjectTab],
+  );
+
+  const handleWorkspaceChange = useCallback(
+    (workspace: ProjectTabGroup) => {
+      setProjectTab(resolveWorkspaceTab(workspace));
+    },
+    [resolveWorkspaceTab, setProjectTab],
   );
 
   const setConfigureSection = useCallback(
@@ -511,6 +592,40 @@ export default function ProjectPage() {
 
         {/* Content area */}
         <div className="min-w-0 flex-1 space-y-6 py-4 md:pl-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Workspace</CardTitle>
+              <CardDescription>
+                Focus work by job to be done. Your last tab in each workspace is
+                remembered.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {PROJECT_TAB_GROUPS.map((workspace) => {
+                const meta = WORKSPACE_META[workspace];
+                const isActive = currentWorkspace === workspace;
+                return (
+                  <button
+                    key={workspace}
+                    type="button"
+                    onClick={() => handleWorkspaceChange(workspace)}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:bg-muted/50"
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    <p className="text-sm font-medium">{meta.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {meta.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+
           {/* Banners */}
           <AlertBanner projectId={project.id} />
 

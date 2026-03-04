@@ -42,7 +42,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Grow",
+    label: "Grow Visibility",
     items: [
       { tab: "strategy", label: "Strategy", icon: Compass },
       { tab: "competitors", label: "Competitors", icon: Trophy },
@@ -52,7 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Operate",
+    label: "Automate & Operate",
     items: [
       { tab: "integrations", label: "Integrations", icon: Plug },
       { tab: "reports", label: "Reports", icon: Download },
@@ -60,13 +60,11 @@ const NAV_GROUPS: NavGroup[] = [
       { tab: "logs", label: "Logs", icon: Route },
     ],
   },
+  {
+    label: "Configure",
+    items: [{ tab: "settings", label: "Settings", icon: Settings }],
+  },
 ];
-
-const SETTINGS_ITEM: NavItem = {
-  tab: "settings",
-  label: "Settings",
-  icon: Settings,
-};
 
 interface ProjectSidebarProps {
   projectName: string;
@@ -128,22 +126,6 @@ export function ProjectSidebar({
             })}
           </div>
         ))}
-
-        {/* Settings (ungrouped, separated by divider) */}
-        <div className="mt-2 border-t border-sidebar-border pt-2">
-          <button
-            type="button"
-            onClick={() => onTabChange(SETTINGS_ITEM.tab)}
-            className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
-              currentTab === SETTINGS_ITEM.tab
-                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            }`}
-          >
-            <SETTINGS_ITEM.icon className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">{SETTINGS_ITEM.label}</span>
-          </button>
-        </div>
       </nav>
     </aside>
   );

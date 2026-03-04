@@ -33,7 +33,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { tab: "history", label: "History", icon: History },
   { tab: "strategy", label: "Strategy", icon: Compass },
   { tab: "competitors", label: "Competitors", icon: Trophy },
-  { tab: "visibility", label: "Visibility", icon: Bot },
+  { tab: "visibility", label: "Visibility Hub", icon: Bot },
   { tab: "personas", label: "Personas", icon: User },
   { tab: "keywords", label: "Keywords", icon: Key },
   { tab: "integrations", label: "Integrations", icon: Plug },

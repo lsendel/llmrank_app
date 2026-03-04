@@ -13,15 +13,29 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api, ApiError } from "@/lib/api";
 import { applyProjectWorkspaceDefaults } from "@/lib/project-workspace-defaults";
 import { normalizeDomain } from "@llm-boost/shared";
+
+type CrawlSchedule = "manual" | "daily" | "weekly" | "monthly";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [autoStartCrawl, setAutoStartCrawl] = useState(true);
+  const [crawlSchedule, setCrawlSchedule] = useState<CrawlSchedule>("weekly");
+  const [enableAutomationPipeline, setEnableAutomationPipeline] =
+    useState(true);
+  const [enableVisibilitySchedule, setEnableVisibilitySchedule] =
+    useState(true);
   const [enableWeeklyDigest, setEnableWeeklyDigest] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
@@ -80,9 +94,9 @@ export default function NewProjectPage() {
           projectId: result.id,
           domainOrUrl: normalizedDomain || domain,
           defaults: {
-            schedule: "weekly",
-            autoRunOnCrawl: true,
-            enableVisibilitySchedule: true,
+            schedule: crawlSchedule,
+            autoRunOnCrawl: enableAutomationPipeline,
+            enableVisibilitySchedule,
             enableWeeklyDigest,
           },
         });
@@ -184,6 +198,71 @@ export default function NewProjectPage() {
                   Post-crawl AI automation is enabled by default and starts
                   after crawl completion.
                 </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-md border p-3">
+              <p className="text-sm font-medium">Default operations mode</p>
+              <p className="text-xs text-muted-foreground">
+                These defaults are applied as soon as the workspace is created.
+              </p>
+
+              <div className="space-y-2">
+                <Label htmlFor="crawl-schedule">Recurring crawl schedule</Label>
+                <Select
+                  value={crawlSchedule}
+                  onValueChange={(value) =>
+                    setCrawlSchedule(value as CrawlSchedule)
+                  }
+                >
+                  <SelectTrigger id="crawl-schedule">
+                    <SelectValue placeholder="Select schedule" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly (recommended)</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <Checkbox
+                  id="automation-pipeline"
+                  checked={enableAutomationPipeline}
+                  onCheckedChange={(value) =>
+                    setEnableAutomationPipeline(value === true)
+                  }
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="automation-pipeline">
+                    Enable post-crawl automation pipeline
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically generate action plans and remediation insights
+                    after each crawl.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <Checkbox
+                  id="visibility-schedule"
+                  checked={enableVisibilitySchedule}
+                  onCheckedChange={(value) =>
+                    setEnableVisibilitySchedule(value === true)
+                  }
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="visibility-schedule">
+                    Enable weekly AI visibility tracking
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Schedules default prompts across ChatGPT, Claude,
+                    Perplexity, and Gemini.
+                  </p>
+                </div>
               </div>
             </div>
 
