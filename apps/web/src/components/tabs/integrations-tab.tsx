@@ -825,16 +825,38 @@ export default function IntegrationsTab({
               )}
               {connectModal?.provider === "clarity" && (
                 <>
-                  {" "}
-                  <a
-                    href="https://clarity.microsoft.com/projects"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
-                  >
-                    Get your API key
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                  <br />
+                  <span className="mt-2 block text-xs text-muted-foreground">
+                    Steps to get your API token:
+                  </span>
+                  <ol className="mt-1 list-decimal pl-4 text-xs text-muted-foreground space-y-0.5">
+                    <li>
+                      Log in at{" "}
+                      <a
+                        href="https://clarity.microsoft.com/projects"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                      >
+                        clarity.microsoft.com
+                        <ExternalLink className="h-3 w-3" />
+                      </a>{" "}
+                      and open your project.
+                    </li>
+                    <li>
+                      Click the <strong>Settings</strong> gear in the top
+                      navigation.
+                    </li>
+                    <li>
+                      Go to <strong>Data Export</strong> in the left menu.
+                    </li>
+                    <li>
+                      Click <strong>Generate new API token</strong>.
+                    </li>
+                    <li>
+                      Give the token a name (4-32 chars), save, and copy it.
+                    </li>
+                  </ol>
                 </>
               )}
             </DialogDescription>
