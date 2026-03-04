@@ -306,10 +306,12 @@ export default function CrawlDetailPage() {
                   <p
                     className={cn(
                       "text-2xl font-bold",
-                      scoreColor(crawl.scores.performance),
+                      crawl.scores.performance != null
+                        ? scoreColor(crawl.scores.performance)
+                        : "text-muted-foreground",
                     )}
                   >
-                    {crawl.scores.performance}
+                    {crawl.scores.performance ?? "N/A"}
                   </p>
                 </div>
               </div>

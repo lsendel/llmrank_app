@@ -189,10 +189,7 @@ export function projectQueries(db: Database) {
               COALESCE(ROUND(AVG(ps.technical_score))::int, 0) AS technical_score,
               COALESCE(ROUND(AVG(ps.content_score))::int, 0) AS content_score,
               COALESCE(ROUND(AVG(ps.ai_readiness_score))::int, 0) AS ai_readiness_score,
-              COALESCE(
-                ROUND(AVG(NULLIF(ps.detail->>'performanceScore', '')::double precision))::int,
-                0
-              ) AS performance_score
+              ROUND(AVG(NULLIF(ps.detail->>'performanceScore', '')::double precision))::int AS performance_score
             FROM page_scores ps
             WHERE ps.job_id = lc.id
           ) score_summary ON lc.status = 'complete'
@@ -253,8 +250,9 @@ export function projectQueries(db: Database) {
                         content: toNumber(row.latest_crawl_content_score) ?? 0,
                         aiReadiness:
                           toNumber(row.latest_crawl_ai_readiness_score) ?? 0,
-                        performance:
-                          toNumber(row.latest_crawl_performance_score) ?? 0,
+                        performance: toNumber(
+                          row.latest_crawl_performance_score,
+                        ),
                       }
                     : null,
                   startedAt: row.latest_crawl_started_at ?? null,
@@ -343,6 +341,7 @@ export function projectQueries(db: Database) {
         pipelineSettings?: unknown;
         siteDescriptionSource?: string;
         industrySource?: string;
+        faviconUrl?: string | null;
       },
     ) {
       const [updated] = await db

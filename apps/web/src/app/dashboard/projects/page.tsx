@@ -1461,6 +1461,13 @@ export default function ProjectsPage() {
                                     }
                                     aria-label={`Select ${project.name}`}
                                   />
+                                  {project.faviconUrl && (
+                                    <img
+                                      src={project.faviconUrl}
+                                      alt=""
+                                      className="mt-0.5 h-5 w-5 rounded-sm"
+                                    />
+                                  )}
                                   <div>
                                     <Link
                                       href={`/dashboard/projects/${project.id}`}

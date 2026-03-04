@@ -29,9 +29,13 @@ export function UsageMeter(): React.ReactNode {
   if (!data) return null;
 
   const { plan, crawlCreditsRemaining, crawlCreditsTotal } = data;
-  const used = crawlCreditsTotal - crawlCreditsRemaining;
+  const isUnlimited = !crawlCreditsTotal || !Number.isFinite(crawlCreditsTotal);
+
+  const used = isUnlimited ? 0 : crawlCreditsTotal - crawlCreditsRemaining;
   const pct =
-    crawlCreditsTotal > 0 ? Math.round((used / crawlCreditsTotal) * 100) : 0;
+    isUnlimited || crawlCreditsTotal <= 0
+      ? 0
+      : Math.round((used / crawlCreditsTotal) * 100);
 
   const { text, indicator } = getUsageColor(pct);
 
@@ -40,20 +44,24 @@ export function UsageMeter(): React.ReactNode {
       <Badge variant="outline" className="capitalize">
         {plan}
       </Badge>
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">Crawls:</span>
-        <div className="w-20">
-          <Progress
-            value={pct}
-            className="h-2"
-            indicatorClassName={indicator}
-          />
+      {isUnlimited ? (
+        <span className="text-sm text-emerald-600">Unlimited crawls</span>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Crawls:</span>
+          <div className="w-20">
+            <Progress
+              value={pct}
+              className="h-2"
+              indicatorClassName={indicator}
+            />
+          </div>
+          <span className={text}>
+            {used}/{crawlCreditsTotal}
+          </span>
         </div>
-        <span className={text}>
-          {used}/{crawlCreditsTotal}
-        </span>
-      </div>
-      {pct > 80 && (
+      )}
+      {!isUnlimited && pct > 80 && (
         <Link
           href="/pricing"
           className="text-xs font-medium text-primary hover:underline"

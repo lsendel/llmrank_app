@@ -64,6 +64,7 @@ export interface Project {
   updatedAt: string;
   siteDescription?: string | null;
   industry?: string | null;
+  faviconUrl?: string | null;
   settings: {
     maxPages: number;
     maxDepth: number;
@@ -180,7 +181,7 @@ export interface CrawlJob {
     technical: number;
     content: number;
     aiReadiness: number;
-    performance: number;
+    performance: number | null;
   } | null;
   errorMessage: string | null;
   summary: string | null;

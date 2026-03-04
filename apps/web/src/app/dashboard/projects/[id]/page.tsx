@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
-  Play,
   FileText,
   Globe,
   Route,
@@ -426,23 +425,23 @@ export default function ProjectPage() {
         </Link>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {project.name}
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {normalizeDomain(project.domain)}
-            </p>
+            <div className="flex items-center gap-3">
+              {project.faviconUrl && (
+                <img
+                  src={project.faviconUrl}
+                  alt=""
+                  className="h-7 w-7 rounded-sm"
+                />
+              )}
+              <h1 className="text-2xl font-bold tracking-tight">
+                {project.name}
+              </h1>
+            </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {WORKFLOW_TONE_COPY.projectWorkspaceSummary}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <UsageMeter />
-            <Button onClick={handleStartCrawl} disabled={startingCrawl}>
-              <Play className="h-4 w-4" />
-              {startingCrawl ? "Starting..." : "Run crawl now"}
-            </Button>
-          </div>
+          <UsageMeter />
         </div>
         {(crawlError || autoCrawlFailed) && (
           <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -490,6 +489,8 @@ export default function ProjectPage() {
                 latestCrawl={project.latestCrawl}
                 issues={issuesData?.data ?? []}
                 projectId={project.id}
+                onStartCrawl={handleStartCrawl}
+                startingCrawl={startingCrawl}
               />
             </TabErrorBoundary>
           )}

@@ -40,6 +40,7 @@ export const projects = pgTable(
     pipelineSettings: jsonb("pipeline_settings").default({}),
     siteDescriptionSource: text("site_description_source").default("auto"),
     industrySource: text("industry_source").default("auto"),
+    faviconUrl: text("favicon_url"),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

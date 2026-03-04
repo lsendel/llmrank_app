@@ -9,7 +9,7 @@ import { IssueCard } from "@/components/issue-card";
 import { QuickWinsCard } from "@/components/quick-wins-card";
 import { IssueDistributionChart } from "@/components/charts/issue-distribution-chart";
 import { GradeDistributionChart } from "@/components/charts/grade-distribution-chart";
-import { Brain, CheckCircle, Download, XCircle } from "lucide-react";
+import { Brain, CheckCircle, Download, Play, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateCard } from "@/components/ui/state";
 import {
@@ -45,10 +45,14 @@ export function OverviewTab({
   latestCrawl,
   issues,
   projectId,
+  onStartCrawl,
+  startingCrawl,
 }: {
   latestCrawl: CrawlJob | null | undefined;
   issues: PageIssue[];
   projectId: string;
+  onStartCrawl?: () => void;
+  startingCrawl?: boolean;
 }) {
   const crawlId = latestCrawl?.id;
   const { data: insights } = useApiSWR<CrawlInsights>(
@@ -136,29 +140,37 @@ export function OverviewTab({
 
   return (
     <>
-      {/* Export + Regression alert */}
+      {/* Export + Run crawl + Regression alert */}
       <div className="flex items-center justify-between">
         <RegressionAlert projectId={projectId} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Download className="mr-1.5 h-4 w-4" />
-              Export
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-1.5 h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => api.exports.download(projectId, "csv")}
+              >
+                Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => api.exports.download(projectId, "json")}
+              >
+                Export JSON
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {onStartCrawl && (
+            <Button size="sm" onClick={onStartCrawl} disabled={startingCrawl}>
+              <Play className="mr-1.5 h-4 w-4" />
+              {startingCrawl ? "Starting..." : "Run crawl now"}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => api.exports.download(projectId, "csv")}
-            >
-              Export CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => api.exports.download(projectId, "json")}
-            >
-              Export JSON
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -282,9 +294,14 @@ export function OverviewTab({
                       <span className="font-medium">{cat.label}</span>
                       <span className="flex items-center gap-1.5">
                         <span
-                          className={cn("font-semibold", gradeColor(cat.score))}
+                          className={cn(
+                            "font-semibold",
+                            cat.score != null
+                              ? gradeColor(cat.score)
+                              : "text-muted-foreground",
+                          )}
                         >
-                          {cat.score} / 100
+                          {cat.score != null ? `${cat.score} / 100` : "N/A"}
                         </span>
                         {delta !== undefined && delta !== 0 && (
                           <span
@@ -300,13 +317,15 @@ export function OverviewTab({
                       </span>
                     </div>
                     <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-500",
-                          scoreBarColor(cat.score),
-                        )}
-                        style={{ width: `${cat.score}%` }}
-                      />
+                      {cat.score != null && (
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            scoreBarColor(cat.score),
+                          )}
+                          style={{ width: `${cat.score}%` }}
+                        />
+                      )}
                     </div>
                   </div>
                 );

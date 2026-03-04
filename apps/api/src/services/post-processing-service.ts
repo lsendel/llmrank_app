@@ -153,6 +153,28 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         }
       }
 
+      // Fetch and store favicon for the project (fire-and-forget)
+      if (batch.is_final && deps.projects) {
+        const project = await deps.projects.getById(projectId);
+        if (project && !project.faviconUrl) {
+          args.executionCtx.waitUntil(
+            (async () => {
+              try {
+                const domain = project.domain;
+                const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
+                const res = await fetch(faviconUrl, { method: "HEAD" });
+                if (res.ok) {
+                  const db = createDb(env.databaseUrl);
+                  await projectQueries(db).update(projectId, { faviconUrl });
+                }
+              } catch {
+                // Non-critical — skip silently
+              }
+            })(),
+          );
+        }
+      }
+
       // Send crawl-complete email notification (fire-and-forget)
       if (batch.is_final && env.resendApiKey && deps.users && deps.projects) {
         const project = await deps.projects.getById(projectId);

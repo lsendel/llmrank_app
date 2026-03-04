@@ -29,7 +29,7 @@ export function PageOverviewSection({ page }: PageOverviewSectionProps) {
             technical={page.score.technicalScore ?? 0}
             content={page.score.contentScore ?? 0}
             aiReadiness={page.score.aiReadinessScore ?? 0}
-            performance={(detail.performanceScore as number) ?? 0}
+            performance={(detail.performanceScore as number) ?? null}
           />
           <Card>
             <CardHeader>

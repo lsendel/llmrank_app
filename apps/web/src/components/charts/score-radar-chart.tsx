@@ -17,7 +17,7 @@ interface Props {
   technical: number;
   content: number;
   aiReadiness: number;
-  performance: number;
+  performance: number | null;
   className?: string;
 }
 
@@ -32,7 +32,9 @@ export const ScoreRadarChart = memo(function ScoreRadarChart({
     { dimension: "Technical", score: technical, fullMark: 100 },
     { dimension: "Content", score: content, fullMark: 100 },
     { dimension: "AI Ready", score: aiReadiness, fullMark: 100 },
-    { dimension: "Perf", score: performance, fullMark: 100 },
+    ...(performance != null
+      ? [{ dimension: "Perf", score: performance, fullMark: 100 }]
+      : []),
   ];
 
   return (
