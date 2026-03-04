@@ -1114,6 +1114,7 @@ export interface DashboardCoverageMetric {
 export interface DashboardActivity extends CrawlJob {
   projectName: string;
   projectId: string;
+  projectDomain?: string;
 }
 
 export interface PortfolioPriorityItem {

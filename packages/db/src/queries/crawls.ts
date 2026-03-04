@@ -289,6 +289,7 @@ export function crawlQueries(db: Database) {
           completedAt: crawlJobs.completedAt,
           createdAt: crawlJobs.createdAt,
           projectName: projects.name,
+          projectDomain: projects.domain,
         })
         .from(crawlJobs)
         .innerJoin(projects, eq(crawlJobs.projectId, projects.id))

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lightbulb, ArrowRight } from "lucide-react";
+import { Lightbulb, ArrowRight, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ interface NextStep {
   label: string;
   href: string;
   hint?: string;
+  siteUrl?: string;
   ctaLabel?: string;
   variant?: "default" | "warning";
 }
@@ -31,9 +32,9 @@ function deriveSteps(
   activity: DashboardActivity[],
 ): NextStep[] {
   const steps: NextStep[] = [];
-  const workflowProjectId =
-    activity.find((item) => item.status === "complete")?.projectId ??
-    activity[0]?.projectId;
+  const workflowItem =
+    activity.find((item) => item.status === "complete") ?? activity[0];
+  const workflowProjectId = workflowItem?.projectId;
 
   const topQuickWin = [...(stats.latestInsights?.quickWins ?? [])].sort(
     (a, b) => b.scoreImpact - a.scoreImpact,
@@ -43,6 +44,7 @@ function deriveSteps(
       id: "top-quick-win",
       label: topQuickWin.message,
       hint: `+${Math.abs(topQuickWin.scoreImpact)} pts • ${topQuickWin.affectedPages} pages`,
+      siteUrl: workflowItem?.projectDomain,
       href: `/dashboard/projects/${workflowProjectId}?tab=issues`,
       ctaLabel: "Open fix workflow",
       variant: "warning",
@@ -70,19 +72,20 @@ function deriveSteps(
     pushStep(steps, {
       id: "failed-crawl",
       label: "Review failed crawl",
+      siteUrl: failedCrawl.projectDomain,
       href: `/dashboard/crawl/${failedCrawl.id}`,
       ctaLabel: "Inspect failure",
     });
   }
 
   if (stats.avgScore > 0 && stats.avgScore < 70) {
-    // Link to worst-scoring project's crawl if available
     const worstCrawl = [...activity]
       .filter((a) => a.status === "complete" && a.overallScore !== null)
       .sort((a, b) => (a.overallScore ?? 100) - (b.overallScore ?? 100))[0];
     pushStep(steps, {
       id: "critical-issues",
       label: "Fix critical issues to improve your score",
+      siteUrl: worstCrawl?.projectDomain,
       href: worstCrawl
         ? `/dashboard/projects/${worstCrawl.projectId}?tab=issues`
         : "/dashboard/projects",
@@ -100,6 +103,7 @@ function deriveSteps(
         pushStep(steps, {
           id: "stale-crawl",
           label: "Run a new crawl to track progress",
+          siteUrl: latest.projectDomain,
           href: "/dashboard/projects",
         });
       }
@@ -159,9 +163,19 @@ export function NextStepsCard({
           >
             <div className="min-w-0">
               <p className="truncate font-medium">{step.label}</p>
-              {step.hint ? (
-                <p className="text-xs text-muted-foreground">{step.hint}</p>
-              ) : null}
+              <div className="flex items-center gap-2">
+                {step.siteUrl ? (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Globe className="h-3 w-3" />
+                    {step.siteUrl}
+                  </span>
+                ) : null}
+                {step.hint ? (
+                  <span className="text-xs text-muted-foreground">
+                    {step.siteUrl ? "•" : ""} {step.hint}
+                  </span>
+                ) : null}
+              </div>
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
               {step.variant === "warning" ? (
