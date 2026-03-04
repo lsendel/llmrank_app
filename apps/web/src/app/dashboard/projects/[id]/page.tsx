@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  CheckCircle2,
+  Circle,
   FileText,
   Globe,
   Route,
@@ -485,6 +487,12 @@ export default function ProjectPage() {
       [selectedCrawlId],
     ),
   );
+  const issueCount = issuesData?.data?.length ?? 0;
+  const hasIssueBacklog = issueCount > 0;
+  const hasCompletedCrawl = !!latestCrawlId;
+  const automationConfigured =
+    project?.settings?.schedule !== "manual" &&
+    project?.pipelineSettings?.autoRunOnCrawl !== false;
 
   async function handleStartCrawl() {
     setStartingCrawl(true);
@@ -514,6 +522,13 @@ export default function ProjectPage() {
       setStartingCrawl(false);
     }
   }
+
+  const openAutomationDefaults = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("tab", "settings");
+    nextParams.set("configure", "crawl-defaults");
+    router.push(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
+  }, [params.id, router, searchParams]);
 
   if (projectLoading) {
     return (
@@ -639,6 +654,90 @@ export default function ProjectPage() {
 
           {/* Banners */}
           <AlertBanner projectId={project.id} />
+
+          <Card className="border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">First 7 days plan</CardTitle>
+              <CardDescription>
+                Operational checklist for faster adoption. Complete the first
+                milestones, then switch to recurring optimization.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                {
+                  id: "crawl",
+                  title: hasCompletedCrawl
+                    ? "Baseline crawl completed"
+                    : "Run baseline crawl",
+                  description: hasCompletedCrawl
+                    ? "Baseline scoring is available. Review crawl history and compare deltas."
+                    : "Start your first crawl to generate score baselines and issue detection.",
+                  done: hasCompletedCrawl,
+                  ctaLabel: hasCompletedCrawl ? "Open history" : "Run crawl",
+                  action: () =>
+                    hasCompletedCrawl
+                      ? setProjectTab("history")
+                      : handleStartCrawl(),
+                },
+                {
+                  id: "issues",
+                  title: hasIssueBacklog
+                    ? `Issue backlog ready (${issueCount})`
+                    : "Review issue backlog",
+                  description: hasIssueBacklog
+                    ? "Prioritize high-impact fixes and convert them into action items."
+                    : "No issues detected yet. Re-run after major site updates.",
+                  done: hasIssueBacklog,
+                  ctaLabel: "Open issues",
+                  action: () => setProjectTab("issues"),
+                },
+                {
+                  id: "automation",
+                  title: automationConfigured
+                    ? "Automation defaults configured"
+                    : "Configure automation defaults",
+                  description: automationConfigured
+                    ? "Recurring crawl cadence and post-crawl automation are active."
+                    : "Set crawl cadence and automation defaults to reduce manual follow-up.",
+                  done: automationConfigured,
+                  ctaLabel: "Open settings",
+                  action: () => openAutomationDefaults(),
+                },
+                {
+                  id: "visibility",
+                  title: "Start visibility monitoring",
+                  description:
+                    "Track Search Visibility, AI Visibility, and AI Analysis in one workspace.",
+                  done: isVisibilityMode(currentTab),
+                  ctaLabel: "Open visibility",
+                  action: () => setProjectTab("visibility"),
+                },
+              ].map((step) => (
+                <div
+                  key={step.id}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3"
+                >
+                  <div className="flex min-w-0 items-start gap-2">
+                    {step.done ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" />
+                    ) : (
+                      <Circle className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{step.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {step.description}
+                      </p>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={step.action}>
+                    {step.ctaLabel}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
 
           {/* Tab content */}
           {currentTab === "actions" && (
