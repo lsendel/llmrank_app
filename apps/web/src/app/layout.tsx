@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { PostHogProvider } from "@/components/posthog-provider";
@@ -68,7 +69,9 @@ export default function RootLayout({
         <JsonLd data={organizationSchema()} />
         <JsonLd data={webSiteSchema()} />
         <PostHogProvider>
-          <AuthRedirectTracker />
+          <Suspense>
+            <AuthRedirectTracker />
+          </Suspense>
           {children}
         </PostHogProvider>
         <GoogleAnalytics />
