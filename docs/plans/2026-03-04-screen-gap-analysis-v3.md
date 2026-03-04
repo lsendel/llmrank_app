@@ -135,6 +135,9 @@ Progress update (same day):
   - project workspace writes last active project+tab context
   - dashboard shows a "Continue where you left off" resume card
   - projects page shows a portfolio-level resume card
+- Item 3 is now implemented:
+  - projects anomaly workflows include a bulk "Plan Smart Fixes" action
+  - selected anomaly projects are converted into deduped action-item plans
 
 ## P2 (After P1)
 

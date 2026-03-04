@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Play,
   Search,
+  Sparkles,
 } from "lucide-react";
 import {
   Tooltip,
@@ -52,6 +53,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QueueList } from "./_components/queue-list";
 import { PriorityFeedCard } from "./_components/priority-feed-card";
 import { StateMessage } from "@/components/ui/state";
+import { useUser } from "@/lib/auth-hooks";
+import { buildAnomalySmartFix } from "@/lib/anomaly-smart-fixes";
 import {
   getLastProjectContext,
   lastProjectContextHref,
@@ -316,10 +319,12 @@ function matchesAnomaly(project: Project, filter: AnomalyFilter): boolean {
 }
 
 export default function ProjectsPage() {
+  const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const currentUserId = user?.id ?? null;
 
   const currentPage = parsePage(searchParams.get("page"));
   const rawHealth = searchParams.get("health");
@@ -352,6 +357,7 @@ export default function ProjectsPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkCrawling, setBulkCrawling] = useState(false);
   const [bulkEnablingPipeline, setBulkEnablingPipeline] = useState(false);
+  const [bulkPlanningSmartFixes, setBulkPlanningSmartFixes] = useState(false);
   const [savingDefaultPreset, setSavingDefaultPreset] = useState(false);
   const [lastVisitedAt, setLastVisitedAt] = useState<string | null>(null);
   const [lastProjectContext] = useState<LastProjectContext | null>(() =>
@@ -934,6 +940,60 @@ export default function ProjectsPage() {
     }
   }
 
+  async function handlePlanSmartFixes() {
+    if (anomalyFilter === "all" || selectedProjects.length === 0) return;
+
+    setBulkPlanningSmartFixes(true);
+    try {
+      let success = 0;
+      let failed = 0;
+      let created = 0;
+      let updated = 0;
+
+      for (const project of selectedProjects) {
+        const draft = buildAnomalySmartFix({
+          anomaly: anomalyFilter,
+          projectName: project.name,
+          domain: normalizeDomain(project.domain),
+          assigneeId: currentUserId,
+        });
+
+        try {
+          const result = await api.actionItems.bulkCreate({
+            projectId: project.id,
+            items: [draft],
+          });
+          success += 1;
+          created += result.created;
+          updated += result.updated;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed === 0) {
+        toast({
+          title: "Smart fixes planned",
+          description: `Created ${created}, updated ${updated} across ${success} project${success === 1 ? "" : "s"}.`,
+        });
+      } else if (success > 0) {
+        toast({
+          title: "Smart fixes partially planned",
+          description: `Created ${created}, updated ${updated}. ${failed} project${failed === 1 ? "" : "s"} failed.`,
+          variant: "warning",
+        });
+      } else {
+        toast({
+          title: "Could not plan smart fixes",
+          description: "Please retry or reduce selection size.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setBulkPlanningSmartFixes(false);
+    }
+  }
+
   function resetFilters() {
     setSearchInput("");
     setSelectedIds(new Set());
@@ -1398,6 +1458,21 @@ export default function ProjectsPage() {
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : null}
                               Enable Pipeline Defaults
+                            </Button>
+                          )}
+                          {anomalyFilter !== "all" && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => void handlePlanSmartFixes()}
+                              disabled={bulkPlanningSmartFixes}
+                            >
+                              {bulkPlanningSmartFixes ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                              Plan Smart Fixes
                             </Button>
                           )}
                           <Button
