@@ -49,6 +49,7 @@ import {
   type ProjectTab,
   type ProjectTabGroup,
 } from "./tab-state";
+import { saveLastProjectContext } from "@/lib/workflow-memory";
 import {
   normalizeConfigureSection,
   type ConfigureSection,
@@ -456,6 +457,16 @@ export default function ProjectPage() {
   const [crawlError, setCrawlError] = useState<string | null>(null);
 
   const { data: project, isLoading: projectLoading } = useProject(params.id);
+
+  useEffect(() => {
+    if (!project) return;
+    saveLastProjectContext({
+      projectId: project.id,
+      tab: currentTab,
+      projectName: project.name,
+      domain: project.domain,
+    });
+  }, [currentTab, project]);
 
   const latestCrawlId = project?.latestCrawl?.id;
   const selectedCrawlId = requestedCrawlId ?? latestCrawlId;

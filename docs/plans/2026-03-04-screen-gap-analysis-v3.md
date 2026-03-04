@@ -129,6 +129,13 @@ Exposure gap summary:
 3. Portfolio-level anomaly workflows with bulk smart fixes (not only bulk crawl).
 4. Deeper visibility workspace guidance (when to use Search Visibility vs AI Visibility vs AI Analysis).
 
+Progress update (same day):
+
+- Item 2 is now implemented:
+  - project workspace writes last active project+tab context
+  - dashboard shows a "Continue where you left off" resume card
+  - projects page shows a portfolio-level resume card
+
 ## P2 (After P1)
 
 1. Journey-level e2e coverage for full lifecycle:

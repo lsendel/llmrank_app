@@ -46,6 +46,12 @@ import { formatRelativeTime } from "@/lib/format";
 import { getStatusBadgeVariant } from "@/lib/status";
 import { StateMessage } from "@/components/ui/state";
 import type { DashboardWidgetId } from "@llm-boost/shared";
+import {
+  getLastProjectContext,
+  lastProjectContextHref,
+  projectTabLabel,
+  type LastProjectContext,
+} from "@/lib/workflow-memory";
 
 function formatDashboardDelta(delta: number) {
   if (delta > 0)
@@ -117,6 +123,9 @@ export default function DashboardPage() {
     );
     return previous;
   });
+  const [lastProjectContext] = useState<LastProjectContext | null>(() =>
+    getLastProjectContext(),
+  );
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
@@ -256,6 +265,37 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {lastProjectContext && (
+        <Card className="border-border/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              Continue where you left off
+            </CardTitle>
+            <CardDescription>
+              Last active {formatRelativeTime(lastProjectContext.visitedAt)} in{" "}
+              {lastProjectContext.projectName ||
+                lastProjectContext.domain ||
+                "your project"}
+              .
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              Resume in{" "}
+              <span className="font-medium text-foreground">
+                {projectTabLabel(lastProjectContext.tab)}
+              </span>
+            </div>
+            <Button asChild size="sm">
+              <Link href={lastProjectContextHref(lastProjectContext)}>
+                Resume project
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="pb-3">

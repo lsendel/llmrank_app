@@ -52,6 +52,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QueueList } from "./_components/queue-list";
 import { PriorityFeedCard } from "./_components/priority-feed-card";
 import { StateMessage } from "@/components/ui/state";
+import {
+  getLastProjectContext,
+  lastProjectContextHref,
+  projectTabLabel,
+  type LastProjectContext,
+} from "@/lib/workflow-memory";
 
 const PROJECTS_PER_PAGE = 12;
 
@@ -348,6 +354,9 @@ export default function ProjectsPage() {
   const [bulkEnablingPipeline, setBulkEnablingPipeline] = useState(false);
   const [savingDefaultPreset, setSavingDefaultPreset] = useState(false);
   const [lastVisitedAt, setLastVisitedAt] = useState<string | null>(null);
+  const [lastProjectContext] = useState<LastProjectContext | null>(() =>
+    getLastProjectContext(),
+  );
   const hasBootstrappedPreset = useRef(false);
 
   const updateParams = useCallback(
@@ -953,6 +962,28 @@ export default function ProjectsPage() {
           </Link>
         </Button>
       </div>
+
+      {lastProjectContext && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Continue where you left off</p>
+              <p className="text-xs text-muted-foreground">
+                Resume{" "}
+                {lastProjectContext.projectName ||
+                  lastProjectContext.domain ||
+                  "last project"}{" "}
+                in {projectTabLabel(lastProjectContext.tab)}.
+              </p>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href={lastProjectContextHref(lastProjectContext)}>
+                Resume
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="projects" className="w-full">
         <TabsList>
