@@ -3,7 +3,7 @@
 import React, { type ReactNode, useCallback } from "react";
 import { useSession, signOut as betterSignOut } from "./auth-client";
 import { useRouter } from "next/navigation";
-import { LogOut, Settings, Crown } from "lucide-react";
+import { LogOut, Settings, Crown, ShieldCheck, Receipt } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,6 +107,16 @@ export function UserButton() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {me?.isAdmin && (
+          <DropdownMenuItem onClick={() => router.push("/dashboard/admin")}>
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            Admin
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={() => router.push("/dashboard/billing")}>
+          <Receipt className="mr-2 h-4 w-4" />
+          Billing
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
           <Settings className="mr-2 h-4 w-4" />
           Settings
