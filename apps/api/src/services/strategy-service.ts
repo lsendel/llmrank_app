@@ -19,6 +19,8 @@ interface ScoreDetail {
     internal_links?: string[];
     [key: string]: unknown;
   };
+  is_cross_domain_redirect?: boolean;
+  redirect_url?: string | null;
   [key: string]: unknown;
 }
 
@@ -33,7 +35,11 @@ export interface StrategyServiceDeps {
 export function createStrategyService(deps: StrategyServiceDeps) {
   return {
     async getTopicMap(userId: string, projectId: string) {
-      await assertProjectOwnership(deps.projects, userId, projectId);
+      const project = await assertProjectOwnership(
+        deps.projects,
+        userId,
+        projectId,
+      );
 
       const latestCrawl = await deps.crawls.getLatestByProject(projectId);
       if (!latestCrawl) {
@@ -44,10 +50,32 @@ export function createStrategyService(deps: StrategyServiceDeps) {
         );
       }
 
-      const scoresWithPages = await deps.scores.listByJobWithPages(
+      const allScoresWithPages = await deps.scores.listByJobWithPages(
         latestCrawl.id,
       );
-      if (scoresWithPages.length === 0) return { nodes: [], edges: [] };
+      if (allScoresWithPages.length === 0) return { nodes: [], edges: [] };
+
+      // Filter out cross-domain redirect pages (by detail flag or host mismatch)
+      // project.domain may be a full URL ("https://example.com") or bare domain
+      let projectHost: string;
+      try {
+        projectHost = new URL(project.domain).hostname.replace(/^www\./, "");
+      } catch {
+        projectHost = project.domain.replace(/^www\./, "");
+      }
+      const scoresWithPages = allScoresWithPages.filter((s) => {
+        const detail = s.detail as ScoreDetail | null;
+        if (detail?.is_cross_domain_redirect) return false;
+        // Also catch existing bad data: check host matches project domain
+        const pageUrl = s.page?.url;
+        if (!pageUrl) return true;
+        try {
+          const host = new URL(pageUrl).hostname.replace(/^www\./, "");
+          return host === projectHost || host.endsWith(`.${projectHost}`);
+        } catch {
+          return true;
+        }
+      });
 
       // 1. Prepare data for clustering
       const clusterInput = scoresWithPages.map((s) => {

@@ -623,6 +623,118 @@ describe("IngestService", () => {
 
   // ---- Multiple pages ----
 
+  it("processes cross-domain redirect pages and stores redirect metadata", async () => {
+    pages.createBatch.mockResolvedValue([
+      buildPage({
+        id: "page-1",
+        url: "https://families.care.com/articles",
+        projectId: "proj-1",
+      }),
+      buildPage({
+        id: "page-2",
+        url: "https://example.com/normal",
+        projectId: "proj-1",
+      }),
+    ]);
+    scores.createBatch.mockResolvedValue([
+      buildScore({ id: "score-1" }),
+      buildScore({ id: "score-2" }),
+    ]);
+
+    const mixedPayload = JSON.stringify({
+      job_id: "crawl-1",
+      batch_index: 0,
+      is_final: false,
+      pages: [
+        {
+          url: "https://families.care.com/articles",
+          status_code: 301,
+          title: "Grit Brokerage",
+          meta_description: null,
+          canonical_url: null,
+          word_count: 0,
+          content_hash: "redir-hash",
+          html_r2_key: "raw/redir.html",
+          timing_ms: 80,
+          redirect_chain: [],
+          is_cross_domain_redirect: true,
+          redirect_url: "https://gritbrokerage.com/landing",
+          extracted: {
+            h1: [],
+            h2: [],
+            h3: [],
+            h4: [],
+            h5: [],
+            h6: [],
+            schema_types: [],
+            internal_links: [],
+            external_links: [],
+            images_without_alt: 0,
+            has_robots_meta: false,
+            robots_directives: [],
+          },
+          lighthouse: null,
+        },
+        {
+          url: "https://example.com/normal",
+          status_code: 200,
+          title: "Normal Page",
+          meta_description: "desc",
+          canonical_url: "https://example.com/normal",
+          word_count: 500,
+          content_hash: "normal-hash",
+          html_r2_key: "raw/normal.html",
+          timing_ms: 100,
+          redirect_chain: [],
+          extracted: {
+            h1: ["Normal"],
+            h2: [],
+            h3: [],
+            h4: [],
+            h5: [],
+            h6: [],
+            schema_types: [],
+            internal_links: [],
+            external_links: [],
+            images_without_alt: 0,
+            has_robots_meta: false,
+            robots_directives: [],
+          },
+          lighthouse: null,
+        },
+      ],
+      stats: {
+        pages_found: 10,
+        pages_crawled: 2,
+        pages_errored: 0,
+        elapsed_s: 5,
+      },
+    });
+
+    const service = createIngestService({ crawls, pages, scores, outbox });
+    const result = await service.processBatch({
+      rawBody: mixedPayload,
+      env: makeMockEnv(),
+      executionCtx: makeMockCtx(),
+    });
+
+    // Both pages should be stored (redirects are not filtered)
+    expect(result.pages_processed).toBe(2);
+    expect(pages.createBatch).toHaveBeenCalledTimes(1);
+    expect(pages.createBatch.mock.calls[0][0]).toHaveLength(2);
+
+    // Score detail should contain redirect metadata
+    const scoreRows = scores.createBatch.mock.calls[0][0];
+    expect(scoreRows[0].detail).toMatchObject({
+      is_cross_domain_redirect: true,
+      redirect_url: "https://gritbrokerage.com/landing",
+    });
+    expect(scoreRows[1].detail).toMatchObject({
+      is_cross_domain_redirect: false,
+      redirect_url: null,
+    });
+  });
+
   it("processes multiple pages in a single batch", async () => {
     pages.createBatch.mockResolvedValue([
       buildPage({

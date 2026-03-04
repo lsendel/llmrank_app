@@ -51,6 +51,9 @@ export function createPageService(deps: PageServiceDeps) {
           performanceScore: (detail.performanceScore as number) ?? null,
           letterGrade: letterGrade(row.overallScore),
           issueCount: row.issueCount,
+          isCrossDomainRedirect:
+            (detail.is_cross_domain_redirect as boolean) || false,
+          redirectUrl: (detail.redirect_url as string) ?? null,
         };
       });
     },

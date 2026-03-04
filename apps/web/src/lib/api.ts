@@ -241,6 +241,8 @@ export interface CrawledPage {
   performanceScore: number | null;
   letterGrade: string | null;
   issueCount: number;
+  isCrossDomainRedirect?: boolean;
+  redirectUrl?: string | null;
 }
 
 export interface PageDetail extends CrawledPage {

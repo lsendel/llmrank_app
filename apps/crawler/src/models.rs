@@ -170,6 +170,10 @@ pub struct CrawlPageResult {
     pub timing_ms: u64,
     #[serde(default)]
     pub redirect_chain: Vec<RedirectHop>,
+    #[serde(default)]
+    pub is_cross_domain_redirect: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_url: Option<String>,
 }
 
 // --- Crawl Stats ---

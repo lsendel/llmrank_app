@@ -7,20 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Play,
-  BarChart3,
   FileText,
-  Bug,
-  History,
-  Eye,
-  Plug,
-  Compass,
-  Trophy,
-  Settings,
-  Download,
-  Radar,
-  User,
-  Key,
-  Bot,
   Globe,
   Route,
   Palette,
@@ -34,7 +21,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StateMessage } from "@/components/ui/state";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
@@ -53,14 +39,10 @@ import { AlertBanner } from "@/components/alert-banner";
 import { TrialBanner } from "@/components/trial-banner";
 import { UsageMeter } from "@/components/usage-meter";
 import { ProjectRecommendationsCard } from "@/components/cards/project-recommendations-card";
+import { ProjectSidebar } from "@/components/project-sidebar";
+import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
-import {
-  GROUP_DEFAULT_TABS,
-  normalizeProjectTab,
-  projectTabGroup,
-  type ProjectTab,
-  type ProjectTabGroup,
-} from "./tab-state";
+import { normalizeProjectTab, type ProjectTab } from "./tab-state";
 import {
   normalizeConfigureSection,
   type ConfigureSection,
@@ -238,10 +220,8 @@ const VISIBILITY_MODES = [
 ] as const;
 type VisibilityMode = (typeof VISIBILITY_MODES)[number];
 
-function asVisibilityMode(tab: ProjectTab): VisibilityMode | null {
-  return (VISIBILITY_MODES as readonly string[]).includes(tab)
-    ? (tab as VisibilityMode)
-    : null;
+function isVisibilityMode(tab: ProjectTab): tab is VisibilityMode {
+  return (VISIBILITY_MODES as readonly string[]).includes(tab);
 }
 
 const CONFIGURE_SECTION_META: Record<
@@ -291,11 +271,9 @@ export default function ProjectPage() {
     searchParams.get("connected"),
   );
   const currentTab = normalizeProjectTab(rawTab);
-  const currentGroup = projectTabGroup(currentTab);
-  const visibilityMode = asVisibilityMode(currentTab) ?? "visibility";
-  const currentGrowTab = asVisibilityMode(currentTab)
-    ? "visibility"
-    : currentTab;
+  const visibilityMode: VisibilityMode = isVisibilityMode(currentTab)
+    ? currentTab
+    : "visibility";
   const currentConfigureSection = normalizeConfigureSection(rawConfigure);
   const autoCrawlFailed = searchParams.get("autocrawl") === "failed";
 
@@ -329,19 +307,9 @@ export default function ProjectPage() {
     [params.id, router, searchParams],
   );
 
-  const handleProjectTabChange = useCallback(
-    (value: string) => {
-      const safeTab = normalizeProjectTab(value);
-      setProjectTab(safeTab);
-    },
-    [setProjectTab],
-  );
-
-  const handleGroupChange = useCallback(
-    (value: string) => {
-      const group = value as ProjectTabGroup;
-      if (!(group in GROUP_DEFAULT_TABS)) return;
-      setProjectTab(GROUP_DEFAULT_TABS[group]);
+  const handleTabChange = useCallback(
+    (tab: ProjectTab) => {
+      setProjectTab(tab);
     },
     [setProjectTab],
   );
@@ -446,9 +414,9 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Back + header */}
-      <div>
+    <div>
+      {/* Back + header (full width, above sidebar+content) */}
+      <div className="space-y-2 pb-4">
         <Link
           href="/dashboard/projects"
           className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -490,133 +458,72 @@ export default function ProjectPage() {
         )}
       </div>
 
-      {/* Score change alerts */}
-      <AlertBanner projectId={project.id} />
+      {/* Mobile nav (visible below md) */}
+      <ProjectMobileNav currentTab={currentTab} onTabChange={handleTabChange} />
 
-      {/* Pro trial banner */}
-      <TrialBanner />
+      {/* Sidebar + Content */}
+      <div className="flex">
+        <ProjectSidebar
+          projectName={project.name}
+          domain={normalizeDomain(project.domain)}
+          currentTab={currentTab}
+          onTabChange={handleTabChange}
+        />
 
-      {/* Onboarding Checklist */}
-      <PostCrawlChecklist projectId={project.id} />
+        {/* Content area */}
+        <div className="min-w-0 flex-1 space-y-6 py-4 md:pl-6">
+          {/* Banners */}
+          <AlertBanner projectId={project.id} />
+          <TrialBanner />
+          <PostCrawlChecklist projectId={project.id} />
+          <ProjectRecommendationsCard projectId={project.id} />
 
-      {/* Next best actions */}
-      <ProjectRecommendationsCard projectId={project.id} />
+          {/* Tab content */}
+          {currentTab === "overview" && (
+            <TabErrorBoundary>
+              <OverviewTab
+                latestCrawl={project.latestCrawl}
+                issues={issuesData?.data ?? []}
+                projectId={project.id}
+              />
+            </TabErrorBoundary>
+          )}
 
-      {/* Tabs */}
-      <Tabs value={currentGroup} onValueChange={handleGroupChange}>
-        <TabsList>
-          <TabsTrigger value="analyze">
-            <BarChart3 className="mr-1.5 h-4 w-4" />
-            Analyze
-          </TabsTrigger>
-          <TabsTrigger value="grow-visibility">
-            <Radar className="mr-1.5 h-4 w-4" />
-            Grow Visibility
-          </TabsTrigger>
-          <TabsTrigger value="automate-operate">
-            <Play className="mr-1.5 h-4 w-4" />
-            Automate & Operate
-          </TabsTrigger>
-          <TabsTrigger value="configure">
-            <Settings className="mr-1.5 h-4 w-4" />
-            Configure
-          </TabsTrigger>
-        </TabsList>
+          {currentTab === "pages" && (
+            <TabErrorBoundary>
+              <PagesTab pages={pagesData?.data ?? []} projectId={project.id} />
+            </TabErrorBoundary>
+          )}
 
-        <TabsContent value="analyze" className="space-y-4 pt-4">
-          <Tabs value={currentTab} onValueChange={handleProjectTabChange}>
-            <TabsList>
-              <TabsTrigger value="overview">
-                <BarChart3 className="mr-1.5 h-4 w-4" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="pages">
-                <FileText className="mr-1.5 h-4 w-4" />
-                Pages
-              </TabsTrigger>
-              <TabsTrigger value="issues">
-                <Bug className="mr-1.5 h-4 w-4" />
-                Issues
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                <History className="mr-1.5 h-4 w-4" />
-                History
-              </TabsTrigger>
-            </TabsList>
+          {currentTab === "issues" && (
+            <TabErrorBoundary>
+              <IssuesTab
+                issues={issuesData?.data ?? []}
+                crawlId={latestCrawlId}
+                projectId={project?.id}
+              />
+            </TabErrorBoundary>
+          )}
 
-            <TabsContent value="overview" className="space-y-6 pt-4">
-              <TabErrorBoundary>
-                <OverviewTab
-                  latestCrawl={project.latestCrawl}
-                  issues={issuesData?.data ?? []}
-                  projectId={project.id}
-                />
-              </TabErrorBoundary>
-            </TabsContent>
+          {currentTab === "history" && (
+            <TabErrorBoundary>
+              <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
+            </TabErrorBoundary>
+          )}
 
-            <TabsContent value="pages" className="pt-4">
-              <TabErrorBoundary>
-                <PagesTab
-                  pages={pagesData?.data ?? []}
-                  projectId={project.id}
-                />
-              </TabErrorBoundary>
-            </TabsContent>
+          {currentTab === "strategy" && (
+            <TabErrorBoundary>
+              <StrategyTab projectId={project.id} />
+            </TabErrorBoundary>
+          )}
 
-            <TabsContent value="issues" className="pt-4">
-              <TabErrorBoundary>
-                <IssuesTab
-                  issues={issuesData?.data ?? []}
-                  crawlId={latestCrawlId}
-                  projectId={project?.id}
-                />
-              </TabErrorBoundary>
-            </TabsContent>
+          {currentTab === "competitors" && (
+            <CompetitorsTab projectId={project.id} />
+          )}
 
-            <TabsContent value="history" className="pt-4">
-              <TabErrorBoundary>
-                <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
-              </TabErrorBoundary>
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="grow-visibility" className="space-y-4 pt-4">
-          <Tabs value={currentGrowTab} onValueChange={handleProjectTabChange}>
-            <TabsList>
-              <TabsTrigger value="visibility">
-                <Eye className="mr-1.5 h-4 w-4" />
-                Visibility Workspace
-              </TabsTrigger>
-              <TabsTrigger value="strategy">
-                <Compass className="mr-1.5 h-4 w-4" />
-                Strategy
-              </TabsTrigger>
-              <TabsTrigger value="competitors">
-                <Trophy className="mr-1.5 h-4 w-4" />
-                Competitors
-              </TabsTrigger>
-              <TabsTrigger value="personas" className="gap-1.5">
-                <User className="h-4 w-4" />
-                Personas
-              </TabsTrigger>
-              <TabsTrigger value="keywords" className="gap-1.5">
-                <Key className="h-4 w-4" />
-                Keywords
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="strategy" className="pt-4">
-              <TabErrorBoundary>
-                <StrategyTab projectId={project.id} />
-              </TabErrorBoundary>
-            </TabsContent>
-
-            <TabsContent value="competitors" className="space-y-6 pt-4">
-              <CompetitorsTab projectId={project.id} />
-            </TabsContent>
-
-            <TabsContent value="visibility" className="space-y-6 pt-4">
+          {/* Visibility workspace (visibility, ai-visibility, ai-analysis tabs) */}
+          {isVisibilityMode(currentTab) && (
+            <div className="space-y-6">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">
@@ -688,138 +595,115 @@ export default function ProjectPage() {
                   />
                 </TabErrorBoundary>
               )}
-            </TabsContent>
-
-            <TabsContent value="personas" className="mt-6">
-              <PersonasTab projectId={project.id} />
-            </TabsContent>
-
-            <TabsContent value="keywords" className="mt-6">
-              <KeywordsTab projectId={project.id} />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="automate-operate" className="space-y-4 pt-4">
-          <Tabs value={currentTab} onValueChange={handleProjectTabChange}>
-            <TabsList>
-              <TabsTrigger value="automation">
-                <Play className="mr-1.5 h-4 w-4" />
-                Automation
-              </TabsTrigger>
-              <TabsTrigger value="integrations">
-                <Plug className="mr-1.5 h-4 w-4" />
-                Integrations
-              </TabsTrigger>
-              <TabsTrigger value="reports">
-                <Download className="mr-1.5 h-4 w-4" />
-                Reports
-              </TabsTrigger>
-              <TabsTrigger value="logs">
-                <Bot className="mr-1.5 h-4 w-4" />
-                Logs
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="integrations" className="space-y-6 pt-4">
-              <IntegrationsTab
-                projectId={project.id}
-                connectProvider={connectProvider}
-                connectedProvider={connectedProvider}
-              />
-            </TabsContent>
-
-            <TabsContent value="reports" className="space-y-6 pt-4">
-              <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
-            </TabsContent>
-
-            <TabsContent value="automation" className="space-y-6 pt-4">
-              <TabErrorBoundary>
-                <AutomationTab projectId={project.id} />
-              </TabErrorBoundary>
-            </TabsContent>
-
-            <TabsContent value="logs" className="space-y-6 pt-4">
-              <TabErrorBoundary>
-                <LogsTab projectId={project.id} />
-              </TabErrorBoundary>
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="configure" className="space-y-6 pt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Configure workspace</CardTitle>
-              <CardDescription>
-                Choose a task to configure. Each area is focused so setup is
-                faster and easier to review.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {(
-                Object.entries(CONFIGURE_SECTION_META) as Array<
-                  [
-                    ConfigureSection,
-                    (typeof CONFIGURE_SECTION_META)[ConfigureSection],
-                  ]
-                >
-              ).map(([section, meta]) => {
-                const Icon = meta.icon;
-                const isActive = currentConfigureSection === section;
-
-                return (
-                  <button
-                    key={section}
-                    type="button"
-                    onClick={() => setConfigureSection(section)}
-                    className={`rounded-lg border p-3 text-left transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                    }`}
-                    aria-pressed={isActive}
-                  >
-                    <div className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-                      <Icon className="h-4 w-4" />
-                      {meta.title}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {meta.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {currentConfigureSection === "site-context" && (
-            <SiteContextSection projectId={project.id} />
+            </div>
           )}
 
-          {currentConfigureSection === "crawl-defaults" && (
-            <CrawlSettingsForm
+          {currentTab === "personas" && <PersonasTab projectId={project.id} />}
+
+          {currentTab === "keywords" && <KeywordsTab projectId={project.id} />}
+
+          {currentTab === "integrations" && (
+            <IntegrationsTab
               projectId={project.id}
-              initialSettings={project.settings}
+              connectProvider={connectProvider}
+              connectedProvider={connectedProvider}
             />
           )}
 
-          {currentConfigureSection === "ai-seo-files" && (
-            <SiteFileGeneratorSection projectId={project.id} />
+          {currentTab === "reports" && (
+            <ReportsTab projectId={params.id} crawlJobId={latestCrawlId} />
           )}
 
-          {currentConfigureSection === "branding" && (
-            <BrandingSettingsForm
-              projectId={project.id}
-              initialBranding={project.branding}
-            />
+          {currentTab === "automation" && (
+            <TabErrorBoundary>
+              <AutomationTab projectId={project.id} />
+            </TabErrorBoundary>
           )}
 
-          {currentConfigureSection === "scoring" && (
-            <ScoringProfileSection projectId={project.id} />
+          {currentTab === "logs" && (
+            <TabErrorBoundary>
+              <LogsTab projectId={project.id} />
+            </TabErrorBoundary>
           )}
-        </TabsContent>
-      </Tabs>
+
+          {currentTab === "settings" && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">
+                    Configure workspace
+                  </CardTitle>
+                  <CardDescription>
+                    Choose a task to configure. Each area is focused so setup is
+                    faster and easier to review.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {(
+                    Object.entries(CONFIGURE_SECTION_META) as Array<
+                      [
+                        ConfigureSection,
+                        (typeof CONFIGURE_SECTION_META)[ConfigureSection],
+                      ]
+                    >
+                  ).map(([section, meta]) => {
+                    const Icon = meta.icon;
+                    const isActive = currentConfigureSection === section;
+
+                    return (
+                      <button
+                        key={section}
+                        type="button"
+                        onClick={() => setConfigureSection(section)}
+                        className={`rounded-lg border p-3 text-left transition-colors ${
+                          isActive
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:bg-muted/50"
+                        }`}
+                        aria-pressed={isActive}
+                      >
+                        <div className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+                          <Icon className="h-4 w-4" />
+                          {meta.title}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {meta.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              {currentConfigureSection === "site-context" && (
+                <SiteContextSection projectId={project.id} />
+              )}
+
+              {currentConfigureSection === "crawl-defaults" && (
+                <CrawlSettingsForm
+                  projectId={project.id}
+                  initialSettings={project.settings}
+                />
+              )}
+
+              {currentConfigureSection === "ai-seo-files" && (
+                <SiteFileGeneratorSection projectId={project.id} />
+              )}
+
+              {currentConfigureSection === "branding" && (
+                <BrandingSettingsForm
+                  projectId={project.id}
+                  initialBranding={project.branding}
+                />
+              )}
+
+              {currentConfigureSection === "scoring" && (
+                <ScoringProfileSection projectId={project.id} />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

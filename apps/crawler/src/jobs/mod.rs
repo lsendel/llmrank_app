@@ -689,6 +689,8 @@ mod tests {
             site_context: None,
             timing_ms: 100,
             redirect_chain: vec![],
+            is_cross_domain_redirect: false,
+            redirect_url: None,
         }
     }
 

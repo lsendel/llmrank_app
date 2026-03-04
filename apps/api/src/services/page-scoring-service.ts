@@ -59,6 +59,9 @@ export function createPageScoringService() {
             letterGrade: result.letterGrade,
             extracted: crawlPageResult.extracted,
             lighthouse: crawlPageResult.lighthouse ?? null,
+            is_cross_domain_redirect:
+              crawlPageResult.is_cross_domain_redirect || false,
+            redirect_url: crawlPageResult.redirect_url ?? null,
           },
           platformScores: result.platformScores,
           recommendations: generateRecommendations(

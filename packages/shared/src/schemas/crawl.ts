@@ -113,6 +113,8 @@ export const CrawlPageResultSchema = z.object({
     .optional()
     .default([]),
   site_context: SiteContextSchema.optional(),
+  is_cross_domain_redirect: z.boolean().optional().default(false),
+  redirect_url: z.string().nullable().optional(),
 });
 
 // Hetzner -> Cloudflare: Batch result callback

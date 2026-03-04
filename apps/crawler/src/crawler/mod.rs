@@ -189,8 +189,29 @@ impl CrawlEngine {
 
         let timing_ms = page_start.elapsed().as_millis() as u64;
 
+        // Detect cross-domain redirect: original URL vs final URL
+        let cross_domain = is_cross_domain_redirect(url, &fetch_result.final_url);
+        if cross_domain {
+            tracing::info!(
+                original = %url,
+                final_url = %fetch_result.final_url,
+                "Cross-domain redirect detected, keeping original URL"
+            );
+        }
+
+        // If cross-domain redirect, clear links to prevent frontier pollution
+        let (result_internal, result_external, result_external_details) = if cross_domain {
+            (vec![], vec![], vec![])
+        } else {
+            (merged_internal, merged_external, merged_external_details)
+        };
+
         Ok(CrawlPageResult {
-            url: fetch_result.final_url,
+            url: if cross_domain {
+                url.to_string()
+            } else {
+                fetch_result.final_url.clone()
+            },
             status_code: fetch_result.status_code,
             title: parsed.title,
             meta_description: parsed.meta_description,
@@ -206,9 +227,9 @@ impl CrawlEngine {
                 h5: parsed.headings.h5,
                 h6: parsed.headings.h6,
                 schema_types,
-                internal_links: merged_internal,
-                external_links: merged_external,
-                external_link_details: merged_external_details,
+                internal_links: result_internal,
+                external_links: result_external,
+                external_link_details: result_external_details,
                 images_without_alt: parsed.images_without_alt,
                 has_robots_meta: parsed.has_robots_meta,
                 robots_directives: parsed.robots_directives,
@@ -231,6 +252,12 @@ impl CrawlEngine {
             timing_ms,
             redirect_chain: fetch_result.redirect_chain,
             site_context: self.site_context_data.clone(),
+            is_cross_domain_redirect: cross_domain,
+            redirect_url: if cross_domain {
+                Some(fetch_result.final_url)
+            } else {
+                None
+            },
         })
     }
 
@@ -250,6 +277,28 @@ pub enum CrawlEngineError {
     FetchError(String),
     #[error("Parse error: {0}")]
     ParseError(String),
+}
+
+/// Normalize a host by stripping the leading `www.` prefix.
+fn normalize_host(host: &str) -> &str {
+    host.strip_prefix("www.").unwrap_or(host)
+}
+
+/// Returns true if the original URL and final URL have different hosts
+/// (after normalizing away `www.` prefixes). Returns false if either URL
+/// is unparseable or if hosts match.
+pub fn is_cross_domain_redirect(original_url: &str, final_url: &str) -> bool {
+    let original_host = Url::parse(original_url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_string()));
+    let final_host = Url::parse(final_url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_string()));
+
+    match (original_host, final_host) {
+        (Some(oh), Some(fh)) => normalize_host(&oh) != normalize_host(&fh),
+        _ => false,
+    }
 }
 
 /// Check if a response's Content-Type header indicates HTML.
@@ -353,6 +402,67 @@ pub fn merge_links(
 mod tests {
     use super::*;
     use crate::renderer::RenderedLink;
+
+    #[test]
+    fn test_is_cross_domain_redirect_same_host() {
+        assert!(!is_cross_domain_redirect(
+            "https://example.com/page1",
+            "https://example.com/page2"
+        ));
+    }
+
+    #[test]
+    fn test_is_cross_domain_redirect_different_host() {
+        assert!(is_cross_domain_redirect(
+            "https://families.care.com/articles",
+            "https://gritbrokerage.com/landing"
+        ));
+    }
+
+    #[test]
+    fn test_is_cross_domain_redirect_www_normalization() {
+        // www.example.com -> example.com should NOT be cross-domain
+        assert!(!is_cross_domain_redirect(
+            "https://www.example.com/page",
+            "https://example.com/page"
+        ));
+        assert!(!is_cross_domain_redirect(
+            "https://example.com/page",
+            "https://www.example.com/page"
+        ));
+    }
+
+    #[test]
+    fn test_is_cross_domain_redirect_subdomain() {
+        // Different subdomains (non-www) ARE cross-domain
+        assert!(is_cross_domain_redirect(
+            "https://blog.example.com/post",
+            "https://shop.example.com/product"
+        ));
+    }
+
+    #[test]
+    fn test_is_cross_domain_redirect_scheme_change_only() {
+        // http -> https on same host is NOT cross-domain
+        assert!(!is_cross_domain_redirect(
+            "http://example.com/page",
+            "https://example.com/page"
+        ));
+    }
+
+    #[test]
+    fn test_is_cross_domain_redirect_invalid_urls() {
+        // Invalid URLs should return false (safe default)
+        assert!(!is_cross_domain_redirect(
+            "not-a-url",
+            "https://example.com"
+        ));
+        assert!(!is_cross_domain_redirect(
+            "https://example.com",
+            "not-a-url"
+        ));
+        assert!(!is_cross_domain_redirect("not-a-url", "also-not-a-url"));
+    }
 
     #[test]
     fn test_is_html_content_type() {

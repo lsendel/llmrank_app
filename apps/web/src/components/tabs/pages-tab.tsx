@@ -2,7 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ExternalLink, FileText } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  ExternalLink,
+  FileText,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +36,7 @@ export function PagesTab({
   const [sortField, setSortField] = useState<SortField>("overallScore");
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [showRedirects, setShowRedirects] = useState(false);
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -51,7 +57,13 @@ export function PagesTab({
     );
   }
 
-  const sorted = [...pages].sort((a, b) => {
+  const redirectCount = pages.filter((p) => p.isCrossDomainRedirect).length;
+
+  const filtered = showRedirects
+    ? pages
+    : pages.filter((p) => !p.isCrossDomainRedirect);
+
+  const sorted = [...filtered].sort((a, b) => {
     const aVal = a[sortField];
     const bVal = b[sortField];
     if (aVal == null || bVal == null) return 0;
@@ -64,6 +76,19 @@ export function PagesTab({
 
   return (
     <Card>
+      {redirectCount > 0 && (
+        <div className="flex items-center gap-2 border-b px-4 py-2">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showRedirects}
+              onChange={(e) => setShowRedirects(e.target.checked)}
+              className="rounded border-input"
+            />
+            Show redirects ({redirectCount})
+          </label>
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -168,7 +193,20 @@ export function PagesTab({
                   setExpandedRow(expandedRow === page.id ? null : page.id)
                 }
               >
-                <TableCell className="font-mono text-xs">{page.url}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  <span className="inline-flex items-center gap-1.5">
+                    {page.url}
+                    {page.isCrossDomainRedirect && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1 py-0 font-normal gap-0.5"
+                      >
+                        <ArrowRightLeft className="h-3 w-3" />
+                        redirect
+                      </Badge>
+                    )}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -233,6 +271,24 @@ export function PagesTab({
                         </p>
                       </div>
                     </div>
+                    {page.isCrossDomainRedirect && page.redirectUrl && (
+                      <div className="mt-4 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm">
+                        <p className="text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                          <ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            Redirects to:{" "}
+                            <a
+                              href={page.redirectUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline hover:no-underline"
+                            >
+                              {page.redirectUrl}
+                            </a>
+                          </span>
+                        </p>
+                      </div>
+                    )}
                     <div className="mt-4 flex gap-2">
                       <Button
                         size="sm"
