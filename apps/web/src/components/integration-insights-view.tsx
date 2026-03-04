@@ -33,6 +33,8 @@ import {
   Search,
   Activity,
   MousePointerClick,
+  Share2,
+  DollarSign,
 } from "lucide-react";
 import type { IntegrationInsights } from "@/lib/api";
 
@@ -92,7 +94,7 @@ export function IntegrationInsightsView({
 }: Props) {
   if (!insights.integrations) return null;
 
-  const { gsc, ga4, clarity } = insights.integrations;
+  const { gsc, ga4, clarity, meta } = insights.integrations;
 
   // Build summary highlights
   const summaryItems: {
@@ -137,6 +139,15 @@ export function IntegrationInsightsView({
       icon: MousePointerClick,
       label: "Clarity",
       value: `${clarity.avgUxScore.toFixed(0)}/100 UX score · ${clarity.rageClickPages.length} rage click pages`,
+    });
+  }
+  if (meta) {
+    const totalEngagement =
+      meta.totalShares + meta.totalReactions + meta.totalComments;
+    summaryItems.push({
+      icon: Share2,
+      label: "Meta",
+      value: `${totalEngagement.toLocaleString()} social engagements · ${meta.totalShares.toLocaleString()} shares`,
     });
   }
 
@@ -407,6 +418,144 @@ export function IntegrationInsightsView({
           provider="Google Analytics 4"
           description="Track bounce rate, engagement time, and top landing pages"
           isConnected={connectedProviders.includes("ga4")}
+        />
+      )}
+
+      {/* Meta Section */}
+      {meta && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Share2 className="h-4 w-4 text-primary" />
+                Top Pages by Social Engagement
+              </CardTitle>
+              <CardDescription>
+                Combined shares, reactions, and comments
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {meta.topSocialPages.length > 0 ? (
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={meta.topSocialPages.slice(0, 8)}
+                      layout="vertical"
+                      margin={{ left: 40, right: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" hide />
+                      <YAxis
+                        type="category"
+                        dataKey="url"
+                        width={100}
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(url: string) =>
+                          url.replace(/^https?:\/\/[^/]+/, "").slice(0, 20) ||
+                          "/"
+                        }
+                      />
+                      <Tooltip
+                        labelFormatter={(label) => `URL: ${label}`}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Bar
+                        dataKey="engagement"
+                        fill="hsl(var(--primary))"
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No social engagement data found for your pages yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Social Engagement Summary
+              </CardTitle>
+              <CardDescription>
+                Total social signals across all pages
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col justify-center h-[300px] gap-6">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                    Shares
+                  </p>
+                  <p className="text-3xl font-bold mt-1 text-primary">
+                    {meta.totalShares.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                    Reactions
+                  </p>
+                  <p className="text-3xl font-bold mt-1">
+                    {meta.totalReactions.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                    Comments
+                  </p>
+                  <p className="text-3xl font-bold mt-1">
+                    {meta.totalComments.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              {meta.adSummary && (
+                <div className="border-t pt-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3 flex items-center gap-1.5">
+                    <DollarSign className="h-3 w-3" />
+                    Ad Performance (Last 28 Days)
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Spend</p>
+                      <p className="text-lg font-semibold">
+                        ${meta.adSummary.spend.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Clicks</p>
+                      <p className="text-lg font-semibold">
+                        {meta.adSummary.clicks.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Impressions
+                      </p>
+                      <p className="text-lg font-semibold">
+                        {meta.adSummary.impressions.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      {/* Meta Connect to Unlock */}
+      {!meta && (
+        <ConnectToUnlockCard
+          provider="Meta"
+          description="See social engagement, shares, reactions, and ad performance data"
+          isConnected={connectedProviders.includes("meta")}
         />
       )}
 

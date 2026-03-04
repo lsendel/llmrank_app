@@ -198,6 +198,14 @@ export interface ReportIntegrationData {
     topPages: { url: string; sessions: number }[];
   } | null;
   clarity: { avgUxScore: number; rageClickPages: string[] } | null;
+  meta: {
+    totalShares: number;
+    totalReactions: number;
+    totalComments: number;
+    topSocialPages: { url: string; engagement: number }[];
+    adSummary: { spend: number; clicks: number; impressions: number } | null;
+    topAdPages: { url: string; clicks: number; spend: number }[] | null;
+  } | null;
 }
 
 export interface GenerateReportJob {

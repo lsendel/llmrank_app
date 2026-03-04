@@ -57,6 +57,8 @@ function createBindings(): { env: Bindings; r2Put: ReturnType<typeof vi.fn> } {
     INTEGRATION_ENCRYPTION_KEY: "0".repeat(64),
     GOOGLE_OAUTH_CLIENT_ID: "client",
     GOOGLE_OAUTH_CLIENT_SECRET: "secret",
+    META_APP_ID: "meta-id",
+    META_APP_SECRET: "meta-secret",
     RESEND_API_KEY: "key",
     SENTRY_DSN: "",
     BETTER_AUTH_SECRET: "secret",

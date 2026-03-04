@@ -1,6 +1,12 @@
 import type { PlanTier } from "./plans";
 
-export const INTEGRATION_PROVIDERS = ["gsc", "psi", "ga4", "clarity"] as const;
+export const INTEGRATION_PROVIDERS = [
+  "gsc",
+  "psi",
+  "ga4",
+  "clarity",
+  "meta",
+] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 
 export const INTEGRATION_META: Record<
@@ -31,12 +37,17 @@ export const INTEGRATION_META: Record<
     authType: "api_key",
     description: "Heatmaps, dead clicks, rage clicks, scroll depth",
   },
+  meta: {
+    label: "Meta",
+    authType: "oauth2",
+    description: "Social engagement, shares, reactions, ad performance",
+  },
 };
 
 export const PLAN_INTEGRATION_ACCESS: Record<PlanTier, IntegrationProvider[]> =
   {
-    free: [],
-    starter: [],
-    pro: ["gsc", "psi"],
-    agency: ["gsc", "psi", "ga4", "clarity"],
+    free: ["meta"],
+    starter: ["meta"],
+    pro: ["gsc", "psi", "meta"],
+    agency: ["gsc", "psi", "ga4", "clarity", "meta"],
   };

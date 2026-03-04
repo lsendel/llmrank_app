@@ -45,6 +45,8 @@ ingestRoutes.post("/batch", async (c) => {
         integrationKey: c.env.INTEGRATION_ENCRYPTION_KEY,
         googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
         googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
+        metaAppId: c.env.META_APP_ID,
+        metaAppSecret: c.env.META_APP_SECRET,
         resendApiKey: c.env.RESEND_API_KEY,
         appBaseUrl: c.env.APP_BASE_URL,
         // Auto-visibility API keys

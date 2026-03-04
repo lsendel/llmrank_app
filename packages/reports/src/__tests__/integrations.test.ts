@@ -269,6 +269,7 @@ describe("aggregateIntegrations", () => {
     expect(result!.gsc).not.toBeNull();
     expect(result!.ga4).toBeNull();
     expect(result!.clarity).toBeNull();
+    expect(result!.meta).toBeNull();
   });
 
   it("returns partial data when only GA4 is present", () => {
@@ -283,6 +284,7 @@ describe("aggregateIntegrations", () => {
     expect(result!.gsc).toBeNull();
     expect(result!.ga4).not.toBeNull();
     expect(result!.clarity).toBeNull();
+    expect(result!.meta).toBeNull();
   });
 
   it("returns partial data when only Clarity is present", () => {
@@ -299,6 +301,26 @@ describe("aggregateIntegrations", () => {
     expect(result!.clarity).not.toBeNull();
     expect(result!.clarity!.avgUxScore).toBe(70);
     expect(result!.clarity!.rageClickPages).toHaveLength(0);
+    expect(result!.meta).toBeNull();
+  });
+
+  it("returns partial data when only Meta is present", () => {
+    const enrichments: RawEnrichment[] = [
+      makeEnrichment({
+        provider: "meta",
+        data: { shares: 10, reactions: 20, comments: 5 },
+      }),
+    ];
+    const result = aggregateIntegrations(enrichments);
+    expect(result).not.toBeNull();
+    expect(result!.gsc).toBeNull();
+    expect(result!.ga4).toBeNull();
+    expect(result!.clarity).toBeNull();
+    expect(result!.meta).not.toBeNull();
+    expect(result!.meta!.totalShares).toBe(10);
+    expect(result!.meta!.totalReactions).toBe(20);
+    expect(result!.meta!.totalComments).toBe(5);
+    expect(result!.meta!.adSummary).toBeNull();
   });
 
   // -------------------------------------------------------------------------
@@ -366,6 +388,75 @@ describe("aggregateIntegrations", () => {
     expect(result!.gsc!.totalClicks).toBe(0);
     expect(result!.gsc!.totalImpressions).toBe(0);
     expect(result!.gsc!.indexedPages).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Meta
+  // -------------------------------------------------------------------------
+
+  it("parses Meta social engagement data", () => {
+    const enrichments: RawEnrichment[] = [
+      makeEnrichment({
+        provider: "meta",
+        data: { shares: 50, reactions: 100, comments: 25, url: "/blog" },
+      }),
+      makeEnrichment({
+        provider: "meta",
+        data: { shares: 10, reactions: 20, comments: 5, url: "/about" },
+      }),
+    ];
+    const result = aggregateIntegrations(enrichments);
+    expect(result).not.toBeNull();
+    expect(result!.meta).not.toBeNull();
+    expect(result!.meta!.totalShares).toBe(60);
+    expect(result!.meta!.totalReactions).toBe(120);
+    expect(result!.meta!.totalComments).toBe(30);
+    expect(result!.meta!.topSocialPages).toHaveLength(2);
+    expect(result!.meta!.topSocialPages[0].url).toBe("/blog");
+    expect(result!.meta!.topSocialPages[0].engagement).toBe(175); // 50+100+25
+    expect(result!.meta!.adSummary).toBeNull();
+    expect(result!.meta!.topAdPages).toBeNull();
+  });
+
+  it("parses Meta ad performance data", () => {
+    const enrichments: RawEnrichment[] = [
+      makeEnrichment({
+        provider: "meta",
+        data: {
+          shares: 10,
+          reactions: 20,
+          comments: 5,
+          url: "/landing",
+          adClicks: 100,
+          adSpend: 50.5,
+          adImpressions: 5000,
+        },
+      }),
+    ];
+    const result = aggregateIntegrations(enrichments);
+    expect(result).not.toBeNull();
+    expect(result!.meta!.adSummary).not.toBeNull();
+    expect(result!.meta!.adSummary!.spend).toBe(50.5);
+    expect(result!.meta!.adSummary!.clicks).toBe(100);
+    expect(result!.meta!.adSummary!.impressions).toBe(5000);
+    expect(result!.meta!.topAdPages).toHaveLength(1);
+    expect(result!.meta!.topAdPages![0].url).toBe("/landing");
+  });
+
+  it("handles Meta data with missing fields gracefully", () => {
+    const enrichments: RawEnrichment[] = [
+      makeEnrichment({
+        provider: "meta",
+        data: {},
+      }),
+    ];
+    const result = aggregateIntegrations(enrichments);
+    expect(result).not.toBeNull();
+    expect(result!.meta!.totalShares).toBe(0);
+    expect(result!.meta!.totalReactions).toBe(0);
+    expect(result!.meta!.totalComments).toBe(0);
+    expect(result!.meta!.topSocialPages).toHaveLength(0);
+    expect(result!.meta!.adSummary).toBeNull();
   });
 
   it("handles mixed providers with all data present", () => {

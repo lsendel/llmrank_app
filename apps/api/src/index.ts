@@ -95,6 +95,8 @@ export type Bindings = {
   INTEGRATION_ENCRYPTION_KEY: string;
   GOOGLE_OAUTH_CLIENT_ID: string;
   GOOGLE_OAUTH_CLIENT_SECRET: string;
+  META_APP_ID: string;
+  META_APP_SECRET: string;
   RESEND_API_KEY: string;
   SENTRY_DSN: string;
   BETTER_AUTH_SECRET: string;

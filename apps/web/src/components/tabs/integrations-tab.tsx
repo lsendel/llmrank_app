@@ -43,6 +43,7 @@ import {
   Activity,
   MousePointerClick,
   ExternalLink,
+  Share2,
 } from "lucide-react";
 
 const INTEGRATIONS = [
@@ -122,6 +123,25 @@ const INTEGRATIONS = [
       "Content readability signals from scroll depth",
     ],
   },
+  {
+    provider: "meta" as const,
+    label: "Meta",
+    authType: "oauth2" as const,
+    description: "Social engagement, shares, reactions, ad performance",
+    minPlan: "free",
+    icon: Share2,
+    docsUrl: "https://developers.facebook.com/docs/graph-api/",
+    dataCollected: [
+      "Shares, reactions, and comments per page URL",
+      "Open Graph tag validation (og:title, og:image)",
+      "Ad performance by landing page (with Ad Account ID)",
+    ],
+    reportEnhancements: [
+      "Social authority signal in Content scores",
+      "Ad ROI by page for budget optimization",
+      "OG tag validation for social sharing quality",
+    ],
+  },
 ] as const;
 
 const PLAN_ORDER = ["free", "starter", "pro", "agency"];
@@ -130,7 +150,7 @@ function planAllows(userPlan: string, requiredPlan: string): boolean {
   return PLAN_ORDER.indexOf(userPlan) >= PLAN_ORDER.indexOf(requiredPlan);
 }
 
-type SupportedProvider = "gsc" | "psi" | "ga4" | "clarity";
+type SupportedProvider = "gsc" | "psi" | "ga4" | "clarity" | "meta";
 
 export default function IntegrationsTab({
   projectId,
@@ -166,9 +186,10 @@ export default function IntegrationsTab({
 
   // API key connect modal state
   const [connectModal, setConnectModal] = useState<{
-    provider: "psi" | "clarity";
+    provider: "psi" | "clarity" | "meta";
     label: string;
   } | null>(null);
+  const [metaAdAccountId, setMetaAdAccountId] = useState("");
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [clarityProjectId, setClarityProjectId] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -222,9 +243,15 @@ export default function IntegrationsTab({
     if (
       targetMeta.authType === "oauth2" &&
       connectProvider !== "psi" &&
-      connectProvider !== "clarity"
+      connectProvider !== "clarity" &&
+      connectProvider !== "meta"
     ) {
       handleOAuthConnect(connectProvider);
+      return;
+    }
+
+    if (connectProvider === "meta") {
+      setConnectModal({ provider: "meta", label: targetMeta.label });
       return;
     }
 
@@ -308,15 +335,26 @@ export default function IntegrationsTab({
     }
   }
 
-  async function handleOAuthConnect(provider: "gsc" | "ga4") {
+  async function handleOAuthConnect(
+    provider: "gsc" | "ga4" | "meta",
+    adAccountId?: string,
+  ) {
     setError(null);
     try {
       await withAuth(async () => {
-        const { url } = await api.integrations.startGoogleOAuth(
-          projectId,
-          provider,
-        );
-        window.location.href = url;
+        if (provider === "meta") {
+          const { url } = await api.integrations.startMetaOAuth(
+            projectId,
+            adAccountId,
+          );
+          window.location.href = url;
+        } else {
+          const { url } = await api.integrations.startGoogleOAuth(
+            projectId,
+            provider,
+          );
+          window.location.href = url;
+        }
       });
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
@@ -638,6 +676,11 @@ export default function IntegrationsTab({
                           (meta.provider === "gsc" || meta.provider === "ga4")
                         ) {
                           handleOAuthConnect(meta.provider);
+                        } else if (meta.provider === "meta") {
+                          setConnectModal({
+                            provider: "meta",
+                            label: meta.label,
+                          });
                         } else {
                           setConnectModal({
                             provider: meta.provider as "psi" | "clarity",
@@ -800,6 +843,7 @@ export default function IntegrationsTab({
             setConnectModal(null);
             setApiKeyInput("");
             setClarityProjectId("");
+            setMetaAdAccountId("");
             setError(null);
           }
         }}
@@ -808,70 +852,81 @@ export default function IntegrationsTab({
           <DialogHeader>
             <DialogTitle>Connect {connectModal?.label}</DialogTitle>
             <DialogDescription>
-              Enter your API key to connect this integration.
-              {connectModal?.provider === "psi" && (
+              {connectModal?.provider === "meta" ? (
                 <>
-                  {" "}
-                  <a
-                    href="https://developers.google.com/speed/docs/insights/v5/get-started"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
-                  >
-                    Get your API key
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                  Sign in with Facebook to connect Meta. Optionally add your Ad
+                  Account ID for ad performance data.
                 </>
-              )}
-              {connectModal?.provider === "clarity" && (
+              ) : (
                 <>
-                  <br />
-                  <span className="mt-2 block text-xs text-muted-foreground">
-                    Steps to get your API token:
-                  </span>
-                  <ol className="mt-1 list-decimal pl-4 text-xs text-muted-foreground space-y-0.5">
-                    <li>
-                      Log in at{" "}
+                  Enter your API key to connect this integration.
+                  {connectModal?.provider === "psi" && (
+                    <>
+                      {" "}
                       <a
-                        href="https://clarity.microsoft.com/projects"
+                        href="https://developers.google.com/speed/docs/insights/v5/get-started"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
                       >
-                        clarity.microsoft.com
+                        Get your API key
                         <ExternalLink className="h-3 w-3" />
-                      </a>{" "}
-                      and open your project.
-                    </li>
-                    <li>
-                      Click the <strong>Settings</strong> gear in the top
-                      navigation.
-                    </li>
-                    <li>
-                      Go to <strong>Data Export</strong> in the left menu.
-                    </li>
-                    <li>
-                      Click <strong>Generate new API token</strong>.
-                    </li>
-                    <li>
-                      Give the token a name (4-32 chars), save, and copy it.
-                    </li>
-                  </ol>
+                      </a>
+                    </>
+                  )}
+                  {connectModal?.provider === "clarity" && (
+                    <>
+                      <br />
+                      <span className="mt-2 block text-xs text-muted-foreground">
+                        Steps to get your API token:
+                      </span>
+                      <ol className="mt-1 list-decimal pl-4 text-xs text-muted-foreground space-y-0.5">
+                        <li>
+                          Log in at{" "}
+                          <a
+                            href="https://clarity.microsoft.com/projects"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                          >
+                            clarity.microsoft.com
+                            <ExternalLink className="h-3 w-3" />
+                          </a>{" "}
+                          and open your project.
+                        </li>
+                        <li>
+                          Click the <strong>Settings</strong> gear in the top
+                          navigation.
+                        </li>
+                        <li>
+                          Go to <strong>Data Export</strong> in the left menu.
+                        </li>
+                        <li>
+                          Click <strong>Generate new API token</strong>.
+                        </li>
+                        <li>
+                          Give the token a name (4-32 chars), save, and copy it.
+                        </li>
+                      </ol>
+                    </>
+                  )}
                 </>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="api-key">API Key</Label>
-              <Input
-                id="api-key"
-                type="password"
-                placeholder="Enter your API key"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-              />
-            </div>
+            {connectModal?.provider !== "meta" && (
+              <div className="space-y-2">
+                <Label htmlFor="api-key">API Key</Label>
+                <Input
+                  id="api-key"
+                  type="password"
+                  placeholder="Enter your API key"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                />
+              </div>
+            )}
             {connectModal?.provider === "clarity" && (
               <div className="space-y-2">
                 <Label htmlFor="clarity-project">Clarity Project ID</Label>
@@ -881,6 +936,35 @@ export default function IntegrationsTab({
                   value={clarityProjectId}
                   onChange={(e) => setClarityProjectId(e.target.value)}
                 />
+              </div>
+            )}
+            {connectModal?.provider === "meta" && (
+              <div className="space-y-2">
+                <Label htmlFor="meta-ad-account">
+                  Ad Account ID{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id="meta-ad-account"
+                  placeholder="e.g. act_123456789"
+                  value={metaAdAccountId}
+                  onChange={(e) => setMetaAdAccountId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Find this in{" "}
+                  <a
+                    href="https://business.facebook.com/settings/ad-accounts"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    Business Settings &gt; Ad Accounts
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  . Required for ad performance data.
+                </p>
               </div>
             )}
             {error && (
@@ -894,15 +978,32 @@ export default function IntegrationsTab({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConnectModal(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConnectModal(null);
+                setMetaAdAccountId("");
+              }}
+            >
               Cancel
             </Button>
-            <Button
-              onClick={handleConnect}
-              disabled={connecting || !apiKeyInput}
-            >
-              {connecting ? "Connecting..." : "Connect"}
-            </Button>
+            {connectModal?.provider === "meta" ? (
+              <Button
+                onClick={() => {
+                  setConnectModal(null);
+                  handleOAuthConnect("meta", metaAdAccountId || undefined);
+                }}
+              >
+                Sign in with Facebook
+              </Button>
+            ) : (
+              <Button
+                onClick={handleConnect}
+                disabled={connecting || !apiKeyInput}
+              >
+                {connecting ? "Connecting..." : "Connect"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

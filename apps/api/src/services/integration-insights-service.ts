@@ -37,7 +37,7 @@ export function createIntegrationInsightsService(
       if (rows.length === 0) {
         return {
           crawlId: crawl.id,
-          integrations: { gsc: null, ga4: null, clarity: null },
+          integrations: { gsc: null, ga4: null, clarity: null, meta: null },
         };
       }
 

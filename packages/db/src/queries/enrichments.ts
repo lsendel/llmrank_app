@@ -1,6 +1,9 @@
 import { eq, and } from "drizzle-orm";
 import type { Database } from "../client";
 import { pageEnrichments } from "../schema";
+import { integrationProviderEnum } from "../schema/enums";
+
+type IntegrationProvider = (typeof integrationProviderEnum.enumValues)[number];
 
 export function enrichmentQueries(db: Database) {
   return {
@@ -8,7 +11,7 @@ export function enrichmentQueries(db: Database) {
       rows: {
         pageId: string;
         jobId: string;
-        provider: "gsc" | "psi" | "ga4" | "clarity";
+        provider: IntegrationProvider;
         data: unknown;
       }[],
     ) {
@@ -28,10 +31,7 @@ export function enrichmentQueries(db: Database) {
       });
     },
 
-    async listByJobAndProvider(
-      jobId: string,
-      provider: "gsc" | "psi" | "ga4" | "clarity",
-    ) {
+    async listByJobAndProvider(jobId: string, provider: IntegrationProvider) {
       return db.query.pageEnrichments.findMany({
         where: and(
           eq(pageEnrichments.jobId, jobId),

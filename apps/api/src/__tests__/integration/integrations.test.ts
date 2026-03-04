@@ -277,6 +277,7 @@ describe("Integration Routes", () => {
         gsc: null,
         ga4: null,
         clarity: null,
+        meta: null,
       });
     });
 

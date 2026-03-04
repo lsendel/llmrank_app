@@ -23,6 +23,12 @@ import {
   exchangeCodeForTokens,
   GOOGLE_SCOPES,
 } from "../lib/google-oauth";
+import {
+  buildMetaAuthUrl,
+  exchangeCodeForTokens as exchangeMetaCode,
+  exchangeForLongLivedToken,
+  META_SCOPES,
+} from "../lib/meta-oauth";
 import { createIntegrationInsightsService } from "../services/integration-insights-service";
 import { runIntegrationEnrichments } from "../services/enrichments";
 import { handleServiceError } from "../services/errors";
@@ -77,6 +83,23 @@ const INTEGRATION_CATALOG = [
     availability: "available_now",
     access: "requires_auth",
     minPlan: "agency",
+    authType: "oauth2",
+  },
+  {
+    id: "meta",
+    provider: "meta",
+    name: "Meta",
+    description:
+      "Import social engagement data and ad performance from Facebook to correlate social signals with AI-readiness scores.",
+    features: [
+      "Shares, reactions, and comments per page URL",
+      "Open Graph tag validation",
+      "Ad performance by landing page (with Ad Account)",
+      "Social authority signal in Content scores",
+    ],
+    availability: "available_now",
+    access: "requires_auth",
+    minPlan: "free",
     authType: "oauth2",
   },
   {
@@ -577,6 +600,192 @@ integrationRoutes.post("/oauth/google/callback", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /:projectId/oauth/meta/start — Return Meta auth URL
+// ---------------------------------------------------------------------------
+
+integrationRoutes.post("/:projectId/oauth/meta/start", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const user = await userQueries(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  if (!canAccessProvider(user.plan, "meta")) {
+    return c.json(
+      {
+        error: {
+          code: "PLAN_LIMIT_REACHED",
+          message: `${INTEGRATION_META.meta.label} requires a higher plan`,
+        },
+      },
+      403,
+    );
+  }
+
+  const body = await c.req.json<{ adAccountId?: string }>();
+
+  const statePayload = { projectId, provider: "meta" as const, userId };
+  const nonce = await hmacSign(
+    c.env.SHARED_SECRET,
+    JSON.stringify(statePayload),
+  );
+  const state = btoa(
+    JSON.stringify({ ...statePayload, nonce, adAccountId: body.adAccountId }),
+  );
+  const redirectUri = `${c.req.header("Origin") ?? c.req.url.split("/api")[0]}/integrations/callback/meta`;
+
+  const scopes: string[] = [META_SCOPES.basic];
+  if (body.adAccountId) {
+    scopes.push(META_SCOPES.ads);
+  }
+
+  const url = buildMetaAuthUrl({
+    clientId: c.env.META_APP_ID,
+    redirectUri,
+    state,
+    scopes,
+  });
+
+  return c.json({ data: { url } });
+});
+
+// ---------------------------------------------------------------------------
+// POST /oauth/meta/callback — Exchange code for tokens, store encrypted
+// ---------------------------------------------------------------------------
+
+integrationRoutes.post("/oauth/meta/callback", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+
+  const body = await c.req.json<{
+    code: string;
+    state: string;
+    redirectUri: string;
+  }>();
+
+  if (!body.code || !body.state || !body.redirectUri) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "code, state, and redirectUri are required",
+        },
+      },
+      422,
+    );
+  }
+
+  let stateData: {
+    projectId: string;
+    provider: "meta";
+    userId: string;
+    adAccountId?: string;
+  };
+  try {
+    stateData = JSON.parse(atob(body.state));
+  } catch {
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid state" } },
+      422,
+    );
+  }
+
+  // Verify HMAC nonce to prevent CSRF/state forgery
+  const { nonce, adAccountId, ...stateWithoutExtra } = stateData as any;
+  const expectedNonce = await hmacSign(
+    c.env.SHARED_SECRET,
+    JSON.stringify({
+      projectId: stateWithoutExtra.projectId,
+      provider: stateWithoutExtra.provider,
+      userId: stateWithoutExtra.userId,
+    }),
+  );
+  if (!nonce || nonce !== expectedNonce) {
+    return c.json(
+      { error: { code: "UNAUTHORIZED", message: "Invalid state nonce" } },
+      401,
+    );
+  }
+
+  if (stateData.userId !== userId) {
+    return c.json(
+      { error: { code: "UNAUTHORIZED", message: "State mismatch" } },
+      401,
+    );
+  }
+
+  const project = await projectQueries(db).getById(stateData.projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  // Exchange code for short-lived token
+  const shortLived = await exchangeMetaCode({
+    code: body.code,
+    clientId: c.env.META_APP_ID,
+    clientSecret: c.env.META_APP_SECRET,
+    redirectUri: body.redirectUri,
+  });
+
+  // Exchange short-lived token for long-lived token (60 days)
+  const longLived = await exchangeForLongLivedToken({
+    shortLivedToken: shortLived.accessToken,
+    clientId: c.env.META_APP_ID,
+    clientSecret: c.env.META_APP_SECRET,
+  });
+
+  const credentialPayload = {
+    accessToken: longLived.accessToken,
+  };
+
+  const encrypted = await encrypt(
+    JSON.stringify(credentialPayload),
+    c.env.INTEGRATION_ENCRYPTION_KEY,
+  );
+
+  const expiresAt = new Date(Date.now() + longLived.expiresIn * 1000);
+
+  const config: Record<string, unknown> = {};
+  if (adAccountId) {
+    config.adAccountId = adAccountId;
+  }
+
+  const integration = await integrationQueries(db).upsert({
+    projectId: stateData.projectId,
+    provider: "meta",
+    encryptedCredentials: encrypted,
+    tokenExpiresAt: expiresAt,
+    config,
+  });
+
+  return c.json({
+    data: {
+      id: integration.id,
+      provider: integration.provider,
+      enabled: integration.enabled,
+      hasCredentials: true,
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /:projectId/sync — Manually trigger integration enrichments
 // ---------------------------------------------------------------------------
 
@@ -634,6 +843,8 @@ integrationRoutes.post("/:projectId/sync", async (c) => {
     encryptionKey: c.env.INTEGRATION_ENCRYPTION_KEY,
     googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
     googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    metaAppId: c.env.META_APP_ID,
+    metaAppSecret: c.env.META_APP_SECRET,
     projectId,
     jobId: latestCrawl.id,
     insertedPages,
@@ -707,6 +918,19 @@ integrationRoutes.post("/:projectId/:id/test", async (c) => {
     ) {
       ok = !!creds.accessToken && !!creds.refreshToken;
       message = ok ? "OAuth tokens present" : "Missing OAuth tokens";
+    } else if (integration.provider === "meta") {
+      if (creds.accessToken) {
+        const meRes = await fetch(
+          `https://graph.facebook.com/v21.0/me?access_token=${creds.accessToken}`,
+        );
+        ok = meRes.ok;
+        message = ok
+          ? "Meta access token is valid"
+          : `Meta API returned ${meRes.status}`;
+      } else {
+        ok = false;
+        message = "Missing Meta access token";
+      }
     }
 
     return c.json({ data: { ok, message } });

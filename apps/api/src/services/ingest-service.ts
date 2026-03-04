@@ -45,6 +45,8 @@ export interface BatchEnvironment {
   integrationKey?: string;
   googleClientId?: string;
   googleClientSecret?: string;
+  metaAppId?: string;
+  metaAppSecret?: string;
   resendApiKey?: string;
   appBaseUrl?: string;
   seenUrls?: KVNamespace;

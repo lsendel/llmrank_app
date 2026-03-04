@@ -1,6 +1,9 @@
 import { eq, and } from "drizzle-orm";
 import type { Database } from "../client";
 import { projectIntegrations } from "../schema";
+import { integrationProviderEnum } from "../schema/enums";
+
+type IntegrationProvider = (typeof integrationProviderEnum.enumValues)[number];
 
 export function integrationQueries(db: Database) {
   return {
@@ -12,7 +15,7 @@ export function integrationQueries(db: Database) {
 
     async getByProjectAndProvider(
       projectId: string,
-      provider: "gsc" | "psi" | "ga4" | "clarity",
+      provider: IntegrationProvider,
     ) {
       return db.query.projectIntegrations.findFirst({
         where: and(
@@ -24,7 +27,7 @@ export function integrationQueries(db: Database) {
 
     async upsert(data: {
       projectId: string;
-      provider: "gsc" | "psi" | "ga4" | "clarity";
+      provider: IntegrationProvider;
       encryptedCredentials?: string | null;
       config?: unknown;
       tokenExpiresAt?: Date | null;

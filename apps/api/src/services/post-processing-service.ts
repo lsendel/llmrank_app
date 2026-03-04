@@ -49,6 +49,8 @@ export interface PostProcessingEnv {
   integrationKey?: string;
   googleClientId?: string;
   googleClientSecret?: string;
+  metaAppId?: string;
+  metaAppSecret?: string;
   resendApiKey?: string;
   appBaseUrl?: string;
   seenUrls?: KVNamespace;
@@ -108,6 +110,8 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             encryptionKey: env.integrationKey,
             googleClientId: env.googleClientId,
             googleClientSecret: env.googleClientSecret,
+            metaAppId: env.metaAppId ?? "",
+            metaAppSecret: env.metaAppSecret ?? "",
             projectId,
             jobId: batch.job_id,
             insertedPages,

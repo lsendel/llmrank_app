@@ -219,8 +219,74 @@ export function aggregateIntegrations(
     };
   }
 
-  // If ALL three are null, return null (no usable integration data)
-  if (!gsc && !ga4 && !clarity) return null;
+  // ---------------------------------------------------------------------------
+  // Meta: Social engagement and ad performance
+  // ---------------------------------------------------------------------------
+  const metaEnrichments = enrichments.filter((e) => e.provider === "meta");
+  let meta: ReportIntegrationData["meta"] = null;
+  if (metaEnrichments.length > 0) {
+    let totalShares = 0;
+    let totalReactions = 0;
+    let totalComments = 0;
+    const pageEngagement: { url: string; engagement: number }[] = [];
 
-  return { gsc, ga4, clarity };
+    let hasAdData = false;
+    let totalAdSpend = 0;
+    let totalAdClicks = 0;
+    let totalAdImpressions = 0;
+    const adPages: { url: string; clicks: number; spend: number }[] = [];
+
+    for (const e of metaEnrichments) {
+      const d = e.data as Record<string, unknown>;
+      const shares = Number(d.shares ?? 0);
+      const reactions = Number(d.reactions ?? 0);
+      const comments = Number(d.comments ?? 0);
+
+      totalShares += shares;
+      totalReactions += reactions;
+      totalComments += comments;
+
+      const engagement = shares + reactions + comments;
+      const url = String(d.pageUrl ?? d.url ?? "");
+      if (url && engagement > 0) {
+        pageEngagement.push({ url, engagement });
+      }
+
+      if (d.adClicks != null || d.adSpend != null) {
+        hasAdData = true;
+        const adClicks = Number(d.adClicks ?? 0);
+        const adSpend = Number(d.adSpend ?? 0);
+        totalAdClicks += adClicks;
+        totalAdSpend += adSpend;
+        totalAdImpressions += Number(d.adImpressions ?? 0);
+        if (url && (adClicks > 0 || adSpend > 0)) {
+          adPages.push({ url, clicks: adClicks, spend: adSpend });
+        }
+      }
+    }
+
+    meta = {
+      totalShares,
+      totalReactions,
+      totalComments,
+      topSocialPages: pageEngagement
+        .sort((a, b) => b.engagement - a.engagement)
+        .slice(0, 20),
+      adSummary: hasAdData
+        ? {
+            spend: Math.round(totalAdSpend * 100) / 100,
+            clicks: totalAdClicks,
+            impressions: totalAdImpressions,
+          }
+        : null,
+      topAdPages: hasAdData
+        ? adPages.sort((a, b) => b.clicks - a.clicks).slice(0, 20)
+        : null,
+    };
+  }
+
+  // If ALL are null, return null (no usable integration data)
+  if (!gsc && !ga4 && !clarity && !meta) return null;
+
+  return { gsc, ga4, clarity, meta };
 }

@@ -79,6 +79,7 @@ export const integrationProviderEnum = pgEnum("integration_provider", [
   "psi",
   "ga4",
   "clarity",
+  "meta",
 ]);
 
 export const eventStatusEnum = pgEnum("event_status", [

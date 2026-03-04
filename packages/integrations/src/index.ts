@@ -8,6 +8,7 @@ export { fetchGSCData } from "./fetchers/gsc";
 export { fetchPSIData } from "./fetchers/psi";
 export { fetchGA4Data } from "./fetchers/ga4";
 export { fetchClarityData } from "./fetchers/clarity";
+export { fetchMetaData } from "./fetchers/meta";
 
 import type {
   IntegrationFetcher,
@@ -18,12 +19,14 @@ import { fetchGSCData } from "./fetchers/gsc";
 import { fetchPSIData } from "./fetchers/psi";
 import { fetchGA4Data } from "./fetchers/ga4";
 import { fetchClarityData } from "./fetchers/clarity";
+import { fetchMetaData } from "./fetchers/meta";
 
 export const INTEGRATION_FETCHERS: Record<string, IntegrationFetcher> = {
   gsc: fetchGSCData,
   psi: fetchPSIData,
   ga4: fetchGA4Data,
   clarity: fetchClarityData,
+  meta: fetchMetaData,
 };
 
 export interface ProviderResult {

@@ -149,6 +149,8 @@ export function createTestApp(options: TestAppOptions = {}) {
     INTEGRATION_ENCRYPTION_KEY: "0".repeat(64),
     GOOGLE_OAUTH_CLIENT_ID: "test-id",
     GOOGLE_OAUTH_CLIENT_SECRET: "test-secret",
+    META_APP_ID: "test-meta-id",
+    META_APP_SECRET: "test-meta-secret",
     RESEND_API_KEY: "test-key",
     SENTRY_DSN: "",
     APP_BASE_URL: "http://localhost:3000",

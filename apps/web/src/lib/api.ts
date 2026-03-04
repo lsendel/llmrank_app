@@ -1013,7 +1013,7 @@ export interface ReportSchedule {
 export interface ProjectIntegration {
   id: string;
   projectId: string;
-  provider: "gsc" | "psi" | "ga4" | "clarity";
+  provider: "gsc" | "psi" | "ga4" | "clarity" | "meta";
   enabled: boolean;
   hasCredentials: boolean;
   config: Record<string, unknown>;
@@ -1047,6 +1047,14 @@ export interface IntegrationInsights {
       avgUxScore: number;
       rageClickPages: string[];
     } | null;
+    meta: {
+      totalShares: number;
+      totalReactions: number;
+      totalComments: number;
+      topSocialPages: { url: string; engagement: number }[];
+      adSummary: { spend: number; clicks: number; impressions: number } | null;
+      topAdPages: { url: string; clicks: number; spend: number }[] | null;
+    } | null;
   } | null;
 }
 
@@ -1054,7 +1062,7 @@ export interface PageEnrichment {
   id: string;
   pageId: string;
   jobId: string;
-  provider: "gsc" | "psi" | "ga4" | "clarity";
+  provider: "gsc" | "psi" | "ga4" | "clarity" | "meta";
   data: Record<string, unknown>;
   fetchedAt: string;
 }
@@ -3120,6 +3128,29 @@ export const api = {
     }): Promise<ProjectIntegration> {
       const res = await apiClient.post<ApiEnvelope<ProjectIntegration>>(
         `/api/integrations/oauth/google/callback`,
+        data,
+      );
+      return res.data;
+    },
+
+    async startMetaOAuth(
+      projectId: string,
+      adAccountId?: string,
+    ): Promise<{ url: string }> {
+      const res = await apiClient.post<ApiEnvelope<{ url: string }>>(
+        `/api/integrations/${projectId}/oauth/meta/start`,
+        { adAccountId },
+      );
+      return res.data;
+    },
+
+    async metaOAuthCallback(data: {
+      code: string;
+      state: string;
+      redirectUri: string;
+    }): Promise<ProjectIntegration> {
+      const res = await apiClient.post<ApiEnvelope<ProjectIntegration>>(
+        `/api/integrations/oauth/meta/callback`,
         data,
       );
       return res.data;

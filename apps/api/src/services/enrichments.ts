@@ -7,12 +7,15 @@ import {
 import { runEnrichments, type ProviderResult } from "@llm-boost/integrations";
 import { decrypt, encrypt } from "../lib/crypto";
 import { refreshAccessToken } from "../lib/google-oauth";
+import { refreshLongLivedToken } from "../lib/meta-oauth";
 
 export interface EnrichmentInput {
   databaseUrl: string;
   encryptionKey: string;
   googleClientId: string;
   googleClientSecret: string;
+  metaAppId: string;
+  metaAppSecret: string;
   projectId: string;
   jobId: string;
   insertedPages: { id: string; url: string }[];
@@ -75,7 +78,7 @@ export async function runIntegrationEnrichments(
           return null;
         }
 
-        // Refresh OAuth tokens if expired
+        // Refresh Google OAuth tokens if expired
         if (
           (integration.provider === "gsc" || integration.provider === "ga4") &&
           creds.refreshToken &&
@@ -98,6 +101,42 @@ export async function runIntegrationEnrichments(
             newEncrypted,
             new Date(Date.now() + refreshed.expiresIn * 1000),
           );
+        }
+
+        // Refresh Meta long-lived token if expiring within 7 days
+        if (
+          integration.provider === "meta" &&
+          creds.accessToken &&
+          integration.tokenExpiresAt
+        ) {
+          const sevenDaysFromNow = new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000,
+          );
+          if (integration.tokenExpiresAt < sevenDaysFromNow) {
+            try {
+              const refreshed = await refreshLongLivedToken({
+                token: creds.accessToken,
+                clientId: input.metaAppId,
+                clientSecret: input.metaAppSecret,
+              });
+              creds.accessToken = refreshed.accessToken;
+
+              const newEncrypted = await encrypt(
+                JSON.stringify(creds),
+                input.encryptionKey,
+              );
+              await integrationQueries(db).updateCredentials(
+                integration.id,
+                newEncrypted,
+                new Date(Date.now() + refreshed.expiresIn * 1000),
+              );
+            } catch (err) {
+              console.error(
+                `[enrichments] Meta token refresh failed for integration ${integration.id}:`,
+                err instanceof Error ? err.message : String(err),
+              );
+            }
+          }
         }
 
         return {
@@ -134,7 +173,7 @@ export async function runIntegrationEnrichments(
     .map((r) => ({
       pageId: urlToPageId.get(r.pageUrl)!,
       jobId: input.jobId,
-      provider: r.provider as "gsc" | "psi" | "ga4" | "clarity",
+      provider: r.provider as "gsc" | "psi" | "ga4" | "clarity" | "meta",
       data: r.data,
     }));
 

@@ -68,6 +68,8 @@ function baseInput(overrides: Record<string, unknown> = {}) {
     encryptionKey: "abc123hex",
     googleClientId: "goog-client-id",
     googleClientSecret: "goog-client-secret",
+    metaAppId: "meta-app-id",
+    metaAppSecret: "meta-app-secret",
     projectId: "proj-1",
     jobId: "job-1",
     insertedPages: [
