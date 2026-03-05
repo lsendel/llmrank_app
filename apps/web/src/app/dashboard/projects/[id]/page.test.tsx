@@ -1,14 +1,36 @@
 import { render, screen } from "@testing-library/react";
 import ProjectPage from "@/app/dashboard/projects/[id]/page";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
+
+const {
+  mockPush,
+  mockReplace,
+  searchParamState,
+  mockSearchParamsGet,
+  mockSearchParamsToString,
+} = vi.hoisted(() => {
+  const state = { tab: "overview" };
+  const getMock = vi.fn((key: string) => {
+    if (key === "tab") return state.tab;
+    return null;
+  });
+  const toStringMock = vi.fn(() => `tab=${state.tab}`);
+  return {
+    mockPush: vi.fn(),
+    mockReplace: vi.fn(),
+    searchParamState: state,
+    mockSearchParamsGet: getMock,
+    mockSearchParamsToString: toStringMock,
+  };
+});
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "proj-1" }),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
   useSearchParams: () => ({
-    get: vi.fn().mockReturnValue("overview"),
-    toString: vi.fn().mockReturnValue(""),
+    get: mockSearchParamsGet,
+    toString: mockSearchParamsToString,
   }),
 }));
 
@@ -72,6 +94,11 @@ vi.mock("@/components/cards/project-recommendations-card", () => ({
 }));
 
 describe("Project Page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    searchParamState.tab = "overview";
+  });
+
   it("renders project name and domain", async () => {
     render(<ProjectPage />);
     // Project name appears in both the page header and sidebar
@@ -111,5 +138,24 @@ describe("Project Page", () => {
     expect(pages.length).toBeGreaterThanOrEqual(1);
     const issues = screen.getAllByText("Issues");
     expect(issues.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders visibility mode guidance and next-step recommendation", async () => {
+    searchParamState.tab = "visibility";
+    render(<ProjectPage />);
+
+    expect(await screen.findByText("Visibility workspace")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Recommended next step: Expand coverage with AI Visibility/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Open AI Visibility").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Search Visibility").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("AI Visibility").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("AI Analysis").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/You need weekly share-of-voice/i),
+    ).toBeInTheDocument();
   });
 });

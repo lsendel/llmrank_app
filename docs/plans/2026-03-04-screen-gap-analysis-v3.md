@@ -138,6 +138,10 @@ Progress update (same day):
 - Item 3 is now implemented:
   - projects anomaly workflows include a bulk "Plan Smart Fixes" action
   - selected anomaly projects are converted into deduped action-item plans
+- Item 4 is now implemented:
+  - visibility workspace now includes explicit "when to use" guidance for Search Visibility, AI Visibility, and AI Analysis
+  - recommendation panel suggests the next best action based on crawl readiness, automation defaults, and issue backlog
+  - each visibility mode card now supports one-click actions (including run-crawl fallback when analysis prerequisites are missing)
 
 ## P2 (After P1)
 

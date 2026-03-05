@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -255,6 +256,101 @@ const WORKSPACE_META: Record<
   },
 };
 
+type VisibilityGuidanceAction =
+  | "open-search-visibility"
+  | "open-ai-visibility"
+  | "open-ai-analysis"
+  | "open-automation-defaults"
+  | "run-crawl";
+
+const VISIBILITY_GUIDANCE_ORDER: VisibilityMode[] = [
+  "visibility",
+  "ai-visibility",
+  "ai-analysis",
+];
+
+const VISIBILITY_MODE_GUIDANCE: Record<
+  VisibilityMode,
+  {
+    label: string;
+    whenToUse: string;
+    value: string;
+    requiresCrawl?: boolean;
+  }
+> = {
+  visibility: {
+    label: "Search Visibility",
+    whenToUse:
+      "You need weekly share-of-voice, competitor movement, and region-aware trend tracking.",
+    value:
+      "Turns visibility checks into backlog-ready opportunities and confidence-scored coverage.",
+  },
+  "ai-visibility": {
+    label: "AI Visibility",
+    whenToUse:
+      "You need provider-by-provider mention rate and keyword gap discovery across LLM engines.",
+    value:
+      "Shows where your brand is missing and lets you convert gaps into tracked keywords quickly.",
+  },
+  "ai-analysis": {
+    label: "AI Analysis",
+    whenToUse:
+      "You need crawl-based narrative insights and prioritized recommendations for what to fix next.",
+    value:
+      "Translates crawl output into strategy guidance for content, technical SEO, and AI-readiness.",
+    requiresCrawl: true,
+  },
+};
+
+function visibilityNextStepRecommendation(context: {
+  hasCompletedCrawl: boolean;
+  automationConfigured: boolean;
+  issueCount: number;
+}): {
+  title: string;
+  description: string;
+  actionLabel: string;
+  action: VisibilityGuidanceAction;
+} {
+  if (!context.hasCompletedCrawl) {
+    return {
+      title: "Run baseline crawl to unlock AI Analysis",
+      description:
+        "Start with one crawl so AI Analysis can generate insight-driven recommendations.",
+      actionLabel: "Run crawl",
+      action: "run-crawl",
+    };
+  }
+
+  if (!context.automationConfigured) {
+    return {
+      title: "Enable recurring monitoring defaults",
+      description:
+        "Set crawl cadence and post-crawl automation so visibility updates happen without manual work.",
+      actionLabel: "Open defaults",
+      action: "open-automation-defaults",
+    };
+  }
+
+  if (context.issueCount > 0) {
+    return {
+      title: `Review AI Analysis for your ${context.issueCount} open issues`,
+      description:
+        "Use narrative insights to prioritize the highest-impact fixes before the next crawl cycle.",
+      actionLabel: "Open AI Analysis",
+      action: "open-ai-analysis",
+    };
+  }
+
+  return {
+    title: "Expand coverage with AI Visibility",
+    description:
+      "Benchmark brand mention rate across providers and convert uncovered opportunities into tracked keywords.",
+    actionLabel: "Open AI Visibility",
+    action: "open-ai-visibility",
+  };
+}
+
 function isVisibilityMode(tab: ProjectTab): tab is VisibilityMode {
   return (VISIBILITY_MODES as readonly string[]).includes(tab);
 }
@@ -493,6 +589,11 @@ export default function ProjectPage() {
   const automationConfigured =
     project?.settings?.schedule !== "manual" &&
     project?.pipelineSettings?.autoRunOnCrawl !== false;
+  const visibilityNextStep = visibilityNextStepRecommendation({
+    hasCompletedCrawl,
+    automationConfigured,
+    issueCount,
+  });
 
   async function handleStartCrawl() {
     setStartingCrawl(true);
@@ -529,6 +630,29 @@ export default function ProjectPage() {
     nextParams.set("configure", "crawl-defaults");
     router.push(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
   }, [params.id, router, searchParams]);
+
+  const handleVisibilityGuidanceAction = useCallback(
+    (action: VisibilityGuidanceAction) => {
+      switch (action) {
+        case "open-search-visibility":
+          handleVisibilityModeChange("visibility");
+          return;
+        case "open-ai-visibility":
+          handleVisibilityModeChange("ai-visibility");
+          return;
+        case "open-ai-analysis":
+          handleVisibilityModeChange("ai-analysis");
+          return;
+        case "open-automation-defaults":
+          openAutomationDefaults();
+          return;
+        case "run-crawl":
+          void handleStartCrawl();
+          return;
+      }
+    },
+    [handleStartCrawl, handleVisibilityModeChange, openAutomationDefaults],
+  );
 
   if (projectLoading) {
     return (
@@ -805,40 +929,134 @@ export default function ProjectPage() {
                     presence, and analysis insights.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleVisibilityModeChange("visibility")}
-                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                      visibilityMode === "visibility"
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    Search Visibility
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVisibilityModeChange("ai-visibility")}
-                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                      visibilityMode === "ai-visibility"
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    AI Visibility
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVisibilityModeChange("ai-analysis")}
-                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                      visibilityMode === "ai-analysis"
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    AI Analysis
-                  </button>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleVisibilityModeChange("visibility")}
+                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                        visibilityMode === "visibility"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      Search Visibility
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleVisibilityModeChange("ai-visibility")
+                      }
+                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                        visibilityMode === "ai-visibility"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      AI Visibility
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleVisibilityModeChange("ai-analysis")}
+                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                        visibilityMode === "ai-analysis"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      AI Analysis
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        Recommended next step: {visibilityNextStep.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {visibilityNextStep.description}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        handleVisibilityGuidanceAction(
+                          visibilityNextStep.action,
+                        )
+                      }
+                    >
+                      {visibilityNextStep.actionLabel}
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-3 xl:grid-cols-3">
+                    {VISIBILITY_GUIDANCE_ORDER.map((mode) => {
+                      const modeGuide = VISIBILITY_MODE_GUIDANCE[mode];
+                      const isActiveMode = visibilityMode === mode;
+                      const needsCrawl =
+                        modeGuide.requiresCrawl === true && !hasCompletedCrawl;
+
+                      return (
+                        <div
+                          key={mode}
+                          className={`rounded-lg border p-3 ${
+                            isActiveMode
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium">
+                              {modeGuide.label}
+                            </p>
+                            {isActiveMode && <Badge>Active</Badge>}
+                            {!isActiveMode && needsCrawl && (
+                              <Badge variant="secondary">Needs crawl</Badge>
+                            )}
+                          </div>
+
+                          <div className="mt-3 space-y-2">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Use when
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {modeGuide.whenToUse}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Value
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {modeGuide.value}
+                              </p>
+                            </div>
+                          </div>
+
+                          <Button
+                            className="mt-3"
+                            size="sm"
+                            variant={isActiveMode ? "secondary" : "outline"}
+                            disabled={isActiveMode}
+                            onClick={() => {
+                              if (needsCrawl) {
+                                handleVisibilityGuidanceAction("run-crawl");
+                                return;
+                              }
+                              handleVisibilityModeChange(mode);
+                            }}
+                          >
+                            {needsCrawl
+                              ? "Run crawl first"
+                              : isActiveMode
+                                ? "In use"
+                                : `Open ${modeGuide.label}`}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </CardContent>
               </Card>
 
