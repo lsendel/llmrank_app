@@ -61,6 +61,11 @@ import {
   projectTabLabel,
   type LastProjectContext,
 } from "@/lib/workflow-memory";
+import {
+  defaultProjectsViewPresetFromPersona,
+  normalizeProjectsViewPreset,
+  shouldSyncProjectsViewPreset,
+} from "@/lib/projects-view-preset";
 
 const PROJECTS_PER_PAGE = 12;
 
@@ -212,19 +217,6 @@ const DEFAULT_PRESET_STORAGE_KEY = "projects-default-view-preset";
 const PROJECTS_LAST_VISIT_STORAGE_KEY = "projects-last-visit-at";
 const STALE_CRAWL_THRESHOLD_DAYS = 14;
 
-function isViewPreset(value: string | null | undefined): value is ViewPreset {
-  if (!value) return false;
-  return value in VIEW_PRESETS;
-}
-
-function defaultPresetFromPersona(_persona?: string | null): ViewPreset {
-  // Always default to "exec_summary" (health: all, sort: activity_desc) so
-  // that every project is visible on first visit.  Users who want a filtered
-  // default can save one via the "Set As Default View" button, which is
-  // persisted server-side and takes priority over this fallback.
-  return "exec_summary";
-}
-
 function gradeBadgeVariant(
   score: number,
 ): "success" | "warning" | "destructive" {
@@ -364,6 +356,7 @@ export default function ProjectsPage() {
     getLastProjectContext(),
   );
   const hasBootstrappedPreset = useRef(false);
+  const hasSyncedLegacyDefaultPreset = useRef(false);
 
   const updateParams = useCallback(
     (changes: {
@@ -445,19 +438,66 @@ export default function ProjectsPage() {
   }, [healthFilter, sortBy]);
 
   const defaultPreset = useMemo(() => {
-    const serverPreset = isViewPreset(
+    const serverPreset = normalizeProjectsViewPreset(
       accountPreferences?.projectsDefaultPreset ?? null,
-    )
-      ? accountPreferences?.projectsDefaultPreset
-      : null;
+    );
     if (serverPreset) return serverPreset;
 
     if (typeof window === "undefined") return null;
-    const stored = localStorage.getItem(DEFAULT_PRESET_STORAGE_KEY);
-    if (isViewPreset(stored)) return stored;
+    const localPreset = normalizeProjectsViewPreset(
+      localStorage.getItem(DEFAULT_PRESET_STORAGE_KEY),
+    );
+    if (localPreset) return localPreset;
 
-    return defaultPresetFromPersona(accountMe?.persona);
+    return defaultProjectsViewPresetFromPersona(accountMe?.persona);
   }, [accountMe?.persona, accountPreferences?.projectsDefaultPreset]);
+
+  useEffect(() => {
+    if (accountPreferencesLoading || typeof window === "undefined") return;
+    const serverPreset = normalizeProjectsViewPreset(
+      accountPreferences?.projectsDefaultPreset ?? null,
+    );
+    if (!serverPreset) return;
+    localStorage.setItem(DEFAULT_PRESET_STORAGE_KEY, serverPreset);
+  }, [accountPreferencesLoading, accountPreferences?.projectsDefaultPreset]);
+
+  useEffect(() => {
+    if (hasSyncedLegacyDefaultPreset.current) return;
+    if (accountPreferencesLoading || typeof window === "undefined") return;
+
+    const serverPreset = normalizeProjectsViewPreset(
+      accountPreferences?.projectsDefaultPreset ?? null,
+    );
+    const localPreset = normalizeProjectsViewPreset(
+      localStorage.getItem(DEFAULT_PRESET_STORAGE_KEY),
+    );
+
+    if (
+      !shouldSyncProjectsViewPreset({
+        serverPreset,
+        localPreset,
+      })
+    ) {
+      hasSyncedLegacyDefaultPreset.current = true;
+      return;
+    }
+
+    hasSyncedLegacyDefaultPreset.current = true;
+    void (async () => {
+      try {
+        const updated = await api.account.updatePreferences({
+          projectsDefaultPreset: localPreset as ProjectsDefaultPreset,
+        });
+        await mutateAccountPreferences(updated, { revalidate: false });
+      } catch {
+        // Keep local default in place when server sync is unavailable.
+      }
+    })();
+  }, [
+    accountPreferencesLoading,
+    accountPreferences?.projectsDefaultPreset,
+    mutateAccountPreferences,
+  ]);
 
   const applyPreset = useCallback(
     (preset: ViewPreset) => {

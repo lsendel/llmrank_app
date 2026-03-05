@@ -180,3 +180,4 @@ This pass prioritizes high-leverage UX changes that are low-risk to backend beha
 - No schema changes required.
 - Existing defaults helper reused instead of introducing divergent setup logic.
 - Deep links preserved; new workspace layer wraps existing tab architecture.
+- Post-P2 hardening: projects default-view preset now auto-syncs from legacy browser storage to account preferences and mirrors server preference back to local storage for cross-device consistency.
