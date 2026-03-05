@@ -150,6 +150,13 @@ Progress update (same day):
 2. Advanced role/persona personalization across navigation and card ordering.
 3. Progressive disclosure for advanced controls in low-frequency settings.
 
+Progress update (2026-03-05):
+
+- Item 1 is now implemented:
+  - added authenticated Playwright lifecycle journey coverage in `apps/web/e2e/journeys.spec.ts`
+  - coverage validates scan -> workspace creation from scan -> defaults API orchestration -> first crawl trigger -> actions workspace -> automation run trigger
+  - test now asserts key workflow API requests so orchestration regressions are caught early
+
 ## Execution Notes
 
 This pass prioritizes high-leverage UX changes that are low-risk to backend behavior:
