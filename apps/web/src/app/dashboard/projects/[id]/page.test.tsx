@@ -6,10 +6,12 @@ const {
   mockPush,
   mockReplace,
   searchParamState,
+  firstSevenDaysState,
   mockSearchParamsGet,
   mockSearchParamsToString,
 } = vi.hoisted(() => {
   const state = { tab: "overview" };
+  const firstSevenDays = { issueCount: 0, actionItemTotal: 0 };
   const getMock = vi.fn((key: string) => {
     if (key === "tab") return state.tab;
     return null;
@@ -19,6 +21,7 @@ const {
     mockPush: vi.fn(),
     mockReplace: vi.fn(),
     searchParamState: state,
+    firstSevenDaysState: firstSevenDays,
     mockSearchParamsGet: getMock,
     mockSearchParamsToString: toStringMock,
   };
@@ -67,6 +70,30 @@ vi.mock("@/lib/use-api-swr", () => ({
     if (key.includes("crawls-by-project")) {
       return { data: [], isLoading: false };
     }
+    if (key.includes("issues-")) {
+      return {
+        data: {
+          data: Array.from({ length: firstSevenDaysState.issueCount }).map(
+            (_, index) => ({ id: `issue-${index}` }),
+          ),
+        },
+        isLoading: false,
+      };
+    }
+    if (key.includes("action-items-stats-")) {
+      const total = firstSevenDaysState.actionItemTotal;
+      return {
+        data: {
+          total,
+          fixed: 0,
+          inProgress: total,
+          dismissed: 0,
+          pending: 0,
+          fixRate: 0,
+        },
+        isLoading: false,
+      };
+    }
     // Mock insights/progress/etc if needed, or return null
     return { data: null, isLoading: false };
   },
@@ -97,6 +124,8 @@ describe("Project Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchParamState.tab = "overview";
+    firstSevenDaysState.issueCount = 0;
+    firstSevenDaysState.actionItemTotal = 0;
   });
 
   it("renders project name and domain", async () => {
@@ -157,5 +186,32 @@ describe("Project Page", () => {
     expect(
       screen.getByText(/You need weekly share-of-voice/i),
     ).toBeInTheDocument();
+  });
+
+  it("shows first-week progress and recommends issue triage before action plan creation", async () => {
+    firstSevenDaysState.issueCount = 3;
+    render(<ProjectPage />);
+
+    expect(
+      await screen.findByText(/Progress: 2\/4 milestones completed/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Recommended next step: Triage issue backlog \(3\)/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Open issues" }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("marks issues milestone complete when action plan exists", async () => {
+    firstSevenDaysState.issueCount = 3;
+    firstSevenDaysState.actionItemTotal = 2;
+    render(<ProjectPage />);
+
+    expect(await screen.findByText(/Action plan created \(2\)/i)).toBeVisible();
+    expect(
+      screen.getByText(/Progress: 3\/4 milestones completed/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open actions" })).toBeVisible();
   });
 });

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Card,
   CardContent,
@@ -588,8 +589,14 @@ export default function ProjectPage() {
       [selectedCrawlId],
     ),
   );
+  const { data: actionItemStats } = useApiSWR(
+    `action-items-stats-${params.id}`,
+    useCallback(() => api.actionItems.stats(params.id), [params.id]),
+  );
   const issueCount = issuesData?.data?.length ?? 0;
   const hasIssueBacklog = issueCount > 0;
+  const actionPlanCount = actionItemStats?.total ?? 0;
+  const hasActionPlan = actionPlanCount > 0;
   const hasCompletedCrawl = !!latestCrawlId;
   const automationConfigured =
     project?.settings?.schedule !== "manual" &&
@@ -695,15 +702,19 @@ export default function ProjectPage() {
     },
     issues: {
       id: "issues",
-      title: hasIssueBacklog
-        ? `Issue backlog ready (${issueCount})`
-        : "Review issue backlog",
-      description: hasIssueBacklog
-        ? "Prioritize high-impact fixes and convert them into action items."
-        : "No issues detected yet. Re-run after major site updates.",
-      done: hasIssueBacklog,
-      ctaLabel: "Open issues",
-      action: () => setProjectTab("issues"),
+      title: hasActionPlan
+        ? `Action plan created (${actionPlanCount})`
+        : hasIssueBacklog
+          ? `Triage issue backlog (${issueCount})`
+          : "Review issue backlog",
+      description: hasActionPlan
+        ? "Action items are ready. Keep execution moving from the Actions workspace."
+        : hasIssueBacklog
+          ? "Prioritize high-impact fixes and convert them into action items."
+          : "No issues detected yet. Re-run after major site updates.",
+      done: hasActionPlan,
+      ctaLabel: hasActionPlan ? "Open actions" : "Open issues",
+      action: () => setProjectTab(hasActionPlan ? "actions" : "issues"),
     },
     automation: {
       id: "automation",
@@ -729,6 +740,17 @@ export default function ProjectPage() {
   };
   const orderedFirstSevenDaysSteps = firstSevenDaysOrder.map(
     (id) => firstSevenDaysSteps[id],
+  );
+  const firstSevenDaysCompleted = orderedFirstSevenDaysSteps.filter(
+    (step) => step.done,
+  ).length;
+  const firstSevenDaysTotal = orderedFirstSevenDaysSteps.length;
+  const firstSevenDaysCompletionPercent =
+    firstSevenDaysTotal > 0
+      ? Math.round((firstSevenDaysCompleted / firstSevenDaysTotal) * 100)
+      : 0;
+  const firstSevenDaysNextStep = orderedFirstSevenDaysSteps.find(
+    (step) => !step.done,
   );
 
   if (projectLoading) {
@@ -870,6 +892,40 @@ export default function ProjectPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    Progress: {firstSevenDaysCompleted}/{firstSevenDaysTotal}{" "}
+                    milestones completed
+                  </p>
+                  <Badge variant="secondary">
+                    {firstSevenDaysCompletionPercent}% complete
+                  </Badge>
+                </div>
+                <Progress
+                  value={firstSevenDaysCompletionPercent}
+                  className="h-2"
+                />
+                {firstSevenDaysNextStep ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-2">
+                    <p className="text-xs text-muted-foreground">
+                      Recommended next step: {firstSevenDaysNextStep.title}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={firstSevenDaysNextStep.action}
+                    >
+                      {firstSevenDaysNextStep.ctaLabel}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    All onboarding milestones are complete. Continue with
+                    recurring optimization workflows.
+                  </p>
+                )}
+              </div>
               {orderedFirstSevenDaysSteps.map((step) => (
                 <div
                   key={step.id}

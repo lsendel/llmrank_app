@@ -131,6 +131,10 @@ Exposure gap summary:
 
 Progress update (same day):
 
+- Item 1 is now implemented:
+  - "First 7 days plan" now includes completion progress, next-step recommendation, and one-click CTA handoff
+  - issue milestone completion now reflects action-plan creation (`/api/action-items/stats`) instead of backlog presence only
+  - rail keeps persona-aware ordering while improving execution guidance quality for early project adoption
 - Item 2 is now implemented:
   - project workspace writes last active project+tab context
   - dashboard shows a "Continue where you left off" resume card
