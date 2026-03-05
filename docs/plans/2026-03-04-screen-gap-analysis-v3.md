@@ -167,6 +167,7 @@ Progress update (2026-03-05):
   - core high-frequency actions remain visible to reduce setup friction
   - added authenticated e2e journey coverage for advanced panel toggles in `apps/web/e2e/journeys.spec.ts` (including mobile viewport verification)
   - added component-level UI tests for advanced panel defaults/toggles in crawl, scoring, and site-context settings
+  - CI now includes explicit PR guardrail steps for settings disclosure tests and journey spec discovery in `.github/workflows/ci.yml`
 
 ## Execution Notes
 
