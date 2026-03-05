@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   BarChart3,
   FileText,
@@ -18,6 +19,12 @@ import {
   Zap,
 } from "lucide-react";
 import type { ProjectTab } from "@/app/dashboard/projects/[id]/tab-state";
+import type { ProjectTabGroup } from "@/app/dashboard/projects/[id]/tab-state";
+import {
+  resolveProjectGroupOrder,
+  resolveProjectTabOrder,
+  type PersonalizationContext,
+} from "@/lib/personalization-layout";
 
 type NavItem = {
   tab: ProjectTab;
@@ -26,12 +33,14 @@ type NavItem = {
 };
 
 type NavGroup = {
+  id: ProjectTabGroup;
   label: string;
   items: NavItem[];
 };
 
 const NAV_GROUPS: NavGroup[] = [
   {
+    id: "analyze",
     label: "Analyze",
     items: [
       { tab: "overview", label: "Overview", icon: BarChart3 },
@@ -42,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "grow-visibility",
     label: "Grow Visibility",
     items: [
       { tab: "strategy", label: "Strategy", icon: Compass },
@@ -52,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "automate-operate",
     label: "Automate & Operate",
     items: [
       { tab: "integrations", label: "Integrations", icon: Plug },
@@ -61,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "configure",
     label: "Configure",
     items: [{ tab: "settings", label: "Settings", icon: Settings }],
   },
@@ -71,6 +83,7 @@ interface ProjectSidebarProps {
   domain: string;
   currentTab: ProjectTab;
   onTabChange: (tab: ProjectTab) => void;
+  personalizationContext?: PersonalizationContext;
 }
 
 function isVisibilityTab(tab: ProjectTab): boolean {
@@ -84,7 +97,29 @@ export function ProjectSidebar({
   domain,
   currentTab,
   onTabChange,
+  personalizationContext,
 }: ProjectSidebarProps) {
+  const orderedGroups = useMemo(() => {
+    const groupsById = new Map(NAV_GROUPS.map((group) => [group.id, group]));
+
+    return resolveProjectGroupOrder(personalizationContext)
+      .map((groupId) => groupsById.get(groupId))
+      .filter((group): group is NavGroup => Boolean(group))
+      .map((group) => {
+        const tabs = resolveProjectTabOrder(
+          group.items.map((item) => item.tab),
+          personalizationContext,
+        );
+        const itemsByTab = new Map(group.items.map((item) => [item.tab, item]));
+        return {
+          ...group,
+          items: tabs
+            .map((tab) => itemsByTab.get(tab))
+            .filter((item): item is NavItem => Boolean(item)),
+        };
+      });
+  }, [personalizationContext]);
+
   return (
     <aside className="hidden w-56 flex-shrink-0 border-r border-sidebar-border md:block">
       {/* Project header */}
@@ -97,8 +132,8 @@ export function ProjectSidebar({
 
       {/* Nav groups */}
       <nav className="flex flex-col gap-1 p-3">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label}>
+        {orderedGroups.map((group) => (
+          <div key={group.id}>
             <p className="mb-1 mt-3 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground first:mt-0">
               {group.label}
             </p>

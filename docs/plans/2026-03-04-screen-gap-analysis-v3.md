@@ -156,6 +156,11 @@ Progress update (2026-03-05):
   - added authenticated Playwright lifecycle journey coverage in `apps/web/e2e/journeys.spec.ts`
   - coverage validates scan -> workspace creation from scan -> defaults API orchestration -> first crawl trigger -> actions workspace -> automation run trigger
   - test now asserts key workflow API requests so orchestration regressions are caught early
+- Item 2 is now implemented:
+  - added shared persona/admin personalization layout rules in `apps/web/src/lib/personalization-layout.ts`
+  - project sidebar + mobile navigation now adapt tab/group ordering by persona and admin role context
+  - project workspace "First 7 days plan" card sequence is now persona-aware
+  - dashboard quick-tool card order now adapts by persona/admin context
 
 ## Execution Notes
 

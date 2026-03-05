@@ -54,6 +54,11 @@ import {
 } from "./tab-state";
 import { saveLastProjectContext } from "@/lib/workflow-memory";
 import {
+  resolveFirstSevenDaysOrder,
+  type FirstSevenDaysStepId,
+  type PersonalizationContext,
+} from "@/lib/personalization-layout";
+import {
   normalizeConfigureSection,
   type ConfigureSection,
 } from "./configure-state";
@@ -594,8 +599,19 @@ export default function ProjectPage() {
     automationConfigured,
     issueCount,
   });
+  const { data: accountMe } = useApiSWR(
+    "account-me",
+    useCallback(() => api.account.getMe(), []),
+  );
+  const personalizationContext: PersonalizationContext = {
+    persona: accountMe?.persona ?? null,
+    isAdmin: accountMe?.isAdmin ?? false,
+  };
+  const firstSevenDaysOrder = resolveFirstSevenDaysOrder(
+    personalizationContext,
+  );
 
-  async function handleStartCrawl() {
+  const handleStartCrawl = useCallback(async () => {
     setStartingCrawl(true);
     setCrawlError(null);
     try {
@@ -622,7 +638,7 @@ export default function ProjectPage() {
       }
       setStartingCrawl(false);
     }
-  }
+  }, [params.id, router, withAuth]);
 
   const openAutomationDefaults = useCallback(() => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -652,6 +668,67 @@ export default function ProjectPage() {
       }
     },
     [handleStartCrawl, handleVisibilityModeChange, openAutomationDefaults],
+  );
+  const firstSevenDaysSteps: Record<
+    FirstSevenDaysStepId,
+    {
+      id: FirstSevenDaysStepId;
+      title: string;
+      description: string;
+      done: boolean;
+      ctaLabel: string;
+      action: () => void;
+    }
+  > = {
+    crawl: {
+      id: "crawl",
+      title: hasCompletedCrawl
+        ? "Baseline crawl completed"
+        : "Run baseline crawl",
+      description: hasCompletedCrawl
+        ? "Baseline scoring is available. Review crawl history and compare deltas."
+        : "Start your first crawl to generate score baselines and issue detection.",
+      done: hasCompletedCrawl,
+      ctaLabel: hasCompletedCrawl ? "Open history" : "Run crawl",
+      action: () =>
+        hasCompletedCrawl ? setProjectTab("history") : handleStartCrawl(),
+    },
+    issues: {
+      id: "issues",
+      title: hasIssueBacklog
+        ? `Issue backlog ready (${issueCount})`
+        : "Review issue backlog",
+      description: hasIssueBacklog
+        ? "Prioritize high-impact fixes and convert them into action items."
+        : "No issues detected yet. Re-run after major site updates.",
+      done: hasIssueBacklog,
+      ctaLabel: "Open issues",
+      action: () => setProjectTab("issues"),
+    },
+    automation: {
+      id: "automation",
+      title: automationConfigured
+        ? "Automation defaults configured"
+        : "Configure automation defaults",
+      description: automationConfigured
+        ? "Recurring crawl cadence and post-crawl automation are active."
+        : "Set crawl cadence and automation defaults to reduce manual follow-up.",
+      done: automationConfigured,
+      ctaLabel: "Open settings",
+      action: () => openAutomationDefaults(),
+    },
+    visibility: {
+      id: "visibility",
+      title: "Start visibility monitoring",
+      description:
+        "Track Search Visibility, AI Visibility, and AI Analysis in one workspace.",
+      done: isVisibilityMode(currentTab),
+      ctaLabel: "Open visibility",
+      action: () => setProjectTab("visibility"),
+    },
+  };
+  const orderedFirstSevenDaysSteps = firstSevenDaysOrder.map(
+    (id) => firstSevenDaysSteps[id],
   );
 
   if (projectLoading) {
@@ -729,7 +806,11 @@ export default function ProjectPage() {
       </div>
 
       {/* Mobile nav (visible below md) */}
-      <ProjectMobileNav currentTab={currentTab} onTabChange={handleTabChange} />
+      <ProjectMobileNav
+        currentTab={currentTab}
+        onTabChange={handleTabChange}
+        personalizationContext={personalizationContext}
+      />
 
       {/* Sidebar + Content */}
       <div className="flex">
@@ -738,6 +819,7 @@ export default function ProjectPage() {
           domain={normalizeDomain(project.domain)}
           currentTab={currentTab}
           onTabChange={handleTabChange}
+          personalizationContext={personalizationContext}
         />
 
         {/* Content area */}
@@ -788,56 +870,7 @@ export default function ProjectPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {[
-                {
-                  id: "crawl",
-                  title: hasCompletedCrawl
-                    ? "Baseline crawl completed"
-                    : "Run baseline crawl",
-                  description: hasCompletedCrawl
-                    ? "Baseline scoring is available. Review crawl history and compare deltas."
-                    : "Start your first crawl to generate score baselines and issue detection.",
-                  done: hasCompletedCrawl,
-                  ctaLabel: hasCompletedCrawl ? "Open history" : "Run crawl",
-                  action: () =>
-                    hasCompletedCrawl
-                      ? setProjectTab("history")
-                      : handleStartCrawl(),
-                },
-                {
-                  id: "issues",
-                  title: hasIssueBacklog
-                    ? `Issue backlog ready (${issueCount})`
-                    : "Review issue backlog",
-                  description: hasIssueBacklog
-                    ? "Prioritize high-impact fixes and convert them into action items."
-                    : "No issues detected yet. Re-run after major site updates.",
-                  done: hasIssueBacklog,
-                  ctaLabel: "Open issues",
-                  action: () => setProjectTab("issues"),
-                },
-                {
-                  id: "automation",
-                  title: automationConfigured
-                    ? "Automation defaults configured"
-                    : "Configure automation defaults",
-                  description: automationConfigured
-                    ? "Recurring crawl cadence and post-crawl automation are active."
-                    : "Set crawl cadence and automation defaults to reduce manual follow-up.",
-                  done: automationConfigured,
-                  ctaLabel: "Open settings",
-                  action: () => openAutomationDefaults(),
-                },
-                {
-                  id: "visibility",
-                  title: "Start visibility monitoring",
-                  description:
-                    "Track Search Visibility, AI Visibility, and AI Analysis in one workspace.",
-                  done: isVisibilityMode(currentTab),
-                  ctaLabel: "Open visibility",
-                  action: () => setProjectTab("visibility"),
-                },
-              ].map((step) => (
+              {orderedFirstSevenDaysSteps.map((step) => (
                 <div
                   key={step.id}
                   className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3"

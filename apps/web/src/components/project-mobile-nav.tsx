@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   BarChart3,
   FileText,
@@ -18,6 +19,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { ProjectTab } from "@/app/dashboard/projects/[id]/tab-state";
+import {
+  resolveProjectTabOrder,
+  type PersonalizationContext,
+} from "@/lib/personalization-layout";
 
 type NavItem = {
   tab: ProjectTab;
@@ -46,6 +51,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
 interface ProjectMobileNavProps {
   currentTab: ProjectTab;
   onTabChange: (tab: ProjectTab) => void;
+  personalizationContext?: PersonalizationContext;
 }
 
 function isVisibilityTab(tab: ProjectTab): boolean {
@@ -57,11 +63,23 @@ function isVisibilityTab(tab: ProjectTab): boolean {
 export function ProjectMobileNav({
   currentTab,
   onTabChange,
+  personalizationContext,
 }: ProjectMobileNavProps) {
+  const orderedItems = useMemo(() => {
+    const tabs = resolveProjectTabOrder(
+      ALL_NAV_ITEMS.map((item) => item.tab),
+      personalizationContext,
+    );
+    const byTab = new Map(ALL_NAV_ITEMS.map((item) => [item.tab, item]));
+    return tabs
+      .map((tab) => byTab.get(tab))
+      .filter((item): item is NavItem => Boolean(item));
+  }, [personalizationContext]);
+
   return (
     <nav className="border-b border-border px-4 py-2 md:hidden">
       <div className="flex items-center gap-2 overflow-x-auto">
-        {ALL_NAV_ITEMS.map((item) => {
+        {orderedItems.map((item) => {
           const Icon = item.icon;
           const isActive =
             item.tab === "visibility"

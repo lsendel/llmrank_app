@@ -52,6 +52,10 @@ import {
   projectTabLabel,
   type LastProjectContext,
 } from "@/lib/workflow-memory";
+import {
+  resolveDashboardQuickToolOrder,
+  type DashboardQuickToolId,
+} from "@/lib/personalization-layout";
 
 function formatDashboardDelta(delta: number) {
   if (delta > 0)
@@ -67,6 +71,34 @@ const pillarLabels: Record<string, string> = {
   ai_readiness: "AI Readiness",
 };
 const DASHBOARD_LAST_VISIT_KEY = "dashboard.last_visit_at";
+const QUICK_TOOL_META: Record<
+  DashboardQuickToolId,
+  {
+    title: string;
+    description: string;
+    tab: "strategy" | "competitors" | "visibility";
+    icon: typeof Compass;
+  }
+> = {
+  strategy_personas: {
+    title: "Strategy & Personas",
+    description: "Define your target audience and generate content briefs.",
+    tab: "strategy",
+    icon: Compass,
+  },
+  competitor_tracking: {
+    title: "Competitor Tracking",
+    description: "Monitor how you stack up against your top 5 competitors.",
+    tab: "competitors",
+    icon: Trophy,
+  },
+  ai_visibility: {
+    title: "AI Visibility",
+    description: "Check if your brand is mentioned by major AI models.",
+    tab: "visibility",
+    icon: Eye,
+  },
+};
 
 function activityTimestamp(item: {
   completedAt: string | null;
@@ -134,6 +166,7 @@ export default function DashboardPage() {
   const [personaDismissed, setPersonaDismissed] = useState(false);
   const [accountData, setAccountData] = useState<{
     persona: string | null;
+    isAdmin: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -155,6 +188,10 @@ export default function DashboardPage() {
   const { widgetOrder, isPersonalized } = usePersonaLayout(
     accountData?.persona,
   );
+  const quickToolOrder = resolveDashboardQuickToolOrder({
+    persona: accountData?.persona,
+    isAdmin: accountData?.isAdmin ?? false,
+  });
 
   // Track dashboard load with persona context
   useEffect(() => {
@@ -346,59 +383,32 @@ export default function DashboardPage() {
       {/* Quick Tools */}
       {stats.totalProjects > 0 && activity && activity.length > 0 && (
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className="hover:bg-accent/5 transition-colors">
-            <Link
-              href={`/dashboard/projects/${activity[0].projectId}?tab=strategy`}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Compass className="h-4 w-4 text-primary" />
-                  Strategy & Personas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Define your target audience and generate content briefs.
-                </p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="hover:bg-accent/5 transition-colors">
-            <Link
-              href={`/dashboard/projects/${activity[0].projectId}?tab=competitors`}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-primary" />
-                  Competitor Tracking
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Monitor how you stack up against your top 5 competitors.
-                </p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="hover:bg-accent/5 transition-colors">
-            <Link
-              href={`/dashboard/projects/${activity[0].projectId}?tab=visibility`}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Eye className="h-4 w-4 text-primary" />
-                  AI Visibility
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Check if your brand is mentioned by major AI models.
-                </p>
-              </CardContent>
-            </Link>
-          </Card>
+          {quickToolOrder.map((toolId) => {
+            const meta = QUICK_TOOL_META[toolId];
+            const Icon = meta.icon;
+            return (
+              <Card
+                key={toolId}
+                className="hover:bg-accent/5 transition-colors"
+              >
+                <Link
+                  href={`/dashboard/projects/${activity[0].projectId}?tab=${meta.tab}`}
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Icon className="h-4 w-4 text-primary" />
+                      {meta.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      {meta.description}
+                    </p>
+                  </CardContent>
+                </Link>
+              </Card>
+            );
+          })}
         </div>
       )}
 
