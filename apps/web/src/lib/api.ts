@@ -39,8 +39,17 @@ export type ProjectsDefaultPreset =
   | "content_lead"
   | "exec_summary";
 
+export interface AccountLastProjectContext {
+  projectId: string;
+  tab: string;
+  projectName: string | null;
+  domain: string | null;
+  visitedAt: string;
+}
+
 export interface AccountPreferences {
   projectsDefaultPreset: ProjectsDefaultPreset | null;
+  lastProjectContext: AccountLastProjectContext | null;
 }
 
 export interface ExtractedFact {

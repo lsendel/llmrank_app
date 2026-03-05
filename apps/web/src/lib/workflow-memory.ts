@@ -30,30 +30,55 @@ const PROJECT_TAB_LABELS: Record<ProjectTab, string> = {
   settings: "Settings",
 };
 
+function contextTimestamp(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export function normalizeLastProjectContext(
+  value: unknown,
+): LastProjectContext | null {
+  if (!value || typeof value !== "object") return null;
+  const parsed = value as Partial<LastProjectContext>;
+  if (typeof parsed.projectId !== "string" || parsed.projectId.length === 0) {
+    return null;
+  }
+  if (typeof parsed.tab !== "string" || !(parsed.tab in PROJECT_TAB_LABELS)) {
+    return null;
+  }
+  if (typeof parsed.visitedAt !== "string" || parsed.visitedAt.length === 0) {
+    return null;
+  }
+  return {
+    projectId: parsed.projectId,
+    tab: parsed.tab as ProjectTab,
+    projectName:
+      typeof parsed.projectName === "string" ? parsed.projectName : null,
+    domain: typeof parsed.domain === "string" ? parsed.domain : null,
+    visitedAt: parsed.visitedAt,
+  };
+}
+
 function parseContext(raw: string | null): LastProjectContext | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<LastProjectContext>;
-    if (!parsed || typeof parsed !== "object") return null;
-    if (typeof parsed.projectId !== "string" || parsed.projectId.length === 0) {
-      return null;
-    }
-    if (typeof parsed.tab !== "string") return null;
-    if (!(parsed.tab in PROJECT_TAB_LABELS)) return null;
-    if (typeof parsed.visitedAt !== "string" || parsed.visitedAt.length === 0) {
-      return null;
-    }
-    return {
-      projectId: parsed.projectId,
-      tab: parsed.tab as ProjectTab,
-      projectName:
-        typeof parsed.projectName === "string" ? parsed.projectName : null,
-      domain: typeof parsed.domain === "string" ? parsed.domain : null,
-      visitedAt: parsed.visitedAt,
-    };
+    return normalizeLastProjectContext(JSON.parse(raw));
   } catch {
     return null;
   }
+}
+
+export function pickMostRecentProjectContext(
+  contexts: Array<LastProjectContext | null | undefined>,
+): LastProjectContext | null {
+  return contexts.reduce<LastProjectContext | null>((latest, current) => {
+    if (!current) return latest;
+    if (!latest) return current;
+    return contextTimestamp(current.visitedAt) >=
+      contextTimestamp(latest.visitedAt)
+      ? current
+      : latest;
+  }, null);
 }
 
 export function getLastProjectContext(): LastProjectContext | null {
@@ -66,6 +91,7 @@ export function saveLastProjectContext(input: {
   tab: ProjectTab;
   projectName?: string | null;
   domain?: string | null;
+  visitedAt?: string | null;
 }) {
   if (typeof window === "undefined") return;
   const next: LastProjectContext = {
@@ -73,7 +99,10 @@ export function saveLastProjectContext(input: {
     tab: input.tab,
     projectName: input.projectName ?? null,
     domain: input.domain ?? null,
-    visitedAt: new Date().toISOString(),
+    visitedAt:
+      typeof input.visitedAt === "string" && input.visitedAt.length > 0
+        ? input.visitedAt
+        : new Date().toISOString(),
   };
   window.localStorage.setItem(LAST_PROJECT_CONTEXT_KEY, JSON.stringify(next));
 }

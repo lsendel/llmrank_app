@@ -18,9 +18,38 @@ const PROJECT_DEFAULT_PRESET_VALUES = [
   "exec_summary",
 ] as const;
 type ProjectDefaultPreset = (typeof PROJECT_DEFAULT_PRESET_VALUES)[number];
+const PROJECT_TAB_VALUES = [
+  "overview",
+  "actions",
+  "pages",
+  "issues",
+  "history",
+  "strategy",
+  "competitors",
+  "ai-visibility",
+  "ai-analysis",
+  "visibility",
+  "personas",
+  "keywords",
+  "integrations",
+  "reports",
+  "automation",
+  "logs",
+  "settings",
+] as const;
+type ProjectTab = (typeof PROJECT_TAB_VALUES)[number];
+
+type AccountLastProjectContext = {
+  projectId: string;
+  tab: ProjectTab;
+  projectName: string | null;
+  domain: string | null;
+  visitedAt: string;
+};
 
 type AccountPreferences = {
   projectsDefaultPreset: ProjectDefaultPreset | null;
+  lastProjectContext: AccountLastProjectContext | null;
 };
 
 function accountPreferencesKey(userId: string) {
@@ -41,17 +70,59 @@ function normalizeProjectDefaultPreset(
   return null;
 }
 
+function normalizeProjectTab(value: unknown): ProjectTab | null {
+  if (typeof value !== "string") return null;
+  if ((PROJECT_TAB_VALUES as readonly string[]).includes(value as string)) {
+    return value as ProjectTab;
+  }
+  return null;
+}
+
+function normalizeLastProjectContext(
+  value: unknown,
+): AccountLastProjectContext | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+
+  if (typeof raw.projectId !== "string" || raw.projectId.trim().length === 0) {
+    return null;
+  }
+  const tab = normalizeProjectTab(raw.tab);
+  if (!tab) return null;
+  if (
+    typeof raw.visitedAt !== "string" ||
+    raw.visitedAt.length === 0 ||
+    Number.isNaN(Date.parse(raw.visitedAt))
+  ) {
+    return null;
+  }
+
+  return {
+    projectId: raw.projectId,
+    tab,
+    projectName: typeof raw.projectName === "string" ? raw.projectName : null,
+    domain: typeof raw.domain === "string" ? raw.domain : null,
+    visitedAt: raw.visitedAt,
+  };
+}
+
 function parseAccountPreferences(raw: string | null): AccountPreferences {
-  if (!raw) return { projectsDefaultPreset: null };
+  if (!raw) return { projectsDefaultPreset: null, lastProjectContext: null };
   try {
-    const parsed = JSON.parse(raw) as { projectsDefaultPreset?: unknown };
+    const parsed = JSON.parse(raw) as {
+      projectsDefaultPreset?: unknown;
+      lastProjectContext?: unknown;
+    };
     return {
       projectsDefaultPreset: normalizeProjectDefaultPreset(
         parsed.projectsDefaultPreset,
       ),
+      lastProjectContext: normalizeLastProjectContext(
+        parsed.lastProjectContext,
+      ),
     };
   } catch {
-    return { projectsDefaultPreset: null };
+    return { projectsDefaultPreset: null, lastProjectContext: null };
   }
 }
 
@@ -324,37 +395,69 @@ accountRoutes.put("/preferences", async (c) => {
     );
   }
 
-  if (!("projectsDefaultPreset" in body)) {
+  const hasProjectsDefaultPreset = "projectsDefaultPreset" in body;
+  const hasLastProjectContext = "lastProjectContext" in body;
+  if (!hasProjectsDefaultPreset && !hasLastProjectContext) {
     return c.json(
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: "projectsDefaultPreset is required",
+          message:
+            "At least one preference field is required (projectsDefaultPreset or lastProjectContext)",
         },
       },
       422,
     );
   }
 
-  const nextPreset =
-    body.projectsDefaultPreset === null
-      ? null
-      : normalizeProjectDefaultPreset(body.projectsDefaultPreset);
+  const current = parseAccountPreferences(
+    await c.env.KV.get(accountPreferencesKey(userId)),
+  );
 
-  if (body.projectsDefaultPreset !== null && !nextPreset) {
-    return c.json(
-      {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: `projectsDefaultPreset must be one of: ${PROJECT_DEFAULT_PRESET_VALUES.join(", ")}, or null`,
+  let nextPreset = current.projectsDefaultPreset;
+  if (hasProjectsDefaultPreset) {
+    nextPreset =
+      body.projectsDefaultPreset === null
+        ? null
+        : normalizeProjectDefaultPreset(body.projectsDefaultPreset);
+
+    if (body.projectsDefaultPreset !== null && !nextPreset) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `projectsDefaultPreset must be one of: ${PROJECT_DEFAULT_PRESET_VALUES.join(", ")}, or null`,
+          },
         },
-      },
-      422,
-    );
+        422,
+      );
+    }
+  }
+
+  let nextLastProjectContext = current.lastProjectContext;
+  if (hasLastProjectContext) {
+    nextLastProjectContext =
+      body.lastProjectContext === null
+        ? null
+        : normalizeLastProjectContext(body.lastProjectContext);
+
+    if (body.lastProjectContext !== null && !nextLastProjectContext) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message:
+              "lastProjectContext must include projectId, tab, and ISO visitedAt",
+          },
+        },
+        422,
+      );
+    }
   }
 
   const next: AccountPreferences = {
     projectsDefaultPreset: nextPreset,
+    lastProjectContext: nextLastProjectContext,
   };
 
   await c.env.KV.put(accountPreferencesKey(userId), JSON.stringify(next));

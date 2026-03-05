@@ -171,7 +171,10 @@ describe("Account Routes", () => {
       const res = await request("/api/account/preferences");
       expect(res.status).toBe(200);
       const body: any = await res.json();
-      expect(body.data).toEqual({ projectsDefaultPreset: null });
+      expect(body.data).toEqual({
+        projectsDefaultPreset: null,
+        lastProjectContext: null,
+      });
     });
 
     it("persists and reads back projects default preset", async () => {
@@ -187,7 +190,10 @@ describe("Account Routes", () => {
       const get = await request("/api/account/preferences");
       expect(get.status).toBe(200);
       const body: any = await get.json();
-      expect(body.data).toEqual({ projectsDefaultPreset: "content_lead" });
+      expect(body.data).toEqual({
+        projectsDefaultPreset: "content_lead",
+        lastProjectContext: null,
+      });
     });
 
     it("accepts null to clear projects default preset", async () => {
@@ -203,7 +209,10 @@ describe("Account Routes", () => {
       expect(put.status).toBe(200);
 
       const body: any = await put.json();
-      expect(body.data).toEqual({ projectsDefaultPreset: null });
+      expect(body.data).toEqual({
+        projectsDefaultPreset: null,
+        lastProjectContext: null,
+      });
     });
 
     it("returns 422 for invalid preset value", async () => {
@@ -213,6 +222,80 @@ describe("Account Routes", () => {
       });
       expect(res.status).toBe(422);
 
+      const body: any = await res.json();
+      expect(body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("persists and reads back last project context", async () => {
+      const payload = {
+        projectId: "proj-99",
+        tab: "issues",
+        projectName: "Example",
+        domain: "example.com",
+        visitedAt: "2026-03-05T12:00:00.000Z",
+      };
+
+      const put = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { lastProjectContext: payload },
+      });
+      expect(put.status).toBe(200);
+
+      const body: any = await put.json();
+      expect(body.data).toEqual({
+        projectsDefaultPreset: null,
+        lastProjectContext: payload,
+      });
+
+      const get = await request("/api/account/preferences");
+      expect(get.status).toBe(200);
+      const fetched: any = await get.json();
+      expect(fetched.data).toEqual({
+        projectsDefaultPreset: null,
+        lastProjectContext: payload,
+      });
+    });
+
+    it("accepts null to clear last project context", async () => {
+      await kv.put(
+        "account:preferences:test-user-id",
+        JSON.stringify({
+          projectsDefaultPreset: "seo_manager",
+          lastProjectContext: {
+            projectId: "proj-77",
+            tab: "overview",
+            projectName: "Legacy",
+            domain: "legacy.com",
+            visitedAt: "2026-03-04T08:00:00.000Z",
+          },
+        }),
+      );
+
+      const put = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { lastProjectContext: null },
+      });
+      expect(put.status).toBe(200);
+
+      const body: any = await put.json();
+      expect(body.data).toEqual({
+        projectsDefaultPreset: "seo_manager",
+        lastProjectContext: null,
+      });
+    });
+
+    it("returns 422 for invalid last project context value", async () => {
+      const res = await request("/api/account/preferences", {
+        method: "PUT",
+        json: {
+          lastProjectContext: {
+            projectId: "proj-1",
+            tab: "not_a_tab",
+            visitedAt: "2026-03-05T12:00:00.000Z",
+          },
+        },
+      });
+      expect(res.status).toBe(422);
       const body: any = await res.json();
       expect(body.error.code).toBe("VALIDATION_ERROR");
     });

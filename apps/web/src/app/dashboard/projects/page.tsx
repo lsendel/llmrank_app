@@ -58,7 +58,10 @@ import { buildAnomalySmartFix } from "@/lib/anomaly-smart-fixes";
 import {
   getLastProjectContext,
   lastProjectContextHref,
+  normalizeLastProjectContext,
+  pickMostRecentProjectContext,
   projectTabLabel,
+  saveLastProjectContext,
   type LastProjectContext,
 } from "@/lib/workflow-memory";
 import {
@@ -352,11 +355,12 @@ export default function ProjectsPage() {
   const [bulkPlanningSmartFixes, setBulkPlanningSmartFixes] = useState(false);
   const [savingDefaultPreset, setSavingDefaultPreset] = useState(false);
   const [lastVisitedAt, setLastVisitedAt] = useState<string | null>(null);
-  const [lastProjectContext] = useState<LastProjectContext | null>(() =>
+  const [localLastProjectContext] = useState<LastProjectContext | null>(() =>
     getLastProjectContext(),
   );
   const hasBootstrappedPreset = useRef(false);
   const hasSyncedLegacyDefaultPreset = useRef(false);
+  const hasSyncedLegacyProjectContext = useRef(false);
 
   const updateParams = useCallback(
     (changes: {
@@ -452,6 +456,20 @@ export default function ProjectsPage() {
     return defaultProjectsViewPresetFromPersona(accountMe?.persona);
   }, [accountMe?.persona, accountPreferences?.projectsDefaultPreset]);
 
+  const serverLastProjectContext = useMemo(
+    () => normalizeLastProjectContext(accountPreferences?.lastProjectContext),
+    [accountPreferences?.lastProjectContext],
+  );
+
+  const lastProjectContext = useMemo(
+    () =>
+      pickMostRecentProjectContext([
+        localLastProjectContext,
+        serverLastProjectContext,
+      ]),
+    [localLastProjectContext, serverLastProjectContext],
+  );
+
   useEffect(() => {
     if (accountPreferencesLoading || typeof window === "undefined") return;
     const serverPreset = normalizeProjectsViewPreset(
@@ -497,6 +515,47 @@ export default function ProjectsPage() {
     accountPreferencesLoading,
     accountPreferences?.projectsDefaultPreset,
     mutateAccountPreferences,
+  ]);
+
+  useEffect(() => {
+    if (!serverLastProjectContext) return;
+    if (!localLastProjectContext) {
+      saveLastProjectContext(serverLastProjectContext);
+      return;
+    }
+    const latest = pickMostRecentProjectContext([
+      localLastProjectContext,
+      serverLastProjectContext,
+    ]);
+    if (latest?.visitedAt === serverLastProjectContext.visitedAt) {
+      saveLastProjectContext(serverLastProjectContext);
+    }
+  }, [localLastProjectContext, serverLastProjectContext]);
+
+  useEffect(() => {
+    if (hasSyncedLegacyProjectContext.current) return;
+    if (accountPreferencesLoading) return;
+    if (serverLastProjectContext || !localLastProjectContext) {
+      hasSyncedLegacyProjectContext.current = true;
+      return;
+    }
+
+    hasSyncedLegacyProjectContext.current = true;
+    void (async () => {
+      try {
+        const updated = await api.account.updatePreferences({
+          lastProjectContext: localLastProjectContext,
+        });
+        await mutateAccountPreferences(updated, { revalidate: false });
+      } catch {
+        // Keep local-only context when server sync is unavailable.
+      }
+    })();
+  }, [
+    accountPreferencesLoading,
+    localLastProjectContext,
+    mutateAccountPreferences,
+    serverLastProjectContext,
   ]);
 
   const applyPreset = useCallback(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
 import {
@@ -46,10 +46,14 @@ import { formatRelativeTime } from "@/lib/format";
 import { getStatusBadgeVariant } from "@/lib/status";
 import { StateMessage } from "@/components/ui/state";
 import type { DashboardWidgetId } from "@llm-boost/shared";
+import { useApiSWR } from "@/lib/use-api-swr";
 import {
   getLastProjectContext,
   lastProjectContextHref,
+  normalizeLastProjectContext,
+  pickMostRecentProjectContext,
   projectTabLabel,
+  saveLastProjectContext,
   type LastProjectContext,
 } from "@/lib/workflow-memory";
 import {
@@ -155,12 +159,43 @@ export default function DashboardPage() {
     );
     return previous;
   });
-  const [lastProjectContext] = useState<LastProjectContext | null>(() =>
+  const [localLastProjectContext] = useState<LastProjectContext | null>(() =>
     getLastProjectContext(),
   );
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
+  const { data: accountPreferences } = useApiSWR(
+    "account-preferences",
+    useCallback(() => api.account.getPreferences(), []),
+  );
+  const serverLastProjectContext = useMemo(
+    () => normalizeLastProjectContext(accountPreferences?.lastProjectContext),
+    [accountPreferences?.lastProjectContext],
+  );
+  const lastProjectContext = useMemo(
+    () =>
+      pickMostRecentProjectContext([
+        localLastProjectContext,
+        serverLastProjectContext,
+      ]),
+    [localLastProjectContext, serverLastProjectContext],
+  );
+
+  useEffect(() => {
+    if (!serverLastProjectContext) return;
+    if (!localLastProjectContext) {
+      saveLastProjectContext(serverLastProjectContext);
+      return;
+    }
+    const latest = pickMostRecentProjectContext([
+      localLastProjectContext,
+      serverLastProjectContext,
+    ]);
+    if (latest?.visitedAt === serverLastProjectContext.visitedAt) {
+      saveLastProjectContext(serverLastProjectContext);
+    }
+  }, [localLastProjectContext, serverLastProjectContext]);
 
   // Persona discovery modal for existing users without a persona
   const [personaDismissed, setPersonaDismissed] = useState(false);

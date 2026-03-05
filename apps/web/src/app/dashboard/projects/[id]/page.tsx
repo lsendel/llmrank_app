@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -559,18 +559,45 @@ export default function ProjectPage() {
   const { withAuth } = useApi();
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [crawlError, setCrawlError] = useState<string | null>(null);
+  const lastSyncedWorkflowContextRef = useRef<string | null>(null);
 
   const { data: project, isLoading: projectLoading } = useProject(params.id);
+  const projectId = project?.id ?? null;
+  const projectName = project?.name ?? null;
+  const projectDomain = project?.domain ?? null;
 
   useEffect(() => {
-    if (!project) return;
-    saveLastProjectContext({
-      projectId: project.id,
+    if (!projectId) return;
+    const nextContext = {
+      projectId,
       tab: currentTab,
-      projectName: project.name,
-      domain: project.domain,
+      projectName,
+      domain: projectDomain,
+      visitedAt: new Date().toISOString(),
+    };
+    saveLastProjectContext({
+      projectId: nextContext.projectId,
+      tab: nextContext.tab,
+      projectName: nextContext.projectName,
+      domain: nextContext.domain,
+      visitedAt: nextContext.visitedAt,
     });
-  }, [currentTab, project]);
+
+    const signature = [
+      nextContext.projectId,
+      nextContext.tab,
+      nextContext.projectName ?? "",
+      nextContext.domain ?? "",
+    ].join("|");
+    if (lastSyncedWorkflowContextRef.current === signature) return;
+    lastSyncedWorkflowContextRef.current = signature;
+
+    void api.account
+      .updatePreferences({ lastProjectContext: nextContext })
+      .catch(() => {
+        // Keep local workflow memory available when server sync fails.
+      });
+  }, [currentTab, projectDomain, projectId, projectName]);
 
   const latestCrawlId = project?.latestCrawl?.id;
   const selectedCrawlId = requestedCrawlId ?? latestCrawlId;

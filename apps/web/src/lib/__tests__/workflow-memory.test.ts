@@ -3,6 +3,8 @@ import {
   clearLastProjectContext,
   getLastProjectContext,
   lastProjectContextHref,
+  normalizeLastProjectContext,
+  pickMostRecentProjectContext,
   projectTabLabel,
   saveLastProjectContext,
 } from "@/lib/workflow-memory";
@@ -65,5 +67,61 @@ describe("workflow memory", () => {
     });
     clearLastProjectContext();
     expect(getLastProjectContext()).toBeNull();
+  });
+
+  it("normalizes server payloads and rejects invalid tabs", () => {
+    expect(
+      normalizeLastProjectContext({
+        projectId: "proj-2",
+        tab: "actions",
+        projectName: "Site",
+        domain: "site.com",
+        visitedAt: "2026-03-05T12:00:00.000Z",
+      }),
+    ).toEqual({
+      projectId: "proj-2",
+      tab: "actions",
+      projectName: "Site",
+      domain: "site.com",
+      visitedAt: "2026-03-05T12:00:00.000Z",
+    });
+
+    expect(
+      normalizeLastProjectContext({
+        projectId: "proj-2",
+        tab: "not_a_tab",
+        visitedAt: "2026-03-05T12:00:00.000Z",
+      }),
+    ).toBeNull();
+  });
+
+  it("prefers the most recently visited context", () => {
+    const context = pickMostRecentProjectContext([
+      {
+        projectId: "proj-old",
+        tab: "overview",
+        projectName: "Old",
+        domain: "old.com",
+        visitedAt: "2026-03-04T12:00:00.000Z",
+      },
+      {
+        projectId: "proj-new",
+        tab: "issues",
+        projectName: "New",
+        domain: "new.com",
+        visitedAt: "2026-03-05T12:00:00.000Z",
+      },
+    ]);
+    expect(context?.projectId).toBe("proj-new");
+    expect(context?.tab).toBe("issues");
+  });
+
+  it("keeps provided visitedAt when hydrating local cache from server", () => {
+    saveLastProjectContext({
+      projectId: "proj-sync",
+      tab: "reports",
+      visitedAt: "2026-03-05T01:02:03.000Z",
+    });
+    expect(getLastProjectContext()?.visitedAt).toBe("2026-03-05T01:02:03.000Z");
   });
 });
