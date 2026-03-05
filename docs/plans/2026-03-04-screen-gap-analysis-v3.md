@@ -183,3 +183,4 @@ This pass prioritizes high-leverage UX changes that are low-risk to backend beha
 - Post-P2 hardening: projects default-view preset now auto-syncs from legacy browser storage to account preferences and mirrors server preference back to local storage for cross-device consistency.
 - Post-P2 hardening: "Continue where you left off" workflow memory now persists via account preferences and is merged with browser memory by most recent visit timestamp.
 - Post-P2 hardening: dashboard and portfolio "since last visit" baselines now persist in account preferences to support cross-device activity narratives.
+- Post-P2 hardening: projects list filter/sort/anomaly view state now restores from account preferences (when URL has no overrides) and syncs back with request dedupe to maintain cross-device continuity.
