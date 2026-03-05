@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -37,6 +37,15 @@ interface CrawlSettingsFormProps {
     schedule?: CrawlSchedule;
     allowHttpFallback?: boolean;
   };
+}
+
+export function shouldStartWithAdvancedCrawlControlsOpen(initialSettings?: {
+  ignoreRobots?: boolean;
+  allowHttpFallback?: boolean;
+}): boolean {
+  return Boolean(
+    initialSettings?.ignoreRobots || initialSettings?.allowHttpFallback,
+  );
 }
 
 export function crawlScheduleAccess(isFree: boolean) {
@@ -109,6 +118,9 @@ export function CrawlSettingsForm({
     initialSettings?.allowHttpFallback ?? false,
   );
   const [httpFallbackGlobal, setHttpFallbackGlobal] = useState(false);
+  const [showAdvancedControls, setShowAdvancedControls] = useState(() =>
+    shouldStartWithAdvancedCrawlControlsOpen(initialSettings),
+  );
 
   useEffect(() => {
     if (!isFree) {
@@ -136,6 +148,7 @@ export function CrawlSettingsForm({
 
   const nextCrawlDate = getNextCrawlDate(schedule);
   const scheduleAccess = crawlScheduleAccess(isFree);
+  const advancedSelections = Number(ignoreRobots) + Number(allowHttpFallback);
 
   return (
     <Card>
@@ -185,45 +198,94 @@ export function CrawlSettingsForm({
           )}
         </div>
 
-        <div className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="ignoreRobots"
-            checked={ignoreRobots}
-            onChange={(e) => setIgnoreRobots(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          <div className="space-y-1">
-            <Label htmlFor="ignoreRobots" className="cursor-pointer">
-              Ignore robots.txt
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              When enabled, the crawler will access all pages regardless of
-              robots.txt rules. Useful for sites that block SEO bots but still
-              want a full audit.
-            </p>
-          </div>
-        </div>
-        {httpFallbackGlobal && !isFree && (
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="allowHttpFallback"
-              checked={allowHttpFallback}
-              onChange={(e) => setAllowHttpFallback(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <div className="space-y-1">
-              <Label htmlFor="allowHttpFallback" className="cursor-pointer">
-                Allow HTTP fallback
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Try HTTP if HTTPS connection fails during crawling. Only
-                recommended for sites that do not support HTTPS.
+        <div className="rounded-lg border">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedControls((value) => !value)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            aria-expanded={showAdvancedControls}
+            aria-controls="advanced-crawl-controls"
+          >
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Advanced crawl controls</p>
+              <p className="text-xs text-muted-foreground">
+                Low-frequency options for edge-case infrastructure behavior.
               </p>
             </div>
-          </div>
-        )}
+            <div className="flex items-center gap-2">
+              {advancedSelections > 0 && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {advancedSelections} enabled
+                </span>
+              )}
+              {showAdvancedControls ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
+          </button>
+
+          {showAdvancedControls && (
+            <div
+              id="advanced-crawl-controls"
+              className="space-y-4 border-t px-4 py-4"
+            >
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="ignoreRobots"
+                  checked={ignoreRobots}
+                  onChange={(e) => setIgnoreRobots(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="ignoreRobots" className="cursor-pointer">
+                    Ignore robots.txt
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, the crawler will access all pages regardless
+                    of robots.txt rules. Use only when crawl access is
+                    intentionally restricted.
+                  </p>
+                </div>
+              </div>
+              {httpFallbackGlobal && !isFree && (
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="allowHttpFallback"
+                    checked={allowHttpFallback}
+                    onChange={(e) => setAllowHttpFallback(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="allowHttpFallback"
+                      className="cursor-pointer"
+                    >
+                      Allow HTTP fallback
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Try HTTP if HTTPS fails during crawling. Keep disabled for
+                      standard production sites.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {!httpFallbackGlobal && !isFree && showAdvancedControls && (
+            <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+              HTTP fallback is disabled at workspace level.
+            </p>
+          )}
+          {isFree && showAdvancedControls && (
+            <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+              Advanced transport controls are available on paid plans.
+            </p>
+          )}
+        </div>
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={loading}>
             {loading ? "Saving..." : "Save Settings"}

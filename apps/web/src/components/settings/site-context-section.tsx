@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Globe, RefreshCw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -27,6 +27,7 @@ export function SiteContextSection({ projectId }: { projectId: string }) {
   const [industry, setIndustry] = useState(project?.industry ?? "");
   const [saving, setSaving] = useState(false);
   const [rediscovering, setRediscovering] = useState(false);
+  const [showAdvancedActions, setShowAdvancedActions] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -96,17 +97,47 @@ export function SiteContextSection({ projectId }: { projectId: string }) {
           <Button onClick={handleSave} disabled={saving} size="sm">
             {saving ? "Saving..." : "Save"}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRediscoverCompetitors}
-            disabled={rediscovering}
+        </div>
+
+        <div className="rounded-lg border">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+            onClick={() => setShowAdvancedActions((value) => !value)}
+            aria-expanded={showAdvancedActions}
+            aria-controls="site-context-advanced-actions"
           >
-            <RefreshCw
-              className={`mr-1.5 h-3.5 w-3.5 ${rediscovering ? "animate-spin" : ""}`}
-            />
-            {rediscovering ? "Discovering..." : "Re-discover Competitors"}
-          </Button>
+            <div>
+              <p className="text-sm font-medium">Advanced actions</p>
+              <p className="text-xs text-muted-foreground">
+                Low-frequency operations for competitor reseeding.
+              </p>
+            </div>
+            {showAdvancedActions ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+
+          {showAdvancedActions && (
+            <div
+              id="site-context-advanced-actions"
+              className="border-t px-4 py-3"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRediscoverCompetitors}
+                disabled={rediscovering}
+              >
+                <RefreshCw
+                  className={`mr-1.5 h-3.5 w-3.5 ${rediscovering ? "animate-spin" : ""}`}
+                />
+                {rediscovering ? "Discovering..." : "Re-discover Competitors"}
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

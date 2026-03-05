@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CRAWL_SCHEDULE_OPTIONS,
   crawlScheduleAccess,
+  shouldStartWithAdvancedCrawlControlsOpen,
 } from "./crawl-settings-form";
 
 describe("crawlScheduleAccess", () => {
@@ -28,5 +29,24 @@ describe("crawlScheduleAccess", () => {
       weeklyDisabled: false,
       monthlyDisabled: false,
     });
+  });
+
+  it("keeps advanced crawl controls collapsed by default", () => {
+    expect(shouldStartWithAdvancedCrawlControlsOpen()).toBe(false);
+    expect(
+      shouldStartWithAdvancedCrawlControlsOpen({
+        ignoreRobots: false,
+        allowHttpFallback: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("auto-expands advanced crawl controls when advanced flags are enabled", () => {
+    expect(
+      shouldStartWithAdvancedCrawlControlsOpen({ ignoreRobots: true }),
+    ).toBe(true);
+    expect(
+      shouldStartWithAdvancedCrawlControlsOpen({ allowHttpFallback: true }),
+    ).toBe(true);
   });
 });

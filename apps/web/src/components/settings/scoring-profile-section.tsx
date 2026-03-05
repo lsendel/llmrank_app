@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type ScoringProfile } from "@/lib/api";
-import { Settings2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Settings2 } from "lucide-react";
 
 const PRESETS: Record<
   string,
@@ -61,6 +61,7 @@ export function ScoringProfileSection({
     PRESETS.default.weights,
   );
   const [preset, setPreset] = useState("default");
+  const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -73,6 +74,9 @@ export function ScoringProfileSection({
 
   const handlePresetChange = (key: string) => {
     setPreset(key);
+    if (key !== "custom") {
+      setShowCustomEditor(false);
+    }
     if (key !== "custom" && PRESETS[key]) {
       setWeights({ ...PRESETS[key].weights });
     }
@@ -84,6 +88,7 @@ export function ScoringProfileSection({
   ) => {
     setWeights((prev) => ({ ...prev, [category]: value }));
     setPreset("custom");
+    setShowCustomEditor(true);
   };
 
   const handleSave = async () => {
@@ -140,29 +145,87 @@ export function ScoringProfileSection({
           )}
         </div>
 
-        <div className="space-y-3">
-          {CATEGORIES.map(({ key, label }) => (
-            <div key={key} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span>{label}</span>
-                <span className="font-mono text-muted-foreground">
-                  {weights[key]}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={weights[key]}
-                onChange={(e) =>
-                  handleWeightChange(key, Number(e.target.value))
-                }
-                className="w-full"
-              />
+        <div className="rounded-lg border">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+            onClick={() => setShowCustomEditor((value) => !value)}
+            aria-expanded={showCustomEditor}
+            aria-controls="advanced-weight-editor"
+          >
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Advanced weight editor</p>
+              <p className="text-xs text-muted-foreground">
+                Fine-tune category weights for custom scoring models.
+              </p>
             </div>
-          ))}
+            {showCustomEditor ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+
+          {!showCustomEditor && (
+            <div className="space-y-2 border-t px-4 py-3">
+              {CATEGORIES.map(({ key, label }) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-mono">{weights[key]}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showCustomEditor && (
+            <div
+              id="advanced-weight-editor"
+              className="space-y-3 border-t px-4 py-4"
+            >
+              {CATEGORIES.map(({ key, label }) => (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{label}</span>
+                    <span className="font-mono text-muted-foreground">
+                      {weights[key]}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={weights[key]}
+                    onChange={(e) =>
+                      handleWeightChange(key, Number(e.target.value))
+                    }
+                    className="w-full"
+                  />
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">
+                Keep this closed unless you need custom weighting logic. Presets
+                are recommended for most teams.
+              </p>
+            </div>
+          )}
         </div>
+
+        {!showCustomEditor && preset !== "custom" && (
+          <p className="text-xs text-muted-foreground">
+            Using preset:{" "}
+            <span className="font-medium">{PRESETS[preset].label}</span>
+          </p>
+        )}
+
+        {!showCustomEditor && preset === "custom" && (
+          <p className="text-xs text-muted-foreground">
+            Custom profile selected. Reopen Advanced weight editor to adjust.
+          </p>
+        )}
 
         <div className="flex items-center justify-between">
           <span

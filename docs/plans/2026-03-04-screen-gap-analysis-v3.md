@@ -161,6 +161,10 @@ Progress update (2026-03-05):
   - project sidebar + mobile navigation now adapt tab/group ordering by persona and admin role context
   - project workspace "First 7 days plan" card sequence is now persona-aware
   - dashboard quick-tool card order now adapts by persona/admin context
+- Item 3 is now implemented:
+  - added progressive disclosure for low-frequency controls in Crawl Settings, Site Context, and Scoring Weights
+  - advanced operations are collapsed by default and moved behind explicit "Advanced" panels
+  - core high-frequency actions remain visible to reduce setup friction
 
 ## Execution Notes
 
