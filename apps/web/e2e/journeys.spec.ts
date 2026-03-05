@@ -32,6 +32,16 @@ async function loginIfNeeded(page: Page) {
   await page.waitForURL(/\/dashboard/);
 }
 
+async function ensureDisclosureOpen(page: Page, label: RegExp | string) {
+  const toggle = page.getByRole("button", { name: label });
+  await expect(toggle).toBeVisible();
+  const expanded = await toggle.getAttribute("aria-expanded");
+  if (expanded !== "true") {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
+
 test.describe("Operational Journeys", () => {
   test("scan-to-workspace lifecycle covers defaults, crawl, actions, and automation", async ({
     page,
@@ -154,5 +164,50 @@ test.describe("Operational Journeys", () => {
 
     await page.goto(`/dashboard/projects/${E2E_PROJECT_ID}?tab=automation`);
     await expect(page.getByText("Pipeline Settings")).toBeVisible();
+  });
+
+  test("configure workspace advanced panels toggle correctly", async ({
+    page,
+  }) => {
+    if (!E2E_PROJECT_ID) {
+      test.skip(
+        true,
+        "E2E_PROJECT_ID is required for configure workspace verification.",
+      );
+      return;
+    }
+
+    await loginIfNeeded(page);
+
+    await page.goto(
+      `/dashboard/projects/${E2E_PROJECT_ID}?tab=settings&configure=crawl-defaults`,
+    );
+    await expect(page.getByText("Crawl Settings")).toBeVisible();
+    await ensureDisclosureOpen(page, /Advanced crawl controls/i);
+    await expect(page.getByLabel("Ignore robots.txt")).toBeVisible();
+
+    await page.goto(
+      `/dashboard/projects/${E2E_PROJECT_ID}?tab=settings&configure=site-context`,
+    );
+    await expect(page.getByText("Site Context")).toBeVisible();
+    await ensureDisclosureOpen(page, /Advanced actions/i);
+    await expect(
+      page.getByRole("button", { name: /Re-discover Competitors/i }),
+    ).toBeVisible();
+
+    await page.goto(
+      `/dashboard/projects/${E2E_PROJECT_ID}?tab=settings&configure=scoring`,
+    );
+    await expect(page.getByText("Scoring Weights")).toBeVisible();
+    await expect(page.locator('input[type="range"]')).toHaveCount(0);
+    await ensureDisclosureOpen(page, /Advanced weight editor/i);
+    await expect(page.locator('input[type="range"]')).toHaveCount(4);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(
+      `/dashboard/projects/${E2E_PROJECT_ID}?tab=settings&configure=crawl-defaults`,
+    );
+    await ensureDisclosureOpen(page, /Advanced crawl controls/i);
+    await expect(page.getByLabel("Ignore robots.txt")).toBeVisible();
   });
 });

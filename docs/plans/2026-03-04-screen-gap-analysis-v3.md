@@ -165,6 +165,7 @@ Progress update (2026-03-05):
   - added progressive disclosure for low-frequency controls in Crawl Settings, Site Context, and Scoring Weights
   - advanced operations are collapsed by default and moved behind explicit "Advanced" panels
   - core high-frequency actions remain visible to reduce setup friction
+  - added authenticated e2e journey coverage for advanced panel toggles in `apps/web/e2e/journeys.spec.ts` (including mobile viewport verification)
 
 ## Execution Notes
 
