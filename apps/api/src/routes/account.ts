@@ -38,6 +38,37 @@ const PROJECT_TAB_VALUES = [
   "settings",
 ] as const;
 type ProjectTab = (typeof PROJECT_TAB_VALUES)[number];
+const PROJECTS_HEALTH_FILTER_VALUES = [
+  "all",
+  "good",
+  "needs_work",
+  "poor",
+  "no_crawl",
+  "in_progress",
+  "failed",
+] as const;
+type ProjectsHealthFilter = (typeof PROJECTS_HEALTH_FILTER_VALUES)[number];
+const PROJECTS_SORT_VALUES = [
+  "activity_desc",
+  "score_desc",
+  "score_asc",
+  "name_asc",
+  "name_desc",
+  "created_desc",
+  "created_asc",
+] as const;
+type ProjectsSort = (typeof PROJECTS_SORT_VALUES)[number];
+const PROJECTS_ANOMALY_FILTER_VALUES = [
+  "all",
+  "failed",
+  "stale",
+  "no_crawl",
+  "in_progress",
+  "low_score",
+  "manual_schedule",
+  "pipeline_disabled",
+] as const;
+type ProjectsAnomalyFilter = (typeof PROJECTS_ANOMALY_FILTER_VALUES)[number];
 
 type AccountLastProjectContext = {
   projectId: string;
@@ -46,12 +77,18 @@ type AccountLastProjectContext = {
   domain: string | null;
   visitedAt: string;
 };
+type AccountProjectsViewState = {
+  health: ProjectsHealthFilter;
+  sort: ProjectsSort;
+  anomaly: ProjectsAnomalyFilter;
+};
 
 type AccountPreferences = {
   projectsDefaultPreset: ProjectDefaultPreset | null;
   lastProjectContext: AccountLastProjectContext | null;
   dashboardLastVisitedAt: string | null;
   projectsLastVisitedAt: string | null;
+  projectsLastViewState: AccountProjectsViewState | null;
 };
 
 function accountPreferencesKey(userId: string) {
@@ -114,6 +151,54 @@ function normalizePreferenceTimestamp(value: unknown): string | null {
   return value;
 }
 
+function normalizeProjectsHealthFilter(
+  value: unknown,
+): ProjectsHealthFilter | null {
+  if (typeof value !== "string") return null;
+  if (
+    (PROJECTS_HEALTH_FILTER_VALUES as readonly string[]).includes(
+      value as string,
+    )
+  ) {
+    return value as ProjectsHealthFilter;
+  }
+  return null;
+}
+
+function normalizeProjectsSort(value: unknown): ProjectsSort | null {
+  if (typeof value !== "string") return null;
+  if ((PROJECTS_SORT_VALUES as readonly string[]).includes(value as string)) {
+    return value as ProjectsSort;
+  }
+  return null;
+}
+
+function normalizeProjectsAnomalyFilter(
+  value: unknown,
+): ProjectsAnomalyFilter | null {
+  if (typeof value !== "string") return null;
+  if (
+    (PROJECTS_ANOMALY_FILTER_VALUES as readonly string[]).includes(
+      value as string,
+    )
+  ) {
+    return value as ProjectsAnomalyFilter;
+  }
+  return null;
+}
+
+function normalizeProjectsViewState(
+  value: unknown,
+): AccountProjectsViewState | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const health = normalizeProjectsHealthFilter(raw.health);
+  const sort = normalizeProjectsSort(raw.sort);
+  const anomaly = normalizeProjectsAnomalyFilter(raw.anomaly);
+  if (!health || !sort || !anomaly) return null;
+  return { health, sort, anomaly };
+}
+
 function parseAccountPreferences(raw: string | null): AccountPreferences {
   if (!raw) {
     return {
@@ -121,6 +206,7 @@ function parseAccountPreferences(raw: string | null): AccountPreferences {
       lastProjectContext: null,
       dashboardLastVisitedAt: null,
       projectsLastVisitedAt: null,
+      projectsLastViewState: null,
     };
   }
   try {
@@ -129,6 +215,7 @@ function parseAccountPreferences(raw: string | null): AccountPreferences {
       lastProjectContext?: unknown;
       dashboardLastVisitedAt?: unknown;
       projectsLastVisitedAt?: unknown;
+      projectsLastViewState?: unknown;
     };
     return {
       projectsDefaultPreset: normalizeProjectDefaultPreset(
@@ -143,6 +230,9 @@ function parseAccountPreferences(raw: string | null): AccountPreferences {
       projectsLastVisitedAt: normalizePreferenceTimestamp(
         parsed.projectsLastVisitedAt,
       ),
+      projectsLastViewState: normalizeProjectsViewState(
+        parsed.projectsLastViewState,
+      ),
     };
   } catch {
     return {
@@ -150,6 +240,7 @@ function parseAccountPreferences(raw: string | null): AccountPreferences {
       lastProjectContext: null,
       dashboardLastVisitedAt: null,
       projectsLastVisitedAt: null,
+      projectsLastViewState: null,
     };
   }
 }
@@ -427,18 +518,20 @@ accountRoutes.put("/preferences", async (c) => {
   const hasLastProjectContext = "lastProjectContext" in body;
   const hasDashboardLastVisitedAt = "dashboardLastVisitedAt" in body;
   const hasProjectsLastVisitedAt = "projectsLastVisitedAt" in body;
+  const hasProjectsLastViewState = "projectsLastViewState" in body;
   if (
     !hasProjectsDefaultPreset &&
     !hasLastProjectContext &&
     !hasDashboardLastVisitedAt &&
-    !hasProjectsLastVisitedAt
+    !hasProjectsLastVisitedAt &&
+    !hasProjectsLastViewState
   ) {
     return c.json(
       {
         error: {
           code: "VALIDATION_ERROR",
           message:
-            "At least one preference field is required (projectsDefaultPreset, lastProjectContext, dashboardLastVisitedAt, or projectsLastVisitedAt)",
+            "At least one preference field is required (projectsDefaultPreset, lastProjectContext, dashboardLastVisitedAt, projectsLastVisitedAt, or projectsLastViewState)",
         },
       },
       422,
@@ -528,11 +621,32 @@ accountRoutes.put("/preferences", async (c) => {
     }
   }
 
+  let nextProjectsLastViewState = current.projectsLastViewState;
+  if (hasProjectsLastViewState) {
+    nextProjectsLastViewState =
+      body.projectsLastViewState === null
+        ? null
+        : normalizeProjectsViewState(body.projectsLastViewState);
+    if (body.projectsLastViewState !== null && !nextProjectsLastViewState) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message:
+              "projectsLastViewState must include health, sort, and anomaly",
+          },
+        },
+        422,
+      );
+    }
+  }
+
   const next: AccountPreferences = {
     projectsDefaultPreset: nextPreset,
     lastProjectContext: nextLastProjectContext,
     dashboardLastVisitedAt: nextDashboardLastVisitedAt,
     projectsLastVisitedAt: nextProjectsLastVisitedAt,
+    projectsLastViewState: nextProjectsLastViewState,
   };
 
   await c.env.KV.put(accountPreferencesKey(userId), JSON.stringify(next));

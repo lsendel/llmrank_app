@@ -176,6 +176,7 @@ describe("Account Routes", () => {
         lastProjectContext: null,
         dashboardLastVisitedAt: null,
         projectsLastVisitedAt: null,
+        projectsLastViewState: null,
       });
     });
 
@@ -197,6 +198,7 @@ describe("Account Routes", () => {
         lastProjectContext: null,
         dashboardLastVisitedAt: null,
         projectsLastVisitedAt: null,
+        projectsLastViewState: null,
       });
     });
 
@@ -218,6 +220,7 @@ describe("Account Routes", () => {
         lastProjectContext: null,
         dashboardLastVisitedAt: null,
         projectsLastVisitedAt: null,
+        projectsLastViewState: null,
       });
     });
 
@@ -253,6 +256,7 @@ describe("Account Routes", () => {
         lastProjectContext: payload,
         dashboardLastVisitedAt: null,
         projectsLastVisitedAt: null,
+        projectsLastViewState: null,
       });
 
       const get = await request("/api/account/preferences");
@@ -263,6 +267,7 @@ describe("Account Routes", () => {
         lastProjectContext: payload,
         dashboardLastVisitedAt: null,
         projectsLastVisitedAt: null,
+        projectsLastViewState: null,
       });
     });
 
@@ -293,6 +298,7 @@ describe("Account Routes", () => {
         lastProjectContext: null,
         dashboardLastVisitedAt: null,
         projectsLastVisitedAt: null,
+        projectsLastViewState: null,
       });
     });
 
@@ -328,6 +334,7 @@ describe("Account Routes", () => {
         lastProjectContext: null,
         dashboardLastVisitedAt: payload.dashboardLastVisitedAt,
         projectsLastVisitedAt: payload.projectsLastVisitedAt,
+        projectsLastViewState: null,
       });
     });
 
@@ -343,6 +350,60 @@ describe("Account Routes", () => {
         json: { projectsLastVisitedAt: "also-not-a-date" },
       });
       expect(badProjects.status).toBe(422);
+    });
+
+    it("persists and clears projects last view state", async () => {
+      const payload = {
+        health: "poor",
+        sort: "score_asc",
+        anomaly: "stale",
+      };
+      const put = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { projectsLastViewState: payload },
+      });
+      expect(put.status).toBe(200);
+      const body: any = await put.json();
+      expect(body.data).toEqual({
+        projectsDefaultPreset: null,
+        lastProjectContext: null,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
+        projectsLastViewState: payload,
+      });
+
+      const clear = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { projectsLastViewState: null },
+      });
+      expect(clear.status).toBe(200);
+      const cleared: any = await clear.json();
+      expect(cleared.data.projectsLastViewState).toBeNull();
+    });
+
+    it("returns 422 for invalid projects last view state", async () => {
+      const missingField = await request("/api/account/preferences", {
+        method: "PUT",
+        json: {
+          projectsLastViewState: {
+            health: "all",
+            sort: "activity_desc",
+          },
+        },
+      });
+      expect(missingField.status).toBe(422);
+
+      const invalidValue = await request("/api/account/preferences", {
+        method: "PUT",
+        json: {
+          projectsLastViewState: {
+            health: "invalid",
+            sort: "activity_desc",
+            anomaly: "all",
+          },
+        },
+      });
+      expect(invalidValue.status).toBe(422);
     });
   });
 });

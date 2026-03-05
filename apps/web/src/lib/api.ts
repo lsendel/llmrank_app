@@ -47,11 +47,46 @@ export interface AccountLastProjectContext {
   visitedAt: string;
 }
 
+export type ProjectsHealthFilterPreference =
+  | "all"
+  | "good"
+  | "needs_work"
+  | "poor"
+  | "no_crawl"
+  | "in_progress"
+  | "failed";
+
+export type ProjectsSortPreference =
+  | "activity_desc"
+  | "score_desc"
+  | "score_asc"
+  | "name_asc"
+  | "name_desc"
+  | "created_desc"
+  | "created_asc";
+
+export type ProjectsAnomalyFilterPreference =
+  | "all"
+  | "failed"
+  | "stale"
+  | "no_crawl"
+  | "in_progress"
+  | "low_score"
+  | "manual_schedule"
+  | "pipeline_disabled";
+
+export interface AccountProjectsViewState {
+  health: ProjectsHealthFilterPreference;
+  sort: ProjectsSortPreference;
+  anomaly: ProjectsAnomalyFilterPreference;
+}
+
 export interface AccountPreferences {
   projectsDefaultPreset: ProjectsDefaultPreset | null;
   lastProjectContext: AccountLastProjectContext | null;
   dashboardLastVisitedAt: string | null;
   projectsLastVisitedAt: string | null;
+  projectsLastViewState: AccountProjectsViewState | null;
 }
 
 export interface ExtractedFact {

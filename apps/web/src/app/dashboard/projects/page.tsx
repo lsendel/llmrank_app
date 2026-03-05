@@ -70,6 +70,10 @@ import {
   shouldSyncProjectsViewPreset,
 } from "@/lib/projects-view-preset";
 import {
+  normalizeProjectsViewState,
+  projectsViewStateSignature,
+} from "@/lib/projects-view-state";
+import {
   normalizeVisitTimestamp,
   pickMostRecentVisitTimestamp,
 } from "@/lib/visit-memory";
@@ -329,6 +333,8 @@ export default function ProjectsPage() {
   const rawHealth = searchParams.get("health");
   const rawSort = searchParams.get("sort");
   const rawAnomaly = searchParams.get("anomaly");
+  const hasViewStateQueryOverrides =
+    rawHealth !== null || rawSort !== null || rawAnomaly !== null;
   const searchQuery = searchParams.get("q") ?? "";
   const healthFilter: HealthFilter = VALID_HEALTH_FILTERS.includes(
     rawHealth as HealthFilter,
@@ -376,6 +382,9 @@ export default function ProjectsPage() {
   const hasSyncedLegacyDefaultPreset = useRef(false);
   const hasSyncedLegacyProjectContext = useRef(false);
   const hasSyncedProjectsVisitRef = useRef(false);
+  const isSyncingProjectsViewStateRef = useRef(false);
+  const lastSyncedProjectsViewStateSignatureRef = useRef<string | null>(null);
+  const pendingBootstrapViewStateSignatureRef = useRef<string | null>(null);
 
   const updateParams = useCallback(
     (changes: {
@@ -455,6 +464,14 @@ export default function ProjectsPage() {
     }
     return null;
   }, [healthFilter, sortBy]);
+  const currentProjectsViewState = useMemo(
+    () => ({
+      health: healthFilter,
+      sort: sortBy,
+      anomaly: anomalyFilter,
+    }),
+    [anomalyFilter, healthFilter, sortBy],
+  );
 
   const defaultPreset = useMemo(() => {
     const serverPreset = normalizeProjectsViewPreset(
@@ -470,6 +487,14 @@ export default function ProjectsPage() {
 
     return defaultProjectsViewPresetFromPersona(accountMe?.persona);
   }, [accountMe?.persona, accountPreferences?.projectsDefaultPreset]);
+  const serverProjectsViewState = useMemo(
+    () => normalizeProjectsViewState(accountPreferences?.projectsLastViewState),
+    [accountPreferences?.projectsLastViewState],
+  );
+  const serverProjectsViewStateSignature = useMemo(
+    () => projectsViewStateSignature(serverProjectsViewState),
+    [serverProjectsViewState],
+  );
 
   const serverLastProjectContext = useMemo(
     () => normalizeLastProjectContext(accountPreferences?.lastProjectContext),
@@ -497,6 +522,24 @@ export default function ProjectsPage() {
     if (!serverPreset) return;
     localStorage.setItem(DEFAULT_PRESET_STORAGE_KEY, serverPreset);
   }, [accountPreferencesLoading, accountPreferences?.projectsDefaultPreset]);
+
+  useEffect(() => {
+    if (accountPreferencesLoading) return;
+    if (isSyncingProjectsViewStateRef.current) return;
+    lastSyncedProjectsViewStateSignatureRef.current =
+      serverProjectsViewStateSignature;
+  }, [accountPreferencesLoading, serverProjectsViewStateSignature]);
+
+  useEffect(() => {
+    const pending = pendingBootstrapViewStateSignatureRef.current;
+    if (!pending) return;
+    const currentSignature = projectsViewStateSignature(
+      currentProjectsViewState,
+    );
+    if (currentSignature === pending) {
+      pendingBootstrapViewStateSignatureRef.current = null;
+    }
+  }, [currentProjectsViewState]);
 
   useEffect(() => {
     if (hasSyncedLegacyDefaultPreset.current) return;
@@ -610,24 +653,107 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (hasBootstrappedPreset.current) return;
     if (accountPreferencesLoading || accountMeLoading) return;
-    hasBootstrappedPreset.current = true;
 
     const hasQueryOverrides =
       !!searchParams.get("health") ||
       !!searchParams.get("sort") ||
       !!searchParams.get("q") ||
       !!searchParams.get("anomaly");
-    if (hasQueryOverrides) return;
+    if (hasQueryOverrides) {
+      pendingBootstrapViewStateSignatureRef.current = null;
+      hasBootstrappedPreset.current = true;
+      return;
+    }
+
+    if (serverProjectsViewState) {
+      pendingBootstrapViewStateSignatureRef.current =
+        projectsViewStateSignature(serverProjectsViewState);
+      hasBootstrappedPreset.current = true;
+      setSearchInput("");
+      updateParams({
+        health: serverProjectsViewState.health as HealthFilter,
+        sort: serverProjectsViewState.sort as SortBy,
+        anomaly: serverProjectsViewState.anomaly as AnomalyFilter,
+        q: undefined,
+        page: 1,
+      });
+      return;
+    }
 
     if (defaultPreset) {
+      pendingBootstrapViewStateSignatureRef.current =
+        projectsViewStateSignature({
+          health: VIEW_PRESETS[defaultPreset].health,
+          sort: VIEW_PRESETS[defaultPreset].sort,
+          anomaly: "all",
+        });
+      hasBootstrappedPreset.current = true;
       applyPreset(defaultPreset);
+      return;
     }
+    pendingBootstrapViewStateSignatureRef.current = null;
+    hasBootstrappedPreset.current = true;
   }, [
     accountMeLoading,
     accountPreferencesLoading,
     applyPreset,
     defaultPreset,
+    serverProjectsViewState,
     searchParams,
+    updateParams,
+  ]);
+
+  useEffect(() => {
+    if (accountPreferencesLoading) return;
+    if (!hasBootstrappedPreset.current) return;
+    if (isSyncingProjectsViewStateRef.current) return;
+
+    const currentSignature = projectsViewStateSignature(
+      currentProjectsViewState,
+    );
+    if (!currentSignature) return;
+    if (
+      pendingBootstrapViewStateSignatureRef.current &&
+      pendingBootstrapViewStateSignatureRef.current !== currentSignature
+    ) {
+      return;
+    }
+    if (lastSyncedProjectsViewStateSignatureRef.current === currentSignature) {
+      return;
+    }
+
+    // Avoid overwriting server state before initial URL hydration applies.
+    if (
+      !hasViewStateQueryOverrides &&
+      serverProjectsViewStateSignature &&
+      serverProjectsViewStateSignature !== currentSignature
+    ) {
+      return;
+    }
+
+    isSyncingProjectsViewStateRef.current = true;
+    lastSyncedProjectsViewStateSignatureRef.current = currentSignature;
+
+    void (async () => {
+      try {
+        const updated = await api.account.updatePreferences({
+          projectsLastViewState: currentProjectsViewState,
+        });
+        await mutateAccountPreferences(updated, { revalidate: false });
+      } catch {
+        // Re-allow retries from the most recent server value on transient failures.
+        lastSyncedProjectsViewStateSignatureRef.current =
+          serverProjectsViewStateSignature;
+      } finally {
+        isSyncingProjectsViewStateRef.current = false;
+      }
+    })();
+  }, [
+    accountPreferencesLoading,
+    currentProjectsViewState,
+    hasViewStateQueryOverrides,
+    mutateAccountPreferences,
+    serverProjectsViewStateSignature,
   ]);
 
   const {
