@@ -174,6 +174,8 @@ describe("Account Routes", () => {
       expect(body.data).toEqual({
         projectsDefaultPreset: null,
         lastProjectContext: null,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
       });
     });
 
@@ -193,6 +195,8 @@ describe("Account Routes", () => {
       expect(body.data).toEqual({
         projectsDefaultPreset: "content_lead",
         lastProjectContext: null,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
       });
     });
 
@@ -212,6 +216,8 @@ describe("Account Routes", () => {
       expect(body.data).toEqual({
         projectsDefaultPreset: null,
         lastProjectContext: null,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
       });
     });
 
@@ -245,6 +251,8 @@ describe("Account Routes", () => {
       expect(body.data).toEqual({
         projectsDefaultPreset: null,
         lastProjectContext: payload,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
       });
 
       const get = await request("/api/account/preferences");
@@ -253,6 +261,8 @@ describe("Account Routes", () => {
       expect(fetched.data).toEqual({
         projectsDefaultPreset: null,
         lastProjectContext: payload,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
       });
     });
 
@@ -281,6 +291,8 @@ describe("Account Routes", () => {
       expect(body.data).toEqual({
         projectsDefaultPreset: "seo_manager",
         lastProjectContext: null,
+        dashboardLastVisitedAt: null,
+        projectsLastVisitedAt: null,
       });
     });
 
@@ -298,6 +310,39 @@ describe("Account Routes", () => {
       expect(res.status).toBe(422);
       const body: any = await res.json();
       expect(body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("persists dashboard and projects last-visit timestamps", async () => {
+      const payload = {
+        dashboardLastVisitedAt: "2026-03-05T13:00:00.000Z",
+        projectsLastVisitedAt: "2026-03-05T14:00:00.000Z",
+      };
+      const put = await request("/api/account/preferences", {
+        method: "PUT",
+        json: payload,
+      });
+      expect(put.status).toBe(200);
+      const body: any = await put.json();
+      expect(body.data).toEqual({
+        projectsDefaultPreset: null,
+        lastProjectContext: null,
+        dashboardLastVisitedAt: payload.dashboardLastVisitedAt,
+        projectsLastVisitedAt: payload.projectsLastVisitedAt,
+      });
+    });
+
+    it("returns 422 for invalid dashboard/projects last-visit timestamps", async () => {
+      const badDashboard = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { dashboardLastVisitedAt: "not-a-date" },
+      });
+      expect(badDashboard.status).toBe(422);
+
+      const badProjects = await request("/api/account/preferences", {
+        method: "PUT",
+        json: { projectsLastVisitedAt: "also-not-a-date" },
+      });
+      expect(badProjects.status).toBe(422);
     });
   });
 });

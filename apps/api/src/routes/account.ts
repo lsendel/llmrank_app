@@ -50,6 +50,8 @@ type AccountLastProjectContext = {
 type AccountPreferences = {
   projectsDefaultPreset: ProjectDefaultPreset | null;
   lastProjectContext: AccountLastProjectContext | null;
+  dashboardLastVisitedAt: string | null;
+  projectsLastVisitedAt: string | null;
 };
 
 function accountPreferencesKey(userId: string) {
@@ -106,12 +108,27 @@ function normalizeLastProjectContext(
   };
 }
 
+function normalizePreferenceTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  if (Number.isNaN(Date.parse(value))) return null;
+  return value;
+}
+
 function parseAccountPreferences(raw: string | null): AccountPreferences {
-  if (!raw) return { projectsDefaultPreset: null, lastProjectContext: null };
+  if (!raw) {
+    return {
+      projectsDefaultPreset: null,
+      lastProjectContext: null,
+      dashboardLastVisitedAt: null,
+      projectsLastVisitedAt: null,
+    };
+  }
   try {
     const parsed = JSON.parse(raw) as {
       projectsDefaultPreset?: unknown;
       lastProjectContext?: unknown;
+      dashboardLastVisitedAt?: unknown;
+      projectsLastVisitedAt?: unknown;
     };
     return {
       projectsDefaultPreset: normalizeProjectDefaultPreset(
@@ -120,9 +137,20 @@ function parseAccountPreferences(raw: string | null): AccountPreferences {
       lastProjectContext: normalizeLastProjectContext(
         parsed.lastProjectContext,
       ),
+      dashboardLastVisitedAt: normalizePreferenceTimestamp(
+        parsed.dashboardLastVisitedAt,
+      ),
+      projectsLastVisitedAt: normalizePreferenceTimestamp(
+        parsed.projectsLastVisitedAt,
+      ),
     };
   } catch {
-    return { projectsDefaultPreset: null, lastProjectContext: null };
+    return {
+      projectsDefaultPreset: null,
+      lastProjectContext: null,
+      dashboardLastVisitedAt: null,
+      projectsLastVisitedAt: null,
+    };
   }
 }
 
@@ -397,13 +425,20 @@ accountRoutes.put("/preferences", async (c) => {
 
   const hasProjectsDefaultPreset = "projectsDefaultPreset" in body;
   const hasLastProjectContext = "lastProjectContext" in body;
-  if (!hasProjectsDefaultPreset && !hasLastProjectContext) {
+  const hasDashboardLastVisitedAt = "dashboardLastVisitedAt" in body;
+  const hasProjectsLastVisitedAt = "projectsLastVisitedAt" in body;
+  if (
+    !hasProjectsDefaultPreset &&
+    !hasLastProjectContext &&
+    !hasDashboardLastVisitedAt &&
+    !hasProjectsLastVisitedAt
+  ) {
     return c.json(
       {
         error: {
           code: "VALIDATION_ERROR",
           message:
-            "At least one preference field is required (projectsDefaultPreset or lastProjectContext)",
+            "At least one preference field is required (projectsDefaultPreset, lastProjectContext, dashboardLastVisitedAt, or projectsLastVisitedAt)",
         },
       },
       422,
@@ -455,9 +490,49 @@ accountRoutes.put("/preferences", async (c) => {
     }
   }
 
+  let nextDashboardLastVisitedAt = current.dashboardLastVisitedAt;
+  if (hasDashboardLastVisitedAt) {
+    nextDashboardLastVisitedAt =
+      body.dashboardLastVisitedAt === null
+        ? null
+        : normalizePreferenceTimestamp(body.dashboardLastVisitedAt);
+    if (body.dashboardLastVisitedAt !== null && !nextDashboardLastVisitedAt) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "dashboardLastVisitedAt must be an ISO timestamp or null",
+          },
+        },
+        422,
+      );
+    }
+  }
+
+  let nextProjectsLastVisitedAt = current.projectsLastVisitedAt;
+  if (hasProjectsLastVisitedAt) {
+    nextProjectsLastVisitedAt =
+      body.projectsLastVisitedAt === null
+        ? null
+        : normalizePreferenceTimestamp(body.projectsLastVisitedAt);
+    if (body.projectsLastVisitedAt !== null && !nextProjectsLastVisitedAt) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "projectsLastVisitedAt must be an ISO timestamp or null",
+          },
+        },
+        422,
+      );
+    }
+  }
+
   const next: AccountPreferences = {
     projectsDefaultPreset: nextPreset,
     lastProjectContext: nextLastProjectContext,
+    dashboardLastVisitedAt: nextDashboardLastVisitedAt,
+    projectsLastVisitedAt: nextProjectsLastVisitedAt,
   };
 
   await c.env.KV.put(accountPreferencesKey(userId), JSON.stringify(next));

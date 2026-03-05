@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-hooks";
 import {
@@ -56,6 +56,10 @@ import {
   saveLastProjectContext,
   type LastProjectContext,
 } from "@/lib/workflow-memory";
+import {
+  normalizeVisitTimestamp,
+  pickMostRecentVisitTimestamp,
+} from "@/lib/visit-memory";
 import {
   resolveDashboardQuickToolOrder,
   type DashboardQuickToolId,
@@ -149,10 +153,13 @@ export default function DashboardPage() {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("ai-features-banner-dismissed") === "1";
   });
+  const hasSyncedDashboardVisitRef = useRef(false);
   const [lastVisitAt] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
 
-    const previous = window.localStorage.getItem(DASHBOARD_LAST_VISIT_KEY);
+    const previous = normalizeVisitTimestamp(
+      window.localStorage.getItem(DASHBOARD_LAST_VISIT_KEY),
+    );
     window.localStorage.setItem(
       DASHBOARD_LAST_VISIT_KEY,
       new Date().toISOString(),
@@ -165,10 +172,15 @@ export default function DashboardPage() {
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
-  const { data: accountPreferences } = useApiSWR(
-    "account-preferences",
-    useCallback(() => api.account.getPreferences(), []),
-  );
+  const { data: accountPreferences, isLoading: accountPreferencesLoading } =
+    useApiSWR(
+      "account-preferences",
+      useCallback(() => api.account.getPreferences(), []),
+    );
+  const effectiveLastVisitAt = pickMostRecentVisitTimestamp([
+    lastVisitAt,
+    normalizeVisitTimestamp(accountPreferences?.dashboardLastVisitedAt),
+  ]);
   const serverLastProjectContext = useMemo(
     () => normalizeLastProjectContext(accountPreferences?.lastProjectContext),
     [accountPreferences?.lastProjectContext],
@@ -196,6 +208,21 @@ export default function DashboardPage() {
       saveLastProjectContext(serverLastProjectContext);
     }
   }, [localLastProjectContext, serverLastProjectContext]);
+
+  useEffect(() => {
+    if (hasSyncedDashboardVisitRef.current) return;
+    if (accountPreferencesLoading || typeof window === "undefined") return;
+    hasSyncedDashboardVisitRef.current = true;
+    const currentVisitAt =
+      normalizeVisitTimestamp(
+        window.localStorage.getItem(DASHBOARD_LAST_VISIT_KEY),
+      ) ?? new Date().toISOString();
+    void api.account
+      .updatePreferences({ dashboardLastVisitedAt: currentVisitAt })
+      .catch(() => {
+        // Keep local-only baseline when server sync is unavailable.
+      });
+  }, [accountPreferencesLoading]);
 
   // Persona discovery modal for existing users without a persona
   const [personaDismissed, setPersonaDismissed] = useState(false);
@@ -240,7 +267,9 @@ export default function DashboardPage() {
 
   const loading = statsLoading || activityLoading;
   const sinceLastVisit = useMemo(() => {
-    const baseline = lastVisitAt ? new Date(lastVisitAt).getTime() : null;
+    const baseline = effectiveLastVisitAt
+      ? new Date(effectiveLastVisitAt).getTime()
+      : null;
     const hasBaseline = baseline != null && Number.isFinite(baseline);
     const source = activity ?? [];
 
@@ -279,7 +308,7 @@ export default function DashboardPage() {
         inProgress,
       }),
     };
-  }, [activity, lastVisitAt]);
+  }, [activity, effectiveLastVisitAt]);
 
   if (loading) {
     return (
@@ -373,8 +402,8 @@ export default function DashboardPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Since your last visit</CardTitle>
           <CardDescription>
-            {sinceLastVisit.hasBaseline && lastVisitAt
-              ? `Last seen ${formatRelativeTime(lastVisitAt)}`
+            {sinceLastVisit.hasBaseline && effectiveLastVisitAt
+              ? `Last seen ${formatRelativeTime(effectiveLastVisitAt)}`
               : "First visit from this browser"}
           </CardDescription>
         </CardHeader>

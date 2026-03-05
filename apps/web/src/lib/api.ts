@@ -50,6 +50,8 @@ export interface AccountLastProjectContext {
 export interface AccountPreferences {
   projectsDefaultPreset: ProjectsDefaultPreset | null;
   lastProjectContext: AccountLastProjectContext | null;
+  dashboardLastVisitedAt: string | null;
+  projectsLastVisitedAt: string | null;
 }
 
 export interface ExtractedFact {

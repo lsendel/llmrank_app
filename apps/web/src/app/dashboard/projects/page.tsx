@@ -69,6 +69,10 @@ import {
   normalizeProjectsViewPreset,
   shouldSyncProjectsViewPreset,
 } from "@/lib/projects-view-preset";
+import {
+  normalizeVisitTimestamp,
+  pickMostRecentVisitTimestamp,
+} from "@/lib/visit-memory";
 
 const PROJECTS_PER_PAGE = 12;
 
@@ -354,13 +358,24 @@ export default function ProjectsPage() {
   const [bulkEnablingPipeline, setBulkEnablingPipeline] = useState(false);
   const [bulkPlanningSmartFixes, setBulkPlanningSmartFixes] = useState(false);
   const [savingDefaultPreset, setSavingDefaultPreset] = useState(false);
-  const [lastVisitedAt, setLastVisitedAt] = useState<string | null>(null);
+  const [lastVisitedAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const previous = normalizeVisitTimestamp(
+      localStorage.getItem(PROJECTS_LAST_VISIT_STORAGE_KEY),
+    );
+    localStorage.setItem(
+      PROJECTS_LAST_VISIT_STORAGE_KEY,
+      new Date().toISOString(),
+    );
+    return previous;
+  });
   const [localLastProjectContext] = useState<LastProjectContext | null>(() =>
     getLastProjectContext(),
   );
   const hasBootstrappedPreset = useRef(false);
   const hasSyncedLegacyDefaultPreset = useRef(false);
   const hasSyncedLegacyProjectContext = useRef(false);
+  const hasSyncedProjectsVisitRef = useRef(false);
 
   const updateParams = useCallback(
     (changes: {
@@ -469,6 +484,10 @@ export default function ProjectsPage() {
       ]),
     [localLastProjectContext, serverLastProjectContext],
   );
+  const effectiveLastVisitedAt = pickMostRecentVisitTimestamp([
+    lastVisitedAt,
+    normalizeVisitTimestamp(accountPreferences?.projectsLastVisitedAt),
+  ]);
 
   useEffect(() => {
     if (accountPreferencesLoading || typeof window === "undefined") return;
@@ -557,6 +576,21 @@ export default function ProjectsPage() {
     mutateAccountPreferences,
     serverLastProjectContext,
   ]);
+
+  useEffect(() => {
+    if (hasSyncedProjectsVisitRef.current) return;
+    if (accountPreferencesLoading || typeof window === "undefined") return;
+    hasSyncedProjectsVisitRef.current = true;
+    const currentVisitAt =
+      normalizeVisitTimestamp(
+        window.localStorage.getItem(PROJECTS_LAST_VISIT_STORAGE_KEY),
+      ) ?? new Date().toISOString();
+    void api.account
+      .updatePreferences({ projectsLastVisitedAt: currentVisitAt })
+      .catch(() => {
+        // Keep local-only baseline when server sync is unavailable.
+      });
+  }, [accountPreferencesLoading]);
 
   const applyPreset = useCallback(
     (preset: ViewPreset) => {
@@ -737,8 +771,8 @@ export default function ProjectsPage() {
       };
     }
 
-    const since = lastVisitedAt
-      ? new Date(lastVisitedAt).getTime()
+    const since = effectiveLastVisitedAt
+      ? new Date(effectiveLastVisitedAt).getTime()
       : Number.NEGATIVE_INFINITY;
 
     const fresh = activity.filter((entry) => {
@@ -757,7 +791,7 @@ export default function ProjectsPage() {
           entry.status === "scoring",
       ).length,
     };
-  }, [lastVisitedAt, recentActivity]);
+  }, [effectiveLastVisitedAt, recentActivity]);
 
   const anomalySummary = useMemo(() => {
     const now = Date.now();
@@ -788,16 +822,6 @@ export default function ProjectsPage() {
       ).length,
     };
   }, [anomalyProjects]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const previous = localStorage.getItem(PROJECTS_LAST_VISIT_STORAGE_KEY);
-    setLastVisitedAt(previous);
-    localStorage.setItem(
-      PROJECTS_LAST_VISIT_STORAGE_KEY,
-      new Date().toISOString(),
-    );
-  }, []);
 
   const pageSummary = useMemo(() => {
     const withScore = projects.filter(
@@ -1155,14 +1179,14 @@ export default function ProjectsPage() {
             <CardContent className="grid gap-4 p-4 lg:grid-cols-2">
               <div className="space-y-2 rounded-lg border p-3">
                 <p className="text-sm font-semibold">Since Last Visit</p>
-                {!lastVisitedAt ? (
+                {!effectiveLastVisitedAt ? (
                   <p className="text-xs text-muted-foreground">
                     First portfolio visit in this browser.
                   </p>
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      Since {new Date(lastVisitedAt).toLocaleString()}
+                      Since {new Date(effectiveLastVisitedAt).toLocaleString()}
                     </p>
                     <div className="flex flex-wrap gap-2 text-xs">
                       <Badge variant="secondary">
