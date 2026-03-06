@@ -45,6 +45,7 @@ import { track } from "@/lib/telemetry";
 import { formatRelativeTime } from "@/lib/format";
 import { getStatusBadgeVariant } from "@/lib/status";
 import { StateMessage } from "@/components/ui/state";
+import { WorkflowGuidance } from "@/components/ui/workflow-guidance";
 import type { DashboardWidgetId } from "@llm-boost/shared";
 import { useApiSWR } from "@/lib/use-api-swr";
 import {
@@ -366,6 +367,43 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      <WorkflowGuidance
+        title="Daily operating flow"
+        description="Follow a consistent loop so score movement, fixes, and crawl freshness stay in sync."
+        actions={[
+          {
+            label: "Open Portfolio",
+            href: "/dashboard/projects",
+            variant: "outline",
+          },
+          {
+            label: "View Crawl History",
+            href: "/dashboard/history",
+            variant: "ghost",
+          },
+        ]}
+        steps={[
+          {
+            title: "Review changes since last visit",
+            description:
+              "Validate completed, failed, and in-progress crawls before making decisions.",
+            icon: Clock,
+          },
+          {
+            title: "Execute the highest-impact next step",
+            description:
+              "Use guided recommendations and quick wins to prioritize the next action.",
+            icon: Sparkles,
+          },
+          {
+            title: "Refresh data on key projects",
+            description:
+              "Start or schedule crawls so recommendations stay aligned with current site state.",
+            icon: Play,
+          },
+        ]}
+      />
 
       {lastProjectContext && (
         <Card className="border-border/70">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Bell, ShieldCheck, UserCog } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GeneralSection } from "@/components/settings/general-section";
 import { BrandingSection } from "@/components/settings/branding-section";
@@ -11,6 +12,7 @@ import { ApiTokensSection } from "@/components/settings/api-tokens-section";
 import { DigestPreferencesSection } from "@/components/settings/digest-preferences-section";
 import { apiUrl } from "@/lib/api-base-url";
 import { StateMessage } from "@/components/ui/state";
+import { WorkflowGuidance } from "@/components/ui/workflow-guidance";
 import { extractOrgIdFromPayload } from "./org-response";
 import { DEFAULT_SETTINGS_TAB, normalizeSettingsTab } from "./tab-state";
 
@@ -137,6 +139,52 @@ export default function SettingsPage() {
           Manage your account, plan, and notification preferences.
         </p>
       </div>
+
+      <WorkflowGuidance
+        title="Settings workflow"
+        description="Apply defaults once, keep team access controlled, and automate communication."
+        actions={[
+          {
+            label: "General",
+            href: "/dashboard/settings?tab=general",
+            variant: "outline",
+          },
+          {
+            label: "Notifications",
+            href: "/dashboard/settings?tab=notifications",
+            variant: "ghost",
+          },
+          ...(orgId
+            ? [
+                {
+                  label: "Team",
+                  href: "/dashboard/settings?tab=team",
+                  variant: "ghost" as const,
+                },
+              ]
+            : []),
+        ]}
+        steps={[
+          {
+            title: "Set workspace defaults",
+            description:
+              "Keep project behavior consistent with stable account and branding defaults.",
+            icon: UserCog,
+          },
+          {
+            title: "Control notifications and digests",
+            description:
+              "Send only actionable updates so marketers and operators can execute faster.",
+            icon: Bell,
+          },
+          {
+            title: "Manage access and compliance",
+            description:
+              "Review team, SSO, and audit controls as your organization scales.",
+            icon: ShieldCheck,
+          },
+        ]}
+      />
 
       {orgLoadError && (
         <StateMessage

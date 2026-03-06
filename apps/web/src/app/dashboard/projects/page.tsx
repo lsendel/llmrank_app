@@ -53,6 +53,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QueueList } from "./_components/queue-list";
 import { PriorityFeedCard } from "./_components/priority-feed-card";
 import { StateMessage } from "@/components/ui/state";
+import { WorkflowGuidance } from "@/components/ui/workflow-guidance";
 import { useUser } from "@/lib/auth-hooks";
 import { buildAnomalySmartFix } from "@/lib/anomaly-smart-fixes";
 import {
@@ -1271,6 +1272,43 @@ export default function ProjectsPage() {
           </Link>
         </Button>
       </div>
+
+      <WorkflowGuidance
+        title="Portfolio execution flow"
+        description="Keep portfolio operations predictable: narrow scope, select targets, and run bulk actions."
+        actions={[
+          {
+            label: "Create Project",
+            href: "/dashboard/projects/new",
+            variant: "outline",
+          },
+          {
+            label: "History",
+            href: "/dashboard/history",
+            variant: "ghost",
+          },
+        ]}
+        steps={[
+          {
+            title: "Filter to the right portfolio slice",
+            description:
+              "Use health, anomaly, and sort controls to isolate the projects that need attention now.",
+            icon: Search,
+          },
+          {
+            title: "Select projects by outcome",
+            description:
+              "Use anomaly views to build focused batches for remediation, reruns, or automation updates.",
+            icon: Sparkles,
+          },
+          {
+            title: "Execute one-click bulk operations",
+            description:
+              "Run crawls, enable defaults, or plan smart fixes to convert insights into action quickly.",
+            icon: Play,
+          },
+        ]}
+      />
 
       {lastProjectContext && (
         <Card className="border-dashed">

@@ -46,6 +46,7 @@ import {
   type PromoInfo,
 } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
+import { WorkflowGuidance } from "@/components/ui/workflow-guidance";
 
 const plans = [
   {
@@ -377,6 +378,43 @@ export default function BillingPage() {
           Manage your subscription, plan, and payment history.
         </p>
       </div>
+
+      <WorkflowGuidance
+        title="Billing workflow"
+        description="Check usage, confirm limits, and choose the right plan before credits become a blocker."
+        actions={[
+          {
+            label: "Open Projects",
+            href: "/dashboard/projects",
+            variant: "outline",
+          },
+          {
+            label: "Settings",
+            href: "/dashboard/settings",
+            variant: "ghost",
+          },
+        ]}
+        steps={[
+          {
+            title: "Track remaining crawl capacity",
+            description:
+              "Review credit usage and project limits so priority scans keep running.",
+            icon: Zap,
+          },
+          {
+            title: "Evaluate plan fit",
+            description:
+              "Compare included features and limits against current operating needs.",
+            icon: CreditCard,
+          },
+          {
+            title: "Keep payment records audit-ready",
+            description:
+              "Use payment history and invoices for finance and procurement workflows.",
+            icon: Receipt,
+          },
+        ]}
+      />
 
       {/* ─── Section 1: Current Plan Hero ─────────────────────────── */}
       <Card>

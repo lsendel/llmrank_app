@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Mail, PlayCircle, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { applyProjectWorkspaceDefaults } from "@/lib/project-workspace-defaults";
 import { normalizeDomain } from "@llm-boost/shared";
+import { WorkflowGuidance } from "@/components/ui/workflow-guidance";
 
 type CrawlSchedule = "manual" | "daily" | "weekly" | "monthly";
 
@@ -128,7 +130,44 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-3xl space-y-6">
+      <WorkflowGuidance
+        title="Project setup workflow"
+        description="Configure launch defaults now so your team can operate from day one with less manual work."
+        actions={[
+          {
+            label: "Back to Projects",
+            href: "/dashboard/projects",
+            variant: "outline",
+          },
+          {
+            label: "Account Settings",
+            href: "/dashboard/settings",
+            variant: "ghost",
+          },
+        ]}
+        steps={[
+          {
+            title: "Set crawl and automation defaults",
+            description:
+              "Choose recurring cadence and post-crawl pipeline behavior up front.",
+            icon: Settings2,
+          },
+          {
+            title: "Run the first crawl immediately",
+            description:
+              "Enable auto-start to generate baseline scores and recommendations faster.",
+            icon: PlayCircle,
+          },
+          {
+            title: "Enable weekly communication loops",
+            description:
+              "Use digest and visibility schedules to keep stakeholders aligned.",
+            icon: Mail,
+          },
+        ]}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>New Project</CardTitle>

@@ -2,9 +2,25 @@ import { render, screen, waitFor } from "@testing-library/react";
 import DashboardPage from "@/app/dashboard/page";
 import { vi } from "vitest";
 
-const { mockGetMe } = vi.hoisted(() => ({
-  mockGetMe: vi.fn().mockResolvedValue({ persona: null }),
-}));
+const { mockGetMe, mockGetPreferences, mockUpdatePreferences } = vi.hoisted(
+  () => ({
+    mockGetMe: vi.fn().mockResolvedValue({ persona: null }),
+    mockGetPreferences: vi.fn().mockResolvedValue({
+      projectsDefaultPreset: null,
+      lastProjectContext: null,
+      dashboardLastVisitedAt: null,
+      projectsLastVisitedAt: null,
+      projectsLastViewState: null,
+    }),
+    mockUpdatePreferences: vi.fn().mockResolvedValue({
+      projectsDefaultPreset: null,
+      lastProjectContext: null,
+      dashboardLastVisitedAt: null,
+      projectsLastVisitedAt: null,
+      projectsLastViewState: null,
+    }),
+  }),
+);
 
 // Mock hooks
 vi.mock("@/lib/auth-hooks", () => ({
@@ -64,6 +80,8 @@ vi.mock("@/lib/api", () => ({
   api: {
     account: {
       getMe: mockGetMe,
+      getPreferences: mockGetPreferences,
+      updatePreferences: mockUpdatePreferences,
     },
   },
 }));

@@ -70,6 +70,7 @@ connectRoutes.get("/indices", async (c) => {
     const url = new URL(callbackUrl);
     if (
       !url.hostname.endsWith("indices.app") &&
+      !url.hostname.endsWith("families.care") &&
       !url.hostname.includes("localhost")
     ) {
       return c.json(
@@ -140,7 +141,7 @@ connectRoutes.get("/indices", async (c) => {
     userPlan: (user?.plan as PlanTier) || "free",
     projectId: project.id,
     type: "api",
-    name: "indices.app integration",
+    name: `${new URL(callbackUrl).hostname.replace(/^(www|api)\./, "")} integration`,
     scopes: [...ALL_TOKEN_SCOPES],
   });
 
