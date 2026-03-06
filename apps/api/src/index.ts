@@ -59,6 +59,7 @@ import { appRoutes } from "./routes/app";
 import { marketingRoutes } from "./routes/marketing";
 import { brandPerformanceRoutes } from "./routes/brand-performance";
 import { promptResearchRoutes } from "./routes/prompt-research";
+import { connectRoutes } from "./routes/connect";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -107,6 +108,7 @@ export type Bindings = {
   XAI_API_KEY: string;
   ADMIN_ALERT_EMAIL?: string;
   SLACK_ALERT_WEBHOOK_URL?: string;
+  CONNECT_SECRET?: string;
   WEB_WORKER?: Fetcher;
 };
 
@@ -247,6 +249,9 @@ app.route("/api/pipeline", pipelineRoutes);
 app.route("/api/trial", trialRoutes);
 app.route("/api/brand", brandPerformanceRoutes);
 app.route("/api/prompt-research", promptResearchRoutes);
+
+// First-party app connections (public, session-based auth)
+app.route("/connect", connectRoutes);
 
 // HTMX app routes (server-rendered HTML pages)
 app.route("/app", appRoutes);
