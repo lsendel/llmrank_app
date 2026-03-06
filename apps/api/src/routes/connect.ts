@@ -142,7 +142,7 @@ connectRoutes.get("/indices", async (c) => {
   });
 
   // 6. Sign response and redirect back
-  const apiUrl = c.env.APP_BASE_URL || "https://llmrank.app";
+  const apiUrl = new URL(c.req.url).origin;
   const responsePayload = {
     apiToken: tokenResult.plainToken,
     apiUrl,
