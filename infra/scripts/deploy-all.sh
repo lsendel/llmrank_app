@@ -26,7 +26,7 @@ echo "=== 4/5 Building & deploying Web ==="
 
 echo "=== 5/5 Deploying Fly.io services ==="
 (cd "$ROOT/apps/crawler" && flyctl deploy -a llmrank-crawler) &
-(cd "$ROOT/apps/report-service" && flyctl deploy -a llm-boost-reports) &
+(cd "$ROOT" && flyctl deploy -a llm-boost-reports --dockerfile apps/report-service/Dockerfile --config apps/report-service/fly.toml) &
 wait
 
 echo "=== All services deployed ==="

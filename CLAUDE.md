@@ -86,18 +86,46 @@ cargo test
 
 ## Deployment
 
+### CI Auto-Deploy
+
 CI auto-deploys on push to `main` when relevant paths change.
 
-| Workflow                | Services                                  | Trigger Paths                                                        |
-| ----------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| `deploy-cloudflare.yml` | DB migrations → API + Report Worker → Web | `packages/**`, `apps/web/**`, `apps/api/**`, `apps/report-worker/**` |
-| `deploy-fly.yml`        | Crawler, Report Service                   | `apps/crawler/**`, `apps/report-service/**`                          |
+| Workflow                | Services                                           | Trigger Paths                                                                               |
+| ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `deploy-cloudflare.yml` | DB migrations → API + Report Worker + MCP GW → Web | `packages/**`, `apps/web/**`, `apps/api/**`, `apps/report-worker/**`, `apps/mcp-gateway/**` |
+| `deploy-fly.yml`        | Crawler, Report Service                            | `apps/crawler/**`, `apps/report-service/**`                                                 |
+| `ci.yml`                | Typecheck, tests, coverage (on PRs)                | All files (pull_request to main)                                                            |
 
-**Manual deploy commands:**
+**CI Pipeline (`ci.yml`) — runs on PRs to `main`:**
+
+1. Typecheck all packages (`pnpm typecheck`)
+2. Run all tests (`pnpm test`)
+3. Verify settings disclosure guardrails (specific component tests)
+4. Verify journey spec discovery (Playwright `--list`)
+5. Check coverage thresholds per package (api, db, scoring, llm, shared, integrations, billing)
+6. Rust crawler: `cargo check` + `cargo test`
+
+**Cloudflare Deploy (`deploy-cloudflare.yml`) — dependency order:**
+
+1. `migrations` — `drizzle-kit push` against Neon (needs `DATABASE_URL` secret)
+2. `deploy-api` — Wrangler deploy `apps/api` (after migrations)
+3. `deploy-report-worker` — Wrangler deploy `apps/report-worker` (after migrations)
+4. `deploy-mcp-gateway` — Build MCP package, then Wrangler deploy `apps/mcp-gateway` (after migrations)
+5. `deploy-web` — OpenNext build + Wrangler deploy `apps/web` (after API + Report Worker)
+
+**Fly.io Deploy (`deploy-fly.yml`) — parallel jobs:**
+
+- `deploy-crawler` — `flyctl deploy -a llmrank-crawler` from `apps/crawler/`
+- `deploy-report-service` — `flyctl deploy -a llm-boost-reports` from **repo root** with `--dockerfile apps/report-service/Dockerfile --config apps/report-service/fly.toml` (monorepo context required for workspace deps)
+
+### Manual Deploy
 
 ```bash
 # Deploy all services (when CI is broken)
 bash infra/scripts/deploy-all.sh
+
+# DB schema push (must export DATABASE_URL first)
+export $(grep -v '^#' .env | xargs) && cd packages/db && npx drizzle-kit push
 
 # Individual Cloudflare services
 cd apps/api && npx wrangler deploy
@@ -106,10 +134,22 @@ cd apps/web && npx opennextjs-cloudflare build && npx wrangler deploy --config w
 
 # Individual Fly.io services
 cd apps/crawler && flyctl deploy -a llmrank-crawler
-cd apps/report-service && flyctl deploy -a llm-boost-reports
+# Report service MUST deploy from repo root (needs monorepo context for workspace deps)
+flyctl deploy -a llm-boost-reports --dockerfile apps/report-service/Dockerfile --config apps/report-service/fly.toml
 ```
 
-**Required GitHub Secrets:** `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `DATABASE_URL`, `FLY_API_TOKEN`
+### Production URLs
+
+| Service        | URL                               |
+| -------------- | --------------------------------- |
+| Web            | https://llmrank.app               |
+| API            | https://api.llmrank.app           |
+| Crawler        | https://llmrank-crawler.fly.dev   |
+| Report Service | https://llm-boost-reports.fly.dev |
+
+### Required GitHub Secrets
+
+`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `DATABASE_URL`, `FLY_API_TOKEN`
 
 ## Key Design Decisions
 
