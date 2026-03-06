@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_ROUTES = ["/dashboard", "/onboarding"];
+const PROTECTED_ROUTES = ["/dashboard", "/onboarding", "/connect"];
 const AUTH_ROUTES = ["/sign-in", "/sign-up"];
 const ALWAYS_ALLOWED = ["/sign-out"];
 
@@ -45,7 +45,8 @@ export function middleware(request: NextRequest) {
   );
   if (isProtected && !hasSession) {
     const signInUrl = new URL("/sign-in", request.url);
-    signInUrl.searchParams.set("redirect", pathname);
+    const fullPath = pathname + request.nextUrl.search;
+    signInUrl.searchParams.set("redirect", fullPath);
     return NextResponse.redirect(signInUrl);
   }
 
@@ -62,6 +63,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/onboarding/:path*",
+    "/connect/:path*",
     "/sign-in/:path*",
     "/sign-up/:path*",
     "/sign-out",

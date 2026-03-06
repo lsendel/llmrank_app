@@ -91,10 +91,13 @@ connectRoutes.get("/indices", async (c) => {
     .catch(() => null);
 
   if (!session?.user) {
-    // Redirect to login with return URL
-    const baseUrl = c.env.APP_BASE_URL || "https://llmrank.app";
-    const returnUrl = encodeURIComponent(c.req.url);
-    return c.redirect(`${baseUrl}/login?returnTo=${returnUrl}`);
+    return c.json(
+      {
+        code: "UNAUTHENTICATED",
+        message: "Not logged in. Please sign in to LLMRank first.",
+      },
+      401,
+    );
   }
 
   // 3. Verify email matches
