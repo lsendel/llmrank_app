@@ -227,17 +227,10 @@ export default function DashboardPage() {
 
   // Persona discovery modal for existing users without a persona
   const [personaDismissed, setPersonaDismissed] = useState(false);
-  const [accountData, setAccountData] = useState<{
-    persona: string | null;
-    isAdmin: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    api.account
-      .getMe()
-      .then(setAccountData)
-      .catch(() => {});
-  }, []);
+  const { data: accountData } = useApiSWR(
+    "account-me",
+    useCallback(() => api.account.getMe(), []),
+  );
 
   const personaModalOpen =
     !personaDismissed &&

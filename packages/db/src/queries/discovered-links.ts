@@ -34,19 +34,21 @@ export function discoveredLinkQueries(db: Database) {
       if (links.length === 0) return;
 
       const chunks = [];
-      for (let i = 0; i < links.length; i += 100) {
-        chunks.push(links.slice(i, i + 100));
+      for (let i = 0; i < links.length; i += 500) {
+        chunks.push(links.slice(i, i + 500));
       }
 
-      for (const chunk of chunks) {
-        await db
-          .insert(discoveredLinks)
-          .values(chunk)
-          .onConflictDoUpdate({
-            target: [discoveredLinks.sourceUrl, discoveredLinks.targetUrl],
-            set: { lastSeenAt: new Date() },
-          });
-      }
+      await Promise.all(
+        chunks.map((chunk) =>
+          db
+            .insert(discoveredLinks)
+            .values(chunk)
+            .onConflictDoUpdate({
+              target: [discoveredLinks.sourceUrl, discoveredLinks.targetUrl],
+              set: { lastSeenAt: new Date() },
+            }),
+        ),
+      );
     },
 
     /** Summary stats for a target domain. */

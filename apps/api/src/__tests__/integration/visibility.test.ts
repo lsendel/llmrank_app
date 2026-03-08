@@ -41,6 +41,7 @@ const mockVisibilityRepo = {
   getTrends: vi.fn().mockResolvedValue([]),
   create: vi.fn().mockResolvedValue({ id: "vis-new" }),
   countSince: vi.fn().mockResolvedValue(0),
+  countSinceByProjects: vi.fn().mockResolvedValue(0),
 };
 
 const mockCompetitorRepo = {

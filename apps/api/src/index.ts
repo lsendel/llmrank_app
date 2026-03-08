@@ -115,6 +115,7 @@ export type Bindings = {
 export type Variables = {
   db: Database;
   userId: string;
+  user?: { id: string; plan: string; status: string; [key: string]: unknown };
   parsedBody: string;
   requestId: string;
   logger: Logger;

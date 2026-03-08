@@ -51,6 +51,7 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
     }
 
     c.set("userId", tokenCtx.userId);
+    c.set("user", user as any);
     c.set("tokenCtx", tokenCtx);
     return next();
   }
@@ -71,9 +72,10 @@ export const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
 
     c.set("userId", session.user.id);
 
-    // Check if user is blocked/suspended
+    // Check if user is blocked/suspended — also caches user on context
     const db = c.get("db");
     const user = await userQueries(db).getById(session.user.id);
+    if (user) c.set("user", user as any);
     const status = user?.status ?? "active";
     if (user && status !== "active") {
       return c.json(

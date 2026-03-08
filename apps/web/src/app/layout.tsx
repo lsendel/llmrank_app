@@ -65,6 +65,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        <link rel="preconnect" href="https://api.llmrank.app" />
+        <link rel="dns-prefetch" href="https://api.llmrank.app" />
+      </head>
       <body className="min-h-screen font-sans antialiased">
         <JsonLd data={organizationSchema()} />
         <JsonLd data={webSiteSchema()} />

@@ -58,7 +58,10 @@ export const visibilityChecks = pgTable(
     }),
     checkedAt: timestamp("checked_at").notNull().defaultNow(),
   },
-  (t) => [index("idx_vis_project").on(t.projectId, t.checkedAt)],
+  (t) => [
+    index("idx_vis_project").on(t.projectId, t.checkedAt),
+    index("idx_vis_brand_mentioned").on(t.projectId, t.brandMentioned),
+  ],
 );
 
 export const competitorBenchmarks = pgTable(

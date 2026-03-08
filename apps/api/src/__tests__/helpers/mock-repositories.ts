@@ -143,6 +143,7 @@ export function createMockVisibilityRepo(
       getTrends: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: "vis-1" }),
       countSince: vi.fn().mockResolvedValue(0),
+      countSinceByProjects: vi.fn().mockResolvedValue(0),
     },
     overrides,
   );

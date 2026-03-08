@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -38,6 +38,27 @@ export function PagesTab({
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [showRedirects, setShowRedirects] = useState(false);
 
+  const redirectCount = pages.filter((p) => p.isCrossDomainRedirect).length;
+
+  const filtered = showRedirects
+    ? pages
+    : pages.filter((p) => !p.isCrossDomainRedirect);
+
+  const sorted = useMemo(
+    () =>
+      [...filtered].sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+        if (aVal == null || bVal == null) return 0;
+        const cmp =
+          typeof aVal === "string"
+            ? aVal.localeCompare(bVal as string)
+            : (aVal as number) - (bVal as number);
+        return sortDir === "asc" ? cmp : -cmp;
+      }),
+    [filtered, sortField, sortDir],
+  );
+
   function handleSort(field: SortField) {
     if (sortField === field) {
       setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -56,23 +77,6 @@ export function PagesTab({
       />
     );
   }
-
-  const redirectCount = pages.filter((p) => p.isCrossDomainRedirect).length;
-
-  const filtered = showRedirects
-    ? pages
-    : pages.filter((p) => !p.isCrossDomainRedirect);
-
-  const sorted = [...filtered].sort((a, b) => {
-    const aVal = a[sortField];
-    const bVal = b[sortField];
-    if (aVal == null || bVal == null) return 0;
-    const cmp =
-      typeof aVal === "string"
-        ? aVal.localeCompare(bVal as string)
-        : (aVal as number) - (bVal as number);
-    return sortDir === "asc" ? cmp : -cmp;
-  });
 
   return (
     <Card>

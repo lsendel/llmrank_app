@@ -6,9 +6,9 @@ import type { AppEnv } from "../../index";
 // Mocks — vi.hoisted ensures these are available when vi.mock factory runs
 // ---------------------------------------------------------------------------
 
-const { mockUserGetById, mockProjectListByUser } = vi.hoisted(() => ({
+const { mockUserGetById, mockProjectCountByUser } = vi.hoisted(() => ({
   mockUserGetById: vi.fn(),
-  mockProjectListByUser: vi.fn(),
+  mockProjectCountByUser: vi.fn(),
 }));
 
 vi.mock("@llm-boost/db", () => ({
@@ -16,7 +16,7 @@ vi.mock("@llm-boost/db", () => ({
     getById: mockUserGetById,
   }),
   projectQueries: vi.fn().mockReturnValue({
-    listByUser: mockProjectListByUser,
+    countByUser: mockProjectCountByUser,
   }),
 }));
 
@@ -118,7 +118,7 @@ describe("enforceProjectLimit", () => {
       id: "user-1",
       plan: "free",
     });
-    mockProjectListByUser.mockResolvedValueOnce([]); // 0 projects, limit is 1
+    mockProjectCountByUser.mockResolvedValueOnce(0); // 0 projects, limit is 1
 
     const app = createProjectLimitApp();
     const res = await app.fetch(
@@ -134,7 +134,7 @@ describe("enforceProjectLimit", () => {
       plan: "free",
     });
     // Free plan allows 1 project, already have 1
-    mockProjectListByUser.mockResolvedValueOnce([{ id: "proj-1" }]);
+    mockProjectCountByUser.mockResolvedValueOnce(1);
 
     const app = createProjectLimitApp();
     const res = await app.fetch(

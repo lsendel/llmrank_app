@@ -352,6 +352,7 @@ export interface VisibilityRepository {
     data: Parameters<ReturnType<typeof visibilityQueries>["create"]>[0],
   ): ReturnType<ReturnType<typeof visibilityQueries>["create"]>;
   countSince(projectId: string, since: Date): Promise<number>;
+  countSinceByProjects(projectIds: string[], since: Date): Promise<number>;
 }
 
 export function createVisibilityRepository(db: Database): VisibilityRepository {
@@ -373,6 +374,8 @@ export function createVisibilityRepository(db: Database): VisibilityRepository {
         );
       return Number(rows[0]?.count ?? 0);
     },
+    countSinceByProjects: (projectIds, since) =>
+      queries.countSinceByProjects(projectIds, since),
   };
 }
 

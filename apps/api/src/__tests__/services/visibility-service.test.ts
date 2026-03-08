@@ -123,7 +123,7 @@ describe("VisibilityService", () => {
     });
 
     it("throws when monthly visibility limit reached", async () => {
-      visibility.countSince.mockResolvedValue(100); // Pro plan limit is 100
+      visibility.countSinceByProjects.mockResolvedValue(100); // Pro plan limit is 100
       const service = createVisibilityService({
         projects,
         users,

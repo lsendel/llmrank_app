@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, isNotNull } from "drizzle-orm";
+import { eq, and, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { visibilityChecks, llmProviderEnum } from "../schema";
 
@@ -132,39 +132,29 @@ export function visibilityQueries(db: Database) {
       if (filters?.language) {
         conditions.push(eq(visibilityChecks.language, filters.language));
       }
-      const checks = await db.query.visibilityChecks.findMany({
-        where: and(...conditions),
-      });
 
-      const competitorData = new Map<
-        string,
-        { count: number; queries: Set<string> }
-      >();
-      for (const check of checks) {
-        const mentions = (check.competitorMentions ?? []) as Array<{
-          domain: string;
-          mentioned: boolean;
-        }>;
-        for (const m of mentions) {
-          if (m.mentioned) {
-            const existing = competitorData.get(m.domain) ?? {
-              count: 0,
-              queries: new Set<string>(),
-            };
-            existing.count++;
-            existing.queries.add(check.query);
-            competitorData.set(m.domain, existing);
-          }
-        }
-      }
+      // Use SQL to extract competitor mentions from JSONB and aggregate,
+      // instead of loading all rows into memory
+      const rows = await db
+        .select({
+          domain: sql<string>`elem->>'domain'`,
+          mentionCount: sql<number>`count(*)::int`,
+          queries: sql<string[]>`array_agg(distinct ${visibilityChecks.query})`,
+        })
+        .from(visibilityChecks)
+        .where(and(...conditions))
+        .innerJoin(
+          sql`jsonb_array_elements(${visibilityChecks.competitorMentions}) AS elem`,
+          sql`(elem->>'mentioned')::boolean = true`,
+        )
+        .groupBy(sql`elem->>'domain'`)
+        .orderBy(desc(sql`count(*)`));
 
-      return Array.from(competitorData.entries())
-        .map(([domain, data]) => ({
-          domain,
-          mentionCount: data.count,
-          queries: Array.from(data.queries),
-        }))
-        .sort((a, b) => b.mentionCount - a.mentionCount);
+      return rows.map((r) => ({
+        domain: r.domain,
+        mentionCount: r.mentionCount,
+        queries: r.queries,
+      }));
     },
 
     /**
@@ -248,6 +238,20 @@ export function visibilityQueries(db: Database) {
         .where(
           and(
             eq(visibilityChecks.projectId, projectId),
+            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
+          ),
+        );
+      return row?.count ?? 0;
+    },
+
+    async countSinceByProjects(projectIds: string[], since: Date) {
+      if (projectIds.length === 0) return 0;
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(visibilityChecks)
+        .where(
+          and(
+            inArray(visibilityChecks.projectId, projectIds),
             sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
           ),
         );

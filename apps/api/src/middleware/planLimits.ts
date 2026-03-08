@@ -46,9 +46,9 @@ export const enforceProjectLimit = createMiddleware<AppEnv>(async (c, next) => {
 
   const limits = PLAN_LIMITS[user.plan];
   const { projectQueries } = await import("@llm-boost/db");
-  const projects = await projectQueries(db).listByUser(userId);
+  const projectCount = await projectQueries(db).countByUser(userId);
 
-  if (projects.length >= limits.projects) {
+  if (projectCount >= limits.projects) {
     return c.json(
       {
         error: {

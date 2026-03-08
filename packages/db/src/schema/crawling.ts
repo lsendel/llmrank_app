@@ -54,6 +54,11 @@ export const crawlJobs = pgTable(
     index("idx_jobs_project").on(t.projectId),
     index("idx_jobs_status").on(t.status),
     index("idx_jobs_share_token").on(t.shareToken),
+    index("idx_jobs_project_status_created").on(
+      t.projectId,
+      t.status,
+      t.createdAt,
+    ),
   ],
 );
 
@@ -119,6 +124,7 @@ export const pageScores = pgTable(
   (t) => [
     index("idx_scores_job").on(t.jobId),
     index("idx_scores_page").on(t.pageId),
+    index("idx_scores_job_overall").on(t.jobId, t.overallScore),
   ],
 );
 
@@ -143,6 +149,7 @@ export const issues = pgTable(
   (t) => [
     index("idx_issues_page").on(t.pageId),
     index("idx_issues_severity").on(t.jobId, t.severity),
+    index("idx_issues_job_code").on(t.jobId, t.code),
   ],
 );
 

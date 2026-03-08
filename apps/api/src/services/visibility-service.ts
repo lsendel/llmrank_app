@@ -46,10 +46,11 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
 
       const since = startOfMonth(new Date());
       const userProjects = await deps.projects.listByUser(args.userId);
-      let used = 0;
-      for (const p of userProjects) {
-        used += await deps.visibility.countSince(p.id, since);
-      }
+      const projectIds = userProjects.map((p) => p.id);
+      const used = await deps.visibility.countSinceByProjects(
+        projectIds,
+        since,
+      );
       if (!canRunVisibilityChecks(user.plan, used, args.providers.length)) {
         throw new ServiceError(
           "PLAN_LIMIT_REACHED",
