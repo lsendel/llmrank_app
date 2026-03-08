@@ -1,343 +1,66 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import {
-  Users,
-  Target,
-  Plus,
-  Trash2,
-  Sparkles,
-  Search,
-  Route,
-  CheckCircle2,
-  Loader2,
-} from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { StateMessage } from "@/components/ui/state";
-import { useApiSWR } from "@/lib/use-api-swr";
-import { api, type StrategyPersona } from "@/lib/api";
-import { useCompetitors, usePersonas } from "@/hooks/use-strategy";
 import { TopicClusterGraph } from "../strategy/topic-cluster-graph";
 import { CrawlerTimelineChart } from "@/components/charts/crawler-timeline-chart";
+import {
+  CompetitorTrackingSection,
+  DemandModelFlowSection,
+  PersonaDiscoverySection,
+} from "./strategy-tab-sections";
+import { useStrategyTabActions } from "./use-strategy-tab-actions";
+import { useStrategyTabData } from "./use-strategy-tab-data";
 
 export function StrategyTab({ projectId }: { projectId: string }) {
-  const { toast } = useToast();
-  const [addingComp, setAddingComp] = useState(false);
-  const [newCompDomain, setNewCompDomain] = useState("");
-
-  const { data: topicMap } = useApiSWR(
-    `topic-map-${projectId}`,
-    useCallback(() => api.strategy.getTopicMap(projectId), [projectId]),
-  );
-
-  const { competitors, addCompetitor, removeCompetitor } =
-    useCompetitors(projectId);
   const {
+    topicMap,
+    competitors,
+    addCompetitor,
+    removeCompetitor,
     personas,
     generating,
-    error: personaError,
+    personaError,
     generatePersonas,
-  } = usePersonas(projectId);
-  const [keywordSuggestions, setKeywordSuggestions] = useState<string[]>([]);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
-  const [discoveringKeywords, setDiscoveringKeywords] = useState(false);
-  const [acceptingKeywords, setAcceptingKeywords] = useState(false);
-  const [addingRecommendedCompetitors, setAddingRecommendedCompetitors] =
-    useState(false);
-  const [runningDemandFlow, setRunningDemandFlow] = useState(false);
+    persistedPersonas,
+    savedKeywords,
+    visibilitySchedules,
+    recommendedCompetitorDomains,
+    mutatePersistedPersonas,
+    mutateSavedKeywords,
+    mutateVisibilitySchedules,
+  } = useStrategyTabData(projectId);
 
-  const { data: persistedPersonas, mutate: mutatePersistedPersonas } =
-    useApiSWR(
-      `demand-personas-${projectId}`,
-      useCallback(async () => {
-        try {
-          return await api.personas.list(projectId);
-        } catch {
-          return [];
-        }
-      }, [projectId]),
-    );
-
-  const { data: savedKeywords, mutate: mutateSavedKeywords } = useApiSWR(
-    `demand-keywords-${projectId}`,
-    useCallback(async () => {
-      try {
-        return await api.keywords.list(projectId);
-      } catch {
-        return [];
-      }
-    }, [projectId]),
-  );
-
-  const { data: visibilitySchedules, mutate: mutateVisibilitySchedules } =
-    useApiSWR(
-      `demand-schedules-${projectId}`,
-      useCallback(async () => {
-        try {
-          return await api.visibility.schedules.list(projectId);
-        } catch {
-          return [];
-        }
-      }, [projectId]),
-    );
-
-  const { data: visibilityGaps } = useApiSWR(
-    `demand-gaps-${projectId}`,
-    useCallback(async () => {
-      try {
-        return await api.visibility.getGaps(projectId);
-      } catch {
-        return [];
-      }
-    }, [projectId]),
-  );
-
-  const competitorDomainSet = useMemo(
-    () => new Set((competitors ?? []).map((item) => item.domain.toLowerCase())),
-    [competitors],
-  );
-
-  const recommendedCompetitorDomains = useMemo(() => {
-    const domains = new Set<string>();
-    for (const gap of visibilityGaps ?? []) {
-      for (const cited of gap.competitorsCited ?? []) {
-        const domain = cited.domain?.trim().toLowerCase();
-        if (!domain || competitorDomainSet.has(domain)) continue;
-        domains.add(domain);
-      }
-    }
-    return Array.from(domains).slice(0, 6);
-  }, [competitorDomainSet, visibilityGaps]);
-
-  async function handleGeneratePersonas() {
-    try {
-      const generated = await generatePersonas(
-        "AI SEO and Content Optimization",
-      );
-      await persistGeneratedPersonas(generated);
-    } catch {
-      toast({
-        title: "Error",
-        description: personaError ?? "Failed to generate personas",
-        variant: "destructive",
-      });
-    }
-  }
-
-  async function persistGeneratedPersonas(personaSet: StrategyPersona[]) {
-    const existingKeys = new Set(
-      (persistedPersonas ?? []).map(
-        (persona) =>
-          `${persona.name.toLowerCase()}::${persona.role.toLowerCase()}`,
-      ),
-    );
-
-    let created = 0;
-    for (const persona of personaSet) {
-      const key = `${persona.name.toLowerCase()}::${persona.role.toLowerCase()}`;
-      if (existingKeys.has(key)) continue;
-      await api.personas.create(projectId, {
-        name: persona.name,
-        role: persona.role,
-        jobToBeDone: persona.goals?.[0] ?? undefined,
-        constraints: persona.pains?.slice(0, 2).join("; ") ?? undefined,
-        vocabulary: persona.keywords ?? [],
-        sampleQueries: persona.typicalQueries ?? [],
-        isAutoGenerated: true,
-        funnelStage: "education",
-      });
-      existingKeys.add(key);
-      created += 1;
-    }
-
-    if (created > 0) {
-      await mutatePersistedPersonas();
-      toast({
-        title: "Personas saved",
-        description: `${created} personas added to your persistent workspace.`,
-      });
-    }
-  }
-
-  async function handleDiscoverKeywordSuggestions() {
-    setDiscoveringKeywords(true);
-    try {
-      await discoverKeywordSuggestions();
-    } catch (err) {
-      toast({
-        title: "Keyword suggestions failed",
-        description:
-          err instanceof Error ? err.message : "Could not suggest keywords.",
-        variant: "destructive",
-      });
-    } finally {
-      setDiscoveringKeywords(false);
-    }
-  }
-
-  async function discoverKeywordSuggestions(): Promise<string[]> {
-    const suggested = await api.visibility.suggestKeywords(projectId);
-    const existing = new Set(
-      (savedKeywords ?? []).map((keyword) => keyword.keyword.toLowerCase()),
-    );
-    const filtered = suggested.filter(
-      (keyword) => !existing.has(keyword.toLowerCase()),
-    );
-    const autoSelected = filtered.slice(0, 10);
-
-    setKeywordSuggestions(filtered);
-    setSelectedSuggestions(autoSelected);
-
-    if (filtered.length === 0) {
-      toast({
-        title: "No new keyword suggestions",
-        description: "Your current keyword list already covers suggestions.",
-      });
-    }
-
-    return autoSelected;
-  }
-
-  async function handleAcceptSuggestedKeywords(suggestions?: string[]) {
-    const keywordsToAccept = suggestions ?? selectedSuggestions;
-    if (keywordsToAccept.length === 0) return;
-    setAcceptingKeywords(true);
-    try {
-      await api.keywords.createBatch(projectId, keywordsToAccept);
-      await mutateSavedKeywords();
-
-      if ((visibilitySchedules?.length ?? 0) === 0) {
-        await api.visibility.schedules.create({
-          projectId,
-          query: keywordsToAccept[0],
-          providers: ["chatgpt", "claude", "perplexity", "gemini"],
-          frequency: "weekly",
-        });
-        await mutateVisibilitySchedules();
-      }
-
-      toast({
-        title: "Demand model updated",
-        description: `${keywordsToAccept.length} keywords accepted and pushed into tracking.`,
-      });
-    } catch (err) {
-      toast({
-        title: "Failed to accept suggestions",
-        description:
-          err instanceof Error ? err.message : "Could not save keywords.",
-        variant: "destructive",
-      });
-    } finally {
-      setAcceptingKeywords(false);
-    }
-  }
-
-  async function handleAcceptRecommendedCompetitors() {
-    if (recommendedCompetitorDomains.length === 0) return;
-    setAddingRecommendedCompetitors(true);
-    try {
-      await Promise.all(
-        recommendedCompetitorDomains.slice(0, 3).map((domain) =>
-          api.benchmarks.trigger({
-            projectId,
-            competitorDomain: domain,
-          }),
-        ),
-      );
-      toast({
-        title: "Competitors mapped",
-        description: "Recommended competitor benchmarks have been queued.",
-      });
-    } catch (err) {
-      toast({
-        title: "Failed to add recommended competitors",
-        description:
-          err instanceof Error ? err.message : "Could not queue benchmarks.",
-        variant: "destructive",
-      });
-    } finally {
-      setAddingRecommendedCompetitors(false);
-    }
-  }
-
-  async function handleRunDemandFlow() {
-    setRunningDemandFlow(true);
-    try {
-      const generated = await generatePersonas(
-        "AI SEO and Content Optimization",
-      );
-      await persistGeneratedPersonas(generated);
-
-      let suggestionsToAccept = selectedSuggestions;
-      if (keywordSuggestions.length === 0) {
-        suggestionsToAccept = await discoverKeywordSuggestions();
-      }
-
-      if (suggestionsToAccept.length > 0) {
-        await handleAcceptSuggestedKeywords(suggestionsToAccept);
-      }
-      if (recommendedCompetitorDomains.length > 0) {
-        await handleAcceptRecommendedCompetitors();
-      }
-      toast({
-        title: "Guided demand flow completed",
-        description:
-          "Personas, keywords, competitors, and schedules were advanced.",
-      });
-    } catch (err) {
-      toast({
-        title: "Guided setup failed",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Could not complete guided demand setup.",
-        variant: "destructive",
-      });
-    } finally {
-      setRunningDemandFlow(false);
-    }
-  }
-
-  async function handleAddCompetitor() {
-    if (!newCompDomain) return;
-    setAddingComp(true);
-    try {
-      await addCompetitor(newCompDomain);
-      setNewCompDomain("");
-    } catch (err) {
-      toast({
-        title: "Failed to add competitor",
-        description:
-          err instanceof Error ? err.message : "Please try again shortly.",
-        variant: "destructive",
-      });
-    } finally {
-      setAddingComp(false);
-    }
-  }
-
-  async function handleRemoveCompetitor(id: string) {
-    try {
-      await removeCompetitor(id);
-    } catch (err) {
-      toast({
-        title: "Failed to remove competitor",
-        description:
-          err instanceof Error ? err.message : "Please try again shortly.",
-        variant: "destructive",
-      });
-    }
-  }
+  const {
+    addingComp,
+    newCompDomain,
+    setNewCompDomain,
+    keywordSuggestions,
+    selectedSuggestions,
+    discoveringKeywords,
+    acceptingKeywords,
+    addingRecommendedCompetitors,
+    runningDemandFlow,
+    handleGeneratePersonas,
+    handleDiscoverKeywordSuggestions,
+    handleAcceptSuggestedKeywords,
+    handleAcceptRecommendedCompetitors,
+    handleRunDemandFlow,
+    handleToggleSuggestion,
+    handleAddCompetitor,
+    handleRemoveCompetitor,
+  } = useStrategyTabActions({
+    projectId,
+    personaError,
+    persistedPersonas,
+    savedKeywords,
+    visibilitySchedules,
+    recommendedCompetitorDomains,
+    generatePersonas,
+    addCompetitor,
+    removeCompetitor,
+    mutatePersistedPersonas,
+    mutateSavedKeywords,
+    mutateVisibilitySchedules,
+  });
 
   return (
     <div className="space-y-8">
@@ -347,283 +70,47 @@ export function StrategyTab({ projectId }: { projectId: string }) {
       {/* Topic Cluster Map */}
       {topicMap && <TopicClusterGraph data={topicMap} />}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Route className="h-5 w-5 text-primary" />
-            Demand Model Flow
-          </CardTitle>
-          <CardDescription>
-            One guided flow: discover personas, accept keywords, map
-            competitors, and schedule recurring visibility checks.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">Personas</p>
-              <p className="text-lg font-semibold">
-                {persistedPersonas?.length ?? 0}
-              </p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">Keywords</p>
-              <p className="text-lg font-semibold">
-                {savedKeywords?.length ?? 0}
-              </p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">Competitors</p>
-              <p className="text-lg font-semibold">
-                {competitors?.length ?? 0}
-              </p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">Schedules</p>
-              <p className="text-lg font-semibold">
-                {visibilitySchedules?.length ?? 0}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDiscoverKeywordSuggestions}
-              disabled={discoveringKeywords}
-            >
-              {discoveringKeywords ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-1.5 h-4 w-4" />
-              )}
-              Suggest Keywords
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => void handleAcceptSuggestedKeywords()}
-              disabled={acceptingKeywords || selectedSuggestions.length === 0}
-            >
-              {acceptingKeywords ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-              )}
-              Accept All Recommended
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleAcceptRecommendedCompetitors}
-              disabled={
-                addingRecommendedCompetitors ||
-                recommendedCompetitorDomains.length === 0
-              }
-            >
-              {addingRecommendedCompetitors ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Target className="mr-1.5 h-4 w-4" />
-              )}
-              Add Recommended Competitors
-            </Button>
-            <Button onClick={handleRunDemandFlow} disabled={runningDemandFlow}>
-              {runningDemandFlow ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Route className="mr-1.5 h-4 w-4" />
-              )}
-              Run Guided Setup
-            </Button>
-          </div>
-
-          {keywordSuggestions.length > 0 && (
-            <div className="space-y-2 rounded-md border p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Suggested Keywords (deduped against existing list)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {keywordSuggestions.slice(0, 12).map((keyword) => {
-                  const selected = selectedSuggestions.includes(keyword);
-                  return (
-                    <button
-                      key={keyword}
-                      type="button"
-                      onClick={() =>
-                        setSelectedSuggestions((prev) =>
-                          prev.includes(keyword)
-                            ? prev.filter((item) => item !== keyword)
-                            : [...prev, keyword],
-                        )
-                      }
-                    >
-                      <Badge variant={selected ? "default" : "outline"}>
-                        {keyword}
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {recommendedCompetitorDomains.length > 0 && (
-            <div className="rounded-md border p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Recommended competitor domains from visibility gaps
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {recommendedCompetitorDomains.map((domain) => (
-                  <Badge key={domain} variant="outline">
-                    {domain}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <DemandModelFlowSection
+        persistedPersonaCount={persistedPersonas?.length ?? 0}
+        savedKeywordCount={savedKeywords?.length ?? 0}
+        competitorCount={competitors?.length ?? 0}
+        visibilityScheduleCount={visibilitySchedules?.length ?? 0}
+        discoveringKeywords={discoveringKeywords}
+        acceptingKeywords={acceptingKeywords}
+        addingRecommendedCompetitors={addingRecommendedCompetitors}
+        runningDemandFlow={runningDemandFlow}
+        keywordSuggestions={keywordSuggestions}
+        selectedSuggestions={selectedSuggestions}
+        recommendedCompetitorDomains={recommendedCompetitorDomains}
+        onDiscoverKeywords={() => void handleDiscoverKeywordSuggestions()}
+        onAcceptKeywords={() => void handleAcceptSuggestedKeywords()}
+        onAcceptRecommendedCompetitors={() =>
+          void handleAcceptRecommendedCompetitors()
+        }
+        onRunDemandFlow={() => void handleRunDemandFlow()}
+        onToggleSuggestion={handleToggleSuggestion}
+      />
 
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Competitor Tracking */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Competitor Tracking
-              </CardTitle>
-              <CardDescription>
-                Track up to 5 competitors to compare AI visibility and content
-                gaps
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="competitor.com"
-                  value={newCompDomain}
-                  onChange={(e) => setNewCompDomain(e.target.value)}
-                />
-                <Button onClick={handleAddCompetitor} disabled={addingComp}>
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Add
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {competitors?.map((comp) => (
-                  <div
-                    key={comp.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <span className="font-medium">{comp.domain}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveCompetitor(comp.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </div>
-                ))}
-                {competitors?.length === 0 && (
-                  <StateMessage
-                    variant="empty"
-                    compact
-                    title="No competitors added yet"
-                    description="Add at least one competitor domain to compare visibility and content coverage."
-                  />
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <CompetitorTrackingSection
+            competitors={competitors}
+            newCompDomain={newCompDomain}
+            addingComp={addingComp}
+            onNewCompDomainChange={setNewCompDomain}
+            onAddCompetitor={() => void handleAddCompetitor()}
+            onRemoveCompetitor={(id) => void handleRemoveCompetitor(id)}
+          />
         </div>
 
         {/* Persona Finder */}
         <div className="space-y-6">
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Persona Discovery
-              </CardTitle>
-              <CardDescription>
-                AI-powered identification of your ideal target audience
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {personas.length === 0 ? (
-                <StateMessage
-                  variant="empty"
-                  icon={
-                    <Users className="h-12 w-12 text-muted-foreground/50" />
-                  }
-                  title="No personas discovered yet"
-                  description="Generate research-backed personas based on your niche."
-                  action={
-                    <Button
-                      onClick={handleGeneratePersonas}
-                      disabled={generating}
-                    >
-                      {generating ? "Researching..." : "Discover Personas"}
-                    </Button>
-                  }
-                />
-              ) : (
-                <div className="space-y-6">
-                  {personas.map((p, i) => (
-                    <Card key={i} className="bg-background">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">{p.name}</CardTitle>
-                          <Badge variant="outline">{p.role}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {p.demographics}
-                        </p>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Goals
-                          </p>
-                          <ul className="list-inside list-disc text-xs">
-                            {p.goals.map((g: string, j: number) => (
-                              <li key={j}>{g}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Typical AI Queries
-                          </p>
-                          <div className="mt-1 space-y-1">
-                            {p.typicalQueries.map((q: string, j: number) => (
-                              <div
-                                key={j}
-                                className="flex items-center gap-1.5 rounded bg-muted px-2 py-1 text-[10px]"
-                              >
-                                <Search className="h-3 w-3" />
-                                {q}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleGeneratePersonas}
-                    disabled={generating}
-                  >
-                    Regenerate
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <PersonaDiscoverySection
+            personas={personas}
+            generating={generating}
+            onGeneratePersonas={() => void handleGeneratePersonas()}
+          />
         </div>
       </div>
     </div>

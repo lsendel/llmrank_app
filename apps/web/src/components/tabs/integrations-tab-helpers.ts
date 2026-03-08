@@ -1,4 +1,4 @@
-import type { CrawledPage } from "@/lib/api";
+import type { CrawledPage, IntegrationInsights } from "@/lib/api";
 import {
   Activity,
   Gauge,
@@ -48,7 +48,12 @@ export type SignalTaskDraft = {
   dueAt?: string | null;
 };
 
-type PageUrlLookup = {
+export type SignalTaskPlan = {
+  reasons: string[];
+  items: SignalTaskDraft[];
+};
+
+export type PageUrlLookup = {
   byFull: Map<string, string>;
   byPath: Map<string, string>;
 };
@@ -260,4 +265,228 @@ export function formatDeltaNumber(
     deltaValue: `${delta > 0 ? "+" : ""}${formatter.format(delta)}${suffix}`,
     direction,
   };
+}
+
+export function buildIntegrationDeltaMetrics(
+  integrationInsights: IntegrationInsights | undefined,
+  previousInsights: IntegrationInsights | undefined,
+): IntegrationDeltaMetric[] {
+  if (!integrationInsights?.integrations || !previousInsights?.integrations) {
+    return [];
+  }
+
+  const metrics: IntegrationDeltaMetric[] = [];
+  const current = integrationInsights.integrations;
+  const previous = previousInsights.integrations;
+
+  if (current.gsc && previous.gsc) {
+    const clicks = formatDeltaNumber(
+      current.gsc.totalClicks ?? 0,
+      previous.gsc.totalClicks ?? 0,
+      { higherIsBetter: true },
+    );
+    metrics.push({
+      id: "gsc-clicks",
+      label: "GSC Clicks",
+      currentValue: clicks.currentValue,
+      deltaValue: clicks.deltaValue,
+      direction: clicks.direction,
+    });
+
+    const nonIndexedCurrent = current.gsc.indexedPages.filter((page) =>
+      isNonIndexedStatus(page.status),
+    ).length;
+    const nonIndexedPrevious = previous.gsc.indexedPages.filter((page) =>
+      isNonIndexedStatus(page.status),
+    ).length;
+    const nonIndexed = formatDeltaNumber(
+      nonIndexedCurrent,
+      nonIndexedPrevious,
+      {
+        higherIsBetter: false,
+      },
+    );
+    metrics.push({
+      id: "gsc-non-indexed",
+      label: "Non-indexed pages",
+      currentValue: nonIndexed.currentValue,
+      deltaValue: nonIndexed.deltaValue,
+      direction: nonIndexed.direction,
+    });
+  }
+
+  if (current.ga4 && previous.ga4) {
+    const bounce = formatDeltaNumber(
+      current.ga4.bounceRate ?? 0,
+      previous.ga4.bounceRate ?? 0,
+      { decimals: 1, suffix: "%", higherIsBetter: false },
+    );
+    metrics.push({
+      id: "ga4-bounce",
+      label: "GA4 bounce rate",
+      currentValue: bounce.currentValue,
+      deltaValue: bounce.deltaValue,
+      direction: bounce.direction,
+    });
+  }
+
+  if (current.clarity && previous.clarity) {
+    const uxScore = formatDeltaNumber(
+      current.clarity.avgUxScore ?? 0,
+      previous.clarity.avgUxScore ?? 0,
+      { decimals: 1, higherIsBetter: true },
+    );
+    metrics.push({
+      id: "clarity-ux",
+      label: "Clarity UX score",
+      currentValue: uxScore.currentValue,
+      deltaValue: uxScore.deltaValue,
+      direction: uxScore.direction,
+    });
+  }
+
+  if (current.meta && previous.meta) {
+    const currentEngagement =
+      current.meta.totalShares +
+      current.meta.totalReactions +
+      current.meta.totalComments;
+    const previousEngagement =
+      previous.meta.totalShares +
+      previous.meta.totalReactions +
+      previous.meta.totalComments;
+    const engagement = formatDeltaNumber(
+      currentEngagement,
+      previousEngagement,
+      {
+        higherIsBetter: true,
+      },
+    );
+    metrics.push({
+      id: "meta-engagement",
+      label: "Meta engagement",
+      currentValue: engagement.currentValue,
+      deltaValue: engagement.deltaValue,
+      direction: engagement.direction,
+    });
+  }
+
+  return metrics;
+}
+
+export function buildSignalTaskPlan({
+  integrationInsights,
+  pageUrlLookup,
+  currentUserId,
+}: {
+  integrationInsights: IntegrationInsights | undefined;
+  pageUrlLookup: PageUrlLookup;
+  currentUserId: string | null;
+}): SignalTaskPlan {
+  const reasons: string[] = [];
+  const items: SignalTaskDraft[] = [];
+  const integrationsData = integrationInsights?.integrations;
+  if (!integrationsData) {
+    return { reasons, items };
+  }
+
+  const gsc = integrationsData.gsc;
+  if (gsc) {
+    const nonIndexedPages = gsc.indexedPages.filter((page) =>
+      isNonIndexedStatus(page.status),
+    );
+    if (nonIndexedPages.length > 0) {
+      reasons.push(
+        `${nonIndexedPages.length} page${nonIndexedPages.length === 1 ? "" : "s"} are not indexed in Google.`,
+      );
+      const severity: "critical" | "warning" =
+        nonIndexedPages.length >= 10 ? "critical" : "warning";
+      const dueAt =
+        severity === "critical" ? dueAtDaysFromNow(3) : dueAtDaysFromNow(7);
+      let unmappedCount = 0;
+
+      for (const page of nonIndexedPages.slice(0, 15)) {
+        const pageId = resolvePageIdForSignalUrl(page.url, pageUrlLookup);
+        if (!pageId) {
+          unmappedCount += 1;
+          continue;
+        }
+        items.push({
+          pageId,
+          issueCode: "INTEGRATION_GSC_NOT_INDEXED",
+          status: "pending",
+          severity,
+          category: "technical",
+          scoreImpact: severity === "critical" ? 10 : 8,
+          title: `Fix Google indexing issue: ${truncateUrlPath(page.url)}`,
+          description: `Google Search Console reported "${page.status}" for this page.`,
+          assigneeId: currentUserId,
+          dueAt,
+        });
+      }
+
+      if (unmappedCount > 0) {
+        items.push({
+          issueCode: "INTEGRATION_GSC_NOT_INDEXED_UNMAPPED",
+          status: "pending",
+          severity,
+          category: "technical",
+          scoreImpact: 7,
+          title: "Review non-indexed pages from Google Search Console",
+          description: `${unmappedCount} non-indexed page URL${unmappedCount === 1 ? "" : "s"} could not be mapped to crawl pages.`,
+          assigneeId: currentUserId,
+          dueAt,
+        });
+      }
+    }
+  }
+
+  const clarity = integrationsData.clarity;
+  if (clarity && clarity.rageClickPages.length > 0) {
+    reasons.push(
+      `${clarity.rageClickPages.length} page${clarity.rageClickPages.length === 1 ? "" : "s"} have rage-click events in Clarity.`,
+    );
+    const severity: "critical" | "warning" =
+      clarity.rageClickPages.length >= 6 ? "critical" : "warning";
+    const dueAt =
+      severity === "critical" ? dueAtDaysFromNow(3) : dueAtDaysFromNow(7);
+
+    for (const url of clarity.rageClickPages.slice(0, 10)) {
+      items.push({
+        pageId: resolvePageIdForSignalUrl(url, pageUrlLookup),
+        issueCode: "INTEGRATION_CLARITY_RAGE_CLICKS",
+        status: "pending",
+        severity,
+        category: "performance",
+        scoreImpact: severity === "critical" ? 8 : 6,
+        title: `Investigate rage clicks: ${truncateUrlPath(url)}`,
+        description:
+          "Microsoft Clarity detected repeated rage clicks that indicate UX friction.",
+        assigneeId: currentUserId,
+        dueAt,
+      });
+    }
+  }
+
+  const ga4 = integrationsData.ga4;
+  if (ga4 && ga4.bounceRate >= 65) {
+    reasons.push(
+      `GA4 bounce rate is ${ga4.bounceRate.toFixed(1)}%, above the 65% review threshold.`,
+    );
+    const severity: "critical" | "warning" =
+      ga4.bounceRate >= 75 ? "critical" : "warning";
+    items.push({
+      issueCode: "INTEGRATION_GA4_HIGH_BOUNCE",
+      status: "pending",
+      severity,
+      category: "content",
+      scoreImpact: severity === "critical" ? 8 : 6,
+      title: "Reduce bounce rate on top landing pages",
+      description: `Current bounce rate is ${ga4.bounceRate.toFixed(1)}% with average engagement ${ga4.avgEngagement.toFixed(0)} seconds.`,
+      assigneeId: currentUserId,
+      dueAt:
+        severity === "critical" ? dueAtDaysFromNow(3) : dueAtDaysFromNow(7),
+    });
+  }
+
+  return { reasons, items };
 }
