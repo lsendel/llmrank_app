@@ -13,7 +13,7 @@
     },
     "lint": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", ".eslintrc.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/eslint.config.mjs"]
     },
     "lint:fix": {
       "dependsOn": ["^build"],

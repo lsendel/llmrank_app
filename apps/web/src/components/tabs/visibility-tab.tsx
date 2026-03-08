@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useSyncExternalStore,
-} from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StateMessage } from "@/components/ui/state";
 import {
@@ -21,15 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -65,113 +49,30 @@ import {
   type ScheduledQuery,
 } from "@/lib/api";
 import {
+  AI_SEARCH_PRESET,
+  BALANCED_PRESET,
+  DEFAULT_PROVIDER_IDS,
+  FULL_COVERAGE_PRESET,
+  PROVIDERS,
+  REGIONS,
+  buildRegionFilter,
+  filterKnownProviderIds,
+  recommendedProvidersForIntent,
+  type ProviderId,
+  type ScheduleFrequency,
+  type VisibilityIntent,
+} from "./visibility-tab-helpers";
+import {
+  ScheduledChecksSection,
+  ScheduleSuggestionBanner,
+  VisibilityResultCard,
+} from "./visibility-tab-sections";
+import {
   confidenceFromVisibilityCoverage,
   relativeTimeLabel,
 } from "@/lib/insight-metadata";
-import {
-  Plus,
-  Trash2,
-  Clock,
-  CalendarClock,
-  Pause,
-  Play,
-  AlertTriangle,
-} from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-
-const PROVIDERS = [
-  { id: "chatgpt", label: "ChatGPT" },
-  { id: "claude", label: "Claude" },
-  { id: "perplexity", label: "Perplexity" },
-  { id: "gemini", label: "Gemini" },
-  { id: "copilot", label: "Copilot" },
-  { id: "gemini_ai_mode", label: "AI Search (Gemini)" },
-  { id: "grok", label: "Grok" },
-] as const;
-
-type ProviderId = (typeof PROVIDERS)[number]["id"];
-type VisibilityIntent = "discovery" | "comparison" | "transactional";
-
-const PROVIDER_ID_SET = new Set<string>(
-  PROVIDERS.map((provider) => provider.id),
-);
-
-const BALANCED_PRESET: ProviderId[] = [
-  "chatgpt",
-  "claude",
-  "perplexity",
-  "gemini",
-];
-const AI_SEARCH_PRESET: ProviderId[] = [
-  "perplexity",
-  "gemini",
-  "gemini_ai_mode",
-];
-const FULL_COVERAGE_PRESET: ProviderId[] = PROVIDERS.map(
-  (provider) => provider.id,
-);
-
-const FREQUENCY_OPTIONS = [
-  { value: "hourly", label: "Hourly", description: "Every hour" },
-  { value: "daily", label: "Daily", description: "Every 24 hours" },
-  { value: "weekly", label: "Weekly", description: "Every 7 days" },
-] as const;
-
-const REGIONS = [
-  { value: "all", label: "Worldwide" },
-  { value: "us", label: "US" },
-  { value: "gb", label: "UK" },
-  { value: "de", label: "DE" },
-  { value: "fr", label: "FR" },
-  { value: "es", label: "ES" },
-  { value: "br", label: "BR" },
-  { value: "jp", label: "JP" },
-  { value: "au", label: "AU" },
-  { value: "ca", label: "CA" },
-  { value: "in", label: "IN" },
-  { value: "it", label: "IT" },
-  { value: "nl", label: "NL" },
-  { value: "se", label: "SE" },
-  { value: "kr", label: "KR" },
-] as const;
-
-const REGION_LANGUAGES: Record<string, string> = {
-  us: "en",
-  gb: "en",
-  de: "de",
-  fr: "fr",
-  es: "es",
-  br: "pt",
-  jp: "ja",
-  au: "en",
-  ca: "en",
-  in: "en",
-  it: "it",
-  nl: "nl",
-  se: "sv",
-  kr: "ko",
-};
-
-function recommendedProvidersForIntent(
-  intent: VisibilityIntent,
-  isProOrAbove: boolean,
-): ProviderId[] {
-  switch (intent) {
-    case "comparison":
-      return isProOrAbove
-        ? ["perplexity", "gemini", "chatgpt", "grok"]
-        : ["perplexity", "gemini", "chatgpt"];
-    case "transactional":
-      return isProOrAbove
-        ? ["chatgpt", "gemini", "copilot", "gemini_ai_mode"]
-        : ["chatgpt", "gemini", "copilot"];
-    case "discovery":
-    default:
-      return isProOrAbove
-        ? ["chatgpt", "claude", "perplexity", "gemini_ai_mode"]
-        : ["chatgpt", "claude", "perplexity"];
-  }
-}
 
 export default function VisibilityTab({
   projectId,
@@ -191,9 +92,8 @@ export default function VisibilityTab({
   const canFilterRegion = isPro || isAgency;
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [selectedKeywordIds, setSelectedKeywordIds] = useState<string[]>([]);
-  const [selectedProviders, setSelectedProviders] = useState<ProviderId[]>(
-    PROVIDERS.map((p) => p.id),
-  );
+  const [selectedProviders, setSelectedProviders] =
+    useState<ProviderId[]>(DEFAULT_PROVIDER_IDS);
   const [intent, setIntent] = useState<VisibilityIntent>("discovery");
   const [results, setResults] = useState<VisibilityCheck[]>([]);
   const [history, setHistory] = useState<VisibilityCheck[]>([]);
@@ -203,13 +103,7 @@ export default function VisibilityTab({
 
   // Compute region/language filter for API calls
   const regionFilter = useMemo(
-    () =>
-      selectedRegion !== "all" && canFilterRegion
-        ? {
-            region: selectedRegion,
-            language: REGION_LANGUAGES[selectedRegion] ?? "en",
-          }
-        : undefined,
+    () => buildRegionFilter(selectedRegion, canFilterRegion),
     [selectedRegion, canFilterRegion],
   );
 
@@ -358,7 +252,7 @@ export default function VisibilityTab({
   async function handleCreateSchedule(data: {
     query: string;
     providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
+    frequency: ScheduleFrequency;
   }) {
     setScheduleError(null);
     try {
@@ -424,10 +318,7 @@ export default function VisibilityTab({
   }
 
   function applyProviderPreset(providers: readonly string[]) {
-    const selected = providers.filter((provider): provider is ProviderId =>
-      PROVIDER_ID_SET.has(provider),
-    );
-    setSelectedProviders(selected);
+    setSelectedProviders(filterKnownProviderIds(providers));
   }
 
   function handleApplyIntentPreset() {
@@ -888,441 +779,5 @@ export default function VisibilityTab({
         }
       />
     </div>
-  );
-}
-
-// ── Scheduled Checks Section ─────────────────────────────────────────
-
-function ScheduledChecksSection({
-  schedules,
-  scheduleError,
-  onCreateSchedule,
-  onToggleSchedule,
-  onDeleteSchedule,
-}: {
-  schedules: ScheduledQuery[];
-  scheduleError: string | null;
-  onCreateSchedule: (data: {
-    query: string;
-    providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
-  }) => Promise<void>;
-  onToggleSchedule: (schedule: ScheduledQuery) => Promise<void>;
-  onDeleteSchedule: (id: string) => Promise<void>;
-}) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-base">Scheduled Checks</CardTitle>
-          </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
-                <Plus className="mr-1.5 h-4 w-4" />
-                Add Schedule
-              </Button>
-            </DialogTrigger>
-            <AddScheduleDialog
-              error={scheduleError}
-              onSubmit={async (data) => {
-                await onCreateSchedule(data);
-                setDialogOpen(false);
-              }}
-            />
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {schedules.length === 0 ? (
-          <StateMessage
-            variant="empty"
-            title="No scheduled checks yet"
-            description="Add a schedule to automatically monitor your visibility across LLM providers."
-            icon={<Clock className="h-10 w-10 text-muted-foreground/50" />}
-          />
-        ) : (
-          <div className="space-y-3">
-            {schedules.map((schedule) => (
-              <ScheduleRow
-                key={schedule.id}
-                schedule={schedule}
-                onToggle={() => onToggleSchedule(schedule)}
-                onDelete={() => onDeleteSchedule(schedule.id)}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Schedule Row ─────────────────────────────────────────────────────
-
-function ScheduleRow({
-  schedule,
-  onToggle,
-  onDelete,
-}: {
-  schedule: ScheduledQuery;
-  onToggle: () => void;
-  onDelete: () => void;
-}) {
-  const [toggling, setToggling] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  async function handleToggle() {
-    setToggling(true);
-    try {
-      await onToggle();
-    } finally {
-      setToggling(false);
-    }
-  }
-
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      await onDelete();
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-between rounded-lg border p-3">
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="truncate text-sm font-medium">{schedule.query}</p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {schedule.providers.map((provider) => (
-            <Badge key={provider} variant="secondary" className="text-xs">
-              {provider}
-            </Badge>
-          ))}
-          <Badge
-            variant={schedule.frequency === "weekly" ? "default" : "secondary"}
-            className="text-xs"
-          >
-            {schedule.frequency}
-          </Badge>
-          {!schedule.enabled && (
-            <Badge variant="destructive" className="text-xs">
-              Paused
-            </Badge>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {schedule.lastRunAt
-            ? `Last run: ${new Date(schedule.lastRunAt).toLocaleString()}`
-            : "Not yet run"}
-          {" | "}
-          Next: {new Date(schedule.nextRunAt).toLocaleString()}
-        </p>
-      </div>
-      <div className="ml-3 flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleToggle}
-          disabled={toggling}
-          title={schedule.enabled ? "Pause schedule" : "Resume schedule"}
-        >
-          {schedule.enabled ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="text-destructive hover:text-destructive"
-          title="Delete schedule"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ── Add Schedule Dialog ──────────────────────────────────────────────
-
-function AddScheduleDialog({
-  error,
-  onSubmit,
-}: {
-  error: string | null;
-  onSubmit: (data: {
-    query: string;
-    providers: string[];
-    frequency: "hourly" | "daily" | "weekly";
-  }) => Promise<void>;
-}) {
-  const [scheduleQuery, setScheduleQuery] = useState("");
-  const [scheduleProviders, setScheduleProviders] = useState<string[]>(
-    PROVIDERS.map((p) => p.id),
-  );
-  const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly">(
-    "weekly",
-  );
-  const [submitting, setSubmitting] = useState(false);
-
-  function toggleScheduleProvider(id: string) {
-    setScheduleProviders((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    );
-  }
-
-  async function handleSubmit() {
-    if (!scheduleQuery.trim() || scheduleProviders.length === 0) return;
-    setSubmitting(true);
-    try {
-      await onSubmit({
-        query: scheduleQuery.trim(),
-        providers: scheduleProviders,
-        frequency,
-      });
-      // Reset form on success
-      setScheduleQuery("");
-      setScheduleProviders(PROVIDERS.map((p) => p.id));
-      setFrequency("weekly");
-    } catch {
-      // Error is displayed via the error prop
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Add Scheduled Visibility Check</DialogTitle>
-        <DialogDescription>
-          Automatically check your brand visibility across LLM providers on a
-          recurring schedule.
-        </DialogDescription>
-      </DialogHeader>
-      <div className="space-y-4 py-2">
-        <div className="space-y-2">
-          <Label htmlFor="schedule-query">Search Query</Label>
-          <Input
-            id="schedule-query"
-            placeholder='e.g. "best project management tools"'
-            value={scheduleQuery}
-            onChange={(e) => setScheduleQuery(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>LLM Providers</Label>
-          <div className="flex flex-wrap gap-2">
-            {PROVIDERS.map((p) => (
-              <Button
-                key={p.id}
-                type="button"
-                variant={
-                  scheduleProviders.includes(p.id) ? "default" : "outline"
-                }
-                size="sm"
-                onClick={() => toggleScheduleProvider(p.id)}
-              >
-                {p.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label>Frequency</Label>
-          <Select
-            value={frequency}
-            onValueChange={(val) =>
-              setFrequency(val as "hourly" | "daily" | "weekly")
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FREQUENCY_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {opt.description}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {error && (
-          <StateMessage
-            variant="error"
-            compact
-            title="Schedule creation failed"
-            description={error}
-            className="rounded-md border border-destructive/20 bg-destructive/5 py-3"
-          />
-        )}
-      </div>
-      <DialogFooter>
-        <Button
-          onClick={handleSubmit}
-          disabled={
-            submitting ||
-            !scheduleQuery.trim() ||
-            scheduleProviders.length === 0
-          }
-        >
-          {submitting ? "Creating..." : "Create Schedule"}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-// ── Schedule Suggestion Banner ───────────────────────────────────────
-
-const EMPTY_SUB = () => () => {};
-
-function ScheduleSuggestionBanner({
-  projectId,
-  lastQuery,
-  lastProviders,
-  onCreated,
-}: {
-  projectId: string;
-  lastQuery: string;
-  lastProviders: string[];
-  onCreated: (schedule: ScheduledQuery) => void;
-}) {
-  const { withAuth } = useApi();
-  const [creating, setCreating] = useState(false);
-  const storageKey = `schedule-suggestion-dismissed-${projectId}`;
-  const isDismissedFromStorage = useSyncExternalStore(
-    EMPTY_SUB,
-    () => localStorage.getItem(storageKey) === "true",
-    () => true,
-  );
-  const [manuallyDismissed, setManuallyDismissed] = useState(false);
-
-  if (isDismissedFromStorage || manuallyDismissed || !lastQuery) return null;
-
-  async function handleCreateWeeklySchedule() {
-    setCreating(true);
-    try {
-      await withAuth(async () => {
-        const created = await api.visibility.schedules.create({
-          projectId,
-          query: lastQuery,
-          providers: lastProviders,
-          frequency: "weekly",
-        });
-        onCreated(created);
-      });
-    } catch {
-      // Error handled by withAuth toast
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function handleDismiss() {
-    localStorage.setItem(storageKey, "true");
-    setManuallyDismissed(true);
-  }
-
-  return (
-    <Card className="border-primary/20">
-      <CardContent className="flex items-center justify-between py-3">
-        <p className="text-sm">Track your visibility weekly?</p>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={handleCreateWeeklySchedule}
-            disabled={creating}
-          >
-            {creating ? "Creating..." : "Enable Weekly"}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={handleDismiss}>
-            Dismiss
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Visibility Result Card ───────────────────────────────────────────
-
-function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base capitalize">
-            {check.llmProvider}
-          </CardTitle>
-          <div className="flex gap-2">
-            <Badge variant={check.brandMentioned ? "success" : "destructive"}>
-              {check.brandMentioned ? "Mentioned" : "Not Mentioned"}
-            </Badge>
-            <Badge variant={check.urlCited ? "success" : "destructive"}>
-              {check.urlCited ? "Cited" : "Not Cited"}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {check.citationPosition != null && (
-          <p className="text-sm text-muted-foreground">
-            Position:{" "}
-            <span className="font-medium text-foreground">
-              #{check.citationPosition}
-            </span>
-          </p>
-        )}
-        {check.responseText && (
-          <div className="max-h-40 overflow-y-auto rounded-md bg-muted p-3 text-xs">
-            {check.responseText.slice(0, 500)}
-            {check.responseText.length > 500 && "..."}
-          </div>
-        )}
-        {check.competitorMentions &&
-          (check.competitorMentions as { domain: string; mentioned: boolean }[])
-            .length > 0 && (
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Competitors
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {(
-                  check.competitorMentions as {
-                    domain: string;
-                    mentioned: boolean;
-                    position: number | null;
-                  }[]
-                ).map((comp) => (
-                  <Badge
-                    key={comp.domain}
-                    variant={comp.mentioned ? "warning" : "secondary"}
-                  >
-                    {comp.domain}:{" "}
-                    {comp.mentioned
-                      ? `Found (#${comp.position ?? "?"})`
-                      : "Not found"}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-      </CardContent>
-    </Card>
   );
 }

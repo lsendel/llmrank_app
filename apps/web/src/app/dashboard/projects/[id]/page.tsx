@@ -3,27 +3,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Circle,
-  FileText,
-  Globe,
-  Route,
-  Palette,
-  SlidersHorizontal,
-} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { StateMessage } from "@/components/ui/state";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
@@ -45,24 +27,25 @@ import { ProjectRecommendationsCard } from "@/components/cards/project-recommend
 import { ProjectSidebar } from "@/components/project-sidebar";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
-import {
-  GROUP_DEFAULT_TABS,
-  normalizeProjectTab,
-  projectTabGroup,
-  PROJECT_TAB_GROUPS,
-  type ProjectTab,
-  type ProjectTabGroup,
-} from "./tab-state";
 import { saveLastProjectContext } from "@/lib/workflow-memory";
 import {
   resolveFirstSevenDaysOrder,
   type FirstSevenDaysStepId,
   type PersonalizationContext,
 } from "@/lib/personalization-layout";
+import { useProjectPageNavigation } from "./_hooks/use-project-page-navigation";
 import {
-  normalizeConfigureSection,
-  type ConfigureSection,
-} from "./configure-state";
+  ProjectConfigureWorkspaceCard,
+  ProjectFirstSevenDaysCard,
+  ProjectVisibilityWorkspaceCard,
+  ProjectWorkspaceChooser,
+} from "./_components/project-page-sections";
+import {
+  INTEGRATION_LABELS,
+  isVisibilityMode,
+  type VisibilityGuidanceAction,
+  visibilityNextStepRecommendation,
+} from "./project-page-helpers";
 
 function TabLoadingSkeleton() {
   return (
@@ -210,351 +193,25 @@ const AiAnalysisTab = dynamic(
   { loading: () => <TabLoadingSkeleton /> },
 );
 
-const INTEGRATION_PROVIDERS = ["gsc", "psi", "ga4", "clarity"] as const;
-type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
-
-function asIntegrationProvider(
-  value: string | null,
-): IntegrationProvider | null {
-  if (!value) return null;
-  return (INTEGRATION_PROVIDERS as readonly string[]).includes(value)
-    ? (value as IntegrationProvider)
-    : null;
-}
-
-const INTEGRATION_LABELS: Record<IntegrationProvider, string> = {
-  gsc: "Google Search Console",
-  ga4: "Google Analytics 4",
-  psi: "PageSpeed Insights",
-  clarity: "Microsoft Clarity",
-};
-
-const VISIBILITY_MODES = [
-  "visibility",
-  "ai-visibility",
-  "ai-analysis",
-] as const;
-type VisibilityMode = (typeof VISIBILITY_MODES)[number];
-const VISIBILITY_MODE_STORAGE_PREFIX = "llmrank:project:visibility-mode";
-const WORKSPACE_LAST_TAB_STORAGE_PREFIX = "llmrank:project:workspace-last-tab";
-
-const WORKSPACE_META: Record<
-  ProjectTabGroup,
-  { label: string; description: string }
-> = {
-  analyze: {
-    label: "Analyze",
-    description: "Track score health, crawl output, and issue backlog.",
-  },
-  "grow-visibility": {
-    label: "Grow Visibility",
-    description:
-      "Build strategy, monitor competitors, and improve AI presence.",
-  },
-  "automate-operate": {
-    label: "Automate & Operate",
-    description:
-      "Run integrations, reporting, automation, and operational logs.",
-  },
-  configure: {
-    label: "Configure",
-    description: "Set crawl defaults, branding, scoring, and site context.",
-  },
-};
-
-type VisibilityGuidanceAction =
-  | "open-search-visibility"
-  | "open-ai-visibility"
-  | "open-ai-analysis"
-  | "open-automation-defaults"
-  | "run-crawl";
-
-const VISIBILITY_GUIDANCE_ORDER: VisibilityMode[] = [
-  "visibility",
-  "ai-visibility",
-  "ai-analysis",
-];
-
-const VISIBILITY_MODE_GUIDANCE: Record<
-  VisibilityMode,
-  {
-    label: string;
-    whenToUse: string;
-    value: string;
-    requiresCrawl?: boolean;
-  }
-> = {
-  visibility: {
-    label: "Search Visibility",
-    whenToUse:
-      "You need weekly share-of-voice, competitor movement, and region-aware trend tracking.",
-    value:
-      "Turns visibility checks into backlog-ready opportunities and confidence-scored coverage.",
-  },
-  "ai-visibility": {
-    label: "AI Visibility",
-    whenToUse:
-      "You need provider-by-provider mention rate and keyword gap discovery across LLM engines.",
-    value:
-      "Shows where your brand is missing and lets you convert gaps into tracked keywords quickly.",
-  },
-  "ai-analysis": {
-    label: "AI Analysis",
-    whenToUse:
-      "You need crawl-based narrative insights and prioritized recommendations for what to fix next.",
-    value:
-      "Translates crawl output into strategy guidance for content, technical SEO, and AI-readiness.",
-    requiresCrawl: true,
-  },
-};
-
-function visibilityNextStepRecommendation(context: {
-  hasCompletedCrawl: boolean;
-  automationConfigured: boolean;
-  issueCount: number;
-}): {
-  title: string;
-  description: string;
-  actionLabel: string;
-  action: VisibilityGuidanceAction;
-} {
-  if (!context.hasCompletedCrawl) {
-    return {
-      title: "Run baseline crawl to unlock AI Analysis",
-      description:
-        "Start with one crawl so AI Analysis can generate insight-driven recommendations.",
-      actionLabel: "Run crawl",
-      action: "run-crawl",
-    };
-  }
-
-  if (!context.automationConfigured) {
-    return {
-      title: "Enable recurring monitoring defaults",
-      description:
-        "Set crawl cadence and post-crawl automation so visibility updates happen without manual work.",
-      actionLabel: "Open defaults",
-      action: "open-automation-defaults",
-    };
-  }
-
-  if (context.issueCount > 0) {
-    return {
-      title: `Review AI Analysis for your ${context.issueCount} open issues`,
-      description:
-        "Use narrative insights to prioritize the highest-impact fixes before the next crawl cycle.",
-      actionLabel: "Open AI Analysis",
-      action: "open-ai-analysis",
-    };
-  }
-
-  return {
-    title: "Expand coverage with AI Visibility",
-    description:
-      "Benchmark brand mention rate across providers and convert uncovered opportunities into tracked keywords.",
-    actionLabel: "Open AI Visibility",
-    action: "open-ai-visibility",
-  };
-}
-
-function isVisibilityMode(tab: ProjectTab): tab is VisibilityMode {
-  return (VISIBILITY_MODES as readonly string[]).includes(tab);
-}
-
-function asVisibilityMode(value: string | null): VisibilityMode | null {
-  if (!value) return null;
-  return (VISIBILITY_MODES as readonly string[]).includes(value)
-    ? (value as VisibilityMode)
-    : null;
-}
-
-function visibilityModeStorageKey(projectId: string): string {
-  return `${VISIBILITY_MODE_STORAGE_PREFIX}:${projectId}`;
-}
-
-function workspaceLastTabStorageKey(
-  projectId: string,
-  workspace: ProjectTabGroup,
-): string {
-  return `${WORKSPACE_LAST_TAB_STORAGE_PREFIX}:${projectId}:${workspace}`;
-}
-
-function parseWorkspaceStoredTab(
-  rawTab: string | null,
-  workspace: ProjectTabGroup,
-): ProjectTab | null {
-  if (!rawTab) return null;
-  const normalized = normalizeProjectTab(rawTab);
-  if (normalized !== rawTab) return null;
-  return projectTabGroup(normalized) === workspace ? normalized : null;
-}
-
-const CONFIGURE_SECTION_META: Record<
-  ConfigureSection,
-  {
-    title: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }
-> = {
-  "site-context": {
-    title: "Site Context",
-    description: "Keep your site description and market context accurate.",
-    icon: Globe,
-  },
-  "crawl-defaults": {
-    title: "Crawl Defaults",
-    description: "Set depth, schedule, and behavior for every crawl run.",
-    icon: Route,
-  },
-  "ai-seo-files": {
-    title: "AI/SEO Files",
-    description: "Generate sitemap.xml and llms.txt from crawl output.",
-    icon: FileText,
-  },
-  branding: {
-    title: "Branding",
-    description: "Tune tone, positioning, and content style settings.",
-    icon: Palette,
-  },
-  scoring: {
-    title: "Scoring Weights",
-    description: "Control how technical, content, AI, and performance score.",
-    icon: SlidersHorizontal,
-  },
-};
-
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const rawTab = searchParams.get("tab");
-  const rawConfigure = searchParams.get("configure");
-  const requestedCrawlId = searchParams.get("crawlId");
-  const connectProvider = asIntegrationProvider(searchParams.get("connect"));
-  const connectedProvider = asIntegrationProvider(
-    searchParams.get("connected"),
-  );
-  const currentTab = normalizeProjectTab(rawTab);
-  const currentWorkspace = projectTabGroup(currentTab);
-  const visibilityMode: VisibilityMode = isVisibilityMode(currentTab)
-    ? currentTab
-    : "visibility";
-  const currentConfigureSection = normalizeConfigureSection(rawConfigure);
-  const autoCrawlFailed = searchParams.get("autocrawl") === "failed";
-
-  useEffect(() => {
-    if (!rawTab || rawTab === currentTab) return;
-
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("tab", currentTab);
-    router.replace(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
-  }, [currentTab, params.id, rawTab, router, searchParams]);
-
-  useEffect(() => {
-    if (!rawConfigure || rawConfigure === currentConfigureSection) return;
-
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("configure", currentConfigureSection);
-    router.replace(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
-  }, [currentConfigureSection, params.id, rawConfigure, router, searchParams]);
-
-  useEffect(() => {
-    if (!isVisibilityMode(currentTab) || typeof window === "undefined") return;
-    window.localStorage.setItem(
-      visibilityModeStorageKey(params.id),
-      currentTab,
-    );
-  }, [currentTab, params.id]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      workspaceLastTabStorageKey(params.id, currentWorkspace),
-      currentTab,
-    );
-  }, [currentTab, currentWorkspace, params.id]);
-
-  const resolveVisibilityModeTab = useCallback((): VisibilityMode => {
-    if (isVisibilityMode(currentTab)) return currentTab;
-    if (typeof window === "undefined") return "visibility";
-    return (
-      asVisibilityMode(
-        window.localStorage.getItem(visibilityModeStorageKey(params.id)),
-      ) ?? "visibility"
-    );
-  }, [currentTab, params.id]);
-
-  const resolveWorkspaceTab = useCallback(
-    (workspace: ProjectTabGroup): ProjectTab => {
-      if (projectTabGroup(currentTab) === workspace) return currentTab;
-      if (typeof window === "undefined") return GROUP_DEFAULT_TABS[workspace];
-
-      const stored = parseWorkspaceStoredTab(
-        window.localStorage.getItem(
-          workspaceLastTabStorageKey(params.id, workspace),
-        ),
-        workspace,
-      );
-      return stored ?? GROUP_DEFAULT_TABS[workspace];
-    },
-    [currentTab, params.id],
-  );
-
-  const setProjectTab = useCallback(
-    (tab: ProjectTab, mode: "push" | "replace" = "push") => {
-      const newParams = new URLSearchParams(searchParams.toString());
-      newParams.set("tab", tab);
-      const url = `/dashboard/projects/${params.id}?${newParams.toString()}`;
-      if (mode === "replace") {
-        router.replace(url);
-        return;
-      }
-      router.push(url);
-    },
-    [params.id, router, searchParams],
-  );
-
-  const handleTabChange = useCallback(
-    (tab: ProjectTab) => {
-      if (tab === "visibility") {
-        setProjectTab(resolveVisibilityModeTab());
-        return;
-      }
-
-      setProjectTab(tab);
-    },
-    [resolveVisibilityModeTab, setProjectTab],
-  );
-
-  const handleVisibilityModeChange = useCallback(
-    (mode: VisibilityMode) => {
-      setProjectTab(mode);
-    },
-    [setProjectTab],
-  );
-
-  const handleWorkspaceChange = useCallback(
-    (workspace: ProjectTabGroup) => {
-      setProjectTab(resolveWorkspaceTab(workspace));
-    },
-    [resolveWorkspaceTab, setProjectTab],
-  );
-
-  const setConfigureSection = useCallback(
-    (section: ConfigureSection, mode: "push" | "replace" = "replace") => {
-      const nextParams = new URLSearchParams(searchParams.toString());
-      nextParams.set("configure", section);
-      const url = `/dashboard/projects/${params.id}?${nextParams.toString()}`;
-      if (mode === "push") {
-        router.push(url);
-        return;
-      }
-      router.replace(url);
-    },
-    [params.id, router, searchParams],
-  );
+  const {
+    autoCrawlFailed,
+    connectProvider,
+    connectedProvider,
+    currentConfigureSection,
+    currentTab,
+    currentWorkspace,
+    handleTabChange,
+    handleVisibilityModeChange,
+    handleWorkspaceChange,
+    openAutomationDefaults,
+    requestedCrawlId,
+    setConfigureSection,
+    setProjectTab,
+    visibilityMode,
+  } = useProjectPageNavigation(params.id);
 
   const { withAuth } = useApi();
   const [startingCrawl, setStartingCrawl] = useState(false);
@@ -673,13 +330,6 @@ export default function ProjectPage() {
       setStartingCrawl(false);
     }
   }, [params.id, router, withAuth]);
-
-  const openAutomationDefaults = useCallback(() => {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("tab", "settings");
-    nextParams.set("configure", "crawl-defaults");
-    router.push(`/dashboard/projects/${params.id}?${nextParams.toString()}`);
-  }, [params.id, router, searchParams]);
 
   const handleVisibilityGuidanceAction = useCallback(
     (action: VisibilityGuidanceAction) => {
@@ -873,111 +523,21 @@ export default function ProjectPage() {
 
         {/* Content area */}
         <div className="min-w-0 flex-1 space-y-6 py-4 md:pl-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Workspace</CardTitle>
-              <CardDescription>
-                Focus work by job to be done. Your last tab in each workspace is
-                remembered.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {PROJECT_TAB_GROUPS.map((workspace) => {
-                const meta = WORKSPACE_META[workspace];
-                const isActive = currentWorkspace === workspace;
-                return (
-                  <button
-                    key={workspace}
-                    type="button"
-                    onClick={() => handleWorkspaceChange(workspace)}
-                    className={`rounded-lg border p-3 text-left transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                    }`}
-                    aria-pressed={isActive}
-                  >
-                    <p className="text-sm font-medium">{meta.label}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {meta.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </CardContent>
-          </Card>
+          <ProjectWorkspaceChooser
+            currentWorkspace={currentWorkspace}
+            onWorkspaceChange={handleWorkspaceChange}
+          />
 
           {/* Banners */}
           <AlertBanner projectId={project.id} />
 
-          <Card className="border-primary/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">First 7 days plan</CardTitle>
-              <CardDescription>
-                Operational checklist for faster adoption. Complete the first
-                milestones, then switch to recurring optimization.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium">
-                    Progress: {firstSevenDaysCompleted}/{firstSevenDaysTotal}{" "}
-                    milestones completed
-                  </p>
-                  <Badge variant="secondary">
-                    {firstSevenDaysCompletionPercent}% complete
-                  </Badge>
-                </div>
-                <Progress
-                  value={firstSevenDaysCompletionPercent}
-                  className="h-2"
-                />
-                {firstSevenDaysNextStep ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-2">
-                    <p className="text-xs text-muted-foreground">
-                      Recommended next step: {firstSevenDaysNextStep.title}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={firstSevenDaysNextStep.action}
-                    >
-                      {firstSevenDaysNextStep.ctaLabel}
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    All onboarding milestones are complete. Continue with
-                    recurring optimization workflows.
-                  </p>
-                )}
-              </div>
-              {orderedFirstSevenDaysSteps.map((step) => (
-                <div
-                  key={step.id}
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3"
-                >
-                  <div className="flex min-w-0 items-start gap-2">
-                    {step.done ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" />
-                    ) : (
-                      <Circle className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                    )}
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{step.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="outline" onClick={step.action}>
-                    {step.ctaLabel}
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <ProjectFirstSevenDaysCard
+            orderedSteps={orderedFirstSevenDaysSteps}
+            completed={firstSevenDaysCompleted}
+            total={firstSevenDaysTotal}
+            completionPercent={firstSevenDaysCompletionPercent}
+            nextStep={firstSevenDaysNextStep}
+          />
 
           {/* Tab content */}
           {currentTab === "actions" && (
@@ -1035,146 +595,13 @@ export default function ProjectPage() {
           {/* Visibility workspace (visibility, ai-visibility, ai-analysis tabs) */}
           {isVisibilityMode(currentTab) && (
             <div className="space-y-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">
-                    Visibility workspace
-                  </CardTitle>
-                  <CardDescription>
-                    Use one workflow for monitoring search performance, AI
-                    presence, and analysis insights.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleVisibilityModeChange("visibility")}
-                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                        visibilityMode === "visibility"
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border hover:bg-muted"
-                      }`}
-                    >
-                      Search Visibility
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleVisibilityModeChange("ai-visibility")
-                      }
-                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                        visibilityMode === "ai-visibility"
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border hover:bg-muted"
-                      }`}
-                    >
-                      AI Visibility
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleVisibilityModeChange("ai-analysis")}
-                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                        visibilityMode === "ai-analysis"
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border hover:bg-muted"
-                      }`}
-                    >
-                      AI Analysis
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        Recommended next step: {visibilityNextStep.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {visibilityNextStep.description}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        handleVisibilityGuidanceAction(
-                          visibilityNextStep.action,
-                        )
-                      }
-                    >
-                      {visibilityNextStep.actionLabel}
-                    </Button>
-                  </div>
-
-                  <div className="grid gap-3 xl:grid-cols-3">
-                    {VISIBILITY_GUIDANCE_ORDER.map((mode) => {
-                      const modeGuide = VISIBILITY_MODE_GUIDANCE[mode];
-                      const isActiveMode = visibilityMode === mode;
-                      const needsCrawl =
-                        modeGuide.requiresCrawl === true && !hasCompletedCrawl;
-
-                      return (
-                        <div
-                          key={mode}
-                          className={`rounded-lg border p-3 ${
-                            isActiveMode
-                              ? "border-primary bg-primary/5"
-                              : "border-border"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-medium">
-                              {modeGuide.label}
-                            </p>
-                            {isActiveMode && <Badge>Active</Badge>}
-                            {!isActiveMode && needsCrawl && (
-                              <Badge variant="secondary">Needs crawl</Badge>
-                            )}
-                          </div>
-
-                          <div className="mt-3 space-y-2">
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Use when
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {modeGuide.whenToUse}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Value
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {modeGuide.value}
-                              </p>
-                            </div>
-                          </div>
-
-                          <Button
-                            className="mt-3"
-                            size="sm"
-                            variant={isActiveMode ? "secondary" : "outline"}
-                            disabled={isActiveMode}
-                            onClick={() => {
-                              if (needsCrawl) {
-                                handleVisibilityGuidanceAction("run-crawl");
-                                return;
-                              }
-                              handleVisibilityModeChange(mode);
-                            }}
-                          >
-                            {needsCrawl
-                              ? "Run crawl first"
-                              : isActiveMode
-                                ? "In use"
-                                : `Open ${modeGuide.label}`}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+              <ProjectVisibilityWorkspaceCard
+                hasCompletedCrawl={hasCompletedCrawl}
+                onGuidanceAction={handleVisibilityGuidanceAction}
+                onVisibilityModeChange={handleVisibilityModeChange}
+                visibilityMode={visibilityMode}
+                visibilityNextStep={visibilityNextStep}
+              />
 
               {visibilityMode === "visibility" && (
                 <VisibilityTab
@@ -1231,52 +658,10 @@ export default function ProjectPage() {
 
           {currentTab === "settings" && (
             <div className="space-y-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">
-                    Configure workspace
-                  </CardTitle>
-                  <CardDescription>
-                    Choose a task to configure. Each area is focused so setup is
-                    faster and easier to review.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {(
-                    Object.entries(CONFIGURE_SECTION_META) as Array<
-                      [
-                        ConfigureSection,
-                        (typeof CONFIGURE_SECTION_META)[ConfigureSection],
-                      ]
-                    >
-                  ).map(([section, meta]) => {
-                    const Icon = meta.icon;
-                    const isActive = currentConfigureSection === section;
-
-                    return (
-                      <button
-                        key={section}
-                        type="button"
-                        onClick={() => setConfigureSection(section)}
-                        className={`rounded-lg border p-3 text-left transition-colors ${
-                          isActive
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-muted/50"
-                        }`}
-                        aria-pressed={isActive}
-                      >
-                        <div className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-                          <Icon className="h-4 w-4" />
-                          {meta.title}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {meta.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </CardContent>
-              </Card>
+              <ProjectConfigureWorkspaceCard
+                currentConfigureSection={currentConfigureSection}
+                onConfigureSectionChange={setConfigureSection}
+              />
 
               {currentConfigureSection === "site-context" && (
                 <SiteContextSection projectId={project.id} />

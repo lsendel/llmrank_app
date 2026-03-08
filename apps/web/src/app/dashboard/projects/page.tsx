@@ -5,25 +5,14 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
-  Compass,
-  Trophy,
-  Eye,
-  Bug,
   ChevronLeft,
   ChevronRight,
-  Trash2,
   Loader2,
   AlertTriangle,
   Play,
   Search,
   Sparkles,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -35,23 +24,23 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { cn, gradeColor } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type Project, type ProjectsDefaultPreset } from "@/lib/api";
 import { normalizeDomain } from "@llm-boost/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProjectGrid } from "./_components/project-grid";
+import { ProjectsFiltersCard } from "./_components/projects-filters-card";
+import { ProjectsPortfolioOverview } from "./_components/projects-portfolio-overview";
+import { ProjectsSelectionBar } from "./_components/projects-selection-bar";
 import { QueueList } from "./_components/queue-list";
 import { PriorityFeedCard } from "./_components/priority-feed-card";
+import { useProjectsPageSummaries } from "./_hooks/use-projects-page-summaries";
+import {
+  isInProgress,
+  PROJECTS_PER_PAGE,
+  STALE_CRAWL_THRESHOLD_DAYS,
+} from "./projects-page-utils";
 import { StateMessage } from "@/components/ui/state";
 import { WorkflowGuidance } from "@/components/ui/workflow-guidance";
 import { useUser } from "@/lib/auth-hooks";
@@ -78,8 +67,6 @@ import {
   normalizeVisitTimestamp,
   pickMostRecentVisitTimestamp,
 } from "@/lib/visit-memory";
-
-const PROJECTS_PER_PAGE = 12;
 
 type HealthFilter =
   | "all"
@@ -227,31 +214,11 @@ const VIEW_PRESETS: Record<
 
 const DEFAULT_PRESET_STORAGE_KEY = "projects-default-view-preset";
 const PROJECTS_LAST_VISIT_STORAGE_KEY = "projects-last-visit-at";
-const STALE_CRAWL_THRESHOLD_DAYS = 14;
-
-function gradeBadgeVariant(
-  score: number,
-): "success" | "warning" | "destructive" {
-  if (score >= 80) return "success";
-  if (score >= 60) return "warning";
-  return "destructive";
-}
-
-function gradeLabel(score: number): string {
-  if (score >= 80) return "Good";
-  if (score >= 60) return "Needs Work";
-  return "Poor";
-}
 
 function parsePage(value: string | null): number {
   const n = Number(value ?? "1");
   if (!Number.isFinite(n) || n < 1) return 1;
   return Math.floor(n);
-}
-
-function isInProgress(project: Project): boolean {
-  const status = project.latestCrawl?.status;
-  return status === "pending" || status === "crawling" || status === "scoring";
 }
 
 function lastActivityTimestamp(project: Project): number {
@@ -651,6 +618,31 @@ export default function ProjectsPage() {
     [updateParams],
   );
 
+  const handleSaveDefaultPreset = useCallback(async () => {
+    if (!activePreset) return;
+
+    localStorage.setItem(DEFAULT_PRESET_STORAGE_KEY, activePreset);
+    setSavingDefaultPreset(true);
+    try {
+      const updated = await api.account.updatePreferences({
+        projectsDefaultPreset: activePreset as ProjectsDefaultPreset,
+      });
+      await mutateAccountPreferences(updated, { revalidate: false });
+      toast({
+        title: "Default view updated",
+        description: `${VIEW_PRESETS[activePreset].label} will load by default.`,
+      });
+    } catch {
+      toast({
+        title: "Saved only on this browser",
+        description: "Could not sync default view to your account right now.",
+        variant: "warning",
+      });
+    } finally {
+      setSavingDefaultPreset(false);
+    }
+  }, [activePreset, mutateAccountPreferences, toast]);
+
   useEffect(() => {
     if (hasBootstrappedPreset.current) return;
     if (accountPreferencesLoading || accountMeLoading) return;
@@ -886,88 +878,39 @@ export default function ProjectsPage() {
     creditsRemaining != null && estimatedCreditsUsed > creditsRemaining;
   const analyzedPortfolioCount = anomalyProjects.length;
   const totalPortfolioProjects = portfolioSnapshot?.pagination.total ?? null;
-
-  const sinceLastVisitSummary = useMemo(() => {
-    const activity = recentActivity ?? [];
-    if (activity.length === 0) {
-      return {
-        total: 0,
-        completed: 0,
-        failed: 0,
-        running: 0,
-      };
-    }
-
-    const since = effectiveLastVisitedAt
-      ? new Date(effectiveLastVisitedAt).getTime()
-      : Number.NEGATIVE_INFINITY;
-
-    const fresh = activity.filter((entry) => {
-      const created = new Date(entry.createdAt).getTime();
-      return Number.isFinite(created) && created > since;
+  const { sinceLastVisitSummary, anomalySummary, pageSummary } =
+    useProjectsPageSummaries({
+      recentActivity,
+      effectiveLastVisitedAt,
+      anomalyProjects,
+      projects,
     });
+  const presetButtons = useMemo(
+    () =>
+      (
+        Object.entries(VIEW_PRESETS) as Array<
+          [ViewPreset, (typeof VIEW_PRESETS)[ViewPreset]]
+        >
+      ).map(([key, preset]) => ({
+        key,
+        label: preset.label,
+        active: activePreset === key,
+      })),
+    [activePreset],
+  );
+  const anomalyShortcutLinks = useMemo(() => {
+    if (!activeAnomalyShortcut) return [];
 
-    return {
-      total: fresh.length,
-      completed: fresh.filter((entry) => entry.status === "complete").length,
-      failed: fresh.filter((entry) => entry.status === "failed").length,
-      running: fresh.filter(
-        (entry) =>
-          entry.status === "pending" ||
-          entry.status === "crawling" ||
-          entry.status === "scoring",
-      ).length,
-    };
-  }, [effectiveLastVisitedAt, recentActivity]);
-
-  const anomalySummary = useMemo(() => {
-    const now = Date.now();
-    const staleThresholdMs = STALE_CRAWL_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
-
-    return {
-      failed: anomalyProjects.filter(
-        (project) => project.latestCrawl?.status === "failed",
-      ).length,
-      stale: anomalyProjects.filter((project) => {
-        const latest = project.latestCrawl;
-        if (!latest || latest.status !== "complete") return false;
-        const reference = latest.completedAt ?? latest.createdAt;
-        const timestamp = new Date(reference).getTime();
-        if (!Number.isFinite(timestamp)) return false;
-        return now - timestamp > staleThresholdMs;
-      }).length,
-      noCrawl: anomalyProjects.filter((project) => !project.latestCrawl).length,
-      inProgress: anomalyProjects.filter(isInProgress).length,
-      lowScore: anomalyProjects.filter(
-        (project) => (project.latestCrawl?.overallScore ?? 100) < 60,
-      ).length,
-      manualSchedule: anomalyProjects.filter(
-        (project) => project.settings.schedule === "manual",
-      ).length,
-      pipelineDisabled: anomalyProjects.filter(
-        (project) => project.pipelineSettings?.autoRunOnCrawl === false,
-      ).length,
-    };
-  }, [anomalyProjects]);
-
-  const pageSummary = useMemo(() => {
-    const withScore = projects.filter(
-      (project) => project.latestCrawl?.overallScore != null,
-    );
-    return {
-      good: withScore.filter(
-        (project) => (project.latestCrawl?.overallScore ?? 0) >= 80,
-      ).length,
-      needsWork: withScore.filter((project) => {
-        const score = project.latestCrawl?.overallScore ?? 0;
-        return score >= 60 && score < 80;
-      }).length,
-      poor: withScore.filter(
-        (project) => (project.latestCrawl?.overallScore ?? 0) < 60,
-      ).length,
-      inProgress: projects.filter(isInProgress).length,
-    };
-  }, [projects]);
+    return anomalyShortcutTargets.map((project) => ({
+      id: project.id,
+      name: project.name,
+      href: `/dashboard/projects/${project.id}?tab=${activeAnomalyShortcut.tab}`,
+    }));
+  }, [activeAnomalyShortcut, anomalyShortcutTargets]);
+  const additionalAnomalyMatchCount = Math.max(
+    anomalyFilteredProjects.length - anomalyShortcutTargets.length,
+    0,
+  );
 
   function toggleProjectSelection(projectId: string) {
     setSelectedIds((prev) => {
@@ -1339,155 +1282,17 @@ export default function ProjectsPage() {
         </TabsList>
 
         <TabsContent value="projects" className="mt-6 space-y-6">
-          <Card>
-            <CardContent className="grid gap-4 p-4 lg:grid-cols-2">
-              <div className="space-y-2 rounded-lg border p-3">
-                <p className="text-sm font-semibold">Since Last Visit</p>
-                {!effectiveLastVisitedAt ? (
-                  <p className="text-xs text-muted-foreground">
-                    First portfolio visit in this browser.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      Since {new Date(effectiveLastVisitedAt).toLocaleString()}
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <Badge variant="secondary">
-                        {sinceLastVisitSummary.total} new activities
-                      </Badge>
-                      <Badge variant="success">
-                        {sinceLastVisitSummary.completed} completed
-                      </Badge>
-                      <Badge variant="destructive">
-                        {sinceLastVisitSummary.failed} failed
-                      </Badge>
-                      <Badge variant="info">
-                        {sinceLastVisitSummary.running} in progress
-                      </Badge>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-2 rounded-lg border p-3">
-                <p className="text-sm font-semibold">Portfolio Anomaly Board</p>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <Badge variant="destructive">
-                    {anomalySummary.failed} failed crawls
-                  </Badge>
-                  <Badge variant="warning">
-                    {anomalySummary.stale} stale ({STALE_CRAWL_THRESHOLD_DAYS}
-                    d+)
-                  </Badge>
-                  <Badge variant="secondary">
-                    {anomalySummary.noCrawl} no crawl yet
-                  </Badge>
-                  <Badge variant="info">
-                    {anomalySummary.inProgress} in progress
-                  </Badge>
-                  <Badge variant="warning">
-                    {anomalySummary.lowScore} low score (&lt;60)
-                  </Badge>
-                  <Badge variant="secondary">
-                    {anomalySummary.manualSchedule} manual crawl schedule
-                  </Badge>
-                  <Badge variant="secondary">
-                    {anomalySummary.pipelineDisabled} pipeline disabled
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Analyzed {analyzedPortfolioCount}
-                  {totalPortfolioProjects != null
-                    ? ` of ${totalPortfolioProjects}`
-                    : ""}{" "}
-                  projects.
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant={anomalyFilter === "failed" ? "default" : "outline"}
-                    onClick={() => updateParams({ anomaly: "failed", page: 1 })}
-                  >
-                    Failed
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={anomalyFilter === "stale" ? "default" : "outline"}
-                    onClick={() => updateParams({ anomaly: "stale", page: 1 })}
-                  >
-                    Stale
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      anomalyFilter === "no_crawl" ? "default" : "outline"
-                    }
-                    onClick={() =>
-                      updateParams({ anomaly: "no_crawl", page: 1 })
-                    }
-                  >
-                    No Crawl
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      anomalyFilter === "in_progress" ? "default" : "outline"
-                    }
-                    onClick={() =>
-                      updateParams({ anomaly: "in_progress", page: 1 })
-                    }
-                  >
-                    In Progress
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      anomalyFilter === "low_score" ? "default" : "outline"
-                    }
-                    onClick={() =>
-                      updateParams({ anomaly: "low_score", page: 1 })
-                    }
-                  >
-                    Low Score
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      anomalyFilter === "manual_schedule"
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() =>
-                      updateParams({ anomaly: "manual_schedule", page: 1 })
-                    }
-                  >
-                    Manual Schedule
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      anomalyFilter === "pipeline_disabled"
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() =>
-                      updateParams({ anomaly: "pipeline_disabled", page: 1 })
-                    }
-                  >
-                    Pipeline Disabled
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={anomalyFilter === "all" ? "default" : "outline"}
-                    onClick={() => updateParams({ anomaly: "all", page: 1 })}
-                  >
-                    All
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ProjectsPortfolioOverview
+            effectiveLastVisitedAt={effectiveLastVisitedAt}
+            sinceLastVisitSummary={sinceLastVisitSummary}
+            anomalySummary={anomalySummary}
+            analyzedPortfolioCount={analyzedPortfolioCount}
+            totalPortfolioProjects={totalPortfolioProjects}
+            anomalyFilter={anomalyFilter}
+            onSelectAnomaly={(value) =>
+              updateParams({ anomaly: value as AnomalyFilter, page: 1 })
+            }
+          />
 
           <PriorityFeedCard />
 
@@ -1502,297 +1307,57 @@ export default function ProjectsPage() {
             <>
               {projects.length > 0 || totalFiltered > 0 ? (
                 <>
-                  <Card>
-                    <CardContent className="space-y-4 p-4">
-                      <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px_auto]">
-                        <div className="relative">
-                          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search projects by name or domain"
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            className="pl-8"
-                          />
-                        </div>
-
-                        <Select
-                          value={healthFilter}
-                          onValueChange={(value) =>
-                            updateParams({
-                              health: value as HealthFilter,
-                              page: 1,
-                              anomaly: "all",
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              All Health States
-                            </SelectItem>
-                            <SelectItem value="good">Good (80+)</SelectItem>
-                            <SelectItem value="needs_work">
-                              Needs Work (60-79)
-                            </SelectItem>
-                            <SelectItem value="poor">Poor (&lt;60)</SelectItem>
-                            <SelectItem value="in_progress">
-                              Crawl In Progress
-                            </SelectItem>
-                            <SelectItem value="failed">
-                              Last Crawl Failed
-                            </SelectItem>
-                            <SelectItem value="no_crawl">
-                              No Crawls Yet
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        <Select
-                          value={sortBy}
-                          onValueChange={(value) =>
-                            updateParams({
-                              sort: value as SortBy,
-                              page: 1,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="activity_desc">
-                              Latest Activity
-                            </SelectItem>
-                            <SelectItem value="score_desc">
-                              Score: High to Low
-                            </SelectItem>
-                            <SelectItem value="score_asc">
-                              Score: Low to High
-                            </SelectItem>
-                            <SelectItem value="name_asc">
-                              Name: A to Z
-                            </SelectItem>
-                            <SelectItem value="name_desc">
-                              Name: Z to A
-                            </SelectItem>
-                            <SelectItem value="created_desc">
-                              Newest Created
-                            </SelectItem>
-                            <SelectItem value="created_asc">
-                              Oldest Created
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        <Button variant="outline" onClick={resetFilters}>
-                          Reset
-                        </Button>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        {(
-                          Object.entries(VIEW_PRESETS) as Array<
-                            [ViewPreset, (typeof VIEW_PRESETS)[ViewPreset]]
-                          >
-                        ).map(([key, preset]) => (
-                          <Button
-                            key={key}
-                            size="sm"
-                            variant={
-                              activePreset === key ? "default" : "outline"
-                            }
-                            onClick={() => applyPreset(key)}
-                          >
-                            {preset.label}
-                          </Button>
-                        ))}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!activePreset || savingDefaultPreset}
-                          onClick={async () => {
-                            if (!activePreset) return;
-                            localStorage.setItem(
-                              DEFAULT_PRESET_STORAGE_KEY,
-                              activePreset,
-                            );
-                            setSavingDefaultPreset(true);
-                            try {
-                              const updated =
-                                await api.account.updatePreferences({
-                                  projectsDefaultPreset:
-                                    activePreset as ProjectsDefaultPreset,
-                                });
-                              await mutateAccountPreferences(updated, {
-                                revalidate: false,
-                              });
-                              toast({
-                                title: "Default view updated",
-                                description: `${VIEW_PRESETS[activePreset].label} will load by default.`,
-                              });
-                            } catch {
-                              toast({
-                                title: "Saved only on this browser",
-                                description:
-                                  "Could not sync default view to your account right now.",
-                                variant: "warning",
-                              });
-                            } finally {
-                              setSavingDefaultPreset(false);
-                            }
-                          }}
-                        >
-                          {savingDefaultPreset ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            "Set As Default View"
-                          )}
-                        </Button>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {usingAnomalyView && (
-                          <Badge variant="default">
-                            anomaly: {anomalyFilter.replace(/_/g, " ")}
-                          </Badge>
-                        )}
-                        <Badge variant="secondary">
-                          {totalFiltered} matching
-                        </Badge>
-                        <Badge variant="success">
-                          {pageSummary.good} good (page)
-                        </Badge>
-                        <Badge variant="warning">
-                          {pageSummary.needsWork} needs work (page)
-                        </Badge>
-                        <Badge variant="destructive">
-                          {pageSummary.poor} poor (page)
-                        </Badge>
-                        <Badge variant="info">
-                          {pageSummary.inProgress} in progress (page)
-                        </Badge>
-                      </div>
-
-                      {activeAnomalyShortcut && (
-                        <div className="rounded-lg border border-dashed p-3">
-                          <p className="text-sm font-medium">
-                            {activeAnomalyShortcut.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {activeAnomalyShortcut.description}
-                          </p>
-                          {anomalyShortcutTargets.length > 0 ? (
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              {anomalyShortcutTargets.map((project) => (
-                                <Button
-                                  key={project.id}
-                                  size="sm"
-                                  variant="outline"
-                                  asChild
-                                >
-                                  <Link
-                                    href={`/dashboard/projects/${project.id}?tab=${activeAnomalyShortcut.tab}`}
-                                  >
-                                    {activeAnomalyShortcut.cta}: {project.name}
-                                  </Link>
-                                </Button>
-                              ))}
-                              {anomalyFilteredProjects.length >
-                                anomalyShortcutTargets.length && (
-                                <Badge variant="secondary">
-                                  +
-                                  {anomalyFilteredProjects.length -
-                                    anomalyShortcutTargets.length}{" "}
-                                  more matching projects
-                                </Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              No projects match this anomaly and search query.
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <ProjectsFiltersCard
+                    searchInput={searchInput}
+                    onSearchInputChange={setSearchInput}
+                    healthFilter={healthFilter}
+                    onHealthChange={(value) =>
+                      updateParams({
+                        health: value as HealthFilter,
+                        page: 1,
+                        anomaly: "all",
+                      })
+                    }
+                    sortBy={sortBy}
+                    onSortChange={(value) =>
+                      updateParams({ sort: value as SortBy, page: 1 })
+                    }
+                    onReset={resetFilters}
+                    presetButtons={presetButtons}
+                    onApplyPreset={(preset) =>
+                      applyPreset(preset as ViewPreset)
+                    }
+                    canSaveDefaultPreset={Boolean(activePreset)}
+                    savingDefaultPreset={savingDefaultPreset}
+                    onSaveDefaultPreset={() => void handleSaveDefaultPreset()}
+                    usingAnomalyView={usingAnomalyView}
+                    anomalyFilter={anomalyFilter}
+                    totalFiltered={totalFiltered}
+                    pageSummary={pageSummary}
+                    activeAnomalyShortcut={activeAnomalyShortcut}
+                    anomalyShortcutTargets={anomalyShortcutLinks}
+                    additionalAnomalyMatchCount={additionalAnomalyMatchCount}
+                  />
 
                   {selectedCount > 0 && (
-                    <Card>
-                      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                        <p className="text-sm font-medium">
-                          {selectedCount} selected
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {anomalyFilter === "pipeline_disabled" && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() =>
-                                void handleEnablePipelineDefaults()
-                              }
-                              disabled={
-                                bulkEnablingPipeline ||
-                                selectedPipelineDisabledProjects.length === 0
-                              }
-                            >
-                              {bulkEnablingPipeline ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : null}
-                              Enable Pipeline Defaults
-                            </Button>
-                          )}
-                          {anomalyFilter !== "all" && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => void handlePlanSmartFixes()}
-                              disabled={bulkPlanningSmartFixes}
-                            >
-                              {bulkPlanningSmartFixes ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Sparkles className="h-4 w-4" />
-                              )}
-                              Plan Smart Fixes
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            onClick={openBulkCrawlPreflight}
-                            disabled={bulkCrawling}
-                          >
-                            {bulkCrawling ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                            Run Crawl
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setBulkDeleteOpen(true)}
-                            disabled={bulkDeleting}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedIds(new Set())}
-                          >
-                            Clear Selection
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <ProjectsSelectionBar
+                      selectedCount={selectedCount}
+                      anomalyFilter={anomalyFilter}
+                      bulkEnablingPipeline={bulkEnablingPipeline}
+                      selectedPipelineDisabledCount={
+                        selectedPipelineDisabledProjects.length
+                      }
+                      onEnablePipelineDefaults={() =>
+                        void handleEnablePipelineDefaults()
+                      }
+                      bulkPlanningSmartFixes={bulkPlanningSmartFixes}
+                      onPlanSmartFixes={() => void handlePlanSmartFixes()}
+                      bulkCrawling={bulkCrawling}
+                      onRunCrawl={openBulkCrawlPreflight}
+                      bulkDeleting={bulkDeleting}
+                      onDelete={() => setBulkDeleteOpen(true)}
+                      onClearSelection={() => setSelectedIds(new Set())}
+                    />
                   )}
 
                   <div className="flex items-center justify-between">
@@ -1829,215 +1394,12 @@ export default function ProjectsPage() {
                   </div>
 
                   {projects.length > 0 ? (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {projects.map((project) => {
-                        const lastScore =
-                          project.latestCrawl?.overallScore ?? null;
-                        const hasCrawl = project.latestCrawl != null;
-                        const isSelected = selectedIds.has(project.id);
-
-                        return (
-                          <Card
-                            key={project.id}
-                            className={cn(
-                              "group transition-shadow hover:shadow-md",
-                              isSelected && "ring-2 ring-primary/40",
-                            )}
-                          >
-                            <CardContent className="p-5">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() =>
-                                      toggleProjectSelection(project.id)
-                                    }
-                                    aria-label={`Select ${project.name}`}
-                                  />
-                                  {project.faviconUrl && (
-                                    <img
-                                      src={project.faviconUrl}
-                                      alt=""
-                                      className="mt-0.5 h-5 w-5 rounded-sm"
-                                    />
-                                  )}
-                                  <div>
-                                    <Link
-                                      href={`/dashboard/projects/${project.id}`}
-                                      className="font-semibold hover:text-primary"
-                                    >
-                                      {project.name}
-                                    </Link>
-                                    <p className="mt-0.5 text-sm text-muted-foreground">
-                                      {normalizeDomain(project.domain)}
-                                    </p>
-                                    {project.latestCrawl &&
-                                      project.latestCrawl.status !==
-                                        "complete" && (
-                                        <Badge
-                                          variant={
-                                            project.latestCrawl.status ===
-                                            "failed"
-                                              ? "destructive"
-                                              : "secondary"
-                                          }
-                                          className="mt-2 capitalize"
-                                        >
-                                          {project.latestCrawl.status}
-                                        </Badge>
-                                      )}
-                                  </div>
-                                </div>
-
-                                {lastScore !== null ? (
-                                  <div className="flex flex-col items-end gap-1">
-                                    <span
-                                      className={`text-2xl font-bold ${gradeColor(lastScore)}`}
-                                    >
-                                      {lastScore}
-                                    </span>
-                                    <Badge
-                                      variant={gradeBadgeVariant(lastScore)}
-                                    >
-                                      {gradeLabel(lastScore)}
-                                    </Badge>
-                                  </div>
-                                ) : (
-                                  <Badge variant="secondary">
-                                    No crawls yet
-                                  </Badge>
-                                )}
-                              </div>
-
-                              <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
-                                {hasCrawl ? (
-                                  <>
-                                    <span>
-                                      {project.latestCrawl!.pagesCrawled ??
-                                        project.latestCrawl!.pagesScored ??
-                                        0}{" "}
-                                      pages scanned
-                                    </span>
-                                    {project.latestCrawl!.completedAt && (
-                                      <span>
-                                        Last crawl:{" "}
-                                        {new Date(
-                                          project.latestCrawl!.completedAt,
-                                        ).toLocaleDateString()}
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span>
-                                    Created{" "}
-                                    {new Date(
-                                      project.createdAt,
-                                    ).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="mt-4 flex items-center justify-between border-t pt-3">
-                                <div className="flex items-center gap-1">
-                                  <TooltipProvider delayDuration={0}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Link
-                                          href={`/dashboard/projects/${project.id}?tab=strategy`}
-                                          className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                        >
-                                          <Compass className="h-4 w-4" />
-                                        </Link>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Strategy</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-
-                                  <TooltipProvider delayDuration={0}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Link
-                                          href={`/dashboard/projects/${project.id}?tab=competitors`}
-                                          className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                        >
-                                          <Trophy className="h-4 w-4" />
-                                        </Link>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        Competitors
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-
-                                  <TooltipProvider delayDuration={0}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Link
-                                          href={`/dashboard/projects/${project.id}?tab=visibility`}
-                                          className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                        >
-                                          <Eye className="h-4 w-4" />
-                                        </Link>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        Visibility
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-
-                                  <TooltipProvider delayDuration={0}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Link
-                                          href={`/dashboard/projects/${project.id}?tab=issues`}
-                                          className="rounded-md p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                        >
-                                          <Bug className="h-4 w-4" />
-                                        </Link>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Issues</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-
-                                  <TooltipProvider delayDuration={0}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          type="button"
-                                          className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                          onClick={() =>
-                                            setDeleteTarget({
-                                              id: project.id,
-                                              name: project.name,
-                                            })
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Delete</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </div>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-2 text-xs"
-                                  asChild
-                                >
-                                  <Link
-                                    href={`/dashboard/projects/${project.id}`}
-                                  >
-                                    View Project
-                                  </Link>
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
+                    <ProjectGrid
+                      projects={projects}
+                      selectedIds={selectedIds}
+                      onToggleProjectSelection={toggleProjectSelection}
+                      onRequestDelete={(target) => setDeleteTarget(target)}
+                    />
                   ) : (
                     <Card className="border-dashed">
                       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
