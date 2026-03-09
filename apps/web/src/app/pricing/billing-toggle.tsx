@@ -5,45 +5,11 @@ import Link from "next/link";
 import { SignedIn, SignedOut } from "@/lib/auth-hooks";
 import { Check, Sparkles } from "lucide-react";
 import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
-
-interface PlanCard {
-  tier: PlanTier;
-  name: string;
-  price: number | null;
-  tagline: string;
-  highlight?: boolean;
-}
-
-const plans: PlanCard[] = [
-  { tier: "free", name: "Free", price: 0, tagline: "Try a quick site audit" },
-  {
-    tier: "starter",
-    name: "Starter",
-    price: 79,
-    tagline: "For solo sites & blogs",
-  },
-  {
-    tier: "pro",
-    name: "Pro",
-    price: 149,
-    tagline: "For growing businesses",
-    highlight: true,
-  },
-  {
-    tier: "agency",
-    name: "Agency",
-    price: 299,
-    tagline: "For teams & client work",
-  },
-];
-
-function formatHistory(days: number): string {
-  if (days >= 365) {
-    const years = Math.round(days / 365);
-    return `${years} year${years > 1 ? "s" : ""} score history`;
-  }
-  return `${days}-day score history`;
-}
+import {
+  PRICING_PLANS,
+  formatPricingHistory,
+  getPricingDisplayPrice,
+} from "./pricing-page-helpers";
 
 function PlanCTA({ tier, highlight }: { tier: PlanTier; highlight?: boolean }) {
   const base =
@@ -126,13 +92,13 @@ export function PricingCards() {
 
       {/* Plan cards */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {plans.map((plan) => {
+        {PRICING_PLANS.map((plan) => {
           const limits = PLAN_LIMITS[plan.tier];
           const monthlyPrice = plan.price ?? 0;
-          const displayPrice = annual
-            ? Math.round(monthlyPrice * 12 * 0.8)
-            : monthlyPrice;
-          const period = annual ? "/year" : "/month";
+          const { displayPrice, period } = getPricingDisplayPrice(
+            plan.price,
+            annual,
+          );
 
           return (
             <div
@@ -190,7 +156,7 @@ export function PricingCards() {
                 </li>
                 <li className="flex items-center gap-2 text-foreground">
                   <Check className="h-4 w-4 shrink-0 text-success" />
-                  {formatHistory(limits.historyDays)}
+                  {formatPricingHistory(limits.historyDays)}
                 </li>
               </ul>
 

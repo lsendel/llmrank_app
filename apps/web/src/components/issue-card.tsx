@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -110,7 +110,7 @@ function defaultDueDateInputBySeverity(
   return due.toISOString().slice(0, 10);
 }
 
-export function IssueCard({
+export const IssueCard = memo(function IssueCard({
   code,
   category,
   severity,
@@ -341,4 +341,4 @@ export function IssueCard({
       )}
     </Card>
   );
-}
+});

@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type BillingInfo } from "@/lib/api";
-import { NarrativeSectionEditor } from "./narrative-section-editor";
 import { Brain, Sparkles } from "lucide-react";
+
+const NarrativeSectionEditor = dynamic(
+  () =>
+    import("./narrative-section-editor").then((m) => ({
+      default: m.NarrativeSectionEditor,
+    })),
+  { loading: () => <Skeleton className="h-32 w-full" /> },
+);
 import type { NarrativeSection } from "@llm-boost/shared";
 
 type NarrativeTone = "technical" | "business";

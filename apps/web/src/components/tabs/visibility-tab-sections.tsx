@@ -1,8 +1,22 @@
 import { type ComponentProps, useState, useSyncExternalStore } from "react";
+import dynamic from "next/dynamic";
 import { PlatformReadinessMatrix } from "@/components/platform-readiness-matrix";
-import { ShareOfVoiceChart } from "@/components/share-of-voice-chart";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { BrandPerceptionChart } from "@/components/visibility/brand-perception-chart";
+
+const ShareOfVoiceChart = dynamic(
+  () =>
+    import("@/components/share-of-voice-chart").then((m) => ({
+      default: m.ShareOfVoiceChart,
+    })),
+  { ssr: false },
+);
+const BrandPerceptionChart = dynamic(
+  () =>
+    import("@/components/visibility/brand-perception-chart").then((m) => ({
+      default: m.BrandPerceptionChart,
+    })),
+  { ssr: false },
+);
 import { BrandPerformanceDashboard } from "@/components/visibility/brand-performance-dashboard";
 import { BrandSentimentCard } from "@/components/visibility/brand-sentiment-card";
 import { CitedPagesTable } from "@/components/visibility/cited-pages-table";
