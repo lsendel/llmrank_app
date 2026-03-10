@@ -71,6 +71,13 @@ export function createCompetitorMonitoringApi() {
       );
     },
 
+    async addCompetitor(projectId: string, domain: string) {
+      return apiClient.post<CompetitorMonitoringResponse>(
+        "/api/competitors/benchmark",
+        { projectId, domain },
+      );
+    },
+
     async rebenchmark(competitorId: string) {
       return apiClient.post<CompetitorMonitoringResponse>(
         `/api/competitors/${competitorId}/rebenchmark`,
