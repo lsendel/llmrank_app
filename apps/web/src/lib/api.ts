@@ -41,6 +41,7 @@ import { createVisibilityApi } from "./api/domains/visibility";
 import { createBenchmarksApi } from "./api/domains/benchmarks";
 import { createBillingApi } from "./api/domains/billing";
 import { createAdminApi } from "./api/domains/admin";
+import { createWizardApi } from "./api/domains/wizard";
 
 // ─── Error handling ─────────────────────────────────────────────────
 
@@ -361,4 +362,7 @@ export const api = {
 
   // ── Analytics ──────────────────────────────────────────────────
   analytics: createAnalyticsApi(),
+
+  // ── Wizard ────────────────────────────────────────────────────
+  wizard: createWizardApi(),
 };
