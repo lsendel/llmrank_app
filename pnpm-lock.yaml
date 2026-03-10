@@ -499,9 +499,6 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.39
         version: 0.39.0
-      '@llm-boost/reports':
-        specifier: workspace:*
-        version: link:../reports
       '@llm-boost/shared':
         specifier: workspace:*
         version: link:../shared

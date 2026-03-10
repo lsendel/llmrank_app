@@ -20,7 +20,7 @@ export function CrawlProgressStream({
   crawlId,
   onComplete,
 }: CrawlProgressStreamProps) {
-  const { data: crawl } = useCrawlPolling(crawlId);
+  const { crawl } = useCrawlPolling(crawlId);
 
   const pagesFound = crawl?.pagesFound ?? 0;
   const pagesCrawled = crawl?.pagesCrawled ?? 0;

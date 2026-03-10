@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 interface CrawlStepProps {
   pageLimit: number;
   crawlDepth: number;
-  crawlSchedule: string;
+  crawlSchedule: "manual" | "daily" | "weekly" | "monthly";
   enablePipeline: boolean;
   enableVisibility: boolean;
   planMaxPages: number;
@@ -26,7 +26,7 @@ interface CrawlStepProps {
 interface CrawlStepData {
   pageLimit: number;
   crawlDepth: number;
-  crawlSchedule: string;
+  crawlSchedule: "manual" | "daily" | "weekly" | "monthly";
   enablePipeline: boolean;
   enableVisibility: boolean;
 }
@@ -115,7 +115,9 @@ export function CrawlStep({
           <label className="text-sm font-medium">Crawl schedule</label>
           <Select
             value={crawlSchedule}
-            onValueChange={(v) => onUpdate({ crawlSchedule: v })}
+            onValueChange={(v) =>
+              onUpdate({ crawlSchedule: v as CrawlStepData["crawlSchedule"] })
+            }
           >
             <SelectTrigger>
               <SelectValue />
