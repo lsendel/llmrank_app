@@ -23,3 +23,9 @@ export { analyzeBrandSentiment } from "./sentiment";
 export type { SentimentResult } from "./sentiment";
 export { discoverPrompts } from "./prompt-research";
 export type { DiscoveredPrompt } from "./prompt-research";
+export { PromptResolver } from "./prompt-resolver";
+export type {
+  PromptTemplate,
+  ResolvedPrompt,
+  PromptTemplatesTable,
+} from "./prompt-resolver";
