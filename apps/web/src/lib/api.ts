@@ -43,6 +43,7 @@ import { createTrendsApi } from "./api/domains/trends";
 import { createTrialApi } from "./api/domains/trial";
 import { createVisibilityApi } from "./api/domains/visibility";
 import { createBenchmarksApi } from "./api/domains/benchmarks";
+import { createWizardApi } from "./api/domains/wizard";
 
 // ─── Error handling ─────────────────────────────────────────────────
 
@@ -688,4 +689,7 @@ export const api = {
 
   // ── Narratives ─────────────────────────────────────────────────
   narratives: createNarrativesApi(),
+
+  // ── Wizard ────────────────────────────────────────────────────
+  wizard: createWizardApi(),
 };

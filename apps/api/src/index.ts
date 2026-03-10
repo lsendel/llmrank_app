@@ -60,6 +60,7 @@ import { marketingRoutes } from "./routes/marketing";
 import { brandPerformanceRoutes } from "./routes/brand-performance";
 import { promptResearchRoutes } from "./routes/prompt-research";
 import { connectRoutes } from "./routes/connect";
+import { wizardRoutes } from "./routes/wizard";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -250,6 +251,7 @@ app.route("/api/pipeline", pipelineRoutes);
 app.route("/api/trial", trialRoutes);
 app.route("/api/brand", brandPerformanceRoutes);
 app.route("/api/prompt-research", promptResearchRoutes);
+app.route("/api/wizard", wizardRoutes);
 
 // First-party app connections (public, session-based auth)
 app.route("/connect", connectRoutes);
