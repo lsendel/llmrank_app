@@ -70,10 +70,10 @@ describe("FixGeneratorService", () => {
 
   // ---- getSupportedIssueCodes ----
 
-  it("getSupportedIssueCodes returns 11 codes", () => {
+  it("getSupportedIssueCodes returns 13 codes", () => {
     const service = createFixGeneratorService(deps);
     const codes = service.getSupportedIssueCodes();
-    expect(codes).toHaveLength(11);
+    expect(codes).toHaveLength(13);
     expect(codes).toContain("MISSING_META_DESC");
     expect(codes).toContain("MISSING_TITLE");
     expect(codes).toContain("NO_STRUCTURED_DATA");

@@ -1,6 +1,49 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { UnifiedReportData } from "@llm-boost/reports";
 import type { TokenUsage } from "./types";
+
+// Inline type to avoid pulling in @llm-boost/reports (which has JSX deps)
+interface UnifiedReportData {
+  project: { domain: string };
+  scores: {
+    overall: number;
+    letterGrade: string;
+    technical: number;
+    content: number;
+    aiReadiness: number;
+    performance?: number;
+  };
+  issues: {
+    items: Array<{
+      severity: string;
+      message: string;
+      affectedPages: number;
+      scoreImpact: number;
+    }>;
+  };
+  quickWins: Array<{
+    message: string;
+    recommendation: string;
+    effort: string;
+    scoreImpact: number;
+  }>;
+  visibility?: {
+    platforms: Array<{
+      provider: string;
+      brandMentionRate: number;
+      urlCitationRate: number;
+    }>;
+  };
+  competitors?: Array<{
+    domain: string;
+    mentionCount: number;
+    platforms: string[];
+  }>;
+  structuredDataAnalysis?: {
+    foundTypes: string[];
+    missingRecommendedTypes: string[];
+  };
+  aiCrawlerStatus?: Array<{ bot: string; allowed: boolean }>;
+}
 import { UNIFIED_REPORT_PROMPT } from "./prompts/section-prompts";
 import { calculateCost } from "./utils/token-tracker";
 

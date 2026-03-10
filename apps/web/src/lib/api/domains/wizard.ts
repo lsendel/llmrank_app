@@ -6,7 +6,7 @@ interface KeywordItem {
   source: "ai" | "extracted";
 }
 
-interface ExtractKeywordsResponse {
+export interface ExtractKeywordsResponse {
   extracted: KeywordItem[];
   aiSuggested: KeywordItem[];
 }
@@ -16,7 +16,7 @@ interface SuggestedCompetitor {
   reason: string;
 }
 
-interface SuggestCompetitorsResponse {
+export interface SuggestCompetitorsResponse {
   competitors: SuggestedCompetitor[];
 }
 
