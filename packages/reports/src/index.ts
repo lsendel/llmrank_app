@@ -17,10 +17,15 @@ export type {
   ReportType,
   ReportFormat,
   GapQuery,
+  PrioritizedAction,
+  StructuredDataAnalysis,
+  AICrawlerStatus,
+  UnifiedReportData,
 } from "./types";
 
 export {
   aggregateReportData,
+  computePrioritizedActions,
   type RawDbResults,
   type AggregateOptions,
 } from "./data-aggregator";
