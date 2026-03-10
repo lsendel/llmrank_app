@@ -208,6 +208,36 @@ export interface ReportIntegrationData {
   } | null;
 }
 
+export interface PrioritizedAction {
+  title: string;
+  description: string;
+  category: "technical" | "content" | "ai_readiness" | "performance" | "schema";
+  impact: "high" | "medium" | "low";
+  effort: "low" | "medium" | "high";
+  quadrant: "quick_win" | "major_project" | "fill_in" | "deprioritize";
+  estimatedScoreImpact: number;
+  affectedPages: number;
+  fixSnippet?: string;
+}
+
+export interface StructuredDataAnalysis {
+  foundTypes: string[];
+  missingRecommendedTypes: string[];
+  hasSpeakable: boolean;
+  coverage: number; // percentage of pages with any structured data
+}
+
+export interface AICrawlerStatus {
+  bot: string;
+  allowed: boolean;
+}
+
+export interface UnifiedReportData extends ReportData {
+  structuredDataAnalysis?: StructuredDataAnalysis;
+  aiCrawlerStatus?: AICrawlerStatus[];
+  prioritizedActions?: PrioritizedAction[];
+}
+
 export interface GenerateReportJob {
   reportId: string;
   projectId: string;
