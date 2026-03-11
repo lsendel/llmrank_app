@@ -5,6 +5,7 @@ import { timing } from "hono/timing";
 import { createDb, type Database } from "@llm-boost/db";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
+import { apiVersionMiddleware } from "./middleware/api-version";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
 import { initObservability } from "./lib/observability";
@@ -95,6 +96,7 @@ app.use("*", (c, next) => {
 });
 
 app.use("*", requestIdMiddleware);
+app.use("*", apiVersionMiddleware);
 app.use("*", metricsMiddleware);
 app.use("*", timing());
 app.use("*", logger());
