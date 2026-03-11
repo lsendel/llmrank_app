@@ -40,8 +40,17 @@ jobs:
             'src/components/settings/scoring-profile-section.test.tsx' \
             'src/components/settings/site-context-section.test.tsx'
 
-      - name: Verify journey spec discovery
-        run: pnpm --filter @llm-boost/web exec playwright test e2e/journeys.spec.ts --list
+      - name: Verify E2E test specs are valid
+        run: |
+          pnpm --filter @llm-boost/web exec playwright test e2e/smoke.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/billing.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/journeys.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/crawl-management.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/report-generation.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/competitor-monitoring.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/project-management.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/issue-management.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/integrations.spec.ts --list
 
       - name: Check coverage thresholds
         run: |

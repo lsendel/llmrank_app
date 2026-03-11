@@ -53,7 +53,11 @@ export default tseslint.config(
   // React-specific configuration for apps/web
   {
     files: ["apps/web/**/*.{ts,tsx}"],
-    ignores: ["apps/web/next.config.ts", "apps/web/*.config.{js,ts}"], // Build-time configs are safe
+    ignores: [
+      "apps/web/next.config.ts",
+      "apps/web/*.config.{js,ts}", // Build-time configs are safe
+      "apps/web/e2e/**", // E2E tests run in Node.js, not browser
+    ],
     plugins: {
       react: reactPlugin,
       "react-hooks": hooksPlugin,
