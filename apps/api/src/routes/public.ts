@@ -187,7 +187,10 @@ publicRoutes.post("/scan", async (c) => {
       });
       return res;
     } catch (err) {
-      console.error(`Fetch failed for ${url}:`, err);
+      c.var.logger.error("Fetch failed for URL", {
+        url,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
   };
@@ -327,10 +330,10 @@ publicRoutes.post("/scan", async (c) => {
         competitorMentions: r.competitorMentions,
       }));
     } catch (err) {
-      console.error(
-        `[public-scan] Visibility probe failed for domain="${domain}":`,
-        err instanceof Error ? err.message : err,
-      );
+      c.var.logger.error("[public-scan] Visibility probe failed", {
+        domain,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

@@ -1225,10 +1225,9 @@ visibilityRoutes.post(
         context,
       );
     } catch (err) {
-      console.error(
-        "suggestKeywords failed:",
-        err instanceof Error ? err.message : String(err),
-      );
+      c.var.logger.error("suggestKeywords failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return c.json(
         {
           error: {

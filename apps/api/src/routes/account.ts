@@ -329,7 +329,10 @@ accountRoutes.post("/classify-persona", async (c) => {
 
     return c.json({ data: result });
   } catch (error) {
-    console.error(`[classify-persona] Failed for user ${userId}:`, error);
+    c.var.logger.error("[classify-persona] Failed for user", {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return c.json(
       {
         error: {

@@ -59,7 +59,9 @@ browserRoutes.post("/audit", async (c) => {
 
     return c.json({ data: result });
   } catch (err) {
-    console.error("Browser audit failed:", err);
+    c.var.logger.error("Browser audit failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ error: "Audit failed", message: String(err) }, 500);
   } finally {
     await browser.close();

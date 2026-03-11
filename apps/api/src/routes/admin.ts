@@ -48,7 +48,7 @@ adminRoutes.get("/metrics", async (c) => {
       try {
         crawlerHealth = JSON.parse(crawlerHealthRaw);
       } catch {
-        console.error("[admin] Failed to parse crawler health data from KV");
+        c.var.logger.error("[admin] Failed to parse crawler health data from KV");
       }
     }
 

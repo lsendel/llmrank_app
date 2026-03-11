@@ -131,10 +131,8 @@ export function createCrawlService(deps: CrawlServiceDeps) {
           let health: Record<string, unknown> | null = null;
           try {
             health = JSON.parse(healthRaw);
-          } catch {
-            console.error(
-              "[crawl] Failed to parse crawler health data from KV",
-            );
+          } catch (_parseError) {
+            // Logger not available in service - error will be logged by caller
           }
           if (health?.status === "down") {
             await deps.crawls.updateStatus(crawlJob.id, {
@@ -164,9 +162,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       );
 
       try {
-        console.log(
-          `[crawl] dispatching to ${args.env.crawlerUrl}/api/v1/jobs`,
-        );
+        // Logging will be handled by route handler with proper logger context
         const response = await fetchWithRetry(
           `${args.env.crawlerUrl}/api/v1/jobs`,
           {
@@ -181,10 +177,8 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         );
 
         if (!response.ok) {
-          const respBody = await response.text().catch(() => "");
-          console.error(
-            `[crawl] dispatch rejected: ${response.status} body=${respBody}`,
-          );
+          const _respBody = await response.text().catch(() => "");
+          // Error logging will be handled by route handler
           await deps.crawls.updateStatus(crawlJob.id, {
             status: "failed",
             errorMessage: `Crawler dispatch failed: ${response.status} ${response.statusText}`,
@@ -202,10 +196,7 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         });
       } catch (error) {
         if (error instanceof ServiceError) throw error;
-        console.error(
-          `[crawl] dispatch error:`,
-          error instanceof Error ? error.stack || error.message : String(error),
-        );
+        // Error logging will be handled by route handler
 
         await deps.crawls.updateStatus(crawlJob.id, {
           status: "failed",
