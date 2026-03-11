@@ -152,7 +152,7 @@ test.describe("Crawl Management", () => {
       .first();
 
     if (await completedCrawl.isVisible()) {
-      if (completedCrawl.getAttribute("href")) {
+      if (await completedCrawl.getAttribute("href")) {
         await completedCrawl.click();
       } else {
         // If not a link, look for view button

@@ -2,8 +2,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../index";
 import { Layout } from "../../views/layout";
-import { scoreQueries } from "@llm-boost/db";
-import { Breadcrumb } from "../../views/htmx-helpers";
+import { projectQueries, scoreQueries, userQueries } from "@llm-boost/db";
+import { Breadcrumb, SkeletonText } from "../../views/htmx-helpers";
+import { CATEGORY_LABELS, gradeColor, SEVERITY_COLORS } from "./workspace-shared";
 
 export const pageDetailAppRoutes = new Hono<AppEnv>();
 // =====================================================================
@@ -461,5 +462,7 @@ pageDetailAppRoutes.get("/projects/:id/pages/:pageId/tab/performance", async (c)
 });
 
 // Legacy admin routes extracted into ./app/admin
+
+
 
 

@@ -62,7 +62,7 @@ adminAppRoutes.get("/admin", async (c) => {
   if (c.get("isHtmx")) return c.html(content);
 
   return c.html(
-    <Layout title="Admin" user={{ email: user.email ?? "", plan: user.plan }}>
+    <Layout title="Admin" user={{ email: String(user.email ?? ""), plan: String(user.plan ?? "free") }}>
       {content}
     </Layout>,
   );
@@ -182,5 +182,35 @@ adminAppRoutes.get("/admin/users", async (c) => {
           <div class="flex gap-2">
             {page > 1 && (
               <button
-
-
+                hx-get={
+                  search
+                    ? "/app/admin/users?q=" + encodeURIComponent(search) + "&page=" + String(page - 1)
+                    : "/app/admin/users?page=" + String(page - 1)
+                }
+                hx-target="#admin-user-list"
+                hx-swap="innerHTML"
+                class="rounded border px-3 py-1 text-gray-700 hover:bg-gray-50"
+              >
+                Previous
+              </button>
+            )}
+            {page < result.pagination.totalPages && (
+              <button
+                hx-get={
+                  search
+                    ? "/app/admin/users?q=" + encodeURIComponent(search) + "&page=" + String(page + 1)
+                    : "/app/admin/users?page=" + String(page + 1)
+                }
+                hx-target="#admin-user-list"
+                hx-swap="innerHTML"
+                class="rounded border px-3 py-1 text-gray-700 hover:bg-gray-50"
+              >
+                Next
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>,
+  );
+});

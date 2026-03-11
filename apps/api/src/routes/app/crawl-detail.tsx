@@ -2,8 +2,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../index";
 import { Layout, PageHeader } from "../../views/layout";
-import { crawlQueries, projectQueries, userQueries } from "@llm-boost/db";
+import { crawlQueries, projectQueries, scoreQueries, userQueries } from "@llm-boost/db";
 import { Breadcrumb, SkeletonCard } from "../../views/htmx-helpers";
+import { gradeColor } from "./workspace-shared";
 
 export const crawlDetailAppRoutes = new Hono<AppEnv>();
 // =====================================================================

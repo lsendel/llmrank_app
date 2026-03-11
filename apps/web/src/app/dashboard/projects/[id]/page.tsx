@@ -1,12 +1,28 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateMessage } from "@/components/ui/state";
+import {
+  AIVisibilityTab,
+  AiAnalysisTab,
+  AutomationTab,
+  CompetitorsTab,
+  HistoryTab,
+  IntegrationsTab,
+  IssuesTab,
+  KeywordsTab,
+  LogsTab,
+  PagesTab,
+  PersonasTab,
+  ProjectTabErrorBoundary,
+  ReportsTab,
+  StrategyTab,
+  VisibilityTab,
+} from "./project-tab-registry";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
@@ -46,152 +62,6 @@ import {
   type VisibilityGuidanceAction,
   visibilityNextStepRecommendation,
 } from "./project-page-helpers";
-
-function TabLoadingSkeleton() {
-  return (
-    <div className="space-y-4 pt-4">
-      <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="h-40 animate-pulse rounded-lg border bg-muted/30" />
-        <div className="h-40 animate-pulse rounded-lg border bg-muted/30" />
-      </div>
-      <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
-    </div>
-  );
-}
-class TabErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <StateMessage
-          variant="error"
-          title="This tab could not be loaded"
-          description="Reload this section to continue."
-          className="rounded-lg border border-destructive/30 bg-destructive/5 p-8"
-          retry={{ onClick: () => this.setState({ hasError: false }) }}
-        />
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const PagesTab = dynamic(
-  () =>
-    import("@/components/tabs/pages-tab").then((mod) => ({
-      default: mod.PagesTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const IssuesTab = dynamic(
-  () =>
-    import("@/components/tabs/issues-tab").then((mod) => ({
-      default: mod.IssuesTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const HistoryTab = dynamic(
-  () =>
-    import("@/components/tabs/history-tab").then((mod) => ({
-      default: mod.HistoryTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const StrategyTab = dynamic(
-  () =>
-    import("@/components/tabs/strategy-tab").then((mod) => ({
-      default: mod.StrategyTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const VisibilityTab = dynamic(
-  () => import("@/components/tabs/visibility-tab"),
-  {
-    loading: () => <TabLoadingSkeleton />,
-  },
-);
-
-const IntegrationsTab = dynamic(
-  () => import("@/components/tabs/integrations-tab"),
-  {
-    loading: () => <TabLoadingSkeleton />,
-  },
-);
-
-const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
-  loading: () => <TabLoadingSkeleton />,
-});
-
-const LogsTab = dynamic(
-  () =>
-    import("@/components/tabs/logs-tab").then((mod) => ({
-      default: mod.LogsTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const AutomationTab = dynamic(
-  () =>
-    import("@/components/tabs/automation-tab").then((mod) => ({
-      default: mod.AutomationTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const AIVisibilityTab = dynamic(
-  () => import("@/components/tabs/ai-visibility-tab"),
-  {
-    loading: () => <TabLoadingSkeleton />,
-  },
-);
-
-const CompetitorsTab = dynamic(
-  () =>
-    import("@/components/tabs/competitors-tab").then((mod) => ({
-      default: mod.CompetitorsTab,
-    })),
-  {
-    loading: () => <TabLoadingSkeleton />,
-  },
-);
-
-const PersonasTab = dynamic(
-  () =>
-    import("@/components/tabs/personas-tab").then((mod) => ({
-      default: mod.PersonasTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const KeywordsTab = dynamic(
-  () =>
-    import("@/components/tabs/keywords-tab").then((mod) => ({
-      default: mod.KeywordsTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
-
-const AiAnalysisTab = dynamic(
-  () =>
-    import("@/components/tabs/ai-analysis-tab").then((mod) => ({
-      default: mod.AiAnalysisTab,
-    })),
-  { loading: () => <TabLoadingSkeleton /> },
-);
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -549,7 +419,7 @@ export default function ProjectPage() {
           )}
 
           {currentTab === "overview" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <OverviewTab
                 latestCrawl={project.latestCrawl}
                 issues={issuesData?.data ?? []}
@@ -557,35 +427,35 @@ export default function ProjectPage() {
                 onStartCrawl={handleStartCrawl}
                 startingCrawl={startingCrawl}
               />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "pages" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <PagesTab pages={pagesData?.data ?? []} projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "issues" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <IssuesTab
                 issues={issuesData?.data ?? []}
                 crawlId={selectedCrawlId}
                 projectId={project?.id}
               />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "history" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "strategy" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <StrategyTab projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "competitors" && (
@@ -612,18 +482,18 @@ export default function ProjectPage() {
               )}
 
               {visibilityMode === "ai-visibility" && (
-                <TabErrorBoundary>
+                <ProjectTabErrorBoundary>
                   <AIVisibilityTab
                     projectId={project.id}
                     domain={project.domain}
                   />
-                </TabErrorBoundary>
+                </ProjectTabErrorBoundary>
               )}
 
               {visibilityMode === "ai-analysis" && (
-                <TabErrorBoundary>
+                <ProjectTabErrorBoundary>
                   <AiAnalysisTab crawlJobId={selectedCrawlId} />
-                </TabErrorBoundary>
+                </ProjectTabErrorBoundary>
               )}
             </div>
           )}
@@ -645,15 +515,15 @@ export default function ProjectPage() {
           )}
 
           {currentTab === "automation" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <AutomationTab projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "logs" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <LogsTab projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "settings" && (
@@ -695,3 +565,7 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+
+
+
