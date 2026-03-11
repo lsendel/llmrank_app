@@ -53,6 +53,7 @@ export default tseslint.config(
   // React-specific configuration for apps/web
   {
     files: ["apps/web/**/*.{ts,tsx}"],
+    ignores: ["apps/web/next.config.ts", "apps/web/*.config.{js,ts}"], // Build-time configs are safe
     plugins: {
       react: reactPlugin,
       "react-hooks": hooksPlugin,

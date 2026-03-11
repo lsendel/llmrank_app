@@ -45,6 +45,34 @@ jobs:
           pnpm --filter @llm-boost/integrations test -- --coverage
           pnpm --filter @llm-boost/billing test -- --coverage
 
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build web app
+        run: pnpm --filter @llm-boost/web build
+        env:
+          # Disable telemetry during build
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Analyze bundle size
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          directory: apps/web
+          build_script: build
+          skip_step: build
+
   rust:
     runs-on: ubuntu-latest
     steps:
