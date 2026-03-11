@@ -7,6 +7,8 @@ import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
+import { initObservability } from "./lib/observability";
+import { metricsMiddleware } from "./middleware/metrics";
 import { ServiceError } from "./services/errors";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
@@ -51,6 +53,8 @@ export type Bindings = {
   SLACK_ALERT_WEBHOOK_URL?: string;
   CONNECT_SECRET?: string;
   WEB_WORKER?: Fetcher;
+  AXIOM_TOKEN?: string;
+  AXIOM_DATASET?: string;
 };
 
 export type Variables = {
@@ -75,7 +79,23 @@ export type AppEnv = {
 
 const app = new Hono<AppEnv>();
 
+// Initialize observability on first request
+let observabilityInitialized = false;
+
+app.use("*", (c, next) => {
+  if (!observabilityInitialized) {
+    initObservability({
+      axiomToken: c.env.AXIOM_TOKEN,
+      axiomDataset: c.env.AXIOM_DATASET,
+      environment: process.env.NODE_ENV || "production",
+    });
+    observabilityInitialized = true;
+  }
+  return next();
+});
+
 app.use("*", requestIdMiddleware);
+app.use("*", metricsMiddleware);
 app.use("*", timing());
 app.use("*", logger());
 app.use(

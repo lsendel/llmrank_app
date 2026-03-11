@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39",
+    "@axiomhq/js": "^1.4.0",
     "@cloudflare/puppeteer": "^1.0.6",
     "@llm-boost/billing": "workspace:*",
     "@llm-boost/db": "workspace:*",
