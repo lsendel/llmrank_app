@@ -68,6 +68,16 @@ export default tseslint.config(
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
       "react/display-name": "off", // Disable problematic rule
+      // Prevent unsafe environment variable usage in client code
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!=/^(NEXT_PUBLIC_|NODE_ENV$)/]",
+          message:
+            "Only NEXT_PUBLIC_* and NODE_ENV environment variables are safe in client code. Use NEXT_PUBLIC_ prefix for client-exposed vars.",
+        },
+      ],
     },
   },
   {
