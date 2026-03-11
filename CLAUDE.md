@@ -31,10 +31,12 @@ Cloudflare Edge                         Fly.io (iad)
 └─────────────────────────┘
 ```
 
-- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs to Fly.io
+- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs via Redis queue
+- Queue abstraction supports Redis (production) and in-memory (dev) adapters
 - Rust crawler posts results back via HMAC-authenticated callbacks
 - Scoring engine (packages/scoring) runs in Workers after crawl data ingestion
 - LLM content scoring caches by content SHA256 hash
+- See `docs/queue-system.md` for detailed queue architecture
 
 ## API-First Principle
 

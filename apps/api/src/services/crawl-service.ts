@@ -21,12 +21,14 @@ import { assertProjectOwnership } from "./shared/assert-ownership";
 import { signPayload } from "../middleware/hmac";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { toAggregateInput } from "./score-helpers";
+import type { QueueService } from "./queue-service";
 
 export interface CrawlServiceDeps {
   crawls: CrawlRepository;
   projects: ProjectRepository;
   users: UserRepository;
   scores: ScoreRepository;
+  queueService?: QueueService;
 }
 
 export interface CrawlerDispatchEnv {
@@ -155,61 +157,85 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         callback_url: callbackUrl,
         config: crawlConfig,
       };
-      const payloadJson = JSON.stringify(payload);
-      const { signature, timestamp } = await signPayload(
-        args.env.sharedSecret,
-        payloadJson,
-      );
 
-      try {
-        // Logging will be handled by route handler with proper logger context
-        const response = await fetchWithRetry(
-          `${args.env.crawlerUrl}/api/v1/jobs`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Signature": signature,
-              "X-Timestamp": timestamp,
-            },
-            body: payloadJson,
-          },
-        );
-
-        if (!response.ok) {
-          const _respBody = await response.text().catch(() => "");
-          // Error logging will be handled by route handler
+      // Prefer queue-based dispatch if available, otherwise fallback to HTTP
+      if (deps.queueService) {
+        try {
+          await deps.queueService.enqueueCrawlJob(payload);
+          await deps.crawls.updateStatus(crawlJob.id, {
+            status: "queued",
+            startedAt: new Date(),
+          });
+        } catch (error) {
           await deps.crawls.updateStatus(crawlJob.id, {
             status: "failed",
-            errorMessage: `Crawler dispatch failed: ${response.status} ${response.statusText}`,
+            errorMessage: `Queue dispatch error: ${error instanceof Error ? error.message : "Unknown error"}`,
           });
           throw new ServiceError(
-            "CRAWLER_REJECTED",
-            502,
-            "Crawler rejected the request",
+            "QUEUE_ERROR",
+            503,
+            "Queue service is temporarily unavailable. Please try again in a few minutes.",
           );
         }
-
-        await deps.crawls.updateStatus(crawlJob.id, {
-          status: "queued",
-          startedAt: new Date(),
-        });
-      } catch (error) {
-        if (error instanceof ServiceError) throw error;
-        // Error logging will be handled by route handler
-
-        await deps.crawls.updateStatus(crawlJob.id, {
-          status: "failed",
-          errorMessage: `Crawler dispatch error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        });
-
-        const isTimeout = error instanceof Error && error.name === "AbortError";
-
-        throw new ServiceError(
-          isTimeout ? "CRAWLER_TIMEOUT" : "CRAWLER_UNAVAILABLE",
-          isTimeout ? 504 : 503,
-          "Crawler service is temporarily unavailable. Please try again in a few minutes.",
+      } else {
+        // Fallback: Direct HTTP dispatch to crawler
+        const payloadJson = JSON.stringify(payload);
+        const { signature, timestamp } = await signPayload(
+          args.env.sharedSecret,
+          payloadJson,
         );
+
+        try {
+          // Logging will be handled by route handler with proper logger context
+          const response = await fetchWithRetry(
+            `${args.env.crawlerUrl}/api/v1/jobs`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Signature": signature,
+                "X-Timestamp": timestamp,
+              },
+              body: payloadJson,
+            },
+          );
+
+          if (!response.ok) {
+            const _respBody = await response.text().catch(() => "");
+            // Error logging will be handled by route handler
+            await deps.crawls.updateStatus(crawlJob.id, {
+              status: "failed",
+              errorMessage: `Crawler dispatch failed: ${response.status} ${response.statusText}`,
+            });
+            throw new ServiceError(
+              "CRAWLER_REJECTED",
+              502,
+              "Crawler rejected the request",
+            );
+          }
+
+          await deps.crawls.updateStatus(crawlJob.id, {
+            status: "queued",
+            startedAt: new Date(),
+          });
+        } catch (error) {
+          if (error instanceof ServiceError) throw error;
+          // Error logging will be handled by route handler
+
+          await deps.crawls.updateStatus(crawlJob.id, {
+            status: "failed",
+            errorMessage: `Crawler dispatch error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          });
+
+          const isTimeout =
+            error instanceof Error && error.name === "AbortError";
+
+          throw new ServiceError(
+            isTimeout ? "CRAWLER_TIMEOUT" : "CRAWLER_UNAVAILABLE",
+            isTimeout ? 504 : 503,
+            "Crawler service is temporarily unavailable. Please try again in a few minutes.",
+          );
+        }
       }
 
       return crawlJob;
