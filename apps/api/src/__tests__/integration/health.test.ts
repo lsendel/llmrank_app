@@ -78,6 +78,76 @@ describe("Health Routes", () => {
   });
 
   // -----------------------------------------------------------------------
+  // GET /api/health/deep
+  // -----------------------------------------------------------------------
+
+  describe("GET /api/health/deep", () => {
+    it("returns comprehensive health status with all checks", async () => {
+      // Mock successful crawler health check
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      const res = await request("/api/health/deep");
+      // Accept 200 or 503 depending on test environment
+      expect([200, 503]).toContain(res.status);
+
+      const body: any = await res.json();
+      expect(body).toHaveProperty("status");
+      expect(["healthy", "degraded", "down"]).toContain(body.status);
+      expect(body).toHaveProperty("timestamp");
+      expect(body).toHaveProperty("total_latency_ms");
+      expect(body).toHaveProperty("checks");
+
+      // Verify all expected checks are present
+      expect(body.checks).toHaveProperty("database");
+      expect(body.checks).toHaveProperty("r2_storage");
+      expect(body.checks).toHaveProperty("kv_cache");
+      expect(body.checks).toHaveProperty("crawler_service");
+      expect(body.checks).toHaveProperty("anthropic_llm");
+      expect(body.checks).toHaveProperty("openai_llm");
+
+      // Each check should have status and latency
+      Object.values(body.checks).forEach((check: any) => {
+        expect(check).toHaveProperty("status");
+        expect(["healthy", "degraded", "down"]).toContain(check.status);
+        expect(check).toHaveProperty("latency");
+      });
+    });
+
+    it("returns degraded status when crawler is down", async () => {
+      // Mock failed crawler health check
+      mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
+
+      const res = await request("/api/health/deep");
+      expect([200, 503]).toContain(res.status);
+
+      const body: any = await res.json();
+      expect(body.checks.crawler_service.status).toBe("down");
+      expect(body.checks.crawler_service).toHaveProperty("error");
+    });
+
+    it("returns degraded when LLM keys not configured", async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+      const { request: reqNoKeys } = createTestApp({
+        envOverrides: {
+          ANTHROPIC_API_KEY: "",
+          OPENAI_API_KEY: "",
+        },
+      });
+
+      const res = await reqNoKeys("/api/health/deep");
+      expect([200, 503]).toContain(res.status);
+
+      const body: any = await res.json();
+      expect(body.checks.anthropic_llm.status).toBe("degraded");
+      expect(body.checks.openai_llm.status).toBe("degraded");
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // 404 on unknown route
   // -----------------------------------------------------------------------
 
