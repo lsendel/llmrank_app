@@ -395,12 +395,14 @@ projectRoutes.post(
     const projectId = c.req.param("id");
     const db = c.get("db");
 
-    // Clear existing auto-discovered competitors
+    // Clear existing auto-discovered competitors (batch delete to avoid N+1)
     const existing = await competitorQueries(db).listByProject(projectId);
-    for (const comp of existing) {
-      if (comp.source === "auto_discovered") {
-        await competitorQueries(db).remove(comp.id);
-      }
+    const autoDiscoveredIds = existing
+      .filter((comp) => comp.source === "auto_discovered")
+      .map((comp) => comp.id);
+
+    if (autoDiscoveredIds.length > 0) {
+      await competitorQueries(db).removeMany(autoDiscoveredIds);
     }
 
     const { runAutoCompetitorDiscovery } =
