@@ -35,3 +35,4 @@ export {
 } from "./validation/keyword-validation";
 export * from "./pagination";
 export * from "./queue";
+export * from "./deployment";
