@@ -133,6 +133,17 @@ export function projectQueries(db: Database) {
       });
     },
 
+    async listByTeams(teamIds: string[]) {
+      if (teamIds.length === 0) return [];
+      return db.query.projects.findMany({
+        where: and(
+          inArray(projects.teamId, teamIds),
+          isNull(projects.deletedAt),
+        ),
+        orderBy: [desc(projects.createdAt)],
+      });
+    },
+
     async countByUser(userId: string, query?: Pick<ProjectListQuery, "q">) {
       const [row] = await db
         .select({ count: sql<number>`count(*)` })
