@@ -131,7 +131,6 @@ export function createTestApp(options: TestAppOptions = {}) {
     KV: kv as any,
     SEEN_URLS: createKVStub() as any,
     CRAWL_QUEUE: { send: async () => {} } as any,
-    REPORT_QUEUE: { send: async () => {} } as any,
     REPORT_SERVICE_URL: "http://localhost:9999",
     BROWSER: null as any,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "mock-secret",
