@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import type { Database } from "../client";
 import { pages } from "../schema";
 
@@ -31,8 +31,23 @@ export function pageQueries(db: Database) {
       return db.query.pages.findFirst({ where: eq(pages.id, id) });
     },
 
-    async listByJob(jobId: string) {
-      return db.query.pages.findMany({ where: eq(pages.jobId, jobId) });
+    async listByJob(
+      jobId: string,
+      options?: { cursor?: string; limit?: number },
+    ) {
+      const limit = options?.limit ?? 50;
+      const cursor = options?.cursor;
+
+      // Fetch one extra to determine if there are more results
+      const conditions = cursor
+        ? and(eq(pages.jobId, jobId), gt(pages.id, cursor))
+        : eq(pages.jobId, jobId);
+
+      return db.query.pages.findMany({
+        where: conditions,
+        limit: limit + 1,
+        orderBy: (pages, { asc }) => [asc(pages.id)],
+      });
     },
   };
 }

@@ -11,6 +11,10 @@ import {
 } from "../repositories";
 import { createPageService } from "../services/page-service";
 import { handleServiceError } from "../services/errors";
+import {
+  PaginationQuerySchema,
+  createPaginatedResponse,
+} from "@llm-boost/shared";
 
 export const pageRoutes = new Hono<AppEnv>();
 
@@ -46,7 +50,7 @@ pageRoutes.get("/:id", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /job/:jobId — List all pages for a crawl job
+// GET /job/:jobId — List all pages for a crawl job (with cursor pagination)
 // ---------------------------------------------------------------------------
 
 pageRoutes.get("/job/:jobId", async (c) => {
@@ -54,12 +58,30 @@ pageRoutes.get("/job/:jobId", async (c) => {
   const jobId = c.req.param("jobId");
   const service = buildPageService(c);
 
+  // Parse pagination query params
+  const paginationResult = PaginationQuerySchema.safeParse(c.req.query());
+  if (!paginationResult.success) {
+    return c.json(
+      {
+        error: {
+          code: "INVALID_PAGINATION",
+          message: "Invalid pagination parameters",
+          details: paginationResult.error.flatten(),
+        },
+      },
+      400,
+    );
+  }
+
+  const { limit, cursor } = paginationResult.data;
+
   try {
-    const data = await service.listPagesForJob(userId, jobId);
-    return c.json({
-      data,
-      pagination: { page: 1, limit: 100, total: data.length, totalPages: 1 },
+    const pages = await service.listPagesForJob(userId, jobId, {
+      limit,
+      cursor,
     });
+    const response = createPaginatedResponse(pages, limit);
+    return c.json(response);
   } catch (error) {
     return handleServiceError(c, error);
   }
