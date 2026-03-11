@@ -21,12 +21,6 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-tooltip",
     ],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 };
 
 export default nextConfig;
