@@ -19,12 +19,13 @@ export function competitorQueries(db: Database) {
       });
     },
 
-    async add(projectId: string, domain: string) {
+    async add(projectId: string, domain: string, source?: string) {
       const [competitor] = await db
         .insert(competitors)
         .values({
           projectId,
           domain,
+          ...(source ? { source } : {}),
         })
         .returning();
       return competitor;

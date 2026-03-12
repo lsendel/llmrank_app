@@ -393,6 +393,7 @@ export interface CompetitorRepository {
   add?(
     projectId: string,
     domain: string,
+    source?: string,
   ): ReturnType<ReturnType<typeof competitorQueries>["add"]>;
   remove?(
     id: string,
@@ -404,7 +405,7 @@ export function createCompetitorRepository(db: Database): CompetitorRepository {
   return {
     getById: (id) => queries.getById(id),
     listByProject: (projectId) => queries.listByProject(projectId),
-    add: (projectId, domain) => queries.add(projectId, domain),
+    add: (projectId, domain, source) => queries.add(projectId, domain, source),
     remove: (id) => queries.remove(id),
   };
 }

@@ -238,7 +238,8 @@ export async function runAutoCompetitorDiscovery(
     },
     competitors: {
       listByProject: (projectId) => competitorRepo.listByProject(projectId),
-      add: (projectId, domain) => competitorRepo.add!(projectId, domain),
+      add: (projectId, domain, source) =>
+        competitorRepo.add!(projectId, domain, source),
     },
   });
 
@@ -248,6 +249,7 @@ export async function runAutoCompetitorDiscovery(
         projectId: input.projectId,
         competitorDomain: domain,
         competitorLimit: limits.competitorsPerProject,
+        source: "auto_discovered",
       });
       log.info("Auto-competitor benchmarked", { domain });
     } catch (err) {
