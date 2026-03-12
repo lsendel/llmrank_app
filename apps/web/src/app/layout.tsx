@@ -5,6 +5,7 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { MicrosoftClarity } from "@/components/microsoft-clarity";
 import { Intercom } from "@/components/intercom";
+import { CloudflareAnalytics } from "@/components/cloudflare-analytics";
 import { AuthRedirectTracker } from "@/components/auth-redirect-tracker";
 import {
   JsonLd,
@@ -81,6 +82,7 @@ export default function RootLayout({
         <GoogleAnalytics />
         <MicrosoftClarity />
         <Intercom />
+        <CloudflareAnalytics />
       </body>
     </html>
   );
