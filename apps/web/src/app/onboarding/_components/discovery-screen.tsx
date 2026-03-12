@@ -145,14 +145,20 @@ export function DiscoveryScreen({ state, onRetry }: DiscoveryScreenProps) {
 
   const handleAddCustomPersona = useCallback(
     (persona: { label: string; role: string }) => {
-      setSelectedPersonas((prev) => [
-        ...prev,
-        {
-          ...persona,
-          custom: true,
-          jobToBeDone: `${persona.role} — evaluating solutions`,
-        },
-      ]);
+      setSelectedPersonas((prev) => {
+        const exists = prev.some(
+          (p) => p.label === persona.label && p.role === persona.role,
+        );
+        if (exists) return prev;
+        return [
+          ...prev,
+          {
+            ...persona,
+            custom: true,
+            jobToBeDone: `${persona.role} — evaluating solutions`,
+          },
+        ];
+      });
     },
     [],
   );

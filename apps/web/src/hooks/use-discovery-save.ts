@@ -98,10 +98,26 @@ export function useDiscoverySave(): DiscoverySaveResult {
         const failures = criticalResults.filter((r) => r.status === "rejected");
 
         if (failures.length > 0) {
-          const firstReason = (failures[0] as PromiseRejectedResult).reason;
+          const failedOps: string[] = [];
+          let idx = 0;
+          if (input.businessGoal) {
+            if (criticalResults[idx]?.status === "rejected")
+              failedOps.push("business goal");
+            idx++;
+          }
+          for (const p of input.personas) {
+            if (criticalResults[idx]?.status === "rejected")
+              failedOps.push(`persona "${p.label}"`);
+            idx++;
+          }
+          if (input.keywords.length > 0) {
+            if (criticalResults[idx]?.status === "rejected")
+              failedOps.push("keywords");
+          }
+
           const message =
-            firstReason instanceof ApiError
-              ? firstReason.message
+            failedOps.length > 0
+              ? `Could not save ${failedOps.join(", ")}. You can update them from the dashboard.`
               : "Some selections could not be saved. You can update them from the dashboard.";
           setError(message);
           return false;

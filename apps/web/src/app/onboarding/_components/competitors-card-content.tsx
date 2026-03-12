@@ -20,6 +20,8 @@ interface CompetitorsCardContentProps {
   onRetry?: () => void;
 }
 
+const DOMAIN_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
+
 export function CompetitorsCardContent({
   suggestions,
   suggestionsLoading,
@@ -33,6 +35,7 @@ export function CompetitorsCardContent({
 }: CompetitorsCardContentProps) {
   const [showManualInput, setShowManualInput] = React.useState(false);
   const [manualDomain, setManualDomain] = React.useState("");
+  const [domainError, setDomainError] = React.useState<string | null>(null);
   const atLimit = selected.length >= planLimit;
 
   function handleAddManual() {
@@ -42,6 +45,15 @@ export function CompetitorsCardContent({
       .replace(/^https?:\/\//, "")
       .replace(/\/+$/, "");
     if (!domain) return;
+    if (!DOMAIN_RE.test(domain)) {
+      setDomainError("Enter a valid domain (e.g. competitor.com)");
+      return;
+    }
+    if (selected.includes(domain)) {
+      setDomainError("Already added");
+      return;
+    }
+    setDomainError(null);
     onAddManual(domain);
     setManualDomain("");
     setShowManualInput(false);
@@ -109,6 +121,7 @@ export function CompetitorsCardContent({
       {/* Plan limit indicator */}
       <p className="text-xs text-muted-foreground">
         {selected.length} / {planLimit} selected
+        {atLimit && " — upgrade your plan to track more"}
       </p>
 
       {/* Free plan upgrade CTA */}
@@ -180,37 +193,47 @@ export function CompetitorsCardContent({
       {!isFree && (
         <>
           {showManualInput ? (
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                placeholder="competitor.com"
-                value={manualDomain}
-                onChange={(e) => setManualDomain(e.target.value)}
-                onKeyDown={handleManualKeyDown}
-                disabled={atLimit}
-                aria-label="Competitor domain"
-                className="h-8 flex-1 text-sm"
-                autoFocus
-              />
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleAddManual}
-                disabled={!manualDomain.trim() || atLimit}
-              >
-                Add
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setShowManualInput(false);
-                  setManualDomain("");
-                }}
-              >
-                Cancel
-              </Button>
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="competitor.com"
+                  value={manualDomain}
+                  onChange={(e) => {
+                    setManualDomain(e.target.value);
+                    setDomainError(null);
+                  }}
+                  onKeyDown={handleManualKeyDown}
+                  disabled={atLimit}
+                  aria-label="Competitor domain"
+                  aria-invalid={!!domainError}
+                  className="h-8 flex-1 text-sm"
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddManual}
+                  disabled={!manualDomain.trim() || atLimit}
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowManualInput(false);
+                    setManualDomain("");
+                    setDomainError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+              {domainError && (
+                <p className="text-xs text-destructive">{domainError}</p>
+              )}
             </div>
           ) : (
             <button
