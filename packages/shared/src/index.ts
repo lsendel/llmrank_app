@@ -33,3 +33,7 @@ export {
   validateKeyword,
   KEYWORD_MAX_LENGTH,
 } from "./validation/keyword-validation";
+export {
+  classifyTraffic,
+  type ClassificationResult,
+} from "./utils/traffic-classifier";
