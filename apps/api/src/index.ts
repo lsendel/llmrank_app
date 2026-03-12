@@ -61,6 +61,7 @@ import { marketingRoutes } from "./routes/marketing";
 import { brandPerformanceRoutes } from "./routes/brand-performance";
 import { promptResearchRoutes } from "./routes/prompt-research";
 import { connectRoutes } from "./routes/connect";
+import { analyticsRoutes } from "./routes/analytics";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import { aggregateBenchmarks } from "./services/benchmark-aggregation-service";
@@ -255,6 +256,9 @@ app.route("/api/trial", trialRoutes);
 app.route("/api/brand", brandPerformanceRoutes);
 app.route("/api/prompt-research", promptResearchRoutes);
 
+// Analytics — snippet serving, beacon collect, dashboard + admin endpoints
+app.route("/", analyticsRoutes);
+
 // First-party app connections (public, session-based auth)
 app.route("/connect", connectRoutes);
 
@@ -331,6 +335,7 @@ import {
   outboxEvents,
   scanResultQueries,
   leadQueries,
+  analyticsQueries,
 } from "@llm-boost/db";
 import { trackServer } from "./lib/telemetry";
 import { createDigestService } from "./services/digest-service";
@@ -655,6 +660,16 @@ export default withSentry(
       } else if (controller.cron === "0 2 * * 7") {
         // Weekly competitor monitoring — Sundays at 2 AM UTC
         await processScheduledCompetitorChecks(env);
+      } else if (controller.cron === "0 2 * * *") {
+        // Daily analytics rollup — 2 AM UTC (Mon–Sat, Sun handled above)
+        const db = createDb(env.DATABASE_URL);
+        const queries = analyticsQueries(db);
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const dateStr = yesterday.toISOString().split("T")[0];
+        await queries.aggregateDay(dateStr);
+        await queries.pruneOldEvents(90);
+        console.log(`Analytics rollup complete for ${dateStr}`);
       } else {
         await runScheduledTasks(env);
       }
