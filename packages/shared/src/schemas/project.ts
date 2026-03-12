@@ -34,6 +34,7 @@ export const UpdateProjectSchema = z.object({
         .optional(),
     })
     .optional(),
+  analyticsSnippetEnabled: z.boolean().optional(),
 });
 
 export type CreateProject = z.infer<typeof CreateProjectSchema>;

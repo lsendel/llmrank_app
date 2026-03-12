@@ -9,6 +9,7 @@ export interface Project {
   siteDescription?: string | null;
   industry?: string | null;
   faviconUrl?: string | null;
+  analyticsSnippetEnabled?: boolean | null;
   settings: {
     maxPages: number;
     maxDepth: number;
@@ -37,6 +38,7 @@ export interface UpdateProjectInput {
     allowHttpFallback?: boolean;
   };
   branding?: { logoUrl?: string; companyName?: string; primaryColor?: string };
+  analyticsSnippetEnabled?: boolean;
 }
 
 export interface CategoryDelta {
