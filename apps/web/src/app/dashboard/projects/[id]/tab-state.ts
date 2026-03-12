@@ -11,6 +11,7 @@ export const PROJECT_TABS = [
   "visibility",
   "personas",
   "keywords",
+  "ai-traffic",
   "integrations",
   "reports",
   "automation",
@@ -68,6 +69,10 @@ export function projectTabGroup(tab: ProjectTab): ProjectTabGroup {
     tab === "keywords"
   ) {
     return "grow-visibility";
+  }
+
+  if (tab === "ai-traffic") {
+    return "automate-operate";
   }
 
   if (

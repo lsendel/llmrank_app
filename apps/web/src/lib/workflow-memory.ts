@@ -23,6 +23,7 @@ const PROJECT_TAB_LABELS: Record<ProjectTab, string> = {
   visibility: "Visibility",
   personas: "Personas",
   keywords: "Keywords",
+  "ai-traffic": "AI Traffic",
   integrations: "Integrations",
   reports: "Reports",
   automation: "Automation",

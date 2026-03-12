@@ -193,6 +193,14 @@ const AiAnalysisTab = dynamic(
   { loading: () => <TabLoadingSkeleton /> },
 );
 
+const AiTrafficTab = dynamic(
+  () =>
+    import("@/components/tabs/ai-traffic-tab").then((mod) => ({
+      default: mod.AiTrafficTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -653,6 +661,13 @@ export default function ProjectPage() {
           {currentTab === "logs" && (
             <TabErrorBoundary>
               <LogsTab projectId={project.id} />
+            </TabErrorBoundary>
+          )}
+
+          {currentTab === "ai-traffic" && (
+            <TabErrorBoundary>
+              {/* snippetEnabled will be wired from project.settings in Task 10b */}
+              <AiTrafficTab projectId={project.id} snippetEnabled={false} />
             </TabErrorBoundary>
           )}
 
