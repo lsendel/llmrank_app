@@ -32,15 +32,20 @@ export interface EnrichmentOutput {
  */
 export async function runIntegrationEnrichments(
   input: EnrichmentInput,
+  logger?: { info: (msg: string, data?: any) => void; error: (msg: string, data?: any) => void },
 ): Promise<EnrichmentOutput> {
-  console.log(
-    `[enrichments] Starting enrichments for project=${input.projectId} job=${input.jobId} pages=${input.insertedPages.length}`,
-  );
+  logger?.info("[enrichments] Starting enrichments", {
+    projectId: input.projectId,
+    jobId: input.jobId,
+    pageCount: input.insertedPages.length,
+  });
   const db = createDb(input.databaseUrl);
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) {
-    console.log(`[enrichments] Project ${input.projectId} not found, skipping`);
+    logger?.info("[enrichments] Project not found, skipping", {
+      projectId: input.projectId,
+    });
     return { enrichmentRowsInserted: 0, providerResults: [] };
   }
 
@@ -50,9 +55,10 @@ export async function runIntegrationEnrichments(
   const enabled = integrations.filter(
     (i) => i.enabled && i.encryptedCredentials,
   );
-  console.log(
-    `[enrichments] Found ${integrations.length} integrations, ${enabled.length} enabled`,
-  );
+  logger?.info("[enrichments] Found integrations", {
+    total: integrations.length,
+    enabled: enabled.length,
+  });
   if (enabled.length === 0) {
     return { enrichmentRowsInserted: 0, providerResults: [] };
   }
@@ -72,9 +78,10 @@ export async function runIntegrationEnrichments(
             ),
           );
         } catch {
-          console.error(
-            `[enrichments] Failed to parse credentials for integration ${integration.id} (${integration.provider})`,
-          );
+          logger?.error("[enrichments] Failed to parse credentials for integration", {
+            integrationId: integration.id,
+            provider: integration.provider,
+          });
           return null;
         }
 
@@ -131,10 +138,10 @@ export async function runIntegrationEnrichments(
                 new Date(Date.now() + refreshed.expiresIn * 1000),
               );
             } catch (err) {
-              console.error(
-                `[enrichments] Meta token refresh failed for integration ${integration.id}:`,
-                err instanceof Error ? err.message : String(err),
-              );
+              logger?.error("[enrichments] Meta token refresh failed for integration", {
+                integrationId: integration.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
             }
           }
         }
@@ -149,9 +156,10 @@ export async function runIntegrationEnrichments(
     )
   ).filter((item): item is NonNullable<typeof item> => item !== null);
 
-  console.log(
-    `[enrichments] Prepared ${prepared.length} integrations: ${prepared.map((p) => p.provider).join(", ")}`,
-  );
+  logger?.info("[enrichments] Prepared integrations", {
+    count: prepared.length,
+    providers: prepared.map((p) => p.provider).join(", "),
+  });
 
   // Run all fetchers
   const { results, providerResults } = await runEnrichments(
@@ -159,10 +167,10 @@ export async function runIntegrationEnrichments(
     project.domain,
     allPageUrls,
   );
-  console.log(
-    `[enrichments] Fetchers returned ${results.length} results`,
+  logger?.info("[enrichments] Fetchers completed", {
+    resultCount: results.length,
     providerResults,
-  );
+  });
 
   // Map page URLs to page IDs
   const urlToPageId = new Map(input.insertedPages.map((p) => [p.url, p.id]));
@@ -179,9 +187,9 @@ export async function runIntegrationEnrichments(
 
   if (enrichmentRows.length > 0) {
     await enrichmentQueries(db).createBatch(enrichmentRows);
-    console.log(
-      `[enrichments] Inserted ${enrichmentRows.length} enrichment rows`,
-    );
+    logger?.info("[enrichments] Inserted enrichment rows", {
+      rowCount: enrichmentRows.length,
+    });
   }
 
   // Update lastSyncAt for each integration, recording per-provider errors
@@ -193,9 +201,10 @@ export async function runIntegrationEnrichments(
     );
   }
 
-  console.log(
-    `[enrichments] Completed enrichments for project=${input.projectId} job=${input.jobId}`,
-  );
+  logger?.info("[enrichments] Completed enrichments", {
+    projectId: input.projectId,
+    jobId: input.jobId,
+  });
 
   return { enrichmentRowsInserted: enrichmentRows.length, providerResults };
 }

@@ -129,9 +129,11 @@ reportRoutes.get("/:id/download", async (c) => {
   }
 
   if (report.status !== "complete" || !report.r2Key) {
-    console.log(
-      `Report ${reportId} not ready: status=${report.status}, r2Key=${report.r2Key}`,
-    );
+    c.var.logger.info("Report not ready for download", {
+      reportId,
+      status: report.status,
+      hasR2Key: !!report.r2Key,
+    });
     return c.json(
       {
         error: {
@@ -143,13 +145,17 @@ reportRoutes.get("/:id/download", async (c) => {
     );
   }
 
-  console.log(`Downloading report ${reportId} from R2 key: ${report.r2Key}`);
+  c.var.logger.info("Downloading report from R2", {
+    reportId,
+    r2Key: report.r2Key,
+  });
   // Get the object from R2 and stream it
   const object = await c.env.R2.get(report.r2Key);
   if (!object) {
-    console.error(
-      `Report ${reportId} file not found in R2 key: ${report.r2Key}`,
-    );
+    c.var.logger.error("Report file not found in R2", {
+      reportId,
+      r2Key: report.r2Key,
+    });
     return c.json(
       {
         error: {
@@ -300,7 +306,9 @@ reportRoutes.post("/schedules", async (c) => {
 
     return c.json({ data: schedule }, 201);
   } catch (err) {
-    console.error(`[schedules] Failed to create schedule:`, err);
+    c.var.logger.error("[schedules] Failed to create schedule", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json(
       {
         error: {
@@ -343,7 +351,9 @@ reportRoutes.get("/schedules", async (c) => {
     const schedules = await reportScheduleQueries(db).listByProject(projectId);
     return c.json({ data: schedules });
   } catch (err) {
-    console.error(`[schedules] Failed to list schedules:`, err);
+    c.var.logger.error("[schedules] Failed to list schedules", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json(
       {
         error: {
@@ -419,7 +429,10 @@ reportRoutes.patch("/schedules/:id", async (c) => {
 
     return c.json({ data: updated });
   } catch (err) {
-    console.error(`[schedules] Failed to update schedule ${scheduleId}:`, err);
+    c.var.logger.error("[schedules] Failed to update schedule", {
+      scheduleId,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json(
       {
         error: {
@@ -458,7 +471,10 @@ reportRoutes.delete("/schedules/:id", async (c) => {
     await reportScheduleQueries(db).delete(scheduleId);
     return c.json({ data: { deleted: true } });
   } catch (err) {
-    console.error(`[schedules] Failed to delete schedule ${scheduleId}:`, err);
+    c.var.logger.error("[schedules] Failed to delete schedule", {
+      scheduleId,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json(
       {
         error: {

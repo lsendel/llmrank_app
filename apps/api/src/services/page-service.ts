@@ -30,14 +30,18 @@ export function createPageService(deps: PageServiceDeps) {
       return { ...page, score, issues };
     },
 
-    async listPagesForJob(userId: string, jobId: string) {
+    async listPagesForJob(
+      userId: string,
+      jobId: string,
+      options?: { cursor?: string; limit?: number },
+    ) {
       const crawl = await deps.crawls.getById(jobId);
       if (!crawl) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
       await assertProjectOwnership(deps.projects, userId, crawl.projectId);
-      const rows = await deps.scores.listByJobWithPages(jobId);
+      const rows = await deps.scores.listByJobWithPages(jobId, options);
       return rows.map((row) => {
         const detail = (row.detail ?? {}) as Record<string, unknown>;
         return {

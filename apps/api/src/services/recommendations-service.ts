@@ -279,6 +279,44 @@ export function createRecommendationsService(db: Database) {
         latestCrawls.map((crawl) => [crawl.projectId, crawl]),
       );
 
+      // Batch-load data for all projects with completed crawls to avoid N+1
+      const completedCrawls = latestCrawls.filter(
+        (crawl) => crawl.status === "complete",
+      );
+      const completedJobIds = completedCrawls.map((crawl) => crawl.id);
+
+      // Batch queries for all projects at once
+      const [allIssuesMap, allKeywordCounts, allCompetitorsRaw] =
+        await Promise.all([
+          // Batch-load issues for all completed crawls
+          completedJobIds.length > 0
+            ? (async () => {
+                const issueRows = await Promise.all(
+                  completedJobIds.map((jobId) =>
+                    scoresQuery.getIssuesByJob(jobId),
+                  ),
+                );
+                return new Map(
+                  completedJobIds.map((jobId, idx) => [jobId, issueRows[idx]]),
+                );
+              })()
+            : Promise.resolve(new Map()),
+          // Batch-load keyword counts using single query
+          keywordsQuery.countByProjects(projects.map((p) => p.id)),
+          // Batch-load competitors using single query
+          competitorsQuery.listByProjects(projects.map((p) => p.id)),
+        ]);
+
+      // Group competitors by project ID
+      const allCompetitors = new Map<
+        string,
+        Awaited<ReturnType<typeof competitorsQuery.listByProject>>
+      >();
+      for (const competitor of allCompetitorsRaw) {
+        const existing = allCompetitors.get(competitor.projectId) ?? [];
+        allCompetitors.set(competitor.projectId, [...existing, competitor]);
+      }
+
       const items = await Promise.all(
         projects.map(async (project) => {
           const crawl = crawlByProject.get(project.id) ?? null;
@@ -349,12 +387,15 @@ export function createRecommendationsService(db: Database) {
             } satisfies PortfolioPriorityItem;
           }
 
-          const [issues, keywordCount, competitors, trend] = await Promise.all([
-            scoresQuery.getIssuesByJob(crawl.id),
-            keywordsQuery.countByProject(project.id),
-            competitorsQuery.listByProject(project.id),
-            getTrendDeltaForProject(crawlsQuery, scoresQuery, project.id),
-          ]);
+          // Use pre-loaded data instead of making individual queries
+          const issues = allIssuesMap.get(crawl.id) ?? [];
+          const keywordCount = allKeywordCounts.get(project.id) ?? 0;
+          const competitors = allCompetitors.get(project.id) ?? [];
+          const trend = await getTrendDeltaForProject(
+            crawlsQuery,
+            scoresQuery,
+            project.id,
+          );
           const criticalIssues = issues.filter(
             (issue) => issue.severity === "critical",
           );

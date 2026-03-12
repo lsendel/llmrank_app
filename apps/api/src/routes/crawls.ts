@@ -116,10 +116,9 @@ crawlRoutes.post(
         }
       }
     } catch (error) {
-      console.warn(
-        "[crawls] Skipping blocked-domain check due to query failure",
-        error instanceof Error ? error.message : String(error),
-      );
+      c.var.logger.warn("[crawls] Skipping blocked-domain check due to query failure", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     const { crawlService } = c.get("container");
@@ -394,7 +393,10 @@ crawlRoutes.get("/:id/export", withOwnership("crawl"), async (c) => {
       scoreQueries(db).getIssuesByJob(crawlId),
     ]);
   } catch (err) {
-    console.error(`[export] Failed to fetch data for crawl ${crawlId}:`, err);
+    c.var.logger.error("[export] Failed to fetch data for crawl", {
+      crawlId,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json(
       {
         error: {

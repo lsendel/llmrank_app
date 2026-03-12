@@ -42,7 +42,7 @@ export function computeNextBenchmarkAt(frequency: string): Date {
   return next;
 }
 
-export function createCompetitorMonitorService(deps: CompetitorMonitorDeps) {
+export function createCompetitorMonitorService(deps: CompetitorMonitorDeps, logger?: { error: (msg: string, data?: any) => void }) {
   return {
     async processScheduledBenchmarks() {
       const now = new Date();
@@ -110,10 +110,10 @@ export function createCompetitorMonitorService(deps: CompetitorMonitorDeps) {
 
           results.processed++;
         } catch (error) {
-          console.error(
-            `Failed to benchmark competitor ${competitor.domain}:`,
-            error,
-          );
+          logger?.error("Failed to benchmark competitor", {
+            domain: competitor.domain,
+            error: error instanceof Error ? error.message : String(error),
+          });
           results.errors++;
           // Still update nextBenchmarkAt to avoid infinite retry
           await deps.competitors.updateMonitoring(competitor.id, {

@@ -1,4 +1,4 @@
-import { eq, desc, lte, and } from "drizzle-orm";
+import { eq, desc, lte, and, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { competitors } from "../schema";
 
@@ -16,6 +16,14 @@ export function competitorQueries(db: Database) {
         orderBy: [desc(competitors.createdAt)],
         limit,
         offset,
+      });
+    },
+
+    async listByProjects(projectIds: string[]) {
+      if (projectIds.length === 0) return [];
+      return db.query.competitors.findMany({
+        where: inArray(competitors.projectId, projectIds),
+        orderBy: [desc(competitors.createdAt)],
       });
     },
 
@@ -53,6 +61,14 @@ export function competitorQueries(db: Database) {
       return deleted;
     },
 
+    async removeMany(ids: string[]) {
+      if (ids.length === 0) return [];
+      return db
+        .delete(competitors)
+        .where(inArray(competitors.id, ids))
+        .returning();
+    },
+
     async updateMonitoring(
       id: string,
       data: {
@@ -64,7 +80,7 @@ export function competitorQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(competitors)
-        .set(data as any)
+        .set(data as typeof competitors.$inferInsert)
         .where(eq(competitors.id, id))
         .returning();
       return updated;

@@ -1,12 +1,28 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateMessage } from "@/components/ui/state";
+import {
+  AIVisibilityTab,
+  AiAnalysisTab,
+  AutomationTab,
+  CompetitorsTab,
+  HistoryTab,
+  IntegrationsTab,
+  IssuesTab,
+  KeywordsTab,
+  LogsTab,
+  PagesTab,
+  PersonasTab,
+  ProjectTabErrorBoundary,
+  ReportsTab,
+  StrategyTab,
+  VisibilityTab,
+} from "./project-tab-registry";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
@@ -566,7 +582,7 @@ export default function ProjectPage() {
           )}
 
           {currentTab === "overview" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <OverviewTab
                 latestCrawl={project.latestCrawl}
                 issues={issuesData?.data ?? []}
@@ -574,35 +590,35 @@ export default function ProjectPage() {
                 onStartCrawl={handleStartCrawl}
                 startingCrawl={startingCrawl}
               />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "pages" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <PagesTab pages={pagesData?.data ?? []} projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "issues" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <IssuesTab
                 issues={issuesData?.data ?? []}
                 crawlId={selectedCrawlId}
                 projectId={project?.id}
               />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "history" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <HistoryTab crawlHistory={crawlHistoryData?.data ?? []} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "strategy" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <StrategyTab projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "competitors" && (
@@ -629,18 +645,18 @@ export default function ProjectPage() {
               )}
 
               {visibilityMode === "ai-visibility" && (
-                <TabErrorBoundary>
+                <ProjectTabErrorBoundary>
                   <AIVisibilityTab
                     projectId={project.id}
                     domain={project.domain}
                   />
-                </TabErrorBoundary>
+                </ProjectTabErrorBoundary>
               )}
 
               {visibilityMode === "ai-analysis" && (
-                <TabErrorBoundary>
+                <ProjectTabErrorBoundary>
                   <AiAnalysisTab crawlJobId={selectedCrawlId} />
-                </TabErrorBoundary>
+                </ProjectTabErrorBoundary>
               )}
             </div>
           )}
@@ -662,15 +678,15 @@ export default function ProjectPage() {
           )}
 
           {currentTab === "automation" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <AutomationTab projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "logs" && (
-            <TabErrorBoundary>
+            <ProjectTabErrorBoundary>
               <LogsTab projectId={project.id} />
-            </TabErrorBoundary>
+            </ProjectTabErrorBoundary>
           )}
 
           {currentTab === "ai-traffic" && (
@@ -725,3 +741,7 @@ export default function ProjectPage() {
     </div>
   );
 }
+
+
+
+

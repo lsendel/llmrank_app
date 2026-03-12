@@ -7,6 +7,15 @@ export const OrgRole = {
 
 export type OrgRole = (typeof OrgRole)[keyof typeof OrgRole];
 
+export const TeamRole = {
+  OWNER: "owner",
+  ADMIN: "admin",
+  EDITOR: "editor",
+  VIEWER: "viewer",
+} as const;
+
+export type TeamRole = (typeof TeamRole)[keyof typeof TeamRole];
+
 export const Permission = {
   PROJECT_CREATE: "project.create",
   PROJECT_READ: "project.read",
@@ -77,4 +86,64 @@ export function hasPermission(role: OrgRole, permission: Permission): boolean {
 
 export function getPermissions(role: OrgRole): Permission[] {
   return [...(PERMISSION_MATRIX[role] ?? [])];
+}
+
+// Team Permission Matrix
+const TEAM_PERMISSION_MATRIX: Record<TeamRole, Set<Permission>> = {
+  owner: new Set([
+    Permission.PROJECT_CREATE,
+    Permission.PROJECT_READ,
+    Permission.PROJECT_UPDATE,
+    Permission.PROJECT_DELETE,
+    Permission.CRAWL_START,
+    Permission.CRAWL_READ,
+    Permission.FIX_GENERATE,
+    Permission.FIX_APPLY,
+    Permission.MEMBER_INVITE,
+    Permission.MEMBER_REMOVE,
+    Permission.MEMBER_ROLE_CHANGE,
+    Permission.SETTINGS_UPDATE,
+  ]),
+  admin: new Set([
+    Permission.PROJECT_CREATE,
+    Permission.PROJECT_READ,
+    Permission.PROJECT_UPDATE,
+    Permission.CRAWL_START,
+    Permission.CRAWL_READ,
+    Permission.FIX_GENERATE,
+    Permission.FIX_APPLY,
+    Permission.MEMBER_INVITE,
+    Permission.MEMBER_REMOVE,
+    Permission.SETTINGS_UPDATE,
+  ]),
+  editor: new Set([
+    Permission.PROJECT_READ,
+    Permission.PROJECT_UPDATE,
+    Permission.CRAWL_START,
+    Permission.CRAWL_READ,
+    Permission.FIX_GENERATE,
+    Permission.FIX_APPLY,
+  ]),
+  viewer: new Set([Permission.PROJECT_READ, Permission.CRAWL_READ]),
+};
+
+export function hasTeamPermission(
+  role: TeamRole,
+  permission: Permission,
+): boolean {
+  return TEAM_PERMISSION_MATRIX[role]?.has(permission) ?? false;
+}
+
+export function getTeamPermissions(role: TeamRole): Permission[] {
+  return [...(TEAM_PERMISSION_MATRIX[role] ?? [])];
+}
+
+// Resource-level permission checking
+export type ResourceType = "project" | "crawl" | "organization" | "team";
+
+export interface AccessContext {
+  userId: string;
+  resourceType: ResourceType;
+  resourceId: string;
+  permission: Permission;
 }

@@ -31,10 +31,12 @@ Cloudflare Edge                         Fly.io (iad)
 └─────────────────────────┘
 ```
 
-- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs to Fly.io
+- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs via Redis queue
+- Queue abstraction supports Redis (production) and in-memory (dev) adapters
 - Rust crawler posts results back via HMAC-authenticated callbacks
 - Scoring engine (packages/scoring) runs in Workers after crawl data ingestion
 - LLM content scoring caches by content SHA256 hash
+- See `docs/queue-system.md` for detailed queue architecture
 
 ## API-First Principle
 
@@ -172,9 +174,27 @@ Cloudflare Workers ↔ Fly.io Crawler uses HMAC-SHA256 signed payloads:
 - `X-Timestamp: <unix_epoch_seconds>`
 - Replay protection: reject timestamps > 5 minutes old
 
+## API Versioning
+
+**Current Version:** v1
+
+External API routes use explicit versioning (`/api/v1/*`) for programmatic access. Internal routes used by the web app (`/api/*`) remain unversioned as they're tightly coupled to the frontend and deployed together.
+
+**Version Negotiation:**
+
+1. Path-based (recommended): `GET /api/v1/projects/abc123`
+2. Custom header: `X-API-Version: v1`
+3. Accept header: `Accept: application/vnd.llmrank.v1+json`
+
+**Breaking Changes:** Require a new major version. Non-breaking changes (new fields, endpoints) can be added to existing versions.
+
+**Deprecation:** Minimum 6 months notice before sunset. Deprecated endpoints return `Deprecation: true`, `Sunset: <date>`, and `Link: <replacement>` headers.
+
+See [docs/api-versioning.md](docs/api-versioning.md) for complete versioning strategy.
+
 ## API Error Codes
 
-Standard error envelope: `{ "error": { "code", "message", "details" } }`. Key codes: UNAUTHORIZED (401), PLAN_LIMIT_REACHED (403), CRAWL_LIMIT_REACHED (429), CRAWL_IN_PROGRESS (409), INVALID_DOMAIN (422), HMAC_INVALID (401).
+Standard error envelope: `{ "error": { "code", "message", "details" } }`. Key codes: UNAUTHORIZED (401), PLAN_LIMIT_REACHED (403), CRAWL_LIMIT_REACHED (429), CRAWL_IN_PROGRESS (409), INVALID_DOMAIN (422), HMAC_INVALID (401), VERSION_MISMATCH (400), VERSION_NOT_SUPPORTED (400).
 
 ## Database
 

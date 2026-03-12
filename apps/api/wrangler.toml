@@ -28,10 +28,6 @@ id = "890e3a5ce54f4c3883556dce292ceb20"
 binding = "CRAWL_QUEUE"
 queue = "llm-boost-crawls"
 
-[[queues.producers]]
-binding = "REPORT_QUEUE"
-queue = "llm-boost-reports"
-
 [browser]
 binding = "BROWSER"
 

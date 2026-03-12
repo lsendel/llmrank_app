@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { personas } from "../schema";
 
@@ -18,11 +18,11 @@ export function personaQueries(db: Database) {
     },
 
     async countByProject(projectId: string) {
-      const results = await db.query.personas.findMany({
-        where: eq(personas.projectId, projectId),
-        columns: { id: true },
-      });
-      return results.length;
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(personas)
+        .where(eq(personas.projectId, projectId));
+      return row?.count ?? 0;
     },
 
     async create(data: {

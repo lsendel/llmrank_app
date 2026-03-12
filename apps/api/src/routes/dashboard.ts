@@ -67,7 +67,9 @@ dashboardRoutes.get("/stats", async (c) => {
             scoreDeltas: aggregated.scoreDeltas,
           };
         } catch (error) {
-          console.error("Failed to compute dashboard insights", error);
+          c.var.logger.error("Failed to compute dashboard insights", {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 

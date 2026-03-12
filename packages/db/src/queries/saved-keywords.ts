@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { savedKeywords } from "../schema";
 
@@ -46,11 +46,25 @@ export function savedKeywordQueries(db: Database) {
     },
 
     async countByProject(projectId: string) {
-      const results = await db.query.savedKeywords.findMany({
-        where: eq(savedKeywords.projectId, projectId),
-        columns: { id: true },
-      });
-      return results.length;
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(savedKeywords)
+        .where(eq(savedKeywords.projectId, projectId));
+      return row?.count ?? 0;
+    },
+
+    async countByProjects(projectIds: string[]) {
+      if (projectIds.length === 0) return new Map<string, number>();
+      const rows = await db
+        .select({
+          projectId: savedKeywords.projectId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(savedKeywords)
+        .where(inArray(savedKeywords.projectId, projectIds))
+        .groupBy(savedKeywords.projectId);
+
+      return new Map(rows.map((r) => [r.projectId, r.count]));
     },
   };
 }

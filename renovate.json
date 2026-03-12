@@ -1,0 +1,81 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":preserveSemverRanges",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "schedule": ["before 3am on Monday"],
+  "timezone": "UTC",
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "groupName": "TypeScript and ESLint",
+      "matchPackagePatterns": [
+        "^typescript",
+        "^@typescript-eslint/",
+        "^eslint"
+      ],
+      "automerge": false
+    },
+    {
+      "groupName": "React ecosystem",
+      "matchPackagePatterns": ["^react", "^@react", "^next"],
+      "automerge": false
+    },
+    {
+      "groupName": "Cloudflare Workers",
+      "matchPackagePatterns": ["^@cloudflare/", "^wrangler", "^hono"],
+      "automerge": false
+    },
+    {
+      "groupName": "Database",
+      "matchPackageNames": [
+        "drizzle-orm",
+        "drizzle-kit",
+        "@neondatabase/serverless"
+      ],
+      "automerge": false
+    },
+    {
+      "groupName": "Patch updates",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days",
+      "schedule": ["before 3am on Monday"]
+    },
+    {
+      "groupName": "Development dependencies",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "groupName": "Vitest",
+      "matchPackageNames": ["vitest", "@vitest/coverage-v8"],
+      "automerge": true,
+      "matchUpdateTypes": ["patch", "minor"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "assignees": ["team"]
+  },
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 3am on the first day of the month"]
+  },
+  "ignoreDeps": [],
+  "rangeStrategy": "bump",
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "commitMessagePrefix": "deps:",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}{{prettyNewMajor}}{{else}}{{#if isSingleVersion}}{{prettyNewVersion}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}{{/if}}",
+  "stabilityDays": 3,
+  "minimumReleaseAge": "3 days"
+}

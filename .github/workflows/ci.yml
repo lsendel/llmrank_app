@@ -19,6 +19,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Setup Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
       - run: pnpm typecheck
 
       - name: Run tests
@@ -32,8 +40,17 @@ jobs:
             'src/components/settings/scoring-profile-section.test.tsx' \
             'src/components/settings/site-context-section.test.tsx'
 
-      - name: Verify journey spec discovery
-        run: pnpm --filter @llm-boost/web exec playwright test e2e/journeys.spec.ts --list
+      - name: Verify E2E test specs are valid
+        run: |
+          pnpm --filter @llm-boost/web exec playwright test e2e/smoke.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/billing.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/journeys.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/crawl-management.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/report-generation.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/competitor-monitoring.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/project-management.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/issue-management.spec.ts --list
+          pnpm --filter @llm-boost/web exec playwright test e2e/integrations.spec.ts --list
 
       - name: Check coverage thresholds
         run: |
@@ -44,6 +61,34 @@ jobs:
           pnpm --filter @llm-boost/shared test -- --coverage
           pnpm --filter @llm-boost/integrations test -- --coverage
           pnpm --filter @llm-boost/billing test -- --coverage
+
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build web app
+        run: pnpm --filter @llm-boost/web build
+        env:
+          # Disable telemetry during build
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Analyze bundle size
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          directory: apps/web
+          build_script: build
+          skip_step: build
 
   rust:
     runs-on: ubuntu-latest

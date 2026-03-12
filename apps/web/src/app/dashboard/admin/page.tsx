@@ -3,8 +3,6 @@
 import {
   AdminAccessDeniedState,
   AdminBlockedDomainsCard,
-  AdminCreatePromoDialog,
-  AdminCustomerActionDialog,
   AdminCustomersCard,
   AdminPageHeader,
   AdminPipelineHealthCard,
@@ -12,9 +10,13 @@ import {
   AdminSettingsCard,
   AdminStatsGrid,
   AdminSystemHealthGrid,
+} from "./_components/admin-page-sections";
+import {
+  AdminCreatePromoDialog,
+  AdminCustomerActionDialog,
   CancelJobDialog,
   IngestDetailDialog,
-} from "./_components/admin-page-sections";
+} from "./_components/admin-page-dialogs";
 import { useAdminPageState } from "./_hooks/use-admin-page-state";
 
 export default function AdminPage() {

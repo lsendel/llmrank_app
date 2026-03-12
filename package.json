@@ -9,7 +9,10 @@
     "format": "turbo format",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deploy:record": "tsx infra/scripts/record-deployment.ts",
+    "deploy:rollback": "tsx infra/scripts/rollback-deployment.ts",
+    "deploy:rollback:dry-run": "tsx infra/scripts/rollback-deployment.ts --dry-run"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -54,10 +57,6 @@
       "@cloudflare/workers-types": "4.20260228.0"
     }
   },
-  "packageManager": "pnpm@9.15.0",
-  "dependencies": {
-    "@cloudflare/puppeteer": "^1.0.6",
-    "ioredis": "^5.9.3",
-    "resend": "^6.9.2"
-  }
+  "packageManager": "pnpm@9.15.0"
 }
+

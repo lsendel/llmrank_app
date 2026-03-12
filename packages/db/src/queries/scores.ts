@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import {
   pageScores,
@@ -55,16 +55,42 @@ export function scoreQueries(db: Database) {
       });
     },
 
-    async listByJob(jobId: string) {
+    async listByJob(
+      jobId: string,
+      options?: { cursor?: string; limit?: number },
+    ) {
+      const limit = options?.limit ?? 50;
+      const cursor = options?.cursor;
+
+      // Fetch one extra to determine if there are more results
+      const conditions = cursor
+        ? and(eq(pageScores.jobId, jobId), gt(pageScores.id, cursor))
+        : eq(pageScores.jobId, jobId);
+
       return db.query.pageScores.findMany({
-        where: eq(pageScores.jobId, jobId),
+        where: conditions,
+        limit: limit + 1,
+        orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
       });
     },
 
-    async listByJobs(jobIds: string[]) {
+    async listByJobs(
+      jobIds: string[],
+      options?: { cursor?: string; limit?: number },
+    ) {
       if (jobIds.length === 0) return [];
+
+      const limit = options?.limit ?? 50;
+      const cursor = options?.cursor;
+
+      const conditions = cursor
+        ? and(inArray(pageScores.jobId, jobIds), gt(pageScores.id, cursor))
+        : inArray(pageScores.jobId, jobIds);
+
       return db.query.pageScores.findMany({
-        where: inArray(pageScores.jobId, jobIds),
+        where: conditions,
+        limit: limit + 1,
+        orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
       });
     },
 
@@ -102,27 +128,47 @@ export function scoreQueries(db: Database) {
     /**
      * Fetch all page scores for a job with page info and issue counts.
      * Uses 3 parallel queries instead of 2N queries (eliminates N+1).
+     * Supports cursor-based pagination.
      */
-    async listByJobWithPages(jobId: string) {
-      const [scores, pageRows, jobIssues] = await Promise.all([
-        db.query.pageScores.findMany({
-          where: eq(pageScores.jobId, jobId),
-        }),
-        db.query.pages.findMany({
-          where: eq(pages.jobId, jobId),
-        }),
-        db.query.issues.findMany({
-          where: eq(issues.jobId, jobId),
-        }),
-      ]);
+    async listByJobWithPages(
+      jobId: string,
+      options?: { cursor?: string; limit?: number },
+    ) {
+      const limit = options?.limit ?? 50;
+      const cursor = options?.cursor;
+
+      // Build condition for paginated score fetch
+      const scoreConditions = cursor
+        ? and(eq(pageScores.jobId, jobId), gt(pageScores.id, cursor))
+        : eq(pageScores.jobId, jobId);
+
+      // Fetch scores with pagination (limit + 1 for hasMore detection)
+      const scores = await db.query.pageScores.findMany({
+        where: scoreConditions,
+        limit: limit + 1,
+        orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
+      });
 
       if (scores.length === 0) return [];
+
+      // Extract page IDs from the fetched scores
+      const pageIds = scores.map((s) => s.pageId);
+
+      // Fetch related pages and issues for only the paginated scores
+      const [pageRows, relatedIssues] = await Promise.all([
+        db.query.pages.findMany({
+          where: inArray(pages.id, pageIds),
+        }),
+        db.query.issues.findMany({
+          where: inArray(issues.pageId, pageIds),
+        }),
+      ]);
 
       const pageMap = new Map(pageRows.map((p) => [p.id, p]));
 
       // Count issues per page in memory
       const issueCountMap = new Map<string, number>();
-      for (const issue of jobIssues) {
+      for (const issue of relatedIssues) {
         issueCountMap.set(
           issue.pageId,
           (issueCountMap.get(issue.pageId) ?? 0) + 1,

@@ -42,7 +42,6 @@ function createBindings(): { env: Bindings; r2Put: ReturnType<typeof vi.fn> } {
     KV: {} as KVNamespace,
     SEEN_URLS: {} as KVNamespace,
     CRAWL_QUEUE: queue,
-    REPORT_QUEUE: queue,
     REPORT_SERVICE_URL: "https://reports",
     BROWSER: null as unknown as import("@cloudflare/puppeteer").BrowserWorker,
     DATABASE_URL: "postgresql://test",
