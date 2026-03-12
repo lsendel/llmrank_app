@@ -64,6 +64,7 @@ export function buildProject(
     industrySource: "auto",
     businessGoal: null,
     faviconUrl: null,
+    analyticsSnippetEnabled: false,
     createdAt: STATIC_DATE,
     updatedAt: STATIC_DATE,
     ...overrides,

@@ -7,6 +7,7 @@ import { createDb, type Database, users, userQueries } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
+import { analyticsMiddleware } from "./middleware/analytics";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
 import { ServiceError } from "./services/errors";
@@ -201,6 +202,9 @@ app.use("*", async (c, next) => {
   c.set("logger", createLogger({ requestId: c.get("requestId") }));
   await next();
 });
+
+// Analytics middleware — runs after db is set, tracks first-party AI traffic
+app.use("*", analyticsMiddleware());
 
 // Routes
 app.route("/api/health", healthRoutes);
