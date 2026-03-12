@@ -17,6 +17,7 @@ import {
   Route,
   Settings,
   Zap,
+  TrendingUp,
 } from "lucide-react";
 import type { ProjectTab } from "@/app/dashboard/projects/[id]/tab-state";
 import {
@@ -41,6 +42,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { tab: "visibility", label: "Visibility Hub", icon: Bot },
   { tab: "personas", label: "Personas", icon: User },
   { tab: "keywords", label: "Keywords", icon: Key },
+  { tab: "ai-traffic", label: "AI Traffic", icon: TrendingUp },
   { tab: "integrations", label: "Integrations", icon: Plug },
   { tab: "reports", label: "Reports", icon: Download },
   { tab: "automation", label: "Automation", icon: Play },

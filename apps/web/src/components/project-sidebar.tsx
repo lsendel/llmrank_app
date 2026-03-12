@@ -17,6 +17,7 @@ import {
   Route,
   Settings,
   Zap,
+  TrendingUp,
 } from "lucide-react";
 import type { ProjectTab } from "@/app/dashboard/projects/[id]/tab-state";
 import type { ProjectTabGroup } from "@/app/dashboard/projects/[id]/tab-state";
@@ -65,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "automate-operate",
     label: "Automate & Operate",
     items: [
+      { tab: "ai-traffic", label: "AI Traffic", icon: TrendingUp },
       { tab: "integrations", label: "Integrations", icon: Plug },
       { tab: "reports", label: "Reports", icon: Download },
       { tab: "automation", label: "Automation", icon: Play },

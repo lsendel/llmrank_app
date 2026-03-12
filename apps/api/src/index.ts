@@ -6,6 +6,7 @@ import { createDb, type Database } from "@llm-boost/db";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
 import { apiVersionMiddleware } from "./middleware/api-version";
+import { analyticsMiddleware } from "./middleware/analytics";
 import { createLogger, type Logger } from "./lib/logger";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
 import { initObservability } from "./lib/observability";
@@ -19,6 +20,7 @@ import {
   registerFirstPartyRoutes,
 } from "./routes/register";
 import { handleScheduled } from "./scheduled";
+import { analyticsRoutes } from "./routes/analytics";
 
 export type Bindings = {
   R2: R2Bucket;
@@ -155,9 +157,16 @@ app.use("*", async (c, next) => {
   await next();
 });
 
+// Analytics middleware — runs after db is set, tracks first-party AI traffic
+app.use("*", analyticsMiddleware());
+
+// Routes
 registerApiRoutes(app);
 registerFirstPartyRoutes(app);
 registerAuthRoutes(app);
+
+// Analytics — snippet serving, beacon collect, dashboard + admin endpoints
+app.route("/", analyticsRoutes);
 
 app.notFound((c) => {
   return c.json(

@@ -12,6 +12,9 @@ export const CreateProjectSchema = z.object({
 
 export const UpdateProjectSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  businessGoal: z
+    .enum(["ai_mentions", "lead_gen", "outrank", "brand_understanding"])
+    .optional(),
   settings: z
     .object({
       maxPages: z.number().int().min(1).optional(),
@@ -31,6 +34,7 @@ export const UpdateProjectSchema = z.object({
         .optional(),
     })
     .optional(),
+  analyticsSnippetEnabled: z.boolean().optional(),
 });
 
 export type CreateProject = z.infer<typeof CreateProjectSchema>;

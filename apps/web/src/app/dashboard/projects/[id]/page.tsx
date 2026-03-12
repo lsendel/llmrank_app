@@ -56,12 +56,167 @@ import {
   ProjectVisibilityWorkspaceCard,
   ProjectWorkspaceChooser,
 } from "./_components/project-page-sections";
+import { SnippetSettingsSection } from "./_components/snippet-settings-section";
 import {
   INTEGRATION_LABELS,
   isVisibilityMode,
   type VisibilityGuidanceAction,
   visibilityNextStepRecommendation,
 } from "./project-page-helpers";
+
+function TabLoadingSkeleton() {
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="h-40 animate-pulse rounded-lg border bg-muted/30" />
+        <div className="h-40 animate-pulse rounded-lg border bg-muted/30" />
+      </div>
+      <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
+    </div>
+  );
+}
+class TabErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <StateMessage
+          variant="error"
+          title="This tab could not be loaded"
+          description="Reload this section to continue."
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-8"
+          retry={{ onClick: () => this.setState({ hasError: false }) }}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const PagesTab = dynamic(
+  () =>
+    import("@/components/tabs/pages-tab").then((mod) => ({
+      default: mod.PagesTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const IssuesTab = dynamic(
+  () =>
+    import("@/components/tabs/issues-tab").then((mod) => ({
+      default: mod.IssuesTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const HistoryTab = dynamic(
+  () =>
+    import("@/components/tabs/history-tab").then((mod) => ({
+      default: mod.HistoryTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const StrategyTab = dynamic(
+  () =>
+    import("@/components/tabs/strategy-tab").then((mod) => ({
+      default: mod.StrategyTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const VisibilityTab = dynamic(
+  () => import("@/components/tabs/visibility-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
+
+const IntegrationsTab = dynamic(
+  () => import("@/components/tabs/integrations-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
+
+const ReportsTab = dynamic(() => import("@/components/reports/reports-tab"), {
+  loading: () => <TabLoadingSkeleton />,
+});
+
+const LogsTab = dynamic(
+  () =>
+    import("@/components/tabs/logs-tab").then((mod) => ({
+      default: mod.LogsTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const AutomationTab = dynamic(
+  () =>
+    import("@/components/tabs/automation-tab").then((mod) => ({
+      default: mod.AutomationTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const AIVisibilityTab = dynamic(
+  () => import("@/components/tabs/ai-visibility-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
+
+const CompetitorsTab = dynamic(
+  () =>
+    import("@/components/tabs/competitors-tab").then((mod) => ({
+      default: mod.CompetitorsTab,
+    })),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
+
+const PersonasTab = dynamic(
+  () =>
+    import("@/components/tabs/personas-tab").then((mod) => ({
+      default: mod.PersonasTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const KeywordsTab = dynamic(
+  () =>
+    import("@/components/tabs/keywords-tab").then((mod) => ({
+      default: mod.KeywordsTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const AiAnalysisTab = dynamic(
+  () =>
+    import("@/components/tabs/ai-analysis-tab").then((mod) => ({
+      default: mod.AiAnalysisTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
+
+const AiTrafficTab = dynamic(
+  () =>
+    import("@/components/tabs/ai-traffic-tab").then((mod) => ({
+      default: mod.AiTrafficTab,
+    })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -87,6 +242,7 @@ export default function ProjectPage() {
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [crawlError, setCrawlError] = useState<string | null>(null);
   const lastSyncedWorkflowContextRef = useRef<string | null>(null);
+  const [snippetEnabled, setSnippetEnabled] = useState(false);
 
   const { data: project, isLoading: projectLoading } = useProject(params.id);
   const projectId = project?.id ?? null;
@@ -125,6 +281,13 @@ export default function ProjectPage() {
         // Keep local workflow memory available when server sync fails.
       });
   }, [currentTab, projectDomain, projectId, projectName]);
+
+  // Sync snippetEnabled from project data once loaded
+  useEffect(() => {
+    if (project) {
+      setSnippetEnabled(project.analyticsSnippetEnabled ?? false);
+    }
+  }, [project?.id, project?.analyticsSnippetEnabled]);
 
   const latestCrawlId = project?.latestCrawl?.id;
   const selectedCrawlId = requestedCrawlId ?? latestCrawlId;
@@ -524,6 +687,19 @@ export default function ProjectPage() {
             <ProjectTabErrorBoundary>
               <LogsTab projectId={project.id} />
             </ProjectTabErrorBoundary>
+          )}
+
+          {currentTab === "ai-traffic" && (
+            <TabErrorBoundary>
+              <div className="space-y-6">
+                <SnippetSettingsSection
+                  projectId={project.id}
+                  snippetEnabled={snippetEnabled}
+                  onToggle={setSnippetEnabled}
+                />
+                <AiTrafficTab projectId={project.id} snippetEnabled={snippetEnabled} />
+              </div>
+            </TabErrorBoundary>
           )}
 
           {currentTab === "settings" && (

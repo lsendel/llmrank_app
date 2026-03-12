@@ -12,7 +12,7 @@ interface CompetitorBenchmarkDeps {
   };
   competitors: {
     listByProject: (projectId: string) => Promise<any[]>;
-    add: (projectId: string, domain: string) => Promise<any>;
+    add: (projectId: string, domain: string, source?: string) => Promise<any>;
   };
 }
 
@@ -24,6 +24,7 @@ export function createCompetitorBenchmarkService(
       projectId: string;
       competitorDomain: string;
       competitorLimit: number;
+      source?: string;
     }) {
       // 1. Check if competitor limit is reached
       const existingCompetitors = await deps.competitors.listByProject(
@@ -40,7 +41,11 @@ export function createCompetitorBenchmarkService(
           );
         }
         // Add competitor to project if not already tracked
-        await deps.competitors.add(args.projectId, args.competitorDomain);
+        await deps.competitors.add(
+          args.projectId,
+          args.competitorDomain,
+          args.source,
+        );
       }
 
       // 2. Fetch the competitor's homepage

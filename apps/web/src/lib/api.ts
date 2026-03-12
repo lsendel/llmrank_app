@@ -5,6 +5,7 @@ import type { ApiEnvelope } from "./api/core/types";
 import type { CrawlJobSummary } from "./api/types/crawls";
 import type { PaginatedResponse } from "./api/types/pagination";
 import { createAccountApi } from "./api/domains/account";
+import { createAnalyticsApi } from "./api/domains/analytics";
 import { createActionItemsApi } from "./api/domains/action-items";
 import { createAlertsApi } from "./api/domains/alerts";
 import { createBacklinksApi } from "./api/domains/backlinks";
@@ -87,7 +88,11 @@ export type {
 
 export type { Persona } from "./api/types/personas";
 export type { SavedKeyword } from "./api/types/keywords";
-export type { DiscoveryResult } from "./api/types/discovery";
+export type {
+  DiscoveryResult,
+  CompetitorSuggestion,
+  SuggestCompetitorsResponse,
+} from "./api/types/discovery";
 
 export type {
   CrawlJob,
@@ -345,5 +350,8 @@ export const api = {
 
   // ── Narratives ─────────────────────────────────────────────────
   narratives: createNarrativesApi(),
+
+  // ── Analytics ──────────────────────────────────────────────────
+  analytics: createAnalyticsApi(),
 };
 

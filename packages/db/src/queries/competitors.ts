@@ -27,15 +27,30 @@ export function competitorQueries(db: Database) {
       });
     },
 
-    async add(projectId: string, domain: string) {
+    async add(projectId: string, domain: string, source?: string) {
       const [competitor] = await db
         .insert(competitors)
         .values({
           projectId,
           domain,
+          ...(source ? { source } : {}),
         })
         .returning();
       return competitor;
+    },
+
+    async addMultiple(
+      projectId: string,
+      domains: string[],
+      source = "user_added",
+    ) {
+      if (domains.length === 0) return [];
+      const rows = domains.map((domain) => ({ projectId, domain, source }));
+      return db
+        .insert(competitors)
+        .values(rows)
+        .onConflictDoNothing()
+        .returning();
     },
 
     async remove(id: string) {

@@ -9,3 +9,12 @@ export interface DiscoveryResult {
     relevanceScore?: number;
   }>;
 }
+
+export interface CompetitorSuggestion {
+  domain: string;
+  reason: string;
+}
+
+export interface SuggestCompetitorsResponse {
+  competitors: CompetitorSuggestion[];
+}

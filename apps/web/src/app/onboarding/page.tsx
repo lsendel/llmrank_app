@@ -41,6 +41,18 @@ export default function OnboardingPage() {
           router.push(`/dashboard/crawl/${state.crawlId}`);
         }
       }}
+      onOpenStrategy={() => {
+        if (state.projectId) {
+          router.push(`/dashboard/projects/${state.projectId}?tab=strategy`);
+        }
+      }}
+      onOpenIntegrations={() => {
+        if (state.projectId) {
+          router.push(
+            `/dashboard/projects/${state.projectId}?tab=integrations`,
+          );
+        }
+      }}
     />
   );
 }

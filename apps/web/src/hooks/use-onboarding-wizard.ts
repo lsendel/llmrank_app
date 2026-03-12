@@ -3,7 +3,7 @@
 import { useReducer, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-hooks";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type DiscoveryResult } from "@/lib/api";
 import { track } from "@/lib/telemetry";
 import { isActiveCrawlStatus } from "@/components/crawl-progress";
 import type { CrawlStatus } from "@/components/crawl-progress";
@@ -46,6 +46,8 @@ export interface WizardState {
   // Step 1
   domain: string;
   projectName: string;
+  siteDescription: string;
+  industry: string;
   defaultCrawlSchedule: "manual" | "daily" | "weekly" | "monthly";
   defaultAutoRunOnCrawl: boolean;
   defaultVisibilityScheduleEnabled: boolean;
@@ -58,6 +60,9 @@ export interface WizardState {
   crawl: CrawlData | null;
   crawlError: string | null;
   startingCrawl: boolean;
+  discoveryStatus: "idle" | "loading" | "ready" | "failed";
+  discoveryResult: DiscoveryResult | null;
+  discoveryError: string | null;
   // Tips
   tipIndex: number;
 }
@@ -71,6 +76,8 @@ const initialState: WizardState = {
   teamSize: null,
   domain: "",
   projectName: "",
+  siteDescription: "",
+  industry: "",
   defaultCrawlSchedule: "weekly",
   defaultAutoRunOnCrawl: true,
   defaultVisibilityScheduleEnabled: true,
@@ -82,6 +89,9 @@ const initialState: WizardState = {
   crawl: null,
   crawlError: null,
   startingCrawl: false,
+  discoveryStatus: "idle",
+  discoveryResult: null,
+  discoveryError: null,
   tipIndex: 0,
 };
 
@@ -98,6 +108,8 @@ export type Action =
   | { type: "SET_TEAM_SIZE"; teamSize: string | null }
   | { type: "SET_DOMAIN"; domain: string }
   | { type: "SET_PROJECT_NAME"; projectName: string }
+  | { type: "SET_SITE_DESCRIPTION"; siteDescription: string }
+  | { type: "SET_INDUSTRY"; industry: string }
   | {
       type: "SET_DEFAULT_CRAWL_SCHEDULE";
       schedule: "manual" | "daily" | "weekly" | "monthly";
@@ -112,6 +124,12 @@ export type Action =
   | { type: "SET_CRAWL"; crawl: CrawlData | null }
   | { type: "SET_CRAWL_ERROR"; error: string | null }
   | { type: "SET_STARTING_CRAWL"; starting: boolean }
+  | {
+      type: "SET_DISCOVERY_STATUS";
+      status: WizardState["discoveryStatus"];
+    }
+  | { type: "SET_DISCOVERY_RESULT"; result: DiscoveryResult | null }
+  | { type: "SET_DISCOVERY_ERROR"; error: string | null }
   | { type: "SET_TIP_INDEX"; index: number }
   | { type: "ADVANCE_TIP"; tipsLength: number }
   | { type: "RESET_CRAWL" }
@@ -145,6 +163,10 @@ export function reducer(state: WizardState, action: Action): WizardState {
       return { ...state, domain: action.domain };
     case "SET_PROJECT_NAME":
       return { ...state, projectName: action.projectName };
+    case "SET_SITE_DESCRIPTION":
+      return { ...state, siteDescription: action.siteDescription };
+    case "SET_INDUSTRY":
+      return { ...state, industry: action.industry };
     case "SET_DEFAULT_CRAWL_SCHEDULE":
       return { ...state, defaultCrawlSchedule: action.schedule };
     case "SET_DEFAULT_AUTO_RUN_ON_CRAWL":
@@ -167,6 +189,12 @@ export function reducer(state: WizardState, action: Action): WizardState {
       return { ...state, crawlError: action.error };
     case "SET_STARTING_CRAWL":
       return { ...state, startingCrawl: action.starting };
+    case "SET_DISCOVERY_STATUS":
+      return { ...state, discoveryStatus: action.status };
+    case "SET_DISCOVERY_RESULT":
+      return { ...state, discoveryResult: action.result };
+    case "SET_DISCOVERY_ERROR":
+      return { ...state, discoveryError: action.error };
     case "SET_TIP_INDEX":
       return { ...state, tipIndex: action.index };
     case "ADVANCE_TIP":
@@ -180,9 +208,19 @@ export function reducer(state: WizardState, action: Action): WizardState {
         crawlId: null,
         crawl: null,
         crawlError: null,
+        discoveryStatus: "idle",
+        discoveryResult: null,
+        discoveryError: null,
       };
     case "SUBMIT_START":
-      return { ...state, stepError: null, submitting: true };
+      return {
+        ...state,
+        stepError: null,
+        submitting: true,
+        discoveryStatus: "idle",
+        discoveryResult: null,
+        discoveryError: null,
+      };
     case "SUBMIT_SUCCESS":
       return {
         ...state,
@@ -221,6 +259,7 @@ export function useOnboardingWizard(tipsLength: number) {
 
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef(3000);
+  const discoveryTriggeredRef = useRef<string | null>(null);
 
   // ---- Guard: redirect if not signed in or already has projects -----------
   useEffect(() => {
@@ -269,6 +308,10 @@ export function useOnboardingWizard(tipsLength: number) {
     dispatch({ type: "CRAWL_START" });
     try {
       const job = await api.crawls.start(pid);
+      discoveryTriggeredRef.current = null;
+      dispatch({ type: "SET_DISCOVERY_STATUS", status: "idle" });
+      dispatch({ type: "SET_DISCOVERY_RESULT", result: null });
+      dispatch({ type: "SET_DISCOVERY_ERROR", error: null });
       dispatch({
         type: "CRAWL_DISPATCHED",
         crawlId: job.id,
@@ -287,6 +330,32 @@ export function useOnboardingWizard(tipsLength: number) {
     }
   }, []);
 
+  const runDiscovery = useCallback(
+    async (projectId: string, crawlId: string) => {
+      if (discoveryTriggeredRef.current === crawlId) return;
+      discoveryTriggeredRef.current = crawlId;
+
+      dispatch({ type: "SET_DISCOVERY_STATUS", status: "loading" });
+      dispatch({ type: "SET_DISCOVERY_ERROR", error: null });
+
+      try {
+        const result = await api.discovery.run(projectId);
+        dispatch({ type: "SET_DISCOVERY_RESULT", result });
+        dispatch({ type: "SET_DISCOVERY_STATUS", status: "ready" });
+      } catch (err) {
+        dispatch({ type: "SET_DISCOVERY_STATUS", status: "failed" });
+        dispatch({
+          type: "SET_DISCOVERY_ERROR",
+          error:
+            err instanceof ApiError
+              ? err.message
+              : "We could not finish the audience and competitor setup.",
+        });
+      }
+    },
+    [],
+  );
+
   // ---- Polling effect -----------------------------------------------------
   useEffect(() => {
     if (!state.crawlId || !state.crawl) return;
@@ -303,8 +372,7 @@ export function useOnboardingWizard(tipsLength: number) {
           intervalRef.current = Math.min(intervalRef.current * 1.5, 30000);
           pollingRef.current = setTimeout(poll, intervalRef.current);
         } else if (updated.status === "complete" && state.projectId) {
-          // Non-blocking: trigger auto-discovery after crawl completes
-          api.discovery.run(state.projectId).catch(() => {});
+          void runDiscovery(state.projectId, crawlId);
         }
       } catch (_err) {
         console.warn("Crawl polling failed, retrying with backoff:", _err);
@@ -325,6 +393,20 @@ export function useOnboardingWizard(tipsLength: number) {
     // to avoid restarting the polling loop on every poll update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.crawlId, state.crawl?.status]);
+
+  useEffect(() => {
+    if (state.crawl?.status !== "complete") return;
+    if (!state.projectId || !state.crawlId) return;
+    if (state.discoveryStatus !== "idle") return;
+
+    void runDiscovery(state.projectId, state.crawlId);
+  }, [
+    state.crawl?.status,
+    state.crawlId,
+    state.discoveryStatus,
+    state.projectId,
+    runDiscovery,
+  ]);
 
   // ---- Auto-start crawl when step becomes 2 ------------------------------
   useEffect(() => {
@@ -407,6 +489,25 @@ export function useOnboardingWizard(tipsLength: number) {
           domain: normalizedDomain,
         })
         .then(async (project) => {
+          const siteContext = {
+            ...(state.siteDescription.trim()
+              ? { siteDescription: state.siteDescription.trim() }
+              : {}),
+            ...(state.industry.trim()
+              ? { industry: state.industry.trim() }
+              : {}),
+          };
+
+          if (Object.keys(siteContext).length > 0) {
+            try {
+              await api.projects.updateSiteContext(project.id, siteContext);
+            } catch {
+              track("onboarding_site_context_partial_failure", {
+                projectId: project.id,
+              });
+            }
+          }
+
           const defaults = await applyProjectWorkspaceDefaults({
             projectId: project.id,
             domainOrUrl: normalizedDomain,
@@ -479,6 +580,8 @@ export function useOnboardingWizard(tipsLength: number) {
     state.name,
     state.workStyle,
     state.teamSize,
+    state.siteDescription,
+    state.industry,
     state.defaultCrawlSchedule,
     state.defaultAutoRunOnCrawl,
     state.defaultVisibilityScheduleEnabled,
@@ -487,6 +590,7 @@ export function useOnboardingWizard(tipsLength: number) {
 
   const handleRetry = useCallback(() => {
     if (!state.projectId) return;
+    discoveryTriggeredRef.current = null;
     dispatch({ type: "RESET_CRAWL" });
     startCrawl(state.projectId);
   }, [state.projectId, startCrawl]);

@@ -20,6 +20,37 @@ vi.mock("@/components/score-circle", () => ({
   ),
 }));
 
+// Mock next/navigation for DiscoveryScreen
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+// Mock the API client
+vi.mock("@/lib/api", () => ({
+  api: {
+    account: { getMe: vi.fn().mockResolvedValue({ plan: "free" }) },
+    discovery: {
+      suggestCompetitors: vi.fn().mockResolvedValue({ competitors: [] }),
+    },
+    projects: { update: vi.fn().mockResolvedValue({}) },
+    personas: { create: vi.fn().mockResolvedValue({}) },
+    keywords: { createBatch: vi.fn().mockResolvedValue([]) },
+    strategy: { addCompetitor: vi.fn().mockResolvedValue({}) },
+  },
+  ApiError: class extends Error {},
+}));
+
+// Mock PLAN_LIMITS
+vi.mock("@llm-boost/shared", () => ({
+  PLAN_LIMITS: {
+    free: { competitorsPerProject: 1 },
+    starter: { competitorsPerProject: 3 },
+    pro: { competitorsPerProject: 5 },
+    agency: { competitorsPerProject: 10 },
+  },
+}));
+
 const baseState: WizardState = {
   guardChecked: true,
   step: 0,
@@ -29,6 +60,8 @@ const baseState: WizardState = {
   teamSize: null,
   domain: "example.com",
   projectName: "Example",
+  siteDescription: "",
+  industry: "",
   defaultCrawlSchedule: "weekly",
   defaultAutoRunOnCrawl: true,
   defaultVisibilityScheduleEnabled: true,
@@ -40,6 +73,9 @@ const baseState: WizardState = {
   crawl: null,
   crawlError: null,
   startingCrawl: false,
+  discoveryStatus: "idle",
+  discoveryResult: null,
+  discoveryError: null,
   tipIndex: 0,
 };
 
@@ -50,6 +86,8 @@ function renderCard(state: WizardState) {
   const onStartScan = vi.fn();
   const onRetry = vi.fn();
   const onViewReport = vi.fn();
+  const onOpenStrategy = vi.fn();
+  const onOpenIntegrations = vi.fn();
 
   render(
     <OnboardingWizardCard
@@ -60,6 +98,8 @@ function renderCard(state: WizardState) {
       onStartScan={onStartScan}
       onRetry={onRetry}
       onViewReport={onViewReport}
+      onOpenStrategy={onOpenStrategy}
+      onOpenIntegrations={onOpenIntegrations}
     />,
   );
 
@@ -70,6 +110,8 @@ function renderCard(state: WizardState) {
     onStartScan,
     onRetry,
     onViewReport,
+    onOpenStrategy,
+    onOpenIntegrations,
   };
 }
 
@@ -116,14 +158,33 @@ describe("onboarding page sections", () => {
     expect(screen.getByText("What site should we audit?")).toBeInTheDocument();
     expect(screen.getByText("Confirm default setup")).toBeInTheDocument();
     expect(screen.getByText("Domain is required")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "We use this context to improve the first-pass personas, keyword suggestions, and competitor discovery for your domain.",
+      ),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Domain"), {
       target: { value: "docs.example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/What does your site do/i), {
+      target: { value: "Help desks for schools" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Industry/i), {
+      target: { value: "EdTech" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Manual" }));
     fireEvent.click(screen.getByRole("button", { name: /Start Scan/i }));
 
     expect(onDomainChange).toHaveBeenCalledWith("docs.example.com");
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "SET_SITE_DESCRIPTION",
+      siteDescription: "Help desks for schools",
+    });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "SET_INDUSTRY",
+      industry: "EdTech",
+    });
     expect(dispatch).toHaveBeenCalledWith({
       type: "SET_DEFAULT_CRAWL_SCHEDULE",
       schedule: "manual",
@@ -131,11 +192,10 @@ describe("onboarding page sections", () => {
     expect(onStartScan).toHaveBeenCalledTimes(1);
   });
 
-  it("renders active crawl progress with the current tip", () => {
+  it("renders discovery screen at step 2 with crawl progress banner", () => {
     renderCard({
       ...baseState,
       step: 2,
-      tipIndex: 1,
       crawl: {
         id: "crawl-1",
         status: "crawling",
@@ -149,19 +209,32 @@ describe("onboarding page sections", () => {
       },
     });
 
-    expect(screen.getByText("Scanning your site...")).toBeInTheDocument();
-    expect(screen.getByText("12")).toBeInTheDocument();
-    expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    // Discovery screen renders with strategy setup heading
+    expect(screen.getByText("Set up your domain strategy")).toBeInTheDocument();
+
+    // Crawl progress banner shows
+    expect(screen.getByText(/Crawling.*5 of ~12 pages/)).toBeInTheDocument();
+
+    // Discovery cards are present (use getAllByText since pills + cards share labels)
+    expect(screen.getAllByText("Business Goals").length).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(
-      screen.getByText(
-        "Pages with clear H1-H3 hierarchy rank 2x better in AI responses.",
-      ),
+      screen.getAllByText("Target Personas").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText("Target Keywords").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Competitors").length).toBeGreaterThanOrEqual(1);
+
+    // Go to Dashboard CTA
+    expect(
+      screen.getByRole("button", { name: /Go to Dashboard/i }),
     ).toBeInTheDocument();
   });
 
-  it("renders completed crawl results and forwards report navigation", () => {
-    const { onViewReport } = renderCard({
+  it("renders discovery screen with completed crawl score in banner", () => {
+    renderCard({
       ...baseState,
       step: 2,
       crawl: {
@@ -182,13 +255,12 @@ describe("onboarding page sections", () => {
       },
     });
 
-    expect(screen.getByText("Your AI-Readiness Score")).toBeInTheDocument();
-    expect(screen.getByText("Overall: 84")).toBeInTheDocument();
-    expect(screen.getByText("Technical")).toBeInTheDocument();
-    expect(screen.getByText("AI Readiness")).toBeInTheDocument();
+    // Score shown in banner
+    expect(screen.getByText(/Score: 84 \/ B/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /View Full Report/i }));
-
-    expect(onViewReport).toHaveBeenCalledTimes(1);
+    // Goals card should be auto-opened (first active card)
+    expect(
+      screen.getByText(/Get mentioned in AI responses/),
+    ).toBeInTheDocument();
   });
 });

@@ -45,6 +45,8 @@ export interface PlanLimits {
   watchlistQueriesPerProject: number;
   competitorTrendDays: number;
   competitorRebenchmarksPerWeek: number;
+  analyticsRetentionDays: number;
+  analyticsSnippetProjects: number; // 0 = no snippet, -1 = unlimited
 }
 
 export function resolveEffectivePlan(user: {
@@ -100,6 +102,8 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     watchlistQueriesPerProject: 0,
     competitorTrendDays: 0,
     competitorRebenchmarksPerWeek: 0,
+    analyticsRetentionDays: 7,
+    analyticsSnippetProjects: 0,
   },
   starter: {
     pagesPerCrawl: 100,
@@ -139,6 +143,8 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     watchlistQueriesPerProject: 3,
     competitorTrendDays: 30,
     competitorRebenchmarksPerWeek: 1,
+    analyticsRetentionDays: 30,
+    analyticsSnippetProjects: 1,
   },
   pro: {
     pagesPerCrawl: 500,
@@ -178,6 +184,8 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     watchlistQueriesPerProject: 10,
     competitorTrendDays: 90,
     competitorRebenchmarksPerWeek: 3,
+    analyticsRetentionDays: 90,
+    analyticsSnippetProjects: -1,
   },
   agency: {
     pagesPerCrawl: 2000,
@@ -217,5 +225,9 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     watchlistQueriesPerProject: 25,
     competitorTrendDays: 180,
     competitorRebenchmarksPerWeek: Infinity,
+    analyticsRetentionDays: 90,
+    analyticsSnippetProjects: -1,
   },
 };
+
+export const FIRST_PARTY_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
