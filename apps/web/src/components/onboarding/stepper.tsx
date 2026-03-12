@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const STEPS = [
   { label: "Profile" },
   { label: "Website" },
-  { label: "Scanning" },
+  { label: "Discovery" },
 ];
 
 export function Stepper({ currentStep }: { currentStep: number }) {

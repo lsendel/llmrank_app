@@ -62,6 +62,7 @@ export function buildProject(
     pipelineSettings: {},
     siteDescriptionSource: "auto",
     industrySource: "auto",
+    businessGoal: null,
     faviconUrl: null,
     createdAt: STATIC_DATE,
     updatedAt: STATIC_DATE,

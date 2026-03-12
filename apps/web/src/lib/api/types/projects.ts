@@ -28,6 +28,7 @@ export interface CreateProjectInput {
 
 export interface UpdateProjectInput {
   name?: string;
+  businessGoal?: "ai_mentions" | "lead_gen" | "outrank" | "brand_understanding";
   settings?: {
     maxPages?: number;
     maxDepth?: number;

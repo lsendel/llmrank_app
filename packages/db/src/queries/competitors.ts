@@ -31,6 +31,20 @@ export function competitorQueries(db: Database) {
       return competitor;
     },
 
+    async addMultiple(
+      projectId: string,
+      domains: string[],
+      source = "user_added",
+    ) {
+      if (domains.length === 0) return [];
+      const rows = domains.map((domain) => ({ projectId, domain, source }));
+      return db
+        .insert(competitors)
+        .values(rows)
+        .onConflictDoNothing()
+        .returning();
+    },
+
     async remove(id: string) {
       const [deleted] = await db
         .delete(competitors)

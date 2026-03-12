@@ -84,7 +84,11 @@ export type {
 
 export type { Persona } from "./api/types/personas";
 export type { SavedKeyword } from "./api/types/keywords";
-export type { DiscoveryResult } from "./api/types/discovery";
+export type {
+  DiscoveryResult,
+  CompetitorSuggestion,
+  SuggestCompetitorsResponse,
+} from "./api/types/discovery";
 
 export type {
   CrawlJob,
