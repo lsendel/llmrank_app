@@ -42,6 +42,7 @@ export const projects = pgTable(
     industrySource: text("industry_source").default("auto"),
     businessGoal: text("business_goal"),
     faviconUrl: text("favicon_url"),
+    analyticsSnippetEnabled: boolean("analytics_snippet_enabled").notNull().default(false),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

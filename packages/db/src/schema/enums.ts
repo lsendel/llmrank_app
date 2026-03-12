@@ -231,3 +231,12 @@ export const monitoringFrequencyEnum = pgEnum("monitoring_frequency", [
   "monthly",
   "off",
 ]);
+
+export const sourceTypeEnum = pgEnum("source_type", [
+  "organic",
+  "ai_referral",
+  "ai_bot",
+  "direct",
+  "social",
+  "other",
+]);
