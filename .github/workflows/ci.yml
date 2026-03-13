@@ -89,6 +89,7 @@ jobs:
           directory: apps/web
           build_script: build
           skip_step: build
+          package_manager: pnpm
 
   rust:
     runs-on: ubuntu-latest
