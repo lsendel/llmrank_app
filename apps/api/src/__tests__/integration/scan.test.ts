@@ -17,6 +17,13 @@ describe("Public Scan API", () => {
         },
         DATABASE_URL: "postgres://mock",
       };
+      const noopLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      c.set("logger", noopLogger);
       c.set("db", {
         query: {
           scanResults: {

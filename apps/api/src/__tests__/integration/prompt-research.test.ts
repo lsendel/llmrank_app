@@ -36,6 +36,7 @@ const mockVisibilityRepo = {
     }),
   ),
   countSince: vi.fn().mockResolvedValue(0),
+  countSinceByProjects: vi.fn().mockResolvedValue(0),
 };
 
 const mockCompetitorRepo = {

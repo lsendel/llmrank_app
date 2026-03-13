@@ -309,11 +309,13 @@ describe("Fixes Routes", () => {
 
       const body: any = await res.json();
       expect(body.data).toBeInstanceOf(Array);
-      expect(body.data).toHaveLength(11);
+      expect(body.data).toHaveLength(13);
       expect(body.data).toContain("MISSING_META_DESC");
       expect(body.data).toContain("MISSING_TITLE");
       expect(body.data).toContain("NO_STRUCTURED_DATA");
       expect(body.data).toContain("AI_CRAWLER_BLOCKED");
+      expect(body.data).toContain("MISSING_SPEAKABLE");
+      expect(body.data).toContain("THIN_CONTENT_FOR_AI");
     });
   });
 });
