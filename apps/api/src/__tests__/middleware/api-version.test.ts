@@ -84,7 +84,7 @@ describe("requireVersion", () => {
     const res = await app.request("/api/v1/test");
     expect(res.status).toBe(200);
 
-    const json = await res.json();
+    const json = (await res.json()) as { success: boolean };
     expect(json.success).toBe(true);
   });
 

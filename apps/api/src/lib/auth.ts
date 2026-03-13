@@ -39,7 +39,7 @@ export function createAuth(env: Bindings) {
     databaseHooks: {
       user: {
         create: {
-          after: async (user) => {
+          after: async (user: { id: string; email: string }) => {
             // Best-effort: seed a project from a prior public scan lead.
             // Failures must never block the signup flow.
             try {

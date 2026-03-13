@@ -33,7 +33,7 @@ export function createPageService(deps: PageServiceDeps) {
     async listPagesForJob(
       userId: string,
       jobId: string,
-      options?: { cursor?: string; limit?: number },
+      _options?: { cursor?: string; limit?: number },
     ) {
       const crawl = await deps.crawls.getById(jobId);
       if (!crawl) {
@@ -41,7 +41,7 @@ export function createPageService(deps: PageServiceDeps) {
         throw new ServiceError("NOT_FOUND", err.status, "Crawl not found");
       }
       await assertProjectOwnership(deps.projects, userId, crawl.projectId);
-      const rows = await deps.scores.listByJobWithPages(jobId, options);
+      const rows = await deps.scores.listByJobWithPages(jobId);
       return rows.map((row) => {
         const detail = (row.detail ?? {}) as Record<string, unknown>;
         return {

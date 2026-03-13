@@ -13,7 +13,9 @@ deploymentRoutes.use("*", authMiddleware);
 deploymentRoutes.get("/status", async (c) => {
   const deploymentService = createDeploymentService({
     kv: c.env.KV,
-    fetch: c.env.FETCH_BINDING || fetch,
+    fetch:
+      ((c.env as Record<string, unknown>).FETCH_BINDING as typeof fetch) ||
+      fetch,
   });
 
   try {
@@ -69,7 +71,7 @@ deploymentRoutes.post("/rollback", async (c) => {
   const { userQueries } = await import("@llm-boost/db");
   const user = await userQueries(db).getById(userId);
 
-  if (!user || user.role !== "admin") {
+  if (!user || (user as Record<string, unknown>).role !== "admin") {
     return c.json(
       {
         error: {
@@ -104,7 +106,9 @@ deploymentRoutes.post("/rollback", async (c) => {
 deploymentRoutes.post("/auto-rollback", async (c) => {
   const deploymentService = createDeploymentService({
     kv: c.env.KV,
-    fetch: c.env.FETCH_BINDING || fetch,
+    fetch:
+      ((c.env as Record<string, unknown>).FETCH_BINDING as typeof fetch) ||
+      fetch,
   });
 
   try {

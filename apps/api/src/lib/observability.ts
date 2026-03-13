@@ -82,7 +82,7 @@ export function createLogger(
     if (axiomClient) {
       axiomClient
         .ingest("logs", [entry])
-        .catch((err) => console.error("Axiom ingest failed:", err));
+        .catch((err: unknown) => console.error("Axiom ingest failed:", err));
     }
   }
 
@@ -119,7 +119,7 @@ export function trackMetric(metric: MetricData) {
   if (axiomClient) {
     axiomClient
       .ingest("metrics", [entry])
-      .catch((err) => console.error("Axiom metric failed:", err));
+      .catch((err: unknown) => console.error("Axiom metric failed:", err));
   }
 }
 

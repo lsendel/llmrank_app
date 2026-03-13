@@ -397,10 +397,10 @@ export function createRecommendationsService(db: Database) {
             project.id,
           );
           const criticalIssues = issues.filter(
-            (issue) => issue.severity === "critical",
+            (issue: { severity: string }) => issue.severity === "critical",
           );
           const warningIssues = issues.filter(
-            (issue) => issue.severity === "warning",
+            (issue: { severity: string }) => issue.severity === "warning",
           );
           const daysSinceCrawl = crawl.completedAt
             ? Math.floor(
@@ -421,7 +421,7 @@ export function createRecommendationsService(db: Database) {
               title: `${criticalIssues.length} critical issue${criticalIssues.length === 1 ? "" : "s"} blocking visibility`,
               description: criticalIssues
                 .slice(0, 2)
-                .map((issue) => issue.message)
+                .map((issue: { message: string }) => issue.message)
                 .join("; "),
               reason:
                 "Critical technical/content blockers have the largest near-term ranking impact.",
@@ -564,7 +564,7 @@ export function createRecommendationsService(db: Database) {
               warningIssues.length > 0
                 ? warningIssues
                     .slice(0, 2)
-                    .map((issue) => issue.message)
+                    .map((issue: { message: string }) => issue.message)
                     .join("; ")
                 : "No major blockers detected. Focus on incremental quality improvements.",
             reason:
