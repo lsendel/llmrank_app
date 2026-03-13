@@ -29,3 +29,9 @@ suggest-queries-result.md
 
 apps/web/playwright-report/
 output/playwright/
+
+# Tool artifacts
+.superpowers/
+
+# Screenshots (root only)
+/*.png

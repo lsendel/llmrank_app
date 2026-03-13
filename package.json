@@ -28,6 +28,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
+    "tsx": "^4",
     "turbo": "^2",
     "typescript": "^5.7",
     "typescript-eslint": "^8.55.0",
@@ -59,4 +60,3 @@
   },
   "packageManager": "pnpm@9.15.0"
 }
-
