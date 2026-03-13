@@ -48,6 +48,10 @@ import { pipelineRoutes } from "./pipeline";
 import { trialRoutes } from "./trial";
 import { brandPerformanceRoutes } from "./brand-performance";
 import { promptResearchRoutes } from "./prompt-research";
+import { wizardRoutes } from "./wizard";
+import { connectRoutes } from "./connect";
+import { appRoutes } from "./app";
+import { marketingRoutes } from "./marketing";
 
 export function registerApiRoutes(app: Hono<AppEnv>) {
   app.route("/api/health", healthRoutes);
@@ -97,13 +101,10 @@ export function registerApiRoutes(app: Hono<AppEnv>) {
   app.route("/api/trial", trialRoutes);
   app.route("/api/brand", brandPerformanceRoutes);
   app.route("/api/prompt-research", promptResearchRoutes);
+  app.route("/api/wizard", wizardRoutes);
 }
 
 export function registerFirstPartyRoutes(app: Hono<AppEnv>) {
-  const { connectRoutes } = require("./connect");
-  const { appRoutes } = require("./app");
-  const { marketingRoutes } = require("./marketing");
-
   app.route("/connect", connectRoutes);
   app.route("/app", appRoutes);
   app.route("/", marketingRoutes);
