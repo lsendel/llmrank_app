@@ -44,7 +44,6 @@ import {
 } from "./visibility-tab-helpers";
 import {
   ScheduleSuggestionBanner,
-  VisibilityAnalyzeGapsSection,
   VisibilityResultCard,
 } from "./visibility-tab-analysis";
 type VisibilityMeta = {
@@ -346,7 +345,7 @@ function AddScheduleDialog({
   );
 }
 
-const EMPTY_SUB = () => () => {};
+const _EMPTY_SUB = () => () => {};
 
 export function VisibilityRegionFilter({
   selectedRegion,

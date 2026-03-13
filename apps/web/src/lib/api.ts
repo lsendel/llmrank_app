@@ -1,9 +1,4 @@
-import { apiClient } from "./api/core/client";
 import { ApiError } from "./api/core/errors";
-import { buildQueryString } from "./api/core/query";
-import type { ApiEnvelope } from "./api/core/types";
-import type { CrawlJobSummary } from "./api/types/crawls";
-import type { PaginatedResponse } from "./api/types/pagination";
 import { createAccountApi } from "./api/domains/account";
 import { createAnalyticsApi } from "./api/domains/analytics";
 import { createActionItemsApi } from "./api/domains/action-items";
