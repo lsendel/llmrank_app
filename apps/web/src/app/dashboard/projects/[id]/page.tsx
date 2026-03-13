@@ -6,23 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateMessage } from "@/components/ui/state";
-import {
-  AIVisibilityTab,
-  AiAnalysisTab,
-  AutomationTab,
-  CompetitorsTab,
-  HistoryTab,
-  IntegrationsTab,
-  IssuesTab,
-  KeywordsTab,
-  LogsTab,
-  PagesTab,
-  PersonasTab,
-  ProjectTabErrorBoundary,
-  ReportsTab,
-  StrategyTab,
-  VisibilityTab,
-} from "./project-tab-registry";
+import { ProjectTabErrorBoundary } from "./project-tab-registry";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
