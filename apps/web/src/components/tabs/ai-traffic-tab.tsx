@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUp, ArrowDown, Bot, Globe, ExternalLink, Code } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowDown,
+  Bot,
+  Globe,
+  ExternalLink,
+  Code,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,16 +50,24 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
   }, [projectId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-12 text-muted-foreground">Loading analytics...</div>;
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        Loading analytics...
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="py-12 text-center text-sm text-destructive">{error}</div>;
+    return (
+      <div className="py-12 text-center text-sm text-destructive">{error}</div>
+    );
   }
 
   if (!summary) return null;
 
-  const trendValue = summary.aiTraffic.trend ? parseFloat(summary.aiTraffic.trend) : 0;
+  const trendValue = summary.aiTraffic.trend
+    ? parseFloat(summary.aiTraffic.trend)
+    : 0;
   const TrendIcon = trendValue >= 0 ? ArrowUp : ArrowDown;
 
   return (
@@ -66,7 +81,9 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{summary.totalVisits.toLocaleString()}</p>
+            <p className="text-2xl font-bold">
+              {summary.totalVisits.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -101,7 +118,12 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
                   .toLocaleString()}
               </p>
               {summary.aiTraffic.trend && (
-                <span className={cn("flex items-center text-sm", trendValue >= 0 ? "text-green-600" : "text-red-600")}>
+                <span
+                  className={cn(
+                    "flex items-center text-sm",
+                    trendValue >= 0 ? "text-green-600" : "text-red-600",
+                  )}
+                >
                   <TrendIcon className="h-3 w-3" />
                   {summary.aiTraffic.trend}
                 </span>
@@ -120,14 +142,21 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
           <CardContent>
             <div className="space-y-2">
               {summary.aiTraffic.byProvider.map((p) => (
-                <div key={`${p.provider}-${p.type}`} className="flex items-center justify-between rounded-lg border p-3">
+                <div
+                  key={`${p.provider}-${p.type}`}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
                   <div>
-                    <span className="text-sm font-medium capitalize">{p.provider}</span>
+                    <span className="text-sm font-medium capitalize">
+                      {p.provider}
+                    </span>
                     <span className="ml-2 text-xs text-muted-foreground">
                       {p.type === "ai_bot" ? "Bot" : "Referral"}
                     </span>
                   </div>
-                  <span className="text-sm font-semibold">{p.visits.toLocaleString()}</span>
+                  <span className="text-sm font-semibold">
+                    {p.visits.toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
@@ -144,10 +173,17 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
           <CardContent>
             <div className="space-y-2">
               {summary.topPages.map((page) => (
-                <div key={page.path} className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="truncate text-sm font-mono">{page.path}</span>
+                <div
+                  key={page.path}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <span className="truncate text-sm font-mono">
+                    {page.path}
+                  </span>
                   <div className="flex gap-4 text-sm">
-                    <span className="text-muted-foreground">{page.totalVisits} total</span>
+                    <span className="text-muted-foreground">
+                      {page.totalVisits} total
+                    </span>
                     <span className="font-semibold">{page.aiVisits} AI</span>
                   </div>
                 </div>

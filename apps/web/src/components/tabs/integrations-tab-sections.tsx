@@ -522,10 +522,4 @@ export function IntegrationConnectDialog({
   );
 }
 
-
-
-
-
-
-
 export { IntegrationAnalyticsSection } from "./integrations-tab-analytics";

@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -151,12 +157,20 @@ export function ProjectsTabContent(props: any) {
 
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Showing {totalFiltered === 0 ? 0 : (currentPage - 1) * PROJECTS_PER_PAGE + 1}
-                  –{Math.min(currentPage * PROJECTS_PER_PAGE, totalFiltered)} of {totalFiltered}
+                  Showing{" "}
+                  {totalFiltered === 0
+                    ? 0
+                    : (currentPage - 1) * PROJECTS_PER_PAGE + 1}
+                  –{Math.min(currentPage * PROJECTS_PER_PAGE, totalFiltered)} of{" "}
+                  {totalFiltered}
                 </p>
                 <div className="flex items-center gap-2">
                   {usingAnomalyView && anomalyMatchingIds.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={toggleMatchingSelection}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleMatchingSelection}
+                    >
                       {allMatchingSelected
                         ? "Unselect Matching"
                         : `Select Matching (${anomalyMatchingIds.length})`}
@@ -186,7 +200,11 @@ export function ProjectsTabContent(props: any) {
                     <p className="text-muted-foreground">
                       No projects match the current filters.
                     </p>
-                    <Button variant="outline" className="mt-4" onClick={resetFilters}>
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={resetFilters}
+                    >
                       Clear Filters
                     </Button>
                   </CardContent>
@@ -203,7 +221,9 @@ export function ProjectsTabContent(props: any) {
                       variant="outline"
                       size="sm"
                       disabled={currentPage === 1}
-                      onClick={() => updateParams({ page: Math.max(1, currentPage - 1) })}
+                      onClick={() =>
+                        updateParams({ page: Math.max(1, currentPage - 1) })
+                      }
                     >
                       <ChevronLeft className="h-4 w-4" />
                       Previous
@@ -212,7 +232,11 @@ export function ProjectsTabContent(props: any) {
                       variant="outline"
                       size="sm"
                       disabled={currentPage >= totalPages}
-                      onClick={() => updateParams({ page: Math.min(totalPages, currentPage + 1) })}
+                      onClick={() =>
+                        updateParams({
+                          page: Math.min(totalPages, currentPage + 1),
+                        })
+                      }
                     >
                       Next
                       <ChevronRight className="h-4 w-4" />
@@ -275,18 +299,26 @@ export function ProjectsPageDialogs(props: any) {
           <DialogHeader>
             <DialogTitle>Delete Project?</DialogTitle>
             <DialogDescription>
-              This will permanently remove <span className="font-semibold">{deleteTarget?.name}</span> and all its crawl data, scores, and reports.
+              This will permanently remove{" "}
+              <span className="font-semibold">{deleteTarget?.name}</span> and
+              all its crawl data, scores, and reports.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            <p className="text-sm text-destructive">This action cannot be undone.</p>
+            <p className="text-sm text-destructive">
+              This action cannot be undone.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteProject} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteProject}
+              disabled={deleting}
+            >
               {deleting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -305,18 +337,25 @@ export function ProjectsPageDialogs(props: any) {
           <DialogHeader>
             <DialogTitle>Delete Selected Projects?</DialogTitle>
             <DialogDescription>
-              You are about to permanently remove {selectedCount} project{selectedCount === 1 ? "" : "s"} and all associated data.
+              You are about to permanently remove {selectedCount} project
+              {selectedCount === 1 ? "" : "s"} and all associated data.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            <p className="text-sm text-destructive">This action cannot be undone.</p>
+            <p className="text-sm text-destructive">
+              This action cannot be undone.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleBulkDeleteProjects} disabled={bulkDeleting}>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDeleteProjects}
+              disabled={bulkDeleting}
+            >
               {bulkDeleting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -330,7 +369,10 @@ export function ProjectsPageDialogs(props: any) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={bulkCrawlPreflightOpen} onOpenChange={setBulkCrawlPreflightOpen}>
+      <Dialog
+        open={bulkCrawlPreflightOpen}
+        onOpenChange={setBulkCrawlPreflightOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Bulk Crawl Preflight</DialogTitle>
@@ -341,21 +383,30 @@ export function ProjectsPageDialogs(props: any) {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <Badge variant="secondary">{selectedCount} selected</Badge>
-              <Badge variant="info">{selectedRunnableProjects.length} eligible</Badge>
-              <Badge variant="warning">{selectedRunningProjects.length} already running</Badge>
+              <Badge variant="info">
+                {selectedRunnableProjects.length} eligible
+              </Badge>
+              <Badge variant="warning">
+                {selectedRunningProjects.length} already running
+              </Badge>
             </div>
 
             <div className="rounded-lg border p-3 text-sm">
               <p>
-                Estimated credits used: <span className="font-semibold">{estimatedCreditsUsed}</span>
+                Estimated credits used:{" "}
+                <span className="font-semibold">{estimatedCreditsUsed}</span>
               </p>
               {creditsRemaining != null ? (
                 <>
                   <p className="mt-1">
-                    Credits remaining now: <span className="font-semibold">{creditsRemaining}</span>
+                    Credits remaining now:{" "}
+                    <span className="font-semibold">{creditsRemaining}</span>
                   </p>
                   <p className="mt-1">
-                    Estimated credits after run: <span className="font-semibold">{estimatedCreditsAfterRun}</span>
+                    Estimated credits after run:{" "}
+                    <span className="font-semibold">
+                      {estimatedCreditsAfterRun}
+                    </span>
                   </p>
                 </>
               ) : (
@@ -367,7 +418,9 @@ export function ProjectsPageDialogs(props: any) {
 
             {selectedRunningProjects.length > 0 && (
               <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-                {selectedRunningProjects.length} selected project{selectedRunningProjects.length === 1 ? " is" : "s are"} already in progress and will be skipped.
+                {selectedRunningProjects.length} selected project
+                {selectedRunningProjects.length === 1 ? " is" : "s are"} already
+                in progress and will be skipped.
               </div>
             )}
 
@@ -375,18 +428,24 @@ export function ProjectsPageDialogs(props: any) {
               <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                 <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
                 <p className="text-sm text-destructive">
-                  Estimated usage exceeds remaining credits. Some crawl starts may fail.
+                  Estimated usage exceeds remaining credits. Some crawl starts
+                  may fail.
                 </p>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBulkCrawlPreflightOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setBulkCrawlPreflightOpen(false)}
+            >
               Cancel
             </Button>
             <Button
               onClick={() =>
-                void executeBulkRunCrawls(selectedRunnableProjects.map((project: any) => project.id))
+                void executeBulkRunCrawls(
+                  selectedRunnableProjects.map((project: any) => project.id),
+                )
               }
               disabled={bulkCrawling || selectedRunnableProjects.length === 0}
             >

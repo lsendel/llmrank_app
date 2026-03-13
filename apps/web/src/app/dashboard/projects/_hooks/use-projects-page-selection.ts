@@ -12,7 +12,9 @@ export function useProjectsPageSelection({
   anomalyFilteredProjects: Project[];
   projects: Project[];
   selectedIds: Set<string>;
-  setSelectedIds: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+  setSelectedIds: (
+    value: Set<string> | ((prev: Set<string>) => Set<string>),
+  ) => void;
   usingAnomalyView: boolean;
 }) {
   const visibleIds = projects.map((project) => project.id);
@@ -35,7 +37,8 @@ export function useProjectsPageSelection({
     [usingAnomalyView, anomalyFilteredProjects, projects],
   );
   const selectedProjects = useMemo(
-    () => selectionScopeProjects.filter((project) => selectedIds.has(project.id)),
+    () =>
+      selectionScopeProjects.filter((project) => selectedIds.has(project.id)),
     [selectionScopeProjects, selectedIds],
   );
   const selectedRunningProjects = useMemo(

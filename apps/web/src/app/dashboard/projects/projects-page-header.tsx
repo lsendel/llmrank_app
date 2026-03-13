@@ -30,7 +30,11 @@ export function ProjectsPageHeader(props: any) {
         title="Portfolio execution flow"
         description="Keep portfolio operations predictable: narrow scope, select targets, and run bulk actions."
         actions={[
-          { label: "Create Project", href: "/dashboard/projects/new", variant: "outline" },
+          {
+            label: "Create Project",
+            href: "/dashboard/projects/new",
+            variant: "outline",
+          },
           { label: "History", href: "/dashboard/history", variant: "ghost" },
         ]}
         steps={[
@@ -61,7 +65,11 @@ export function ProjectsPageHeader(props: any) {
             <div className="space-y-1">
               <p className="text-sm font-medium">Continue where you left off</p>
               <p className="text-xs text-muted-foreground">
-                Resume {lastProjectContext.projectName || lastProjectContext.domain || "last project"} in {projectTabLabel(lastProjectContext.tab)}.
+                Resume{" "}
+                {lastProjectContext.projectName ||
+                  lastProjectContext.domain ||
+                  "last project"}{" "}
+                in {projectTabLabel(lastProjectContext.tab)}.
               </p>
             </div>
             <Button asChild size="sm" variant="outline">

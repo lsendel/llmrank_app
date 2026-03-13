@@ -2,7 +2,11 @@ import { useState } from "react";
 import { normalizeDomain } from "@llm-boost/shared";
 import { api, type Project } from "@/lib/api";
 import { buildAnomalySmartFix } from "@/lib/anomaly-smart-fixes";
-import type { AnomalyFilter, HealthFilter, SortBy } from "../projects-page-config";
+import type {
+  AnomalyFilter,
+  HealthFilter,
+  SortBy,
+} from "../projects-page-config";
 
 export function useProjectsPageBulkActions({
   anomalyFilter,
@@ -29,7 +33,9 @@ export function useProjectsPageBulkActions({
   selectedProjects: Project[];
   setDeleteTarget: (value: { id: string; name: string } | null) => void;
   setSearchInput: (value: string) => void;
-  setSelectedIds: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+  setSelectedIds: (
+    value: Set<string> | ((prev: Set<string>) => Set<string>),
+  ) => void;
   toast: (options: {
     title: string;
     description?: string;
@@ -323,6 +329,3 @@ export function useProjectsPageBulkActions({
     resetFilters,
   };
 }
-
-
-

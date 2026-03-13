@@ -204,8 +204,21 @@ export type {
 } from "./api/types/organizations";
 
 export type { Benchmarks } from "./api/types/benchmarks";
-export type { BillingInfo, PaymentRecord, PromoInfo, SubscriptionInfo } from "./api/domains/billing";
-export type { AdminCustomer, AdminCustomerDetail, AdminIngestDetails, AdminStats, BlockedDomain, OutboxEventSummary, Promo } from "./api/domains/admin";
+export type {
+  BillingInfo,
+  PaymentRecord,
+  PromoInfo,
+  SubscriptionInfo,
+} from "./api/domains/billing";
+export type {
+  AdminCustomer,
+  AdminCustomerDetail,
+  AdminIngestDetails,
+  AdminStats,
+  BlockedDomain,
+  OutboxEventSummary,
+  Promo,
+} from "./api/domains/admin";
 
 // ─── Action Items ───────────────────────────────────────────────────
 export type {
@@ -354,4 +367,3 @@ export const api = {
   // ── Analytics ──────────────────────────────────────────────────
   analytics: createAnalyticsApi(),
 };
-

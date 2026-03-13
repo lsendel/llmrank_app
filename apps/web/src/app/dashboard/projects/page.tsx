@@ -8,7 +8,10 @@ import { api, type ProjectsDefaultPreset } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QueueList } from "./_components/queue-list";
 import { useProjectsPageSummaries } from "./_hooks/use-projects-page-summaries";
-import { ProjectsPageDialogs, ProjectsTabContent } from "./projects-page-sections";
+import {
+  ProjectsPageDialogs,
+  ProjectsTabContent,
+} from "./projects-page-sections";
 import { ProjectsPageHeader } from "./projects-page-header";
 import {
   compareProjectsBySort,
@@ -32,8 +35,14 @@ import {
   normalizeProjectsViewPreset,
   shouldSyncProjectsViewPreset,
 } from "@/lib/projects-view-preset";
-import { normalizeProjectsViewState, projectsViewStateSignature } from "@/lib/projects-view-state";
-import { normalizeVisitTimestamp, pickMostRecentVisitTimestamp } from "@/lib/visit-memory";
+import {
+  normalizeProjectsViewState,
+  projectsViewStateSignature,
+} from "@/lib/projects-view-state";
+import {
+  normalizeVisitTimestamp,
+  pickMostRecentVisitTimestamp,
+} from "@/lib/visit-memory";
 import {
   ANOMALY_SHORTCUTS,
   DEFAULT_PRESET_STORAGE_KEY,
@@ -49,8 +58,6 @@ import {
 } from "./projects-page-config";
 import { useProjectsPageBulkActions } from "./_hooks/use-projects-page-bulk-actions";
 import { useProjectsPageSelection } from "./_hooks/use-projects-page-selection";
-
-
 
 export default function ProjectsPage() {
   const { user } = useUser();
@@ -83,7 +90,10 @@ export default function ProjectsPage() {
 
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [savingDefaultPreset, setSavingDefaultPreset] = useState(false);
   const [lastVisitedAt] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -774,14 +784,3 @@ export default function ProjectsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-

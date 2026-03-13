@@ -102,7 +102,9 @@ export function IntegrationAnalyticsSection({
           ) : !integrationInsights.integrations ? (
             <StateCard
               variant="empty"
-              icon={<BarChart3 className="h-12 w-12 text-muted-foreground/30" />}
+              icon={
+                <BarChart3 className="h-12 w-12 text-muted-foreground/30" />
+              }
               title="No integration insights yet"
               description="Connect at least one integration and complete a crawl to surface enrichment insights."
               cardClassName="border-2 border-dashed"
@@ -150,14 +152,22 @@ export function IntegrationAnalyticsSection({
                 </p>
               ) : integrationDeltaMetrics.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No overlapping provider data between the latest two crawls yet.
+                  No overlapping provider data between the latest two crawls
+                  yet.
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {integrationDeltaMetrics.map((metric) => (
-                    <div key={metric.id} className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-xs text-muted-foreground">{metric.label}</p>
-                      <p className="mt-1 text-lg font-semibold">{metric.currentValue}</p>
+                    <div
+                      key={metric.id}
+                      className="rounded-lg border bg-muted/20 p-3"
+                    >
+                      <p className="text-xs text-muted-foreground">
+                        {metric.label}
+                      </p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {metric.currentValue}
+                      </p>
                       <p
                         className={`mt-1 inline-flex items-center gap-1 text-xs font-medium ${
                           metric.direction === "positive"
@@ -202,7 +212,9 @@ export function IntegrationAnalyticsSection({
                 <Button
                   size="sm"
                   onClick={onAutoPlanSignalTasks}
-                  disabled={autoPlanningSignals || signalTaskPlan.items.length === 0}
+                  disabled={
+                    autoPlanningSignals || signalTaskPlan.items.length === 0
+                  }
                 >
                   {autoPlanningSignals
                     ? "Planning tasks..."
@@ -271,7 +283,10 @@ export function IntegrationAnalyticsSection({
                       </div>
                       <ul className="space-y-0.5">
                         {meta.reportEnhancements.slice(0, 2).map((item) => (
-                          <li key={item} className="text-xs text-muted-foreground">
+                          <li
+                            key={item}
+                            className="text-xs text-muted-foreground"
+                          >
                             {item}
                           </li>
                         ))}

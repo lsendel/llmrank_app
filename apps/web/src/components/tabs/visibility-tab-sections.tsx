@@ -731,9 +731,4 @@ export function VisibilityHistorySection({
   );
 }
 
-
-
-
-
-
 export { VisibilityAnalyzeGapsSection } from "./visibility-tab-analysis";

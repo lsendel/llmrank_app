@@ -105,7 +105,11 @@ export function VisibilityAnalyzeGapsSection({
   );
 }
 
-export function VisibilityContentGapsSection({ gaps }: { gaps?: VisibilityGap[] }) {
+export function VisibilityContentGapsSection({
+  gaps,
+}: {
+  gaps?: VisibilityGap[];
+}) {
   if (!gaps || gaps.length === 0) return null;
 
   return (
@@ -127,7 +131,8 @@ export function VisibilityContentGapsSection({ gaps }: { gaps?: VisibilityGap[] 
               <span>Your status: Not mentioned</span>
               <span>&bull;</span>
               <span>
-                Competitors cited: {gap.competitorsCited.map((item) => item.domain).join(", ")}
+                Competitors cited:{" "}
+                {gap.competitorsCited.map((item) => item.domain).join(", ")}
               </span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -192,7 +197,11 @@ export function ScheduleSuggestionBanner({
       <CardContent className="flex items-center justify-between py-3">
         <p className="text-sm">Track your visibility weekly?</p>
         <div className="flex gap-2">
-          <Button size="sm" onClick={handleCreateWeeklySchedule} disabled={creating}>
+          <Button
+            size="sm"
+            onClick={handleCreateWeeklySchedule}
+            disabled={creating}
+          >
             {creating ? "Creating..." : "Enable Weekly"}
           </Button>
           <Button size="sm" variant="ghost" onClick={handleDismiss}>
@@ -209,7 +218,9 @@ export function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base capitalize">{check.llmProvider}</CardTitle>
+          <CardTitle className="text-base capitalize">
+            {check.llmProvider}
+          </CardTitle>
           <div className="flex gap-2">
             <Badge variant={check.brandMentioned ? "success" : "destructive"}>
               {check.brandMentioned ? "Mentioned" : "Not Mentioned"}
@@ -223,7 +234,10 @@ export function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
       <CardContent className="space-y-3">
         {check.citationPosition != null && (
           <p className="text-sm text-muted-foreground">
-            Position: <span className="font-medium text-foreground">#{check.citationPosition}</span>
+            Position:{" "}
+            <span className="font-medium text-foreground">
+              #{check.citationPosition}
+            </span>
           </p>
         )}
         {check.responseText && (
@@ -233,9 +247,12 @@ export function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
           </div>
         )}
         {check.competitorMentions &&
-          (check.competitorMentions as { domain: string; mentioned: boolean }[]).length > 0 && (
+          (check.competitorMentions as { domain: string; mentioned: boolean }[])
+            .length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">Competitors</p>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                Competitors
+              </p>
               <div className="flex flex-wrap gap-1">
                 {(
                   check.competitorMentions as {

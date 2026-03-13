@@ -1,0 +1,64 @@
+<h2>Wizard Architecture: How should the steps flow?</h2>
+<p class="subtitle">The crawl runs in the background while the user answers questions. Two approaches for orchestrating that.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Linear Steps with Background Crawl</h3>
+      <p>Wizard stays linear (Step 1 → 2 → 3 → ...) but the crawl kicks off after Step 2 (Website) and runs silently in the background. Steps 3-6 are the new questions (Goals → Personas → Keywords → Competitors). A subtle progress bar at the top shows crawl status. When the user reaches Competitors, AI suggestions are ready.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Simple mental model — user just clicks "Next"</li>
+            <li>Reuses existing stepper component</li>
+            <li>Each step has clear validation before advancing</li>
+            <li>Crawl completion is invisible, no context-switching</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>If user is fast, they may reach Competitors before crawl finishes</li>
+            <li>6 steps feels long — may increase drop-off</li>
+            <li>Steps 3-5 (Goals/Personas/Keywords) are lightweight — could feel padded</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Split: Setup Phase → Discovery Phase</h3>
+      <p>Two distinct phases. <strong>Setup</strong> (Profile → Website) triggers the crawl, then transitions to a <strong>Discovery</strong> phase — a single rich screen with collapsible cards for Goals, Personas, Keywords, and Competitors. User works through cards at their own pace. A crawl status indicator in the corner shows progress. Competitor card auto-populates with AI suggestions once crawl completes.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Feels modern and less "form-y" — more like a workspace</li>
+            <li>User controls their own pace — can skip ahead or revisit</li>
+            <li>Compact: 2 wizard steps + 1 discovery screen vs 6 linear steps</li>
+            <li>Competitor card gracefully handles crawl timing (locked → ready)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>More complex UI — accordion/card state management</li>
+            <li>Non-linear means some users might skip important inputs</li>
+            <li>Harder to validate — can't enforce "complete this before that"</li>
+            <li>Bigger departure from current stepper-based wizard</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 2rem; padding: 1.25rem; border-radius: 12px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2);">
+  <h3 style="margin-top: 0;">Recommendation: A (Linear Steps)</h3>
+  <p style="margin-bottom: 0;">The existing wizard is already stepper-based — extending it with 3-4 new steps is the lowest-risk path. The "long wizard" concern is mitigated because Steps 3-5 are quick single-question screens (not forms), so they feel fast. And we can collapse the stepper to show phases ("Setup" / "Discovery" / "Launch") instead of individual step numbers, so it doesn't look overwhelming.</p>
+</div>

@@ -134,9 +134,10 @@ export function createAdminApi() {
     },
 
     async getIngestDetails(): Promise<AdminIngestDetails> {
-      const res = await apiClient.get<ApiEnvelope<AdminIngestDetails>>(
-        "/api/admin/ingest",
-      );
+      const res =
+        await apiClient.get<ApiEnvelope<AdminIngestDetails>>(
+          "/api/admin/ingest",
+        );
       return res.data;
     },
 
@@ -181,9 +182,8 @@ export function createAdminApi() {
     },
 
     async listPromos(): Promise<Promo[]> {
-      const res = await apiClient.get<ApiEnvelope<Promo[]>>(
-        "/api/admin/promos",
-      );
+      const res =
+        await apiClient.get<ApiEnvelope<Promo[]>>("/api/admin/promos");
       return res.data;
     },
 
