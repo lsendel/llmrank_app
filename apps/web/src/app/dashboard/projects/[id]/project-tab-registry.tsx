@@ -7,6 +7,7 @@ import { StateMessage } from "@/components/ui/state";
 type ReportsTabProps = { projectId: string; crawlJobId: string | undefined; };
 type CompetitorsTabProps = { projectId: string; };
 type AiAnalysisTabProps = { crawlJobId?: string; };
+type AiTrafficTabProps = { projectId: string; snippetEnabled: boolean; };
 
 function TabLoadingSkeleton() {
   return (
@@ -117,7 +118,7 @@ export const AiAnalysisTab = dynamic<AiAnalysisTabProps>(
   { loading: () => <TabLoadingSkeleton /> },
 );
 
-export const AiTrafficTab = dynamic(
+export const AiTrafficTab = dynamic<AiTrafficTabProps>(
   () => import("@/components/tabs/ai-traffic-tab").then((mod) => ({ default: mod.AiTrafficTab })),
   { loading: () => <TabLoadingSkeleton /> },
 );
