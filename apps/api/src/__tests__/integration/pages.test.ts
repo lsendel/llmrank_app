@@ -189,9 +189,9 @@ describe("Page Routes", () => {
       const body: any = await res.json();
       expect(body.data).toBeInstanceOf(Array);
       expect(body.data.length).toBe(2);
-      expect(body.pagination).toHaveProperty("page", 1);
-      expect(body.pagination).toHaveProperty("total", 2);
-      expect(body.pagination).toHaveProperty("totalPages", 1);
+      expect(body.pagination).toHaveProperty("limit", 50);
+      expect(body.pagination).toHaveProperty("nextCursor", null);
+      expect(body.pagination).toHaveProperty("hasMore", false);
     });
 
     it("returns 200 with empty array when no pages for job", async () => {
@@ -202,7 +202,8 @@ describe("Page Routes", () => {
 
       const body: any = await res.json();
       expect(body.data).toEqual([]);
-      expect(body.pagination.total).toBe(0);
+      expect(body.pagination.nextCursor).toBeNull();
+      expect(body.pagination.hasMore).toBe(false);
     });
 
     it("returns 404 when crawl job does not exist", async () => {
