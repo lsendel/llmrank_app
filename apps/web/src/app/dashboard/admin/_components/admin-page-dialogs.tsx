@@ -456,14 +456,25 @@ function JobList({
               {row.cancelledAt
                 ? ` ${new Date(row.cancelledAt).toLocaleString()}`
                 : ""}
-              {row.cancelledBy ? ` by ${row.cancelledBy}` : ""}: {row.cancelReason}
+              {row.cancelledBy ? ` by ${row.cancelledBy}` : ""}:{" "}
+              {row.cancelReason}
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+            >
               <a href={`/dashboard/projects/${row.projectId}`}>Project</a>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+            >
               <a href={`/dashboard/crawl/${row.id}`}>View crawl</a>
             </Button>
             <Button
@@ -482,7 +493,9 @@ function JobList({
               disabled={actionTarget === `job-cancel-${row.id}`}
               onClick={() => onCancel(row.id, row.projectName)}
             >
-              {actionTarget === `job-cancel-${row.id}` ? "Cancelling..." : "Cancel"}
+              {actionTarget === `job-cancel-${row.id}`
+                ? "Cancelling..."
+                : "Cancel"}
             </Button>
           </div>
         </div>

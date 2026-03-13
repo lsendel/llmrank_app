@@ -27,7 +27,9 @@ export function SnippetSettingsSection({
   async function handleToggle(checked: boolean) {
     setToggling(true);
     try {
-      await api.projects.update(projectId, { analyticsSnippetEnabled: checked });
+      await api.projects.update(projectId, {
+        analyticsSnippetEnabled: checked,
+      });
       onToggle(checked);
     } catch {
       // revert on failure
@@ -64,7 +66,8 @@ export function SnippetSettingsSection({
         {snippetEnabled && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              Add this snippet to your site&apos;s &lt;head&gt; to track AI traffic.
+              Add this snippet to your site&apos;s &lt;head&gt; to track AI
+              traffic.
             </p>
             <div className="relative">
               <pre className="overflow-x-auto rounded-lg border bg-muted/30 p-3 text-xs">
@@ -76,7 +79,11 @@ export function SnippetSettingsSection({
                 className="absolute right-2 top-2"
                 onClick={handleCopy}
               >
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
               </Button>
             </div>
           </div>

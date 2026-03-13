@@ -4,10 +4,10 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { StateMessage } from "@/components/ui/state";
 
-type ReportsTabProps = { projectId: string; crawlJobId: string | undefined; };
-type CompetitorsTabProps = { projectId: string; };
-type AiAnalysisTabProps = { crawlJobId?: string; };
-type AiTrafficTabProps = { projectId: string; snippetEnabled: boolean; };
+type ReportsTabProps = { projectId: string; crawlJobId: string | undefined };
+type CompetitorsTabProps = { projectId: string };
+type AiAnalysisTabProps = { crawlJobId?: string };
+type AiTrafficTabProps = { projectId: string; snippetEnabled: boolean };
 
 function TabLoadingSkeleton() {
   return (
@@ -53,72 +53,117 @@ export class ProjectTabErrorBoundary extends React.Component<
 }
 
 export const PagesTab = dynamic(
-  () => import("@/components/tabs/pages-tab").then((mod) => ({ default: mod.PagesTab })),
+  () =>
+    import("@/components/tabs/pages-tab").then((mod) => ({
+      default: mod.PagesTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const IssuesTab = dynamic(
-  () => import("@/components/tabs/issues-tab").then((mod) => ({ default: mod.IssuesTab })),
+  () =>
+    import("@/components/tabs/issues-tab").then((mod) => ({
+      default: mod.IssuesTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const HistoryTab = dynamic(
-  () => import("@/components/tabs/history-tab").then((mod) => ({ default: mod.HistoryTab })),
+  () =>
+    import("@/components/tabs/history-tab").then((mod) => ({
+      default: mod.HistoryTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const StrategyTab = dynamic(
-  () => import("@/components/tabs/strategy-tab").then((mod) => ({ default: mod.StrategyTab })),
+  () =>
+    import("@/components/tabs/strategy-tab").then((mod) => ({
+      default: mod.StrategyTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
-export const VisibilityTab = dynamic(() => import("@/components/tabs/visibility-tab"), {
-  loading: () => <TabLoadingSkeleton />,
-});
+export const VisibilityTab = dynamic(
+  () => import("@/components/tabs/visibility-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
 
-export const IntegrationsTab = dynamic(() => import("@/components/tabs/integrations-tab"), {
-  loading: () => <TabLoadingSkeleton />,
-});
+export const IntegrationsTab = dynamic(
+  () => import("@/components/tabs/integrations-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
 
-export const ReportsTab = dynamic<ReportsTabProps>(() => import("@/components/reports/reports-tab"), {
-  loading: () => <TabLoadingSkeleton />,
-});
+export const ReportsTab = dynamic<ReportsTabProps>(
+  () => import("@/components/reports/reports-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
 
 export const LogsTab = dynamic(
-  () => import("@/components/tabs/logs-tab").then((mod) => ({ default: mod.LogsTab })),
+  () =>
+    import("@/components/tabs/logs-tab").then((mod) => ({
+      default: mod.LogsTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const AutomationTab = dynamic(
-  () => import("@/components/tabs/automation-tab").then((mod) => ({ default: mod.AutomationTab })),
+  () =>
+    import("@/components/tabs/automation-tab").then((mod) => ({
+      default: mod.AutomationTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
-export const AIVisibilityTab = dynamic(() => import("@/components/tabs/ai-visibility-tab"), {
-  loading: () => <TabLoadingSkeleton />,
-});
+export const AIVisibilityTab = dynamic(
+  () => import("@/components/tabs/ai-visibility-tab"),
+  {
+    loading: () => <TabLoadingSkeleton />,
+  },
+);
 
 export const CompetitorsTab = dynamic<CompetitorsTabProps>(
-  () => import("@/components/tabs/competitors-tab").then((mod) => ({ default: mod.CompetitorsTab })),
+  () =>
+    import("@/components/tabs/competitors-tab").then((mod) => ({
+      default: mod.CompetitorsTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const PersonasTab = dynamic(
-  () => import("@/components/tabs/personas-tab").then((mod) => ({ default: mod.PersonasTab })),
+  () =>
+    import("@/components/tabs/personas-tab").then((mod) => ({
+      default: mod.PersonasTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const KeywordsTab = dynamic(
-  () => import("@/components/tabs/keywords-tab").then((mod) => ({ default: mod.KeywordsTab })),
+  () =>
+    import("@/components/tabs/keywords-tab").then((mod) => ({
+      default: mod.KeywordsTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const AiAnalysisTab = dynamic<AiAnalysisTabProps>(
-  () => import("@/components/tabs/ai-analysis-tab").then((mod) => ({ default: mod.AiAnalysisTab })),
+  () =>
+    import("@/components/tabs/ai-analysis-tab").then((mod) => ({
+      default: mod.AiAnalysisTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );
 
 export const AiTrafficTab = dynamic<AiTrafficTabProps>(
-  () => import("@/components/tabs/ai-traffic-tab").then((mod) => ({ default: mod.AiTrafficTab })),
+  () =>
+    import("@/components/tabs/ai-traffic-tab").then((mod) => ({
+      default: mod.AiTrafficTab,
+    })),
   { loading: () => <TabLoadingSkeleton /> },
 );

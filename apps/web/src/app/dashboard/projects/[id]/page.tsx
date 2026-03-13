@@ -89,7 +89,7 @@ export default function ProjectPage() {
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [crawlError, setCrawlError] = useState<string | null>(null);
   const lastSyncedWorkflowContextRef = useRef<string | null>(null);
-  const [snippetEnabled, setSnippetEnabled] = useState(false);
+  const [snippetOverride, setSnippetOverride] = useState<boolean | null>(null);
 
   const { data: project, isLoading: projectLoading } = useProject(params.id);
   const projectId = project?.id ?? null;
@@ -129,12 +129,12 @@ export default function ProjectPage() {
       });
   }, [currentTab, projectDomain, projectId, projectName]);
 
-  // Sync snippetEnabled from project data once loaded
-  useEffect(() => {
-    if (project) {
-      setSnippetEnabled(project.analyticsSnippetEnabled ?? false);
-    }
-  }, [project?.id, project?.analyticsSnippetEnabled]);
+  const snippetEnabled =
+    snippetOverride ?? project?.analyticsSnippetEnabled ?? false;
+  const setSnippetEnabled = useCallback(
+    (v: boolean) => setSnippetOverride(v),
+    [],
+  );
 
   const latestCrawlId = project?.latestCrawl?.id;
   const selectedCrawlId = requestedCrawlId ?? latestCrawlId;
@@ -544,7 +544,10 @@ export default function ProjectPage() {
                   snippetEnabled={snippetEnabled}
                   onToggle={setSnippetEnabled}
                 />
-                <AiTrafficTab projectId={project.id} snippetEnabled={snippetEnabled} />
+                <AiTrafficTab
+                  projectId={project.id}
+                  snippetEnabled={snippetEnabled}
+                />
               </div>
             </ProjectTabErrorBoundary>
           )}
@@ -588,7 +591,3 @@ export default function ProjectPage() {
     </div>
   );
 }
-
-
-
-
