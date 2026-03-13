@@ -116,3 +116,8 @@ export const AiAnalysisTab = dynamic<AiAnalysisTabProps>(
   () => import("@/components/tabs/ai-analysis-tab").then((mod) => ({ default: mod.AiAnalysisTab })),
   { loading: () => <TabLoadingSkeleton /> },
 );
+
+export const AiTrafficTab = dynamic(
+  () => import("@/components/tabs/ai-traffic-tab").then((mod) => ({ default: mod.AiTrafficTab })),
+  { loading: () => <TabLoadingSkeleton /> },
+);
