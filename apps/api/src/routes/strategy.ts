@@ -64,7 +64,7 @@ const enforcePlan = (requiredTier: PlanTier) => {
 // ---------------------------------------------------------------------------
 
 strategyRoutes.get("/:projectId/topic-map", enforcePlan("pro"), async (c) => {
-  const projectId = c.req.param("projectId");
+  const projectId = c.req.param("projectId")!;
   const userId = c.get("userId");
   const service = buildStrategyService(c);
 
@@ -349,7 +349,7 @@ strategyRoutes.post(
   enforcePlan("starter"),
   async (c) => {
     const userId = c.get("userId");
-    const projectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId")!;
     const body = await c.req.json<{ description?: string; niche?: string }>();
     if (!c.env.ANTHROPIC_API_KEY) {
       return c.json(
@@ -380,7 +380,7 @@ strategyRoutes.post(
 
 strategyRoutes.get("/:projectId/competitors", enforcePlan("pro"), async (c) => {
   const userId = c.get("userId");
-  const projectId = c.req.param("projectId");
+  const projectId = c.req.param("projectId")!;
   const service = buildStrategyService(c);
   try {
     const data = await service.listCompetitors(userId, projectId);
@@ -399,7 +399,7 @@ strategyRoutes.post(
   enforcePlan("pro"),
   async (c) => {
     const userId = c.get("userId");
-    const projectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId")!;
     const body = await c.req.json<{ domain: string }>();
     if (!body.domain) {
       return c.json(
@@ -427,7 +427,7 @@ strategyRoutes.post(
 
 strategyRoutes.delete("/competitors/:id", enforcePlan("pro"), async (c) => {
   const userId = c.get("userId");
-  const id = c.req.param("id");
+  const id = c.req.param("id")!;
   const service = buildStrategyService(c);
   try {
     const data = await service.removeCompetitor(userId, id);

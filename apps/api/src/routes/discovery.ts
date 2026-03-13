@@ -38,7 +38,7 @@ discoveryRoutes.post(
   async (c) => {
     const db = c.get("db");
     const userId = c.get("userId");
-    const projectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId")!;
 
     try {
       const project = await projectQueries(db).getById(projectId);
@@ -114,7 +114,7 @@ discoveryRoutes.post(
   async (c) => {
     const db = c.get("db");
     const userId = c.get("userId");
-    const projectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId")!;
 
     const project = await projectQueries(db).getById(projectId);
     if (!project || project.userId !== userId) {

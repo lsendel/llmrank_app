@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../index";
 import { rateLimit } from "../../middleware/rate-limit";
-import { createProjectRepository, createUserRepository } from "../../repositories";
+import {
+  createProjectRepository,
+  createUserRepository,
+} from "../../repositories";
 import { handleServiceError } from "../../services/errors";
 import { suggestKeywords } from "@llm-boost/llm";
 import {
@@ -18,7 +21,7 @@ visibilityKeywordRoutes.post(
   async (c) => {
     const db = c.get("db");
     const userId = c.get("userId");
-    const projectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId")!;
 
     const project = await createProjectRepository(db).getById(projectId);
     if (!project || project.userId !== userId) {
@@ -102,7 +105,7 @@ visibilityKeywordRoutes.post(
   async (c) => {
     const db = c.get("db");
     const userId = c.get("userId");
-    const projectId = c.req.param("projectId");
+    const projectId = c.req.param("projectId")!;
 
     const project = await createProjectRepository(db).getById(projectId);
     if (!project || project.userId !== userId) {
@@ -157,5 +160,3 @@ visibilityKeywordRoutes.post(
     return c.json({ data: fresh });
   },
 );
-
-
