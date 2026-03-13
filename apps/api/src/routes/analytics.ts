@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
   CollectEventSchema,
-  PLAN_LIMITS,
   FIRST_PARTY_PROJECT_ID,
   classifyTraffic,
 } from "@llm-boost/shared";
@@ -25,66 +24,65 @@ analyticsRoutes.get("/s/analytics.js", (c) => {
 
 // ─── Public beacon endpoint ──────────────────────────────────────────────────
 
-analyticsRoutes.post(
-  "/analytics/collect",
-  cors({ origin: "*" }),
-  async (c) => {
-    // Always return 204 — don't leak info to callers
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.body(null, 204);
-    }
-
-    const parsed = CollectEventSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.body(null, 204);
-    }
-
-    const data = parsed.data;
-    const db = c.get("db");
-
-    // Check project exists and has analytics snippet enabled
-    const project = await projectQueries(db).getById(data.pid);
-    if (!project || !project.analyticsSnippetEnabled) {
-      return c.body(null, 204);
-    }
-
-    // Classify traffic source
-    const traffic = classifyTraffic(data.ua || null, data.ref || null);
-
-    // Parse URL for domain + path
-    let domain = "";
-    let path = "/";
-    try {
-      const parsed = new URL(data.url);
-      domain = parsed.hostname;
-      path = parsed.pathname;
-    } catch {
-      domain = project.domain ?? "";
-    }
-
-    // Non-blocking insert
-    c.executionCtx.waitUntil(
-      analyticsQueries(db).insertEvent({
-        projectId: data.pid,
-        event: "pageview",
-        domain,
-        path,
-        referrer: data.ref || null,
-        userAgent: data.ua || null,
-        sourceType: traffic.sourceType,
-        aiProvider: traffic.aiProvider ?? null,
-        country: null,
-        botScore: null,
-        metadata: {},
-      }),
-    );
-
+analyticsRoutes.post("/analytics/collect", cors({ origin: "*" }), async (c) => {
+  // Always return 204 — don't leak info to callers
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
     return c.body(null, 204);
-  },
-);
+  }
+
+  const parsed = CollectEventSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.body(null, 204);
+  }
+
+  const data = parsed.data;
+  const db = c.get("db");
+
+  // Check project exists and has analytics snippet enabled
+  const project = await projectQueries(db).getById(data.pid);
+  if (!project || !project.analyticsSnippetEnabled) {
+    return c.body(null, 204);
+  }
+
+  // Parse URL for domain + path
+  let domain: string;
+  let path = "/";
+  try {
+    const parsed = new URL(data.url);
+    domain = parsed.hostname;
+    path = parsed.pathname;
+  } catch {
+    domain = project.domain ?? "";
+  }
+
+  // Classify traffic source
+  const { sourceType, aiProvider } = classifyTraffic(
+    data.ua || null,
+    data.ref || null,
+  );
+
+  // Non-blocking insert
+  c.executionCtx.waitUntil(
+    analyticsQueries(db).insertEvent({
+      projectId: data.pid,
+      event: "pageview",
+      domain,
+      path,
+      referrer: data.ref || null,
+      userAgent: data.ua || null,
+      sourceType,
+      aiProvider: aiProvider ?? null,
+      country: null,
+      botScore: null,
+      metadata: {},
+    }),
+  );
+
+  return c.body(null, 204);
+});
 
 // ─── GET /analytics/:projectId/summary — Dashboard summary (auth required) ───
 
@@ -133,10 +131,45 @@ analyticsRoutes.get(
       }
     }
 
+    // ── Trend calculation: compare current period vs previous period ──
+    const now = new Date();
+    const currentStart = new Date(now);
+    currentStart.setDate(currentStart.getDate() - retentionDays);
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - retentionDays);
+
+    const toDateStr = (d: Date) => d.toISOString().split("T")[0];
+
+    const previousSummary = await queries.getSummaryForRange(
+      projectId,
+      toDateStr(previousStart),
+      toDateStr(currentStart),
+    );
+
+    let prevPageviews = 0;
+    let prevAiTraffic = 0;
+    for (const row of previousSummary) {
+      prevPageviews += row.total;
+      if (row.sourceType === "ai_referral" || row.sourceType === "ai_bot") {
+        prevAiTraffic += row.total;
+      }
+    }
+
+    const pctChange = (current: number, previous: number): number | null => {
+      if (previous === 0) return null;
+      return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+    };
+
+    const aiTrafficTotal = aiReferral + aiBot;
+
     type SummaryResponse = {
       totalPageviews: number;
       aiTraffic: { referral: number; bot: number; total: number };
       retentionDays: number;
+      trend: {
+        pageviewsTrend: number | null;
+        aiTrafficTrend: number | null;
+      };
       byProvider?: Record<string, number>;
       topPages?: Awaited<ReturnType<typeof queries.getTopPages>>;
     };
@@ -146,9 +179,13 @@ analyticsRoutes.get(
       aiTraffic: {
         referral: aiReferral,
         bot: aiBot,
-        total: aiReferral + aiBot,
+        total: aiTrafficTotal,
       },
       retentionDays,
+      trend: {
+        pageviewsTrend: pctChange(totalPageviews, prevPageviews),
+        aiTrafficTrend: pctChange(aiTrafficTotal, prevAiTraffic),
+      },
     };
 
     // Free plan: totals only (no byProvider, no topPages)

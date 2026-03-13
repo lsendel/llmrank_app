@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, lt, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
 import type { Database } from "../client";
 import { analyticsEvents, analyticsDailyRollups } from "../schema/analytics";
 
@@ -13,7 +13,13 @@ export function analyticsQueries(db: Database) {
       path: string;
       referrer?: string | null;
       userAgent?: string | null;
-      sourceType: "organic" | "ai_referral" | "ai_bot" | "direct" | "social" | "other";
+      sourceType:
+        | "organic"
+        | "ai_referral"
+        | "ai_bot"
+        | "direct"
+        | "social"
+        | "other";
       aiProvider?: string | null;
       country?: string | null;
       botScore?: number | null;
@@ -55,6 +61,39 @@ export function analyticsQueries(db: Database) {
           and(
             eq(analyticsDailyRollups.projectId, projectId),
             gte(analyticsDailyRollups.date, sinceStr),
+          ),
+        )
+        .groupBy(
+          analyticsDailyRollups.event,
+          analyticsDailyRollups.sourceType,
+          analyticsDailyRollups.aiProvider,
+        );
+
+      return rows;
+    },
+
+    /**
+     * Get summary for a specific date range (inclusive start, exclusive end).
+     * Used for trend calculations comparing current vs previous period.
+     */
+    async getSummaryForRange(
+      projectId: string,
+      startDate: string,
+      endDate: string,
+    ) {
+      const rows = await db
+        .select({
+          event: analyticsDailyRollups.event,
+          sourceType: analyticsDailyRollups.sourceType,
+          aiProvider: analyticsDailyRollups.aiProvider,
+          total: sql<number>`sum(${analyticsDailyRollups.count})::int`,
+        })
+        .from(analyticsDailyRollups)
+        .where(
+          and(
+            eq(analyticsDailyRollups.projectId, projectId),
+            gte(analyticsDailyRollups.date, startDate),
+            lt(analyticsDailyRollups.date, endDate),
           ),
         )
         .groupBy(

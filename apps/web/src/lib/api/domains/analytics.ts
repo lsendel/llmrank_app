@@ -10,6 +10,10 @@ type AnalyticsSummary = {
     trend: string | null;
   };
   topPages: Array<{ path: string; aiVisits: number; totalVisits: number }>;
+  trend: {
+    pageviewsTrend: number | null;
+    aiTrafficTrend: number | null;
+  };
 };
 
 type AiTrafficData = {
