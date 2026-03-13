@@ -2,11 +2,13 @@ import { render, screen } from "@testing-library/react";
 import type { VisibilityCheck, VisibilityGap } from "@/lib/api";
 import {
   ScheduledChecksSection,
-  VisibilityContentGapsSection,
   VisibilityFreshnessSummary,
   VisibilityHistorySection,
-  VisibilityResultCard,
 } from "./visibility-tab-sections";
+import {
+  VisibilityContentGapsSection,
+  VisibilityResultCard,
+} from "./visibility-tab-analysis";
 
 describe("visibility-tab sections", () => {
   it("renders the empty scheduled checks state", () => {
