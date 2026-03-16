@@ -16,8 +16,11 @@ import {
   adminQueries,
 } from "@llm-boost/db";
 import { normalizeDomain } from "@llm-boost/shared";
+import { adminPromptRoutes } from "./admin-prompts";
 
 export const adminRoutes = new Hono<AppEnv>();
+
+adminRoutes.route("/prompts", adminPromptRoutes);
 
 adminRoutes.use("*", authMiddleware, adminMiddleware);
 

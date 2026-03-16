@@ -8,7 +8,9 @@ const mockListCompletedByProject = vi.fn();
 const mockGetIssuesByJob = vi.fn();
 const mockListByJobs = vi.fn();
 const mockCountByProject = vi.fn();
+const mockCountByProjects = vi.fn();
 const mockListByProject = vi.fn();
+const mockListByProjects = vi.fn();
 const mockGetLatestPipeline = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
@@ -25,8 +27,14 @@ vi.mock("@llm-boost/db", () => ({
     getIssuesByJob: mockGetIssuesByJob,
     listByJobs: mockListByJobs,
   }),
-  savedKeywordQueries: () => ({ countByProject: mockCountByProject }),
-  competitorQueries: () => ({ listByProject: mockListByProject }),
+  savedKeywordQueries: () => ({
+    countByProject: mockCountByProject,
+    countByProjects: mockCountByProjects,
+  }),
+  competitorQueries: () => ({
+    listByProject: mockListByProject,
+    listByProjects: mockListByProjects,
+  }),
   pipelineRunQueries: () => ({ getLatestByProject: mockGetLatestPipeline }),
 }));
 
@@ -166,8 +174,15 @@ describe("createRecommendationsService", () => {
       { jobId: "crawl-a", overallScore: 88 },
       { jobId: "crawl-a-prev", overallScore: 74 },
     ]);
-    mockCountByProject.mockResolvedValueOnce(8);
-    mockListByProject.mockResolvedValueOnce([{ id: "comp-1" }]);
+    mockCountByProjects.mockResolvedValueOnce(
+      new Map([
+        ["proj-a", 8],
+        ["proj-b", 0],
+      ]),
+    );
+    mockListByProjects.mockResolvedValueOnce([
+      { id: "comp-1", projectId: "proj-a" },
+    ]);
 
     const service = createRecommendationsService(fakeDb);
     const feed = await service.getPortfolioPriorityFeed("u-1", { limit: 10 });
@@ -225,8 +240,16 @@ describe("createRecommendationsService", () => {
         { severity: "warning", message: "Issue B1" },
         { severity: "warning", message: "Issue B2" },
       ]);
-    mockCountByProject.mockResolvedValue(10);
-    mockListByProject.mockResolvedValue([{ id: "comp-1" }]);
+    mockCountByProjects.mockResolvedValue(
+      new Map([
+        ["proj-drop", 10],
+        ["proj-up", 10],
+      ]),
+    );
+    mockListByProjects.mockResolvedValue([
+      { id: "comp-1", projectId: "proj-drop" },
+      { id: "comp-2", projectId: "proj-up" },
+    ]);
 
     mockListCompletedByProject
       .mockResolvedValueOnce([{ id: "crawl-drop" }, { id: "crawl-drop-prev" }])

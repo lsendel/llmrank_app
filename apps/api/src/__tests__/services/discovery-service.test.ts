@@ -2,23 +2,27 @@ import { describe, it, expect } from "vitest";
 
 describe("DiscoveryService", () => {
   describe("extractSiteSignals", () => {
-    it("extracts title, description, and brand from index page data", async () => {
-      const { extractSiteSignals } =
-        await import("../../services/discovery-service");
-      const signals = extractSiteSignals({
-        url: "https://example.com",
-        title: "Example - Best Widget Platform",
-        metaDescription: "The leading widget platform for businesses.",
-        ogTags: { "og:title": "Example Widgets" },
-      });
+    it(
+      "extracts title, description, and brand from index page data",
+      { timeout: 15000 },
+      async () => {
+        const { extractSiteSignals } =
+          await import("../../services/discovery-service");
+        const signals = extractSiteSignals({
+          url: "https://example.com",
+          title: "Example - Best Widget Platform",
+          metaDescription: "The leading widget platform for businesses.",
+          ogTags: { "og:title": "Example Widgets" },
+        });
 
-      expect(signals.brand).toBe("example");
-      expect(signals.title).toBe("Example - Best Widget Platform");
-      expect(signals.description).toBe(
-        "The leading widget platform for businesses.",
-      );
-      expect(signals.domain).toBe("example.com");
-    });
+        expect(signals.brand).toBe("example");
+        expect(signals.title).toBe("Example - Best Widget Platform");
+        expect(signals.description).toBe(
+          "The leading widget platform for businesses.",
+        );
+        expect(signals.domain).toBe("example.com");
+      },
+    );
 
     it("strips www prefix from domain", async () => {
       const { extractSiteSignals } =

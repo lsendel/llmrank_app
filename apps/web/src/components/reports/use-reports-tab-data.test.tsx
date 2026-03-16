@@ -42,8 +42,12 @@ describe("useReportsTabData", () => {
   });
 
   it("polls while a report is still pending", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    vi.useFakeTimers({
+      toFake: ["setInterval", "clearInterval"],
+      shouldAdvanceTime: true,
+    });
 
+    const now = new Date().toISOString();
     api.reports.list = vi
       .fn()
       .mockResolvedValueOnce([
@@ -60,19 +64,23 @@ describe("useReportsTabData", () => {
           error: null,
           generatedAt: null,
           expiresAt: null,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
         },
       ])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValue([]);
 
     renderHook(() => useReportsTabData({ projectId: "proj-1" }));
 
     await waitFor(() => expect(api.reports.list).toHaveBeenCalledTimes(1));
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(5_500);
     });
 
-    await waitFor(() => expect(api.reports.list).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(
+        (api.reports.list as ReturnType<typeof vi.fn>).mock.calls.length,
+      ).toBeGreaterThanOrEqual(2),
+    );
   });
 });

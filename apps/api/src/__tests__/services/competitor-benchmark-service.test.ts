@@ -134,6 +134,7 @@ describe("CompetitorBenchmarkService", () => {
     expect(deps.competitors.add).toHaveBeenCalledWith(
       "proj-1",
       "competitor.com",
+      undefined,
     );
     expect(deps.competitorBenchmarks.create).toHaveBeenCalledWith(
       expect.objectContaining({

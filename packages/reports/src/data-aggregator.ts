@@ -10,6 +10,7 @@ import type {
   ReportActionPlanTier,
   ReportPillar,
   ReportScoreDeltas,
+  PrioritizedAction,
 } from "./types";
 import type { ReportConfig } from "@llm-boost/shared";
 import { estimateIssueROI } from "./roi";
@@ -260,6 +261,76 @@ function buildActionPlanTiers(issues: ReportIssue[]): ReportActionPlanTier[] {
       items: info,
     },
   ].filter((tier) => tier.items.length > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Prioritized actions
+// ---------------------------------------------------------------------------
+
+function mapCategory(cat: string): PrioritizedAction["category"] {
+  if (cat === "technical") return "technical";
+  if (cat === "content") return "content";
+  if (cat === "ai_readiness") return "ai_readiness";
+  if (cat === "performance") return "performance";
+  return "schema";
+}
+
+function determineQuadrant(
+  impact: PrioritizedAction["impact"],
+  effort: PrioritizedAction["effort"],
+): PrioritizedAction["quadrant"] {
+  if (impact === "high" && (effort === "low" || effort === "medium"))
+    return "quick_win";
+  if (impact === "high" && effort === "high") return "major_project";
+  if ((impact === "medium" || impact === "low") && effort === "low")
+    return "fill_in";
+  return "deprioritize";
+}
+
+export function computePrioritizedActions(
+  issues: ReportIssue[],
+  _overallScore: number,
+): PrioritizedAction[] {
+  return issues
+    .map((issue) => {
+      const impact: PrioritizedAction["impact"] =
+        issue.severity === "critical"
+          ? "high"
+          : issue.severity === "warning"
+            ? "medium"
+            : "low";
+
+      const effort = issue.effort;
+      const quadrant = determineQuadrant(impact, effort);
+
+      return {
+        title: issue.label ?? issue.code,
+        description: issue.message,
+        category: mapCategory(issue.pillar ?? issue.category),
+        impact,
+        effort,
+        quadrant,
+        estimatedScoreImpact: issue.scoreImpact,
+        affectedPages: issue.affectedPages,
+        fixSnippet: issue.recommendation || undefined,
+      };
+    })
+    .sort((a, b) => {
+      const impactOrder: Record<string, number> = {
+        high: 0,
+        medium: 1,
+        low: 2,
+      };
+      const effortOrder: Record<string, number> = {
+        low: 0,
+        medium: 1,
+        high: 2,
+      };
+      const impactDiff =
+        (impactOrder[a.impact] ?? 3) - (impactOrder[b.impact] ?? 3);
+      if (impactDiff !== 0) return impactDiff;
+      return (effortOrder[a.effort] ?? 3) - (effortOrder[b.effort] ?? 3);
+    });
 }
 
 // ---------------------------------------------------------------------------
