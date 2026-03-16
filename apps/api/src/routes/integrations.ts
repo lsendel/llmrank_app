@@ -23,9 +23,7 @@ import { createIntegrationInsightsService } from "../services/integration-insigh
 import { runIntegrationEnrichments } from "../services/enrichments";
 import { handleServiceError } from "../services/errors";
 
-
 export const integrationRoutes = new Hono<AppEnv>();
-integrationRoutes.route("/", integrationOAuthRoutes);
 
 const INTEGRATION_CATALOG = [
   {
@@ -139,6 +137,7 @@ integrationRoutes.get("/catalog", async (c) => {
 });
 
 integrationRoutes.use("*", authMiddleware);
+integrationRoutes.route("/", integrationOAuthRoutes);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -560,4 +559,3 @@ integrationRoutes.post("/:projectId/:id/test", async (c) => {
     });
   }
 });
-
