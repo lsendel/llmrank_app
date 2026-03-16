@@ -15,7 +15,6 @@ import {
   Download,
   Play,
   Route,
-  Settings,
   Zap,
   TrendingUp,
 } from "lucide-react";
@@ -73,16 +72,11 @@ const NAV_GROUPS: NavGroup[] = [
       { tab: "logs", label: "Logs", icon: Route },
     ],
   },
-  {
-    id: "configure",
-    label: "Configure",
-    items: [{ tab: "settings", label: "Settings", icon: Settings }],
-  },
 ];
 
 interface ProjectSidebarProps {
-  projectName: string;
-  domain: string;
+  projectName?: string;
+  domain?: string;
   currentTab: ProjectTab;
   onTabChange: (tab: ProjectTab) => void;
   personalizationContext?: PersonalizationContext;
@@ -95,8 +89,6 @@ function isVisibilityTab(tab: ProjectTab): boolean {
 }
 
 export function ProjectSidebar({
-  projectName,
-  domain,
   currentTab,
   onTabChange,
   personalizationContext,
@@ -124,14 +116,6 @@ export function ProjectSidebar({
 
   return (
     <aside className="hidden w-56 flex-shrink-0 border-r border-sidebar-border md:block">
-      {/* Project header */}
-      <div className="border-b border-sidebar-border px-4 py-4">
-        <p className="truncate font-mono text-sm font-semibold">{domain}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {projectName}
-        </p>
-      </div>
-
       {/* Nav groups */}
       <nav className="flex flex-col gap-1 p-3">
         {orderedGroups.map((group) => (
