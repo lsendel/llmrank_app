@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.10",
+    "@anthropic-ai/sdk": "^0.39.0",
     "@llm-boost/db": "workspace:*",
     "@llm-boost/reports": "workspace:*",
     "@llm-boost/shared": "workspace:*",

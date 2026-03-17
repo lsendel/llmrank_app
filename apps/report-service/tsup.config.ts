@@ -4,5 +4,11 @@ export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
   target: "node20",
-  noExternal: ["@llm-boost/db", "@llm-boost/reports", "@llm-boost/shared"],
+  noExternal: [
+    "@llm-boost/db",
+    "@llm-boost/reports",
+    "@llm-boost/shared",
+    "@llm-boost/llm",
+    "@llm-boost/narrative",
+  ],
 });

@@ -12,6 +12,9 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY packages/reports/package.json packages/reports/
+COPY packages/llm/package.json packages/llm/
+COPY packages/narrative/package.json packages/narrative/
+COPY apps/api/package.json apps/api/
 COPY apps/report-service/package.json apps/report-service/
 
 # Install dependencies
@@ -21,6 +24,9 @@ RUN pnpm install --frozen-lockfile
 COPY packages/shared/ packages/shared/
 COPY packages/db/ packages/db/
 COPY packages/reports/ packages/reports/
+COPY packages/llm/ packages/llm/
+COPY packages/narrative/ packages/narrative/
+COPY apps/api/src/services/ apps/api/src/services/
 COPY apps/report-service/ apps/report-service/
 
 # Build the report service (bundles workspace deps into single file)
@@ -41,6 +47,9 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY packages/reports/package.json packages/reports/
+COPY packages/llm/package.json packages/llm/
+COPY packages/narrative/package.json packages/narrative/
+COPY apps/api/package.json apps/api/
 COPY apps/report-service/package.json apps/report-service/
 
 # Install production deps only (ignore-scripts to skip husky prepare)

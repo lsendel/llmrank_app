@@ -363,23 +363,76 @@ projectRoutes.post(
       );
     }
 
-    const { createPipelineService } =
-      await import("../services/pipeline-service");
-    const { createAuditService } = await import("../services/audit-service");
+    const { pipelineRunQueries, projectQueries } =
+      await import("@llm-boost/db");
+    const runs = pipelineRunQueries(db);
+    const project = await projectQueries(db).getById(projectId);
+    if (!project) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
 
-    const audit = createAuditService(db);
-    const pipeline = createPipelineService(db, audit, {
-      databaseUrl: c.env.DATABASE_URL,
-      anthropicApiKey: c.env.ANTHROPIC_API_KEY,
-      perplexityApiKey: c.env.PERPLEXITY_API_KEY,
-      grokApiKey: c.env.XAI_API_KEY,
-      reportServiceUrl: c.env.REPORT_SERVICE_URL,
-      sharedSecret: c.env.SHARED_SECRET,
+    const settings = (project.pipelineSettings ?? {}) as {
+      skipSteps?: string[];
+    };
+    const run = await runs.create({
+      projectId,
+      crawlJobId: latestCrawl.id,
+      settings: settings as Record<string, unknown>,
     });
 
-    const run = await pipeline.start(projectId, latestCrawl.id);
+    // Dispatch to report service (Fly.io) — no Worker time limits
+    const { signPayload } = await import("../middleware/hmac");
+    const payload = JSON.stringify({
+      runId: run.id,
+      projectId,
+      crawlJobId: latestCrawl.id,
+      keys: {
+        anthropicApiKey: c.env.ANTHROPIC_API_KEY,
+        perplexityApiKey: c.env.PERPLEXITY_API_KEY,
+        grokApiKey: c.env.XAI_API_KEY,
+      },
+      skipSteps: settings.skipSteps,
+    });
+    const { signature, timestamp } = await signPayload(
+      c.env.SHARED_SECRET,
+      payload,
+    );
+
+    const dispatchRes = await fetch(
+      `${c.env.REPORT_SERVICE_URL}/pipeline/run`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Signature": signature,
+          "X-Timestamp": timestamp,
+        },
+        body: payload,
+      },
+    );
+
+    if (!dispatchRes.ok) {
+      const text = await dispatchRes.text().catch(() => "Unknown error");
+      await runs.updateStatus(run.id, "failed", {
+        error: `Failed to dispatch pipeline: ${text}`,
+        completedAt: new Date(),
+      });
+      return c.json(
+        {
+          error: {
+            code: "DISPATCH_FAILED",
+            message: "Failed to start pipeline",
+          },
+        },
+        500,
+      );
+    }
+
     return c.json({
-      data: { pipelineRunId: run?.id, status: run?.status },
+      data: { pipelineRunId: run.id, status: "pending" },
     });
   },
 );

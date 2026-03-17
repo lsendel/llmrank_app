@@ -195,6 +195,218 @@ app.post("/generate", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Pipeline runner — executes auto-generation steps without Worker time limits
+// ---------------------------------------------------------------------------
+
+interface PipelineJob {
+  runId: string;
+  projectId: string;
+  crawlJobId: string;
+  keys: {
+    anthropicApiKey: string;
+    perplexityApiKey?: string;
+    grokApiKey?: string;
+  };
+  skipSteps?: string[];
+}
+
+const PIPELINE_STEPS = [
+  "site_description",
+  "personas",
+  "keywords",
+  "competitors",
+  "visibility_check",
+  "content_optimization",
+  "action_report",
+  "health_check",
+] as const;
+
+async function executePipeline(job: PipelineJob): Promise<void> {
+  const db = createDb(DATABASE_URL);
+  const { pipelineRunQueries } = await import("@llm-boost/db");
+  const runs = pipelineRunQueries(db);
+  const skipSteps = new Set(job.skipSteps ?? []);
+
+  await runs.updateStatus(job.runId, "running", { startedAt: new Date() });
+
+  for (const step of PIPELINE_STEPS) {
+    if (skipSteps.has(step)) {
+      await runs.updateStep(job.runId, step, { status: "skipped" });
+      continue;
+    }
+
+    await runs.updateStatus(job.runId, "running", { currentStep: step });
+    const start = Date.now();
+    let stepOutput: Record<string, unknown> = {};
+
+    try {
+      switch (step) {
+        case "site_description": {
+          const { runAutoSiteDescription } = await import("./pipeline-steps");
+          await runAutoSiteDescription({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            crawlJobId: job.crawlJobId,
+            anthropicApiKey: job.keys.anthropicApiKey,
+          });
+          break;
+        }
+        case "personas": {
+          const { runAutoPersonaGeneration } = await import("./pipeline-steps");
+          await runAutoPersonaGeneration({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            anthropicApiKey: job.keys.anthropicApiKey,
+          });
+          break;
+        }
+        case "keywords": {
+          const { runAutoKeywordGeneration } = await import("./pipeline-steps");
+          await runAutoKeywordGeneration({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            crawlJobId: job.crawlJobId,
+            anthropicApiKey: job.keys.anthropicApiKey,
+          });
+          break;
+        }
+        case "competitors": {
+          const { runAutoCompetitorDiscovery } =
+            await import("./pipeline-steps");
+          await runAutoCompetitorDiscovery({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            anthropicApiKey: job.keys.anthropicApiKey,
+            perplexityApiKey: job.keys.perplexityApiKey,
+            grokApiKey: job.keys.grokApiKey,
+          });
+          break;
+        }
+        case "visibility_check": {
+          const { runAutoVisibilityChecks } = await import("./pipeline-steps");
+          await runAutoVisibilityChecks({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            apiKeys: {
+              anthropicApiKey: job.keys.anthropicApiKey,
+              perplexityApiKey: job.keys.perplexityApiKey ?? "",
+              grokApiKey: job.keys.grokApiKey ?? "",
+            },
+          });
+          break;
+        }
+        case "content_optimization": {
+          const { runContentOptimization } = await import("./pipeline-steps");
+          const result = await runContentOptimization({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            crawlJobId: job.crawlJobId,
+            anthropicApiKey: job.keys.anthropicApiKey,
+          });
+          stepOutput = {
+            pagesAnalyzed: result.pagesAnalyzed,
+            suggestionsGenerated: result.suggestions.length,
+          };
+          break;
+        }
+        case "action_report": {
+          const { createRecommendationsService } =
+            await import("./pipeline-steps");
+          const recommendations = await createRecommendationsService(
+            db,
+          ).getForProject(job.projectId);
+          stepOutput = {
+            actionsGenerated: recommendations.length,
+            criticalActions: recommendations.filter(
+              (r: { priority: string }) => r.priority === "critical",
+            ).length,
+            highActions: recommendations.filter(
+              (r: { priority: string }) => r.priority === "high",
+            ).length,
+          };
+          break;
+        }
+        case "health_check": {
+          const { runHealthCheck } = await import("./pipeline-steps");
+          const result = await runHealthCheck({
+            databaseUrl: DATABASE_URL,
+            projectId: job.projectId,
+            crawlJobId: job.crawlJobId,
+          });
+          stepOutput = {
+            healthScore: result.score,
+            checksRun: result.checks.length,
+            failedChecks: result.checks.filter(
+              (c: { status: string }) => c.status === "fail",
+            ).length,
+            warningChecks: result.checks.filter(
+              (c: { status: string }) => c.status === "warn",
+            ).length,
+          };
+          break;
+        }
+      }
+
+      await runs.updateStep(job.runId, step, {
+        status: "completed",
+        duration_ms: Date.now() - start,
+        ...stepOutput,
+      });
+      console.log(
+        `Pipeline ${job.runId}: step ${step} completed (${Date.now() - start}ms)`,
+      );
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`Pipeline ${job.runId}: step ${step} failed:`, errorMsg);
+      await runs.updateStep(job.runId, step, {
+        status: "failed",
+        duration_ms: Date.now() - start,
+        error: errorMsg,
+      });
+    }
+  }
+
+  await runs.updateStatus(job.runId, "completed", {
+    currentStep: null,
+    completedAt: new Date(),
+  });
+  console.log(`Pipeline ${job.runId} completed`);
+}
+
+app.post("/pipeline/run", async (c) => {
+  const signature = c.req.header("X-Signature");
+  const timestamp = c.req.header("X-Timestamp");
+  const body = await c.req.text();
+
+  if (!signature || !timestamp) {
+    return c.json({ error: "Missing auth headers" }, 401);
+  }
+
+  const valid = await verifyHmac(signature, timestamp, body);
+  if (!valid) {
+    return c.json({ error: "Invalid HMAC signature" }, 401);
+  }
+
+  const job: PipelineJob = JSON.parse(body);
+
+  // Run in background — respond 202 immediately
+  executePipeline(job).catch((e) => {
+    console.error(`Pipeline ${job.runId} uncaught error:`, e);
+    const db = createDb(DATABASE_URL);
+    import("@llm-boost/db").then(({ pipelineRunQueries }) => {
+      pipelineRunQueries(db)
+        .updateStatus(job.runId, "failed", {
+          completedAt: new Date(),
+          error: e instanceof Error ? e.message : String(e),
+        })
+        .catch(console.error);
+    });
+  });
+
+  return c.json({ accepted: true, runId: job.runId }, 202);
+});
+
+// ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 
