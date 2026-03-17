@@ -125,7 +125,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
     async updateProject(
       userId: string,
       projectId: string,
-      payload: { name?: string; settings?: unknown; branding?: unknown },
+      payload: {
+        name?: string;
+        settings?: unknown;
+        branding?: unknown;
+        analyticsSnippetEnabled?: boolean;
+      },
     ) {
       const existing = await deps.projects.getById(projectId);
       if (!existing || existing.userId !== userId) {

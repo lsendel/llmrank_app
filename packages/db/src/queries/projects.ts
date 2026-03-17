@@ -353,6 +353,7 @@ export function projectQueries(db: Database) {
         siteDescriptionSource?: string;
         industrySource?: string;
         faviconUrl?: string | null;
+        analyticsSnippetEnabled?: boolean;
       },
     ) {
       const [updated] = await db
