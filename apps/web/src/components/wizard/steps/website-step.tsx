@@ -135,20 +135,26 @@ export function WebsiteStep({
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Input
-            value={customKeyword}
-            onChange={(e) => setCustomKeyword(e.target.value)}
-            placeholder="Add custom keyword..."
-            onKeyDown={(e) => e.key === "Enter" && addCustom()}
-          />
-          <Button
-            variant="outline"
-            onClick={addCustom}
-            disabled={!customKeyword.trim()}
-          >
-            Add
-          </Button>
+        <div>
+          <label className="text-sm font-medium">Add your own query</label>
+          <p className="text-xs text-muted-foreground mb-2">
+            What would someone ask an AI assistant when looking for your product?
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={customKeyword}
+              onChange={(e) => setCustomKeyword(e.target.value)}
+              placeholder='e.g. "best home care agency near me"'
+              onKeyDown={(e) => e.key === "Enter" && addCustom()}
+            />
+            <Button
+              variant="outline"
+              onClick={addCustom}
+              disabled={!customKeyword.trim()}
+            >
+              Add
+            </Button>
+          </div>
         </div>
       </div>
 
