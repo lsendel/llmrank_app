@@ -245,7 +245,11 @@ describe("Integration Routes", () => {
   describe("GET /api/integrations/:projectId/insights", () => {
     it("returns aggregated insights for the latest crawl", async () => {
       mockCrawlListByProject.mockResolvedValue([
-        { id: "crawl-1", projectId: "proj-1" },
+        {
+          id: "crawl-1",
+          projectId: "proj-1",
+          createdAt: new Date("2024-01-01"),
+        },
       ]);
       mockEnrichmentListByJob.mockResolvedValue([
         {
@@ -267,7 +271,11 @@ describe("Integration Routes", () => {
 
     it("returns null integrations when no enrichments exist", async () => {
       mockCrawlListByProject.mockResolvedValue([
-        { id: "crawl-1", projectId: "proj-1" },
+        {
+          id: "crawl-1",
+          projectId: "proj-1",
+          createdAt: new Date("2024-01-01"),
+        },
       ]);
       mockEnrichmentListByJob.mockResolvedValue([]);
 
@@ -286,6 +294,7 @@ describe("Integration Routes", () => {
       mockCrawlGetById.mockResolvedValue({
         id: "crawl-9",
         projectId: "proj-1",
+        createdAt: new Date("2024-02-01"),
       });
       const res = await request(
         "/api/integrations/proj-1/insights?crawlId=crawl-9",
