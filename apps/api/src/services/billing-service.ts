@@ -3,11 +3,11 @@ import {
   ERROR_CODES,
   resolveEffectivePlan,
 } from "@llm-boost/shared";
-import type { BillingRepository, UserRepository } from "../repositories";
+import type { BillingRepository, UserRepository } from "@llm-boost/repositories";
 import { StripeGateway, priceIdFromPlanCode } from "@llm-boost/billing";
 import { promoQueries } from "@llm-boost/db";
 import type { Database } from "@llm-boost/db";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 export interface BillingServiceDeps {
   billing: BillingRepository;

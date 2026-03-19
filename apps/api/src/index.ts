@@ -7,11 +7,11 @@ import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
 import { apiVersionMiddleware } from "./middleware/api-version";
 import { analyticsMiddleware } from "./middleware/analytics";
-import { createLogger, type Logger } from "./lib/logger";
+import { createLogger, type Logger } from "@llm-boost/shared";
 import { initSentry, captureError, withSentry } from "./lib/sentry";
 import { initObservability } from "./lib/observability";
 import { metricsMiddleware } from "./middleware/metrics";
-import { ServiceError } from "./services/errors";
+import { ServiceError } from "@llm-boost/shared";
 import type { TokenContext } from "./services/api-token-service";
 import { type Container, createContainer } from "./container";
 import {

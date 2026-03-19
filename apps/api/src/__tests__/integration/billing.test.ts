@@ -30,7 +30,7 @@ const mockUserRepo = {
   updatePlan: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createBillingRepository: () => mockBillingRepo,
   createProjectRepository: () => ({}),
   createUserRepository: () => mockUserRepo,

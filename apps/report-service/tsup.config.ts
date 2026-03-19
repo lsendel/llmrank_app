@@ -10,5 +10,9 @@ export default defineConfig({
     "@llm-boost/shared",
     "@llm-boost/llm",
     "@llm-boost/narrative",
+    "@llm-boost/pipeline",
+    "@llm-boost/parsers",
+    "@llm-boost/repositories",
+    "@llm-boost/scoring",
   ],
 });

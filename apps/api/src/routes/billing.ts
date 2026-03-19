@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { createBillingRepository, createUserRepository } from "../repositories";
+import { createBillingRepository, createUserRepository } from "@llm-boost/repositories";
 import {
   StripeGateway,
   handleWebhook,
   type StripeEvent,
 } from "@llm-boost/billing";
 import { createBillingService } from "../services/billing-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const billingRoutes = new Hono<AppEnv>();
 

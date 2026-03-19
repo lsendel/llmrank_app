@@ -12,7 +12,7 @@ import {
   isScheduledVisibilityFrequency,
   type ScheduleFrequency,
 } from "../services/scheduled-visibility-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const visibilityScheduleRoutes = new Hono<AppEnv>();
 

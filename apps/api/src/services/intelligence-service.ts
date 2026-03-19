@@ -6,7 +6,7 @@ import type {
   PageRepository,
   EnrichmentRepository,
   VisibilityRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { assertCrawlAccess } from "./shared/assert-ownership";
 
 export interface IntelligenceServiceDeps {

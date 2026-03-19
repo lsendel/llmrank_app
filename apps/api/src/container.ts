@@ -10,7 +10,7 @@ import {
   type CrawlRepository,
   type ScoreRepository,
   type PageRepository,
-} from "./repositories";
+} from "@llm-boost/repositories";
 import { createProjectService } from "./services/project-service";
 import { createCrawlService } from "./services/crawl-service";
 import { createProgressService } from "./services/progress-service";

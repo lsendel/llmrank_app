@@ -1,6 +1,6 @@
 /** Minimal email sending via Resend API (or any transactional email provider). */
 
-import { createLogger } from "./logger";
+import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ service: "email" });
 

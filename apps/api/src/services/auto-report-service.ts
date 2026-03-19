@@ -5,9 +5,9 @@ import {
   createProjectRepository,
   createUserRepository,
   createCrawlRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { canGenerateReport } from "@llm-boost/shared";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 export interface AutoReportInput {
   databaseUrl: string;

@@ -45,7 +45,7 @@ const mockPageInsightRepo = {
   listByCrawl: vi.fn().mockResolvedValue([]),
 };
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => ({}),
   createUserRepository: () => ({}),
   createCrawlRepository: () => mockCrawlRepo,

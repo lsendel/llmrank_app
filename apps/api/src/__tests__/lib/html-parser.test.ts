@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseHtml } from "../../lib/html-parser";
+import { parseHtml } from "@llm-boost/parsers";
 
 const BASE_URL = "https://example.com/page";
 

@@ -1,4 +1,4 @@
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 import { NarrativeEngine } from "@llm-boost/narrative";
 import type { NarrativeInput } from "@llm-boost/narrative";
 import type { NarrativeSectionType, NarrativeTone } from "@llm-boost/shared";
@@ -7,7 +7,7 @@ import type {
   ProjectRepository,
   UserRepository,
   CrawlRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 
 interface Deps {
   narratives: NarrativeRepository;

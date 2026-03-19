@@ -4,14 +4,14 @@ import {
   projectQueries,
   userQueries,
 } from "@llm-boost/db";
-import { createVisibilityService } from "./visibility-service";
+import { createVisibilityService } from "./visibility";
 import {
   createProjectRepository,
   createUserRepository,
   createVisibilityRepository,
   createCompetitorRepository,
-} from "../repositories";
-import { createLogger } from "../lib/logger";
+} from "@llm-boost/repositories";
+import { createLogger } from "@llm-boost/shared";
 
 export interface AutoVisibilityInput {
   databaseUrl: string;

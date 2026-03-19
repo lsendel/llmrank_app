@@ -2,7 +2,7 @@ import { letterGrade } from "@llm-boost/shared";
 import type {
   CrawlInsightRepository,
   PageInsightRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 
 export interface CaptureArgs {
   crawlId: string;

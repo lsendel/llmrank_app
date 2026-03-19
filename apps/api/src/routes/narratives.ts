@@ -12,8 +12,8 @@ import {
   createProjectRepository,
   createUserRepository,
   createCrawlRepository,
-} from "../repositories";
-import { handleServiceError } from "../services/errors";
+} from "@llm-boost/repositories";
+import { handleServiceError } from "../lib/error-handler";
 
 export const narrativeRoutes = new Hono<AppEnv>();
 

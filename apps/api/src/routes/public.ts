@@ -6,8 +6,8 @@ import {
   AI_BOT_USER_AGENT_NAMES,
   normalizeDomain,
 } from "@llm-boost/shared";
-import { parseHtml } from "../lib/html-parser";
-import { analyzeSitemap } from "../lib/sitemap";
+import { parseHtml } from "@llm-boost/parsers";
+import { analyzeSitemap } from "@llm-boost/parsers";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import type { ReportConfig } from "@llm-boost/shared";
 import { VisibilityChecker } from "@llm-boost/llm";

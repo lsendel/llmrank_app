@@ -5,9 +5,9 @@ import {
   createProjectRepository,
   createUserRepository,
   createVisibilityRepository,
-} from "../../repositories";
-import { createVisibilityService } from "../../services/visibility-service";
-import { handleServiceError } from "../../services/errors";
+} from "@llm-boost/repositories";
+import { createVisibilityService } from "@llm-boost/pipeline";
+import { handleServiceError } from "../../lib/error-handler";
 import { computeAIVisibilityScore } from "@llm-boost/scoring";
 import { discoveredLinkQueries } from "@llm-boost/db";
 import { resolveLocaleForPlan } from "../../lib/visibility-locale";

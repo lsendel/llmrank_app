@@ -48,7 +48,7 @@ const mockAdminRepo = {
   recordAction: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createAdminRepository: () => mockAdminRepo,
   createProjectRepository: () => ({}),
   createUserRepository: () => ({}),

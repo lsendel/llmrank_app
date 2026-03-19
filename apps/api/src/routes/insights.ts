@@ -8,10 +8,10 @@ import {
   createPageRepository,
   createEnrichmentRepository,
   createVisibilityRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { createInsightsService } from "../services/insights-service";
 import { createIntelligenceService } from "../services/intelligence-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const insightsRoutes = new Hono<AppEnv>();
 

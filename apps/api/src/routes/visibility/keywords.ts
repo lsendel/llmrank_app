@@ -4,8 +4,8 @@ import { rateLimit } from "../../middleware/rate-limit";
 import {
   createProjectRepository,
   createUserRepository,
-} from "../../repositories";
-import { handleServiceError } from "../../services/errors";
+} from "@llm-boost/repositories";
+import { handleServiceError } from "../../lib/error-handler";
 import { suggestKeywords } from "@llm-boost/llm";
 import {
   enrichmentQueries,

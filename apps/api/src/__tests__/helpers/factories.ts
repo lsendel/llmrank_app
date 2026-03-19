@@ -6,7 +6,7 @@ import type {
   VisibilityRepository,
   PageRepository,
   ReportRepository,
-} from "../../repositories";
+} from "@llm-boost/repositories";
 
 export type ProjectEntity = NonNullable<
   Awaited<ReturnType<ProjectRepository["getById"]>>

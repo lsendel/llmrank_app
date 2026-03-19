@@ -4,7 +4,7 @@ import {
   pageQueries,
   crawlQueries,
 } from "@llm-boost/db";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 export interface AutoSiteDescriptionInput {
   databaseUrl: string;

@@ -46,14 +46,19 @@ vi.mock("@llm-boost/scoring", () => ({
   generateRecommendations: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock("../../lib/logger", () => ({
-  createLogger: vi.fn().mockReturnValue({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  }),
-}));
+vi.mock("@llm-boost/shared", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("@llm-boost/shared")>();
+  return {
+    ...orig,
+    createLogger: vi.fn(() => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn(),
+    })),
+  };
+});
 
 import { runLLMScoring, rescoreLLM } from "../../services/llm-scoring";
 

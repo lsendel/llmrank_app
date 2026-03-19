@@ -1,4 +1,4 @@
-import { createLogger } from "./logger";
+import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ context: "fetch-retry" });
 

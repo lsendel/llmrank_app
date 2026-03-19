@@ -9,8 +9,8 @@ import type {
   UserRepository,
   CrawlRepository,
   ScoreRepository,
-} from "../repositories";
-import { ServiceError } from "./errors";
+} from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 import { toAggregateInput } from "./score-helpers";
 
 interface PaginationInput {

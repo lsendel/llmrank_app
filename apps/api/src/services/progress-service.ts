@@ -4,7 +4,7 @@ import type {
   ProjectRepository,
   ScoreRepository,
   PageRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export interface ProgressServiceDeps {

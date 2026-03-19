@@ -6,11 +6,11 @@ import {
   createProjectRepository,
   createUserRepository,
   createVisibilityRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { aiPromptQueries, savedKeywordQueries } from "@llm-boost/db";
 import { discoverPrompts } from "@llm-boost/llm";
-import { createVisibilityService } from "../services/visibility-service";
-import { ServiceError } from "../services/errors";
+import { createVisibilityService } from "@llm-boost/pipeline";
+import { ServiceError } from "@llm-boost/shared";
 import { resolveLocaleForPlan } from "../lib/visibility-locale";
 
 export const promptResearchRoutes = new Hono<AppEnv>();

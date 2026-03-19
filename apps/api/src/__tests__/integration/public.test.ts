@@ -67,7 +67,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
 });
 
 // Mock HTML parser and sitemap for public scan
-vi.mock("../../lib/html-parser", () => ({
+vi.mock("@llm-boost/parsers", () => ({
   parseHtml: vi.fn().mockReturnValue({
     title: "Example Page",
     metaDescription: "An example page description",
@@ -88,9 +88,6 @@ vi.mock("../../lib/html-parser", () => ({
     ogTags: { title: "Example" },
     structuredData: [{ "@type": "Organization" }],
   }),
-}));
-
-vi.mock("../../lib/sitemap", () => ({
   analyzeSitemap: vi.fn().mockResolvedValue({
     exists: true,
     isValid: true,
@@ -120,7 +117,7 @@ vi.stubGlobal("fetch", mockFetch);
 // Mock repositories — provide all 5 factories required by createContainer()
 // ---------------------------------------------------------------------------
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => ({}),
   createUserRepository: () => ({}),
   createCrawlRepository: () => ({}),
@@ -421,7 +418,7 @@ describe("Public Routes", () => {
         return { ok: false, status: 500 };
       });
 
-      const { analyzeSitemap } = await import("../../lib/sitemap");
+      const { analyzeSitemap } = await import("@llm-boost/parsers");
       (analyzeSitemap as any).mockResolvedValue({
         exists: false,
         isValid: false,

@@ -1,5 +1,5 @@
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 type ChannelType = "email" | "webhook" | "slack_incoming" | "slack_app";
 

@@ -7,7 +7,7 @@ import {
   type OrgRole,
   type TeamRole,
 } from "@llm-boost/shared";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 export interface AuthorizationContext {
   userId: string;

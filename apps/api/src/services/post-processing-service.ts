@@ -6,13 +6,13 @@ import type {
   ScoreRepository,
   OutboxRepository,
   UserRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import {
   createCrawlRepository,
   createProjectRepository,
   createReportRepository,
   createUserRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import {

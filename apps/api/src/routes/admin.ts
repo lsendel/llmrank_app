@@ -3,11 +3,11 @@ import type { Context } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { adminMiddleware } from "../middleware/admin";
-import { createAdminRepository } from "../repositories";
+import { createAdminRepository } from "@llm-boost/repositories";
 import { createAdminService } from "../services/admin-service";
 import { createMonitoringService } from "../services/monitoring-service";
 import { createNotificationService } from "../services/notification-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { StripeGateway } from "@llm-boost/billing";
 import {
   promoQueries,

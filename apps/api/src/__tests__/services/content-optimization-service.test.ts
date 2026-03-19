@@ -66,7 +66,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   })),
 }));
 
-import { runContentOptimization } from "../../services/content-optimization-service";
+import { runContentOptimization } from "@llm-boost/pipeline";
 
 describe("ContentOptimizationService", () => {
   beforeEach(() => vi.clearAllMocks());

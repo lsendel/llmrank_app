@@ -24,7 +24,7 @@ const mockUserRepo = {
   getById: vi.fn().mockResolvedValue({ id: "test-user-id", plan: "starter" }),
 };
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => mockProjectRepo,
   createUserRepository: () => mockUserRepo,
   createCrawlRepository: () => ({}),

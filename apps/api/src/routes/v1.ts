@@ -14,8 +14,8 @@ import {
   createUserRepository,
   createVisibilityRepository,
   createCompetitorRepository,
-} from "../repositories";
-import { createVisibilityService } from "../services/visibility-service";
+} from "@llm-boost/repositories";
+import { createVisibilityService } from "@llm-boost/pipeline";
 import { scorePage, type PageData } from "@llm-boost/scoring";
 import type { TokenScope, TokenContext } from "../services/api-token-service";
 import { z } from "zod";

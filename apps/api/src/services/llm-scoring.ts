@@ -2,7 +2,7 @@ import { createDb, scoreQueries, pageQueries } from "@llm-boost/db";
 import { LLMScorer } from "@llm-boost/llm";
 import type { CrawlPageResult } from "@llm-boost/shared";
 import { pMap } from "../lib/concurrent";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ service: "llm-scoring" });
 

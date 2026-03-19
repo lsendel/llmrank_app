@@ -6,9 +6,9 @@ import type {
   PageRepository,
   ScoreRepository,
   CrawlRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { PersonaGenerator, StrategyOptimizer } from "@llm-boost/llm";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
 /** Shape of the `detail` jsonb column in page_scores, relevant to strategy service */

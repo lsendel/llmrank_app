@@ -5,7 +5,7 @@ import { createKVStub } from "./kv-stub";
 import { createR2Stub } from "./r2-stub";
 import { createDb, type Database } from "@llm-boost/db";
 import { createContainer } from "../../container";
-import { ServiceError } from "../../services/errors";
+import { ServiceError } from "@llm-boost/shared";
 
 import { healthRoutes } from "../../routes/health";
 import { projectRoutes } from "../../routes/projects";

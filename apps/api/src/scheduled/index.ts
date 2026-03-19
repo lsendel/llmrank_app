@@ -16,7 +16,7 @@ import {
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import type { Bindings } from "../index";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 import { captureError } from "../lib/sentry";
 import { trackServer } from "../lib/telemetry";
 import {
@@ -26,14 +26,14 @@ import {
   createScoreRepository,
   createUserRepository,
   createVisibilityRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { createCompetitorMonitorService } from "../services/competitor-monitor-service";
 import { createCrawlService } from "../services/crawl-service";
 import { createDigestService } from "../services/digest-service";
 import { createMonitoringService } from "../services/monitoring-service";
 import { createNotificationService } from "../services/notification-service";
 import { processOutboxEvents } from "../services/outbox-processor";
-import { createVisibilityService } from "../services/visibility-service";
+import { createVisibilityService } from "@llm-boost/pipeline";
 import { aggregateBenchmarks } from "../services/benchmark-aggregation-service";
 
 interface VisibilityCheckResult {
@@ -267,7 +267,7 @@ async function processScheduledCompetitorChecks(env: Bindings) {
   const db = createDb(env.DATABASE_URL);
   const logger = createLogger({ requestId: "cron-competitor-checks" });
   const { createCompetitorBenchmarkService } =
-    await import("../services/competitor-benchmark-service");
+    await import("@llm-boost/pipeline");
   const benchmarkService = createCompetitorBenchmarkService({
     competitorBenchmarks: competitorBenchmarkQueries(db),
     competitors: competitorQueries(db),

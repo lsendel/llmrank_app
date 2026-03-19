@@ -3,7 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { hmacMiddleware } from "../middleware/hmac";
 import { discoveredLinkQueries, projectQueries } from "@llm-boost/db";
-import { ServiceError } from "../services/errors";
+import { ServiceError } from "@llm-boost/shared";
 
 export const backlinkRoutes = new Hono<AppEnv>();
 

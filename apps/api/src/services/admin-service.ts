@@ -1,7 +1,7 @@
-import type { AdminRepository } from "../repositories";
+import type { AdminRepository } from "@llm-boost/repositories";
 import { userQueries, billingQueries, type Database } from "@llm-boost/db";
 import { StripeGateway } from "@llm-boost/billing";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 export interface AdminServiceDeps {
   admin: AdminRepository;

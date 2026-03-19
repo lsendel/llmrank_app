@@ -2,7 +2,7 @@ import { createDb, outboxEvents, eq, and, lte, sql } from "@llm-boost/db";
 import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import { generateCrawlSummary, type SummaryInput } from "./summary";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 const _PROCESSABLE_TYPES = [
   "integration_enrichment",

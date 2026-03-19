@@ -3,7 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { notificationChannelQueries, userQueries } from "@llm-boost/db";
 import { createNotificationChannelService } from "../services/notification-channel-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const notificationChannelRoutes = new Hono<AppEnv>();
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createVisibilityService } from "../../services/visibility-service";
+import { createVisibilityService } from "@llm-boost/pipeline";
 import {
   createMockProjectRepo,
   createMockUserRepo,

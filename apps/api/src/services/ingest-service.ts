@@ -13,8 +13,8 @@ import type {
   ScoreRepository,
   OutboxRepository,
   UserRepository,
-} from "../repositories";
-import { ServiceError } from "./errors";
+} from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 import { rescoreLLM } from "./llm-scoring";
 import { createPageScoringService } from "./page-scoring-service";
 import { createPostProcessingService } from "./post-processing-service";
@@ -25,7 +25,7 @@ import {
 import {
   createCrawlInsightRepository,
   createPageInsightRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 
 export interface IngestServiceDeps {
   crawls: CrawlRepository;

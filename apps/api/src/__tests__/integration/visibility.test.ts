@@ -51,7 +51,7 @@ const mockCompetitorRepo = {
   remove: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => mockProjectRepo,
   createUserRepository: () => mockUserRepo,
   createCrawlRepository: () => ({}),

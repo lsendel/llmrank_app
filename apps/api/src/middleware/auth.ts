@@ -1,7 +1,7 @@
 import { createAuth } from "../lib/auth";
 import { createMiddleware } from "hono/factory";
 import type { AppEnv } from "../index";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 import { apiTokenQueries, userQueries, projectQueries } from "@llm-boost/db";
 import { createApiTokenService } from "../services/api-token-service";
 

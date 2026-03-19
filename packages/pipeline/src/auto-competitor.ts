@@ -4,10 +4,10 @@ import {
   userQueries,
   competitorBenchmarkQueries,
 } from "@llm-boost/db";
-import { createCompetitorBenchmarkService } from "./competitor-benchmark-service";
-import { createCompetitorRepository } from "../repositories";
+import { createCompetitorBenchmarkService } from "./competitor-benchmark";
+import { createCompetitorRepository } from "@llm-boost/repositories";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 export interface AutoCompetitorInput {
   databaseUrl: string;

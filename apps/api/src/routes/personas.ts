@@ -3,7 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { personaQueries, userQueries, projectQueries } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const personaRoutes = new Hono<AppEnv>();
 personaRoutes.use("*", authMiddleware);

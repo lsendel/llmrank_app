@@ -5,14 +5,19 @@ import { createMonitoringService } from "../../services/monitoring-service";
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock("../../lib/logger", () => ({
-  createLogger: vi.fn().mockReturnValue({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  }),
-}));
+vi.mock("@llm-boost/shared", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("@llm-boost/shared")>();
+  return {
+    ...orig,
+    createLogger: vi.fn(() => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn(),
+    })),
+  };
+});
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);

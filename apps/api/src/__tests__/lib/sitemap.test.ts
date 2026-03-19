@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseSitemapXml, analyzeSitemap } from "../../lib/sitemap";
+import { parseSitemapXml, analyzeSitemap } from "@llm-boost/parsers";
 
 // ---------------------------------------------------------------------------
 // Mock fetch for analyzeSitemap

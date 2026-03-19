@@ -3,8 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { withOwnership } from "../middleware/ownership";
 import { pipelineRunQueries, projectQueries } from "@llm-boost/db";
-import { runHealthCheck } from "../services/health-check-service";
-import { createRecommendationsService } from "../services/recommendations-service";
+import { runHealthCheck, createRecommendationsService } from "@llm-boost/pipeline";
 
 export const pipelineRoutes = new Hono<AppEnv>();
 

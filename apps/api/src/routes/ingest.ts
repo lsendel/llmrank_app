@@ -6,9 +6,9 @@ import {
   createPageRepository,
   createScoreRepository,
   createOutboxRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { createIngestService } from "../services/ingest-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const ingestRoutes = new Hono<AppEnv>();
 

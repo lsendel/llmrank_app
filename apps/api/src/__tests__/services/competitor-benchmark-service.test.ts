@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createCompetitorBenchmarkService } from "../../services/competitor-benchmark-service";
+import { createCompetitorBenchmarkService } from "@llm-boost/pipeline";
 
 // ---------------------------------------------------------------------------
 // Mock modules used by the service
 // ---------------------------------------------------------------------------
 
-// Mock parseHtml
-vi.mock("../../lib/html-parser", () => ({
+// Mock parseHtml and analyzeSitemap
+vi.mock("@llm-boost/parsers", () => ({
   parseHtml: vi.fn().mockReturnValue({
     title: "Competitor Page",
     metaDescription: "A competitor page description",
@@ -27,10 +27,6 @@ vi.mock("../../lib/html-parser", () => ({
     ogTags: { "og:title": "Competitor" },
     structuredData: [],
   }),
-}));
-
-// Mock analyzeSitemap
-vi.mock("../../lib/sitemap", () => ({
   analyzeSitemap: vi.fn().mockResolvedValue({
     exists: true,
     isValid: true,

@@ -36,7 +36,7 @@ vi.mock("@llm-boost/db", () => ({
   }),
 }));
 
-import { runHealthCheck } from "../../services/health-check-service";
+import { runHealthCheck } from "@llm-boost/pipeline";
 
 describe("HealthCheckService", () => {
   beforeEach(() => vi.clearAllMocks());

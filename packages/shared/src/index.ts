@@ -42,3 +42,5 @@ export { FIRST_PARTY_PROJECT_ID } from "./constants/plans";
 export * from "./pagination";
 export * from "./queue";
 export * from "./deployment";
+export { createLogger, type Logger } from "./logger";
+export { ServiceError } from "./errors";

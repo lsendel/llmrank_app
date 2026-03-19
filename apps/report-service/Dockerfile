@@ -14,7 +14,10 @@ COPY packages/db/package.json packages/db/
 COPY packages/reports/package.json packages/reports/
 COPY packages/llm/package.json packages/llm/
 COPY packages/narrative/package.json packages/narrative/
-COPY apps/api/package.json apps/api/
+COPY packages/parsers/package.json packages/parsers/
+COPY packages/repositories/package.json packages/repositories/
+COPY packages/pipeline/package.json packages/pipeline/
+COPY packages/scoring/package.json packages/scoring/
 COPY apps/report-service/package.json apps/report-service/
 
 # Install dependencies
@@ -26,7 +29,10 @@ COPY packages/db/ packages/db/
 COPY packages/reports/ packages/reports/
 COPY packages/llm/ packages/llm/
 COPY packages/narrative/ packages/narrative/
-COPY apps/api/src/services/ apps/api/src/services/
+COPY packages/parsers/ packages/parsers/
+COPY packages/repositories/ packages/repositories/
+COPY packages/pipeline/ packages/pipeline/
+COPY packages/scoring/ packages/scoring/
 COPY apps/report-service/ apps/report-service/
 
 # Build the report service (bundles workspace deps into single file)
@@ -49,7 +55,10 @@ COPY packages/db/package.json packages/db/
 COPY packages/reports/package.json packages/reports/
 COPY packages/llm/package.json packages/llm/
 COPY packages/narrative/package.json packages/narrative/
-COPY apps/api/package.json apps/api/
+COPY packages/parsers/package.json packages/parsers/
+COPY packages/repositories/package.json packages/repositories/
+COPY packages/pipeline/package.json packages/pipeline/
+COPY packages/scoring/package.json packages/scoring/
 COPY apps/report-service/package.json apps/report-service/
 
 # Install production deps only (ignore-scripts to skip husky prepare)

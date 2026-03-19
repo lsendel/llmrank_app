@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import type { AppEnv } from "../index";
 import { projectQueries, crawlQueries, pageQueries } from "@llm-boost/db";
-import { ServiceError } from "../services/errors";
+import { ServiceError } from "@llm-boost/shared";
 
 const NOT_FOUND = {
   error: { code: "NOT_FOUND", message: "Not found" },

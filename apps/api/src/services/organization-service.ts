@@ -9,7 +9,7 @@ import {
   type OrgRole,
   type Permission,
 } from "@llm-boost/shared";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 import { logAudit } from "../lib/audit";
 
 // ---------------------------------------------------------------------------

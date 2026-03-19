@@ -13,7 +13,13 @@
     "@hono/node-server": "^1.19.10",
     "@anthropic-ai/sdk": "^0.39.0",
     "@llm-boost/db": "workspace:*",
+    "@llm-boost/llm": "workspace:*",
+    "@llm-boost/narrative": "workspace:*",
+    "@llm-boost/parsers": "workspace:*",
+    "@llm-boost/pipeline": "workspace:*",
+    "@llm-boost/repositories": "workspace:*",
     "@llm-boost/reports": "workspace:*",
+    "@llm-boost/scoring": "workspace:*",
     "@llm-boost/shared": "workspace:*",
     "hono": "^4.12.1"
   },

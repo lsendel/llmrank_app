@@ -5,7 +5,7 @@ import {
   type ScoringWeights,
 } from "@llm-boost/scoring";
 import type { CrawlPageResult } from "@llm-boost/shared";
-import type { ScoreRepository } from "../repositories";
+import type { ScoreRepository } from "@llm-boost/repositories";
 
 interface InsertedPage {
   id: string;

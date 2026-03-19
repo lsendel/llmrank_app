@@ -1,4 +1,4 @@
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 import { canGenerateReport } from "@llm-boost/shared";
 import type { GenerateReportInput, ReportConfig } from "@llm-boost/shared";
 import type { GenerateReportJob } from "@llm-boost/reports";
@@ -8,7 +8,7 @@ import type {
   ProjectRepository,
   UserRepository,
   CrawlRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 
 interface Deps {
   reports: ReportRepository;

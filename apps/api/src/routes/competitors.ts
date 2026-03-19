@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { createAuditService } from "../services/audit-service";
-import { createCompetitorBenchmarkService } from "../services/competitor-benchmark-service";
+import { createCompetitorBenchmarkService } from "@llm-boost/pipeline";
 import { computeNextBenchmarkAt } from "../services/competitor-monitor-service";
 import { diffBenchmarks } from "../services/competitor-diff-service";
 import {

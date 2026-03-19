@@ -13,7 +13,7 @@ import type {
   OutboxRepository,
   AdminRepository,
   NarrativeRepository,
-} from "../../repositories";
+} from "@llm-boost/repositories";
 import {
   buildNotificationChannel,
   buildApiToken,

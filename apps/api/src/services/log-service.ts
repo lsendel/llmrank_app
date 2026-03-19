@@ -4,8 +4,8 @@ import {
   summarizeLogs,
   type LogEntry,
 } from "@llm-boost/shared";
-import type { LogRepository, ProjectRepository } from "../repositories";
-import { ServiceError } from "./errors";
+import type { LogRepository, ProjectRepository } from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export interface LogServiceDeps {

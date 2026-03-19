@@ -8,9 +8,9 @@ import {
   createPageRepository,
   createProjectRepository,
   createScoreRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { createPageService } from "../services/page-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import {
   PaginationQuerySchema,
   createPaginatedResponse,

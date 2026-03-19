@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 interface FixContext {
   url: string;

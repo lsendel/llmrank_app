@@ -10,7 +10,7 @@ import {
   type GenerateReportJob,
   type ReportData,
 } from "@llm-boost/reports";
-import { createRecommendationsService } from "../services/recommendations-service";
+import { createRecommendationsService } from "@llm-boost/pipeline";
 
 export const dashboardRoutes = new Hono<AppEnv>();
 dashboardRoutes.use("*", authMiddleware);

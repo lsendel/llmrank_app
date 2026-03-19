@@ -43,7 +43,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
   };
 });
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => ({}),
   createUserRepository: () => ({}),
   createCrawlRepository: () => ({}),

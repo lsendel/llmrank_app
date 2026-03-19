@@ -5,8 +5,8 @@ import type {
   UserRepository,
   VisibilityRepository,
   CompetitorRepository,
-} from "../repositories";
-import { ServiceError } from "./errors";
+} from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 
 export interface VisibilityServiceDeps {
   projects: ProjectRepository;

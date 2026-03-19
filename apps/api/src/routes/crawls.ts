@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { withOwnership } from "../middleware/ownership";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { createAuditService } from "../services/audit-service";
 import { toCrawlResponse, toCrawlListResponse } from "../dto/crawl.dto";
 import { rateLimit } from "../middleware/rate-limit";

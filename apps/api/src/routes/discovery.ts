@@ -10,7 +10,7 @@ import {
   crawlQueries,
   pageQueries,
 } from "@llm-boost/db";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { z } from "zod";
 
 const BLOCKED_DOMAINS = new Set([

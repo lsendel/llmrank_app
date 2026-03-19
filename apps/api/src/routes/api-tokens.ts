@@ -11,7 +11,7 @@ import {
   createApiTokenService,
   type ApiTokenRepository,
 } from "../services/api-token-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const tokenRoutes = new Hono<AppEnv>();
 

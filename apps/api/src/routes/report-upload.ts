@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
-import { createReportRepository } from "../repositories";
+import { createReportRepository } from "@llm-boost/repositories";
 
 export const reportUploadRoutes = new Hono<AppEnv>();
 

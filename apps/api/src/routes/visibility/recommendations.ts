@@ -4,8 +4,8 @@ import {
   createProjectRepository,
   createUserRepository,
   createVisibilityRepository,
-} from "../../repositories";
-import { handleServiceError } from "../../services/errors";
+} from "@llm-boost/repositories";
+import { handleServiceError } from "../../lib/error-handler";
 import { crawlQueries, scoreQueries } from "@llm-boost/db";
 import { PLATFORM_REQUIREMENTS } from "@llm-boost/shared";
 import { resolveLocaleForPlan } from "../../lib/visibility-locale";
@@ -136,7 +136,7 @@ visibilityRecommendationRoutes.get("/:projectId/recommendations", async (c) => {
     }
 
     const { generateRecommendations } =
-      await import("../../services/recommendations-service");
+      await import("@llm-boost/pipeline");
     const recommendations = generateRecommendations({
       gaps,
       platformFailures,

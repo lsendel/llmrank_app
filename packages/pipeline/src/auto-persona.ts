@@ -5,7 +5,7 @@ import {
   userQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 export interface AutoPersonaInput {
   databaseUrl: string;

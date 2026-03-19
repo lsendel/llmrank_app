@@ -4,7 +4,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { auditLogQueries } from "@llm-boost/db";
 import { createOrganizationService } from "../services/organization-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 // ---------------------------------------------------------------------------
 // Zod schemas

@@ -1,5 +1,5 @@
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 export const SCHEDULED_VISIBILITY_FREQUENCIES = [
   "hourly",

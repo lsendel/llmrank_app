@@ -14,7 +14,7 @@ import {
   monthlyDigestHtml,
   type MonthlyDigestData,
 } from "./email-templates/monthly-digest";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 
 interface DigestServiceOptions {
   appBaseUrl: string;

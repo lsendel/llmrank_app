@@ -21,7 +21,7 @@ import { encrypt, decrypt } from "../lib/crypto";
 import { integrationOAuthRoutes } from "./integrations/oauth";
 import { createIntegrationInsightsService } from "../services/integration-insights-service";
 import { runIntegrationEnrichments } from "../services/enrichments";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const integrationRoutes = new Hono<AppEnv>();
 

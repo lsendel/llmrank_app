@@ -8,7 +8,7 @@ import type {
 } from "@llm-boost/shared";
 import type { CrawlJobPayload } from "@llm-boost/shared";
 import { QUEUE_NAMES } from "@llm-boost/shared";
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 export interface QueueServiceDeps {
   queue: QueueAdapter;

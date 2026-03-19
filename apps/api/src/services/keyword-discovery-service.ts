@@ -1,4 +1,4 @@
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 
 interface GSCQuery {
   query: string;

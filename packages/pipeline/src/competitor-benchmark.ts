@@ -1,7 +1,7 @@
-import { ServiceError } from "./errors";
+import { ServiceError } from "@llm-boost/shared";
 import { scorePage, type PageData } from "@llm-boost/scoring";
-import { parseHtml } from "../lib/html-parser";
-import { analyzeSitemap } from "../lib/sitemap";
+import { parseHtml } from "@llm-boost/parsers";
+import { analyzeSitemap } from "@llm-boost/parsers";
 import { AI_BOT_USER_AGENT_NAMES } from "@llm-boost/shared";
 
 interface CompetitorBenchmarkDeps {

@@ -41,9 +41,13 @@ vi.mock("@llm-boost/db", async () => {
   };
 });
 
-vi.mock("@llm-boost/shared", () => ({
-  aggregatePageScores: vi.fn(),
-}));
+vi.mock("@llm-boost/shared", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("@llm-boost/shared")>();
+  return {
+    ...orig,
+    aggregatePageScores: vi.fn(),
+  };
+});
 
 function makeDb() {
   return {} as any;

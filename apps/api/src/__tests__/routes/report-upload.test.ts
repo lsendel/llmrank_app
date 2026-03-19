@@ -3,9 +3,9 @@ import { Hono } from "hono";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import type { AppEnv, Bindings } from "../../index";
 import { reportUploadRoutes } from "../../routes/report-upload";
-import { createReportRepository } from "../../repositories";
+import { createReportRepository } from "@llm-boost/repositories";
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createReportRepository: vi.fn(),
   createPageRepository: () => ({}),
 }));

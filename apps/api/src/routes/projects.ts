@@ -8,7 +8,7 @@ import {
   PaginationSchema,
 } from "@llm-boost/shared";
 import { z } from "zod";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { createAuditService } from "../services/audit-service";
 import {
   toProjectResponse,
@@ -459,7 +459,7 @@ projectRoutes.post(
     }
 
     const { runAutoCompetitorDiscovery } =
-      await import("../services/auto-competitor-service");
+      await import("@llm-boost/pipeline");
 
     const promise = runAutoCompetitorDiscovery({
       databaseUrl: c.env.DATABASE_URL,

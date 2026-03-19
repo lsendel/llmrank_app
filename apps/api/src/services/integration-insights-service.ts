@@ -3,8 +3,8 @@ import type {
   ProjectRepository,
   CrawlRepository,
   EnrichmentRepository,
-} from "../repositories";
-import { ServiceError } from "./errors";
+} from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export interface IntegrationInsightsDeps {

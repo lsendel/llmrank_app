@@ -11,7 +11,7 @@ import {
   sql,
 } from "@llm-boost/db";
 import { aggregatePageScores } from "@llm-boost/shared";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 import type { CrawlSummaryData } from "./summary";
 
 export interface NotificationService {

@@ -1,6 +1,6 @@
 import { PLAN_LIMITS, type PlanTier, type TokenScope } from "@llm-boost/shared";
-import type { ProjectRepository } from "../repositories";
-import { ServiceError } from "./errors";
+import type { ProjectRepository } from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 
 export type { TokenScope };

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTestApp } from "../helpers/test-app";
 import { buildUser, buildProject } from "../helpers/factories";
-import { ServiceError } from "../../services/errors";
+import { ServiceError } from "@llm-boost/shared";
 
 // ---------------------------------------------------------------------------
 // Mock auth middleware to bypass JWT verification
@@ -78,7 +78,7 @@ const mockCrawlRepo = {
   disableSharing: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => mockProjectRepo,
   createCompetitorRepository: () => mockCompetitorRepo,
   createPageRepository: () => mockPageRepo,

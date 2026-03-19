@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Hono } from "hono";
 import type { AppEnv, Bindings } from "../../index";
-import { ServiceError } from "../../services/errors";
+import { ServiceError } from "@llm-boost/shared";
 
 const authMiddlewareMock = vi.hoisted(() =>
   vi.fn().mockImplementation(async (_c, next) => {
@@ -43,7 +43,7 @@ vi.mock("../../middleware/auth", () => ({
   authMiddleware: authMiddlewareMock,
 }));
 
-vi.mock("../../repositories", () => repoMocks);
+vi.mock("@llm-boost/repositories", () => repoMocks);
 
 vi.mock("../../services/insights-service", () => ({
   createInsightsService: insightsServiceMocks.createInsightsService,

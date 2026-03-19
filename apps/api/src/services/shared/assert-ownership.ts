@@ -1,5 +1,5 @@
-import type { ProjectRepository, CrawlRepository } from "../../repositories";
-import { ServiceError } from "../errors";
+import type { ProjectRepository, CrawlRepository } from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 
 /**
  * Assert that a project belongs to a user. Returns the project if valid.

@@ -70,7 +70,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
 // Mock repositories — provide all 5 factories required by createContainer()
 // ---------------------------------------------------------------------------
 
-vi.mock("../../repositories", () => ({
+vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => ({}),
   createUserRepository: () => ({}),
   createCrawlRepository: () => ({}),

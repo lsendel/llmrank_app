@@ -1,6 +1,6 @@
 import { type Database, crawlJobs } from "@llm-boost/db";
 import { and, count, eq, inArray, lt, sql } from "drizzle-orm";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "@llm-boost/shared";
 import { NotificationService } from "./notification-service";
 
 interface KVLike {

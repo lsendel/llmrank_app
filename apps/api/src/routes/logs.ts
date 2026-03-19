@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { createLogRepository, createProjectRepository } from "../repositories";
+import { createLogRepository, createProjectRepository } from "@llm-boost/repositories";
 import { createLogService } from "../services/log-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 
 export const logRoutes = new Hono<AppEnv>();
 

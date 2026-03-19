@@ -4,7 +4,7 @@ import { authMiddleware } from "../middleware/auth";
 import { projectQueries, crawlQueries, crawlJobs } from "@llm-boost/db";
 import { type InferSelectModel } from "drizzle-orm";
 import { createRegressionService } from "../services/regression-service";
-import { createCrawlRepository } from "../repositories";
+import { createCrawlRepository } from "@llm-boost/repositories";
 
 type CrawlJob = InferSelectModel<typeof crawlJobs>;
 

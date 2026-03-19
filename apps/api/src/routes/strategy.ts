@@ -10,8 +10,8 @@ import {
   createUserRepository,
   createScoreRepository,
   createCrawlRepository,
-} from "../repositories";
-import { handleServiceError } from "../services/errors";
+} from "@llm-boost/repositories";
+import { handleServiceError } from "../lib/error-handler";
 import { StrategyOptimizer, FactExtractor } from "@llm-boost/llm";
 import { meetsMinimumTier, type PlanTier } from "@llm-boost/shared";
 

@@ -15,8 +15,8 @@ import type {
   ProjectRepository,
   UserRepository,
   ScoreRepository,
-} from "../repositories";
-import { ServiceError } from "./errors";
+} from "@llm-boost/repositories";
+import { ServiceError } from "@llm-boost/shared";
 import { assertProjectOwnership } from "./shared/assert-ownership";
 import { signPayload } from "../middleware/hmac";
 import { fetchWithRetry } from "../lib/fetch-retry";

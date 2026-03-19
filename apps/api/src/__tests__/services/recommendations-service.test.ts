@@ -38,7 +38,7 @@ vi.mock("@llm-boost/db", () => ({
   pipelineRunQueries: () => ({ getLatestByProject: mockGetLatestPipeline }),
 }));
 
-import { createRecommendationsService } from "../../services/recommendations-service";
+import { createRecommendationsService } from "@llm-boost/pipeline";
 
 describe("createRecommendationsService", () => {
   const fakeDb = {} as any;

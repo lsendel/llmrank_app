@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { createDeploymentService } from "../services/deployment-service";
 
 export const deploymentRoutes = new Hono<AppEnv>();

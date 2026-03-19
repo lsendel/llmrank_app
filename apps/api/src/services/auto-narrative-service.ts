@@ -5,8 +5,8 @@ import {
   createProjectRepository,
   createUserRepository,
   createCrawlRepository,
-} from "../repositories";
-import { createLogger } from "../lib/logger";
+} from "@llm-boost/repositories";
+import { createLogger } from "@llm-boost/shared";
 
 export interface AutoNarrativeInput {
   databaseUrl: string;

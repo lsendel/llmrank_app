@@ -7,7 +7,7 @@ import {
   projectQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS, validateKeyword } from "@llm-boost/shared";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import { createAuditService } from "../services/audit-service";
 
 export const keywordRoutes = new Hono<AppEnv>();

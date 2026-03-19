@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { createProjectRepository, createUserRepository } from "../repositories";
+import { createProjectRepository, createUserRepository } from "@llm-boost/repositories";
 import { visibilityQueries, brandSentimentQueries } from "@llm-boost/db";
 import { resolveLocaleForPlan } from "../lib/visibility-locale";
 

@@ -7,9 +7,9 @@ import {
   createProjectRepository,
   createUserRepository,
   createCrawlRepository,
-} from "../repositories";
+} from "@llm-boost/repositories";
 import { createReportService } from "../services/report-service";
-import { handleServiceError } from "../services/errors";
+import { handleServiceError } from "../lib/error-handler";
 import {
   reportScheduleQueries,
   projectQueries,
