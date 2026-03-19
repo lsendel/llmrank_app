@@ -79,6 +79,51 @@ export function IntegrationStatusSection({
   );
 }
 
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
+
+function IntegrationHealthBanner({
+  integrations,
+}: {
+  integrations: ProjectIntegration[] | undefined;
+}) {
+  if (!integrations || integrations.length === 0) return null;
+
+  const connected = integrations.filter((i) => i.hasCredentials && i.enabled);
+  const withErrors = connected.filter((i) => i.lastError);
+  const lastSync = connected
+    .map((i) => i.lastSyncAt)
+    .filter((s): s is string => !!s)
+    .sort()
+    .pop();
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-4 py-2 text-sm">
+      <span
+        className={`h-2 w-2 rounded-full ${
+          withErrors.length > 0
+            ? "bg-yellow-500"
+            : connected.length > 0
+              ? "bg-green-500"
+              : "bg-gray-400"
+        }`}
+      />
+      <span className="text-muted-foreground">
+        {connected.length}/{integrations.length} connected
+        {withErrors.length > 0 && ` · ${withErrors.length} with errors`}
+        {lastSync && ` · last sync ${timeAgo(lastSync)} ago`}
+      </span>
+    </div>
+  );
+}
+
 export function IntegrationCardsSection({
   currentPlan,
   integrations,
@@ -103,231 +148,237 @@ export function IntegrationCardsSection({
   onOpenConnectModal: (provider: ConnectModalProvider, label: string) => void;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {INTEGRATIONS.map((meta) => {
-        const integration = integrations?.find(
-          (item) => item.provider === meta.provider,
-        );
-        const isConnected = !!integration?.hasCredentials;
-        const isEnabled = integration?.enabled ?? false;
-        const isLocked = !planAllows(currentPlan, meta.minPlan);
-        const Icon = meta.icon;
+    <div className="space-y-4">
+      <IntegrationHealthBanner integrations={integrations} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {INTEGRATIONS.map((meta) => {
+          const integration = integrations?.find(
+            (item) => item.provider === meta.provider,
+          );
+          const isConnected = !!integration?.hasCredentials;
+          const isEnabled = integration?.enabled ?? false;
+          const isLocked = !planAllows(currentPlan, meta.minPlan);
+          const Icon = meta.icon;
 
-        return (
-          <Card key={meta.provider} className={isLocked ? "opacity-60" : ""}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-md bg-primary/10 p-2">
-                    <Icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">{meta.label}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {meta.description}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isLocked ? (
-                    <Badge variant="secondary">
-                      {meta.minPlan === "agency" ? "Agency" : "Pro"}+
-                    </Badge>
-                  ) : isConnected ? (
-                    <span
-                      className={`inline-block h-2.5 w-2.5 rounded-full ${
-                        isEnabled
-                          ? integration?.lastError
-                            ? "bg-yellow-500"
-                            : "bg-green-500"
-                          : "bg-gray-400"
-                      }`}
-                      title={
-                        isEnabled
-                          ? integration?.lastError
-                            ? "Error"
-                            : "Connected"
-                          : "Disabled"
-                      }
-                    />
-                  ) : (
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full bg-gray-300"
-                      title="Not connected"
-                    />
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLocked ? (
-                <p className="text-sm text-muted-foreground">
-                  Upgrade to{" "}
-                  <span className="font-medium text-foreground">
-                    {meta.minPlan === "agency" ? "Agency" : "Pro"}
-                  </span>{" "}
-                  to unlock this integration.
-                </p>
-              ) : isConnected && integration ? (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">
-                      {isEnabled ? "Enabled" : "Disabled"}
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isEnabled}
-                      onClick={() => onToggleIntegration(integration)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        isEnabled ? "bg-primary" : "bg-muted"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          isEnabled ? "translate-x-6" : "translate-x-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {integration.lastSyncAt ? (
-                    <p className="text-xs text-muted-foreground">
-                      Last synced:{" "}
-                      {new Date(integration.lastSyncAt).toLocaleString()}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Not yet synced — click Sync Now or run a crawl
-                    </p>
-                  )}
-                  {integration.lastError && (
-                    <p className="text-xs text-destructive mt-1">
-                      Last sync error: {integration.lastError}
-                    </p>
-                  )}
-
-                  {testResult?.id === integration.id && (
-                    <div
-                      className={`rounded-md p-2 text-xs ${
-                        testResult.ok
-                          ? "bg-green-500/10 text-green-700"
-                          : "bg-destructive/10 text-destructive"
-                      }`}
-                    >
-                      {testResult.message}
+          return (
+            <Card key={meta.provider} className={isLocked ? "opacity-60" : ""}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-md bg-primary/10 p-2">
+                      <Icon className="h-4 w-4 text-primary" />
                     </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onTestIntegration(integration.id)}
-                      disabled={testing === integration.id}
-                    >
-                      {testing === integration.id
-                        ? "Testing..."
-                        : "Test Connection"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => onDisconnectIntegration(integration.id)}
-                      disabled={disconnecting === integration.id}
-                    >
-                      {disconnecting === integration.id
-                        ? "Disconnecting..."
-                        : "Disconnect"}
-                    </Button>
+                    <div className="space-y-1">
+                      <CardTitle className="text-base">{meta.label}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {meta.description}
+                      </p>
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      What you&apos;ll get
-                    </p>
-                    <ul className="space-y-1">
-                      {meta.dataCollected.map((item) => (
-                        <li
-                          key={item}
-                          className="flex items-start gap-2 text-xs text-muted-foreground"
-                        >
-                          <Check className="h-3 w-3 mt-0.5 text-primary shrink-0" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="flex items-center gap-2">
+                    {isLocked ? (
+                      <Badge variant="secondary">
+                        {meta.minPlan === "agency" ? "Agency" : "Pro"}+
+                      </Badge>
+                    ) : isConnected ? (
+                      <span
+                        className={`inline-block h-2.5 w-2.5 rounded-full ${
+                          isEnabled
+                            ? integration?.lastError
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                            : "bg-gray-400"
+                        }`}
+                        title={
+                          isEnabled
+                            ? integration?.lastError
+                              ? "Error"
+                              : "Connected"
+                            : "Disabled"
+                        }
+                      />
+                    ) : (
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full bg-gray-300"
+                        title="Not connected"
+                      />
+                    )}
                   </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isLocked ? (
+                  <p className="text-sm text-muted-foreground">
+                    Upgrade to{" "}
+                    <span className="font-medium text-foreground">
+                      {meta.minPlan === "agency" ? "Agency" : "Pro"}
+                    </span>{" "}
+                    to unlock this integration.
+                  </p>
+                ) : isConnected && integration ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">
+                        {isEnabled ? "Enabled" : "Disabled"}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isEnabled}
+                        onClick={() => onToggleIntegration(integration)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          isEnabled ? "bg-primary" : "bg-muted"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            isEnabled ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Enhances your reports
-                    </p>
-                    <ul className="space-y-1">
-                      {meta.reportEnhancements.map((item) => (
-                        <li
-                          key={item}
-                          className="flex items-start gap-2 text-xs text-muted-foreground"
-                        >
-                          <BarChart3 className="h-3 w-3 mt-0.5 text-primary/60 shrink-0" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                    {integration.lastSyncAt ? (
+                      <p className="text-xs text-muted-foreground">
+                        Last synced:{" "}
+                        {new Date(integration.lastSyncAt).toLocaleString()}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Not yet synced — click Sync Now or run a crawl
+                      </p>
+                    )}
+                    {integration.lastError && (
+                      <p className="text-xs text-destructive mt-1">
+                        Last sync error: {integration.lastError}
+                      </p>
+                    )}
 
-                  {meta.signupUrl && (
-                    <p className="text-xs text-muted-foreground">
-                      {meta.signupHint ? (
-                        <a
-                          href={meta.signupUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
-                        >
-                          {meta.signupHint}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <>
-                          Don&apos;t have an account?{" "}
+                    {testResult?.id === integration.id && (
+                      <div
+                        className={`rounded-md p-2 text-xs ${
+                          testResult.ok
+                            ? "bg-green-500/10 text-green-700"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {testResult.message}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onTestIntegration(integration.id)}
+                        disabled={testing === integration.id}
+                      >
+                        {testing === integration.id
+                          ? "Testing..."
+                          : "Test Connection"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => onDisconnectIntegration(integration.id)}
+                        disabled={disconnecting === integration.id}
+                      >
+                        {disconnecting === integration.id
+                          ? "Disconnecting..."
+                          : "Disconnect"}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        What you&apos;ll get
+                      </p>
+                      <ul className="space-y-1">
+                        {meta.dataCollected.map((item) => (
+                          <li
+                            key={item}
+                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                          >
+                            <Check className="h-3 w-3 mt-0.5 text-primary shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Enhances your reports
+                      </p>
+                      <ul className="space-y-1">
+                        {meta.reportEnhancements.map((item) => (
+                          <li
+                            key={item}
+                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                          >
+                            <BarChart3 className="h-3 w-3 mt-0.5 text-primary/60 shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {meta.signupUrl && (
+                      <p className="text-xs text-muted-foreground">
+                        {meta.signupHint ? (
                           <a
                             href={meta.signupUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
                           >
-                            Sign up here
+                            {meta.signupHint}
                             <ExternalLink className="h-3 w-3" />
                           </a>
-                        </>
-                      )}
-                    </p>
-                  )}
+                        ) : (
+                          <>
+                            Don&apos;t have an account?{" "}
+                            <a
+                              href={meta.signupUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
+                            >
+                              Sign up here
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    )}
 
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      if (meta.provider === "gsc" || meta.provider === "ga4") {
-                        onConnectOauth(meta.provider);
-                        return;
-                      }
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        if (
+                          meta.provider === "gsc" ||
+                          meta.provider === "ga4"
+                        ) {
+                          onConnectOauth(meta.provider);
+                          return;
+                        }
 
-                      onOpenConnectModal(meta.provider, meta.label);
-                    }}
-                  >
-                    Connect
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+                        onOpenConnectModal(meta.provider, meta.label);
+                      }}
+                    >
+                      Connect
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
