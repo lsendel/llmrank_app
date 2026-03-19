@@ -247,13 +247,25 @@ export function ProjectsTabContent(props: any) {
           ) : (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-16">
-                <p className="text-muted-foreground">No projects yet.</p>
-                <Button asChild className="mt-4">
-                  <Link href="/dashboard/projects/new">
-                    <Plus className="h-4 w-4" />
-                    Create your first project
-                  </Link>
-                </Button>
+                {analyzedPortfolioCount > 0 ? (
+                  <>
+                    <AlertTriangle className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No projects match current filters.</p>
+                    <Button variant="outline" className="mt-4" onClick={resetFilters}>
+                      Reset filters
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground">No projects yet.</p>
+                    <Button asChild className="mt-4">
+                      <Link href="/dashboard/projects/new">
+                        <Plus className="h-4 w-4" />
+                        Create your first project
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
