@@ -300,6 +300,7 @@ export function aggregateIntegrations(
     let totalFcp = 0;
     let fcpCount = 0;
     let cwvPass = 0;
+    let cruxDataCount = 0;
     const pageScores: {
       url: string;
       score: number;
@@ -333,6 +334,7 @@ export function aggregateIntegrations(
       }
 
       const crux = String(d.cruxOverall ?? "");
+      if (crux && crux !== "null" && crux !== "") cruxDataCount++;
       if (crux === "FAST" || crux === "AVERAGE") cwvPass++;
 
       const url = String(d.pageUrl ?? d.url ?? "");
@@ -357,6 +359,7 @@ export function aggregateIntegrations(
         psiEnrichments.length > 0
           ? Math.round((cwvPass / psiEnrichments.length) * 100)
           : 0,
+      hasCruxData: cruxDataCount > 0,
       pageScores: pageScores.sort((a, b) => a.score - b.score).slice(0, 20),
     };
   }

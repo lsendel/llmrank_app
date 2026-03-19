@@ -50,6 +50,7 @@ export interface IntegrationInsights {
       avgCls: number | null;
       avgFcp: number | null;
       cwvPassRate: number;
+      hasCruxData: boolean;
       pageScores: {
         url: string;
         score: number;

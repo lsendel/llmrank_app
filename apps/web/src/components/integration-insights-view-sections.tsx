@@ -635,12 +635,18 @@ export function PsiSection({ psi }: { psi: PsiInsights }) {
             </div>
             <div className="rounded-lg border p-4">
               <p className="text-sm font-medium">CWV Pass Rate</p>
-              <p className="mt-1 text-3xl font-bold">
-                {psi.cwvPassRate}
-                <span className="ml-1 text-sm font-normal text-muted-foreground">
-                  %
-                </span>
-              </p>
+              {psi.hasCruxData ? (
+                <p className="mt-1 text-3xl font-bold">
+                  {psi.cwvPassRate}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    %
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  No field data — site needs more traffic for Chrome UX Report
+                </p>
+              )}
             </div>
           </div>
           <div className="space-y-3">
