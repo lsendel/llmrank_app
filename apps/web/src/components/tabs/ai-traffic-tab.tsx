@@ -46,22 +46,24 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
   async function handleTestSnippet() {
     setTesting(true);
     try {
-      const res = await fetch("https://api.llmrank.app/analytics/collect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pid: projectId,
-          url: `https://test.llmrank.app/snippet-verify-${Date.now()}`,
-          ref: "",
-          ua: navigator.userAgent,
-        }),
-      });
-      setTestResult(res.status === 204 ? "success" : "error");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/analytics/${projectId}/verify-snippet`,
+        {
+          credentials: "include",
+        },
+      );
+      const json = await res.json();
+      const data = json?.data;
+      if (data?.installed) {
+        setTestResult("success");
+      } else {
+        setTestResult("error");
+      }
     } catch {
       setTestResult("error");
     } finally {
       setTesting(false);
-      setTimeout(() => setTestResult(null), 5000);
+      setTimeout(() => setTestResult(null), 8000);
     }
   }
 
@@ -234,12 +236,12 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
               disabled={testing}
             >
               {testing
-                ? "Sending test..."
+                ? "Checking..."
                 : testResult === "success"
-                  ? "✓ Snippet working"
+                  ? "✓ Snippet verified"
                   : testResult === "error"
-                    ? "✗ Failed"
-                    : "Verify Snippet"}
+                    ? "✗ Not found"
+                    : "Verify Installation"}
             </Button>
           </CardContent>
         </Card>
