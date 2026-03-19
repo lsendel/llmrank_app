@@ -114,18 +114,21 @@ export function DashboardWorkflowCard() {
           description:
             "Validate completed, failed, and in-progress crawls before making decisions.",
           icon: Clock,
+          href: "/dashboard/history",
         },
         {
           title: "Execute the highest-impact next step",
           description:
             "Use guided recommendations and quick wins to prioritize the next action.",
           icon: Sparkles,
+          href: "/dashboard/priority-feed",
         },
         {
           title: "Refresh data on key projects",
           description:
             "Start or schedule crawls so recommendations stay aligned with current site state.",
           icon: Play,
+          href: "/dashboard/projects",
         },
       ]}
     />

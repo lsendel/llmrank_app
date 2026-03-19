@@ -23,10 +23,8 @@ import {
 import { useUser } from "@/lib/auth-hooks";
 import {
   getLastProjectContext,
-  lastProjectContextHref,
   normalizeLastProjectContext,
   pickMostRecentProjectContext,
-  projectTabLabel,
   saveLastProjectContext,
   type LastProjectContext,
 } from "@/lib/workflow-memory";
@@ -232,14 +230,6 @@ export default function ProjectsPage() {
     [accountPreferences?.lastProjectContext],
   );
 
-  const lastProjectContext = useMemo(
-    () =>
-      pickMostRecentProjectContext([
-        localLastProjectContext,
-        serverLastProjectContext,
-      ]),
-    [localLastProjectContext, serverLastProjectContext],
-  );
   const effectiveLastVisitedAt = pickMostRecentVisitTimestamp([
     lastVisitedAt,
     normalizeVisitTimestamp(accountPreferences?.projectsLastVisitedAt),
@@ -692,11 +682,7 @@ export default function ProjectsPage() {
   });
   return (
     <div className="space-y-6">
-      <ProjectsPageHeader
-        lastProjectContext={lastProjectContext}
-        lastProjectContextHref={lastProjectContextHref}
-        projectTabLabel={projectTabLabel}
-      />
+      <ProjectsPageHeader />
       <Tabs defaultValue="projects" className="w-full">
         <TabsList>
           <TabsTrigger value="projects">Projects</TabsTrigger>

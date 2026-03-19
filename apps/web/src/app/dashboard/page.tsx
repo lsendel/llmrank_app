@@ -9,7 +9,6 @@ import { StateMessage } from "@/components/ui/state";
 import {
   DashboardAiFeaturesBanner,
   DashboardHeader,
-  DashboardLastProjectCard,
   DashboardMobileQuickActions,
   DashboardQuickTools,
   DashboardSinceLastVisitCard,
@@ -28,7 +27,6 @@ export default function DashboardPage() {
     effectiveLastVisitAt,
     firstName,
     handleWidgetClick,
-    lastProjectContext,
     loading,
     personaModalOpen,
     quickToolOrder,
@@ -67,7 +65,6 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <DashboardHeader firstName={firstName} />
       <DashboardWorkflowCard />
-      <DashboardLastProjectCard lastProjectContext={lastProjectContext} />
       <DashboardSinceLastVisitCard
         sinceLastVisit={sinceLastVisit}
         effectiveLastVisitAt={effectiveLastVisitAt}

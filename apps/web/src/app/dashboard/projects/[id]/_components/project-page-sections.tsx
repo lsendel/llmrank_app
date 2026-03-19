@@ -140,6 +140,38 @@ export function ProjectWorkspaceChooser({
   );
 }
 
+export function ProjectWorkspaceNav({
+  currentWorkspace,
+  onWorkspaceChange,
+}: {
+  currentWorkspace: ProjectTabGroup;
+  onWorkspaceChange: (workspace: ProjectTabGroup) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1">
+      {PROJECT_TAB_GROUPS.map((workspace) => {
+        const meta = WORKSPACE_META[workspace];
+        const isActive = currentWorkspace === workspace;
+        return (
+          <button
+            key={workspace}
+            type="button"
+            onClick={() => onWorkspaceChange(workspace)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              isActive
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            aria-pressed={isActive}
+          >
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ProjectFirstSevenDaysCard({
   orderedSteps,
   completed,

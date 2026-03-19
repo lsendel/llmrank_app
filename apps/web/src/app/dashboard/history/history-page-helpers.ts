@@ -7,6 +7,7 @@ export interface HistoryWorkflowStep {
   title: string;
   description: string;
   icon: LucideIcon;
+  href?: string;
 }
 
 const HISTORY_WORKFLOW_STEPS: HistoryWorkflowStep[] = [
@@ -14,16 +15,19 @@ const HISTORY_WORKFLOW_STEPS: HistoryWorkflowStep[] = [
     title: "Track score movement over time",
     description: "Compare recent crawl outcomes before planning changes.",
     icon: BarChart3,
+    href: "/dashboard/projects",
   },
   {
     title: "Open detailed reports",
     description: "Jump directly into project reports for root-cause analysis.",
     icon: FileText,
+    href: "/dashboard/projects",
   },
   {
     title: "Rerun the highest-risk projects",
     description: "Prioritize projects with recent failures or score drops.",
     icon: Play,
+    href: "/dashboard/projects",
   },
 ];
 
@@ -63,12 +67,14 @@ export function getHistoryWorkflowContent(isFree: boolean) {
         description:
           "Jump into complete runs to investigate issues and confirm improvements.",
         icon: FileText,
+        href: "/dashboard/projects",
       },
       {
         title: "Queue follow-up runs",
         description:
           "Rerun priority projects when failures or low scores need verification.",
         icon: Play,
+        href: "/dashboard/projects",
       },
     ],
   };

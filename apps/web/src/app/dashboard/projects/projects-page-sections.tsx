@@ -24,7 +24,6 @@ import { ProjectGrid } from "./_components/project-grid";
 import { ProjectsFiltersCard } from "./_components/projects-filters-card";
 import { ProjectsPortfolioOverview } from "./_components/projects-portfolio-overview";
 import { ProjectsSelectionBar } from "./_components/projects-selection-bar";
-import { PriorityFeedCard } from "./_components/priority-feed-card";
 
 export function ProjectsTabContent(props: any) {
   const {
@@ -91,8 +90,6 @@ export function ProjectsTabContent(props: any) {
         }
       />
 
-      <PriorityFeedCard />
-
       {loading ? (
         <StateMessage
           variant="loading"
@@ -104,6 +101,7 @@ export function ProjectsTabContent(props: any) {
         <>
           {projects.length > 0 || totalFiltered > 0 ? (
             <>
+              <div id="filters" />
               <ProjectsFiltersCard
                 searchInput={searchInput}
                 onSearchInputChange={setSearchInput}
@@ -155,6 +153,7 @@ export function ProjectsTabContent(props: any) {
                 />
               )}
 
+              <div id="select-projects" />
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   Showing{" "}

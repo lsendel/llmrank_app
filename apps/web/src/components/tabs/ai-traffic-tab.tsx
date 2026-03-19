@@ -14,14 +14,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface AiTrafficSummary {
-  period: string;
-  totalVisits: number;
+  totalPageviews: number;
   aiTraffic: {
+    referral: number;
+    bot: number;
     total: number;
-    byProvider: Array<{ provider: string; visits: number; type: string }>;
-    trend: string | null;
   };
-  topPages: Array<{ path: string; aiVisits: number; totalVisits: number }>;
+  retentionDays: number;
+  trend: {
+    pageviewsTrend: number | null;
+    aiTrafficTrend: number | null;
+  };
+  byProvider?: Record<string, number>;
+  topPages?: Array<{ path: string; aiVisits: number; totalVisits: number }>;
 }
 
 interface AiTrafficTabProps {
@@ -44,7 +49,7 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
         if (!res.ok) throw new Error("Failed to load analytics");
         return res.json();
       })
-      .then(setSummary)
+      .then((json) => setSummary(json.data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [projectId]);
@@ -65,10 +70,11 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
 
   if (!summary) return null;
 
-  const trendValue = summary.aiTraffic.trend
-    ? parseFloat(summary.aiTraffic.trend)
-    : 0;
+  const trendValue = summary.trend.aiTrafficTrend ?? 0;
   const TrendIcon = trendValue >= 0 ? ArrowUp : ArrowDown;
+  const providerEntries = summary.byProvider
+    ? Object.entries(summary.byProvider)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -82,7 +88,7 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {summary.totalVisits.toLocaleString()}
+              {summary.totalPageviews.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -95,10 +101,7 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {summary.aiTraffic.byProvider
-                .filter((p) => p.type === "ai_bot")
-                .reduce((sum, p) => sum + p.visits, 0)
-                .toLocaleString()}
+              {summary.aiTraffic.bot.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -112,12 +115,9 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
           <CardContent>
             <div className="flex items-baseline gap-2">
               <p className="text-2xl font-bold">
-                {summary.aiTraffic.byProvider
-                  .filter((p) => p.type === "ai_referral")
-                  .reduce((sum, p) => sum + p.visits, 0)
-                  .toLocaleString()}
+                {summary.aiTraffic.referral.toLocaleString()}
               </p>
-              {summary.aiTraffic.trend && (
+              {summary.trend.aiTrafficTrend !== null && (
                 <span
                   className={cn(
                     "flex items-center text-sm",
@@ -125,7 +125,7 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
                   )}
                 >
                   <TrendIcon className="h-3 w-3" />
-                  {summary.aiTraffic.trend}
+                  {summary.trend.aiTrafficTrend}%
                 </span>
               )}
             </div>
@@ -134,28 +134,23 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
       </div>
 
       {/* Provider breakdown */}
-      {summary.aiTraffic.byProvider.length > 0 && (
+      {providerEntries.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">AI Provider Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {summary.aiTraffic.byProvider.map((p) => (
+              {providerEntries.map(([provider, visits]) => (
                 <div
-                  key={`${p.provider}-${p.type}`}
+                  key={provider}
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
-                  <div>
-                    <span className="text-sm font-medium capitalize">
-                      {p.provider}
-                    </span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {p.type === "ai_bot" ? "Bot" : "Referral"}
-                    </span>
-                  </div>
+                  <span className="text-sm font-medium capitalize">
+                    {provider}
+                  </span>
                   <span className="text-sm font-semibold">
-                    {p.visits.toLocaleString()}
+                    {visits.toLocaleString()}
                   </span>
                 </div>
               ))}
@@ -165,7 +160,7 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
       )}
 
       {/* Top pages */}
-      {summary.topPages.length > 0 && (
+      {summary.topPages && summary.topPages.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Top Pages (AI Traffic)</CardTitle>
@@ -194,7 +189,7 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
       )}
 
       {/* Snippet CTA */}
-      {!snippetEnabled && summary.totalVisits === 0 && (
+      {!snippetEnabled && summary.totalPageviews === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-6 text-center">
             <Code className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />

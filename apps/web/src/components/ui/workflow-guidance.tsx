@@ -25,6 +25,7 @@ export interface WorkflowGuidanceStep {
   title: string;
   description: string;
   icon: LucideIcon;
+  href?: string;
 }
 
 interface WorkflowGuidanceProps {
@@ -67,17 +68,43 @@ export function WorkflowGuidance({
       <CardContent className="grid gap-3 sm:grid-cols-3">
         {steps.map((step) => {
           const Icon = step.icon;
-          return (
-            <div key={step.title} className="rounded-md border bg-muted/20 p-3">
-              <div className="flex items-start gap-2">
-                <Icon className="mt-0.5 h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-sm font-medium">{step.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {step.description}
-                  </p>
-                </div>
+          const content = (
+            <div className="flex items-start gap-2">
+              <Icon className="mt-0.5 h-4 w-4 text-primary" />
+              <div>
+                <p className="text-sm font-medium">{step.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {step.description}
+                </p>
               </div>
+            </div>
+          );
+          const isAnchor = step.href?.startsWith("#");
+          return step.href ? (
+            isAnchor ? (
+              <button
+                key={step.title}
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById(step.href!.slice(1));
+                  el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="rounded-md border bg-muted/20 p-3 text-left transition-colors hover:bg-accent/10 hover:border-primary/30"
+              >
+                {content}
+              </button>
+            ) : (
+              <Link
+                key={step.title}
+                href={step.href}
+                className="rounded-md border bg-muted/20 p-3 transition-colors hover:bg-accent/10 hover:border-primary/30"
+              >
+                {content}
+              </Link>
+            )
+          ) : (
+            <div key={step.title} className="rounded-md border bg-muted/20 p-3">
+              {content}
             </div>
           );
         })}

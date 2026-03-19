@@ -27,7 +27,6 @@ import {
 import { useApiSWR } from "@/lib/use-api-swr";
 import { useApi } from "@/lib/use-api";
 import { api, ApiError } from "@/lib/api";
-import { normalizeDomain } from "@llm-boost/shared";
 import { useProject } from "@/hooks/use-project";
 import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
@@ -43,19 +42,17 @@ import { UsageMeter } from "@/components/usage-meter";
 import { ProjectRecommendationsCard } from "@/components/cards/project-recommendations-card";
 import { ProjectSidebar } from "@/components/project-sidebar";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
-import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
 import { saveLastProjectContext } from "@/lib/workflow-memory";
+import { type PersonalizationContext } from "@/lib/personalization-layout";
 import {
-  resolveFirstSevenDaysOrder,
-  type FirstSevenDaysStepId,
-  type PersonalizationContext,
-} from "@/lib/personalization-layout";
+  useDashboardNavCenter,
+  useDashboardNavRightExtra,
+} from "../../dashboard-nav-context";
 import { useProjectPageNavigation } from "./_hooks/use-project-page-navigation";
 import {
   ProjectConfigureWorkspaceCard,
-  ProjectFirstSevenDaysCard,
   ProjectVisibilityWorkspaceCard,
-  ProjectWorkspaceChooser,
+  ProjectWorkspaceNav,
 } from "./_components/project-page-sections";
 import { SnippetSettingsSection } from "./_components/snippet-settings-section";
 import {
@@ -81,9 +78,26 @@ export default function ProjectPage() {
     openAutomationDefaults,
     requestedCrawlId,
     setConfigureSection,
-    setProjectTab,
     visibilityMode,
   } = useProjectPageNavigation(params.id);
+
+  const { setCenter } = useDashboardNavCenter();
+  const { setRightExtra } = useDashboardNavRightExtra();
+
+  useEffect(() => {
+    setCenter(
+      <ProjectWorkspaceNav
+        currentWorkspace={currentWorkspace}
+        onWorkspaceChange={handleWorkspaceChange}
+      />,
+    );
+    return () => setCenter(null);
+  }, [currentWorkspace, handleWorkspaceChange, setCenter]);
+
+  useEffect(() => {
+    setRightExtra(<UsageMeter />);
+    return () => setRightExtra(null);
+  }, [setRightExtra]);
 
   const { withAuth } = useApi();
   const [startingCrawl, setStartingCrawl] = useState(false);
@@ -153,14 +167,7 @@ export default function ProjectPage() {
       [selectedCrawlId],
     ),
   );
-  const { data: actionItemStats } = useApiSWR(
-    `action-items-stats-${params.id}`,
-    useCallback(() => api.actionItems.stats(params.id), [params.id]),
-  );
   const issueCount = issuesData?.data?.length ?? 0;
-  const hasIssueBacklog = issueCount > 0;
-  const actionPlanCount = actionItemStats?.total ?? 0;
-  const hasActionPlan = actionPlanCount > 0;
   const hasCompletedCrawl = !!latestCrawlId;
   const automationConfigured =
     project?.settings?.schedule !== "manual" &&
@@ -178,10 +185,6 @@ export default function ProjectPage() {
     persona: accountMe?.persona ?? null,
     isAdmin: accountMe?.isAdmin ?? false,
   };
-  const firstSevenDaysOrder = resolveFirstSevenDaysOrder(
-    personalizationContext,
-  );
-
   const handleStartCrawl = useCallback(async () => {
     setStartingCrawl(true);
     setCrawlError(null);
@@ -233,83 +236,6 @@ export default function ProjectPage() {
     },
     [handleStartCrawl, handleVisibilityModeChange, openAutomationDefaults],
   );
-  const firstSevenDaysSteps: Record<
-    FirstSevenDaysStepId,
-    {
-      id: FirstSevenDaysStepId;
-      title: string;
-      description: string;
-      done: boolean;
-      ctaLabel: string;
-      action: () => void;
-    }
-  > = {
-    crawl: {
-      id: "crawl",
-      title: hasCompletedCrawl
-        ? "Baseline crawl completed"
-        : "Run baseline crawl",
-      description: hasCompletedCrawl
-        ? "Baseline scoring is available. Review crawl history and compare deltas."
-        : "Start your first crawl to generate score baselines and issue detection.",
-      done: hasCompletedCrawl,
-      ctaLabel: hasCompletedCrawl ? "Open history" : "Run crawl",
-      action: () =>
-        hasCompletedCrawl ? setProjectTab("history") : handleStartCrawl(),
-    },
-    issues: {
-      id: "issues",
-      title: hasActionPlan
-        ? `Action plan created (${actionPlanCount})`
-        : hasIssueBacklog
-          ? `Triage issue backlog (${issueCount})`
-          : "Review issue backlog",
-      description: hasActionPlan
-        ? "Action items are ready. Keep execution moving from the Actions workspace."
-        : hasIssueBacklog
-          ? "Prioritize high-impact fixes and convert them into action items."
-          : "No issues detected yet. Re-run after major site updates.",
-      done: hasActionPlan,
-      ctaLabel: hasActionPlan ? "Open actions" : "Open issues",
-      action: () => setProjectTab(hasActionPlan ? "actions" : "issues"),
-    },
-    automation: {
-      id: "automation",
-      title: automationConfigured
-        ? "Automation defaults configured"
-        : "Configure automation defaults",
-      description: automationConfigured
-        ? "Recurring crawl cadence and post-crawl automation are active."
-        : "Set crawl cadence and automation defaults to reduce manual follow-up.",
-      done: automationConfigured,
-      ctaLabel: "Open settings",
-      action: () => openAutomationDefaults(),
-    },
-    visibility: {
-      id: "visibility",
-      title: "Start visibility monitoring",
-      description:
-        "Track Search Visibility, AI Visibility, and AI Analysis in one workspace.",
-      done: isVisibilityMode(currentTab),
-      ctaLabel: "Open visibility",
-      action: () => setProjectTab("visibility"),
-    },
-  };
-  const orderedFirstSevenDaysSteps = firstSevenDaysOrder.map(
-    (id) => firstSevenDaysSteps[id],
-  );
-  const firstSevenDaysCompleted = orderedFirstSevenDaysSteps.filter(
-    (step) => step.done,
-  ).length;
-  const firstSevenDaysTotal = orderedFirstSevenDaysSteps.length;
-  const firstSevenDaysCompletionPercent =
-    firstSevenDaysTotal > 0
-      ? Math.round((firstSevenDaysCompleted / firstSevenDaysTotal) * 100)
-      : 0;
-  const firstSevenDaysNextStep = orderedFirstSevenDaysSteps.find(
-    (step) => !step.done,
-  );
-
   if (projectLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -343,32 +269,27 @@ export default function ProjectPage() {
     <div>
       {/* Back + header (full width, above sidebar+content) */}
       <div className="space-y-2 pb-4">
-        <Link
-          href="/dashboard/projects"
-          className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to projects
-        </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              {project.faviconUrl && (
-                <img
-                  src={project.faviconUrl}
-                  alt=""
-                  className="h-7 w-7 rounded-sm"
-                />
-              )}
-              <h1 className="text-2xl font-bold tracking-tight">
-                {project.name}
-              </h1>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {WORKFLOW_TONE_COPY.projectWorkspaceSummary}
-            </p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/projects"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Projects
+          </Link>
+          <span className="text-muted-foreground/40">/</span>
+          <div className="flex items-center gap-2">
+            {project.faviconUrl && (
+              <img
+                src={project.faviconUrl}
+                alt=""
+                className="h-5 w-5 rounded-sm"
+              />
+            )}
+            <h1 className="text-lg font-semibold tracking-tight">
+              {project.name}
+            </h1>
           </div>
-          <UsageMeter />
         </div>
         {(crawlError || autoCrawlFailed) && (
           <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -394,8 +315,6 @@ export default function ProjectPage() {
       {/* Sidebar + Content */}
       <div className="flex">
         <ProjectSidebar
-          projectName={project.name}
-          domain={normalizeDomain(project.domain)}
           currentTab={currentTab}
           onTabChange={handleTabChange}
           personalizationContext={personalizationContext}
@@ -403,21 +322,8 @@ export default function ProjectPage() {
 
         {/* Content area */}
         <div className="min-w-0 flex-1 space-y-6 py-4 md:pl-6">
-          <ProjectWorkspaceChooser
-            currentWorkspace={currentWorkspace}
-            onWorkspaceChange={handleWorkspaceChange}
-          />
-
           {/* Banners */}
           <AlertBanner projectId={project.id} />
-
-          <ProjectFirstSevenDaysCard
-            orderedSteps={orderedFirstSevenDaysSteps}
-            completed={firstSevenDaysCompleted}
-            total={firstSevenDaysTotal}
-            completionPercent={firstSevenDaysCompletionPercent}
-            nextStep={firstSevenDaysNextStep}
-          />
 
           {/* Tab content */}
           {currentTab === "actions" && (
