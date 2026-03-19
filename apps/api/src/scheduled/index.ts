@@ -85,7 +85,16 @@ async function runScheduledTasks(env: Bindings) {
     queue: env.CRAWL_QUEUE,
   });
 
-  await processOutboxEvents(env.DATABASE_URL);
+  await processOutboxEvents(env.DATABASE_URL, {
+    ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+    KV: env.KV,
+    R2: env.R2,
+    INTEGRATION_ENCRYPTION_KEY: env.INTEGRATION_ENCRYPTION_KEY,
+    GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID,
+    GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET,
+    META_APP_ID: env.META_APP_ID,
+    META_APP_SECRET: env.META_APP_SECRET,
+  });
 }
 
 async function cleanupExpiredData(env: Bindings): Promise<void> {
@@ -272,13 +281,16 @@ async function processScheduledCompetitorChecks(env: Bindings) {
     competitorBenchmarks: competitorBenchmarkQueries(db),
     competitors: competitorQueries(db),
   });
-  const monitorService = createCompetitorMonitorService({
-    competitors: competitorQueries(db),
-    competitorBenchmarks: competitorBenchmarkQueries(db),
-    competitorEvents: competitorEventQueries(db),
-    outbox: outboxQueries(db),
-    benchmarkService,
-  }, logger);
+  const monitorService = createCompetitorMonitorService(
+    {
+      competitors: competitorQueries(db),
+      competitorBenchmarks: competitorBenchmarkQueries(db),
+      competitorEvents: competitorEventQueries(db),
+      outbox: outboxQueries(db),
+      benchmarkService,
+    },
+    logger,
+  );
 
   const results = await monitorService.processScheduledBenchmarks();
   logger.info("Competitor monitoring completed", {

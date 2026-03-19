@@ -14,20 +14,60 @@ const _PROCESSABLE_TYPES = [
 
 type ProcessableType = (typeof _PROCESSABLE_TYPES)[number];
 
+interface OutboxEnv {
+  ANTHROPIC_API_KEY?: string;
+  KV?: KVNamespace;
+  R2?: R2Bucket;
+  INTEGRATION_ENCRYPTION_KEY?: string;
+  GOOGLE_OAUTH_CLIENT_ID?: string;
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
+  META_APP_ID?: string;
+  META_APP_SECRET?: string;
+}
+
 async function processEvent(
   type: ProcessableType,
   payload: Record<string, unknown>,
+  databaseUrl: string,
+  env?: OutboxEnv,
 ): Promise<void> {
   switch (type) {
-    case "llm_scoring":
-      await runLLMScoring(payload as unknown as LLMScoringInput);
+    case "llm_scoring": {
+      const enriched = {
+        ...payload,
+        databaseUrl: payload.databaseUrl ?? databaseUrl,
+        anthropicApiKey: env?.ANTHROPIC_API_KEY ?? payload.anthropicApiKey,
+        kvNamespace: env?.KV ?? payload.kvNamespace,
+        r2Bucket: env?.R2 ?? payload.r2Bucket,
+      };
+      if (!enriched.anthropicApiKey) {
+        throw new Error("Missing anthropicApiKey — cannot run LLM scoring");
+      }
+      await runLLMScoring(enriched as unknown as LLMScoringInput);
       break;
-    case "integration_enrichment":
-      await runIntegrationEnrichments(payload as unknown as EnrichmentInput);
+    }
+    case "integration_enrichment": {
+      const enriched = {
+        ...payload,
+        databaseUrl: payload.databaseUrl ?? databaseUrl,
+        encryptionKey: env?.INTEGRATION_ENCRYPTION_KEY ?? payload.encryptionKey,
+        googleClientId: env?.GOOGLE_OAUTH_CLIENT_ID ?? payload.googleClientId,
+        googleClientSecret:
+          env?.GOOGLE_OAUTH_CLIENT_SECRET ?? payload.googleClientSecret,
+        metaAppId: env?.META_APP_ID ?? payload.metaAppId,
+        metaAppSecret: env?.META_APP_SECRET ?? payload.metaAppSecret,
+      };
+      await runIntegrationEnrichments(enriched as unknown as EnrichmentInput);
       break;
-    case "crawl_summary":
-      await generateCrawlSummary(payload as unknown as SummaryInput);
+    }
+    case "crawl_summary": {
+      const enriched = {
+        ...payload,
+        anthropicApiKey: env?.ANTHROPIC_API_KEY ?? payload.anthropicApiKey,
+      };
+      await generateCrawlSummary(enriched as unknown as SummaryInput);
       break;
+    }
   }
 }
 
@@ -40,6 +80,7 @@ async function processEvent(
  */
 export async function processOutboxEvents(
   databaseUrl: string,
+  env?: OutboxEnv,
 ): Promise<{ processed: number; failed: number }> {
   const log = createLogger({ context: "outbox-processor" });
   const db = createDb(databaseUrl);
@@ -73,6 +114,8 @@ export async function processOutboxEvents(
       await processEvent(
         event.type as ProcessableType,
         event.payload as Record<string, unknown>,
+        databaseUrl,
+        env,
       );
 
       await db

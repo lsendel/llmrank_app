@@ -87,7 +87,16 @@ async function runScheduledTasks(env: Bindings) {
   });
 
   // 4. Process outbox events (enrichments, LLM scoring, crawl summaries)
-  await processOutboxEvents(env.DATABASE_URL);
+  await processOutboxEvents(env.DATABASE_URL, {
+    ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+    KV: env.KV,
+    R2: env.R2,
+    INTEGRATION_ENCRYPTION_KEY: env.INTEGRATION_ENCRYPTION_KEY,
+    GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID,
+    GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET,
+    META_APP_ID: env.META_APP_ID,
+    META_APP_SECRET: env.META_APP_SECRET,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +256,13 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         citationPosition: s.citationPosition ?? null,
       }));
 
-      await detectAndEmitChanges(db, schedule, project, results, previousByProvider);
+      await detectAndEmitChanges(
+        db,
+        schedule,
+        project,
+        results,
+        previousByProvider,
+      );
       await scheduleRepo.markRun(schedule.id, schedule.frequency);
 
       trackServer(
