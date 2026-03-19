@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Filter,
   Loader2,
   Plus,
 } from "lucide-react";
@@ -97,62 +98,74 @@ export function ProjectsTabContent(props: any) {
           description="Fetching portfolio health, score trends, and anomaly signals."
           className="py-16"
         />
+      ) : analyzedPortfolioCount === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <p className="text-muted-foreground">No projects yet.</p>
+            <Button asChild className="mt-4">
+              <Link href="/dashboard/projects/new">
+                <Plus className="h-4 w-4" />
+                Create your first project
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <>
-          {projects.length > 0 || totalFiltered > 0 ? (
+          <div id="filters" />
+          <ProjectsFiltersCard
+            searchInput={searchInput}
+            onSearchInputChange={setSearchInput}
+            healthFilter={healthFilter}
+            onHealthChange={(value) =>
+              updateParams({
+                health: value as any,
+                page: 1,
+                anomaly: "all",
+              })
+            }
+            sortBy={sortBy}
+            onSortChange={(value) =>
+              updateParams({ sort: value as any, page: 1 })
+            }
+            onReset={resetFilters}
+            presetButtons={presetButtons}
+            onApplyPreset={(preset) => applyPreset(preset as any)}
+            canSaveDefaultPreset={Boolean(activePreset)}
+            savingDefaultPreset={savingDefaultPreset}
+            onSaveDefaultPreset={() => void handleSaveDefaultPreset()}
+            usingAnomalyView={usingAnomalyView}
+            anomalyFilter={anomalyFilter}
+            totalFiltered={totalFiltered}
+            pageSummary={pageSummary}
+            activeAnomalyShortcut={activeAnomalyShortcut}
+            anomalyShortcutTargets={anomalyShortcutLinks}
+            additionalAnomalyMatchCount={additionalAnomalyMatchCount}
+          />
+
+          {selectedCount > 0 && (
+            <ProjectsSelectionBar
+              selectedCount={selectedCount}
+              anomalyFilter={anomalyFilter}
+              bulkEnablingPipeline={bulkEnablingPipeline}
+              selectedPipelineDisabledCount={
+                selectedPipelineDisabledProjects.length
+              }
+              onEnablePipelineDefaults={() =>
+                void handleEnablePipelineDefaults()
+              }
+              bulkPlanningSmartFixes={bulkPlanningSmartFixes}
+              onPlanSmartFixes={() => void handlePlanSmartFixes()}
+              bulkCrawling={bulkCrawling}
+              onRunCrawl={openBulkCrawlPreflight}
+              bulkDeleting={bulkDeleting}
+              onDelete={() => setBulkDeleteOpen(true)}
+              onClearSelection={() => setSelectedIds(new Set())}
+            />
+          )}
+
+          {projects.length > 0 ? (
             <>
-              <div id="filters" />
-              <ProjectsFiltersCard
-                searchInput={searchInput}
-                onSearchInputChange={setSearchInput}
-                healthFilter={healthFilter}
-                onHealthChange={(value) =>
-                  updateParams({
-                    health: value as any,
-                    page: 1,
-                    anomaly: "all",
-                  })
-                }
-                sortBy={sortBy}
-                onSortChange={(value) =>
-                  updateParams({ sort: value as any, page: 1 })
-                }
-                onReset={resetFilters}
-                presetButtons={presetButtons}
-                onApplyPreset={(preset) => applyPreset(preset as any)}
-                canSaveDefaultPreset={Boolean(activePreset)}
-                savingDefaultPreset={savingDefaultPreset}
-                onSaveDefaultPreset={() => void handleSaveDefaultPreset()}
-                usingAnomalyView={usingAnomalyView}
-                anomalyFilter={anomalyFilter}
-                totalFiltered={totalFiltered}
-                pageSummary={pageSummary}
-                activeAnomalyShortcut={activeAnomalyShortcut}
-                anomalyShortcutTargets={anomalyShortcutLinks}
-                additionalAnomalyMatchCount={additionalAnomalyMatchCount}
-              />
-
-              {selectedCount > 0 && (
-                <ProjectsSelectionBar
-                  selectedCount={selectedCount}
-                  anomalyFilter={anomalyFilter}
-                  bulkEnablingPipeline={bulkEnablingPipeline}
-                  selectedPipelineDisabledCount={
-                    selectedPipelineDisabledProjects.length
-                  }
-                  onEnablePipelineDefaults={() =>
-                    void handleEnablePipelineDefaults()
-                  }
-                  bulkPlanningSmartFixes={bulkPlanningSmartFixes}
-                  onPlanSmartFixes={() => void handlePlanSmartFixes()}
-                  bulkCrawling={bulkCrawling}
-                  onRunCrawl={openBulkCrawlPreflight}
-                  bulkDeleting={bulkDeleting}
-                  onDelete={() => setBulkDeleteOpen(true)}
-                  onClearSelection={() => setSelectedIds(new Set())}
-                />
-              )}
-
               <div id="select-projects" />
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
@@ -160,8 +173,8 @@ export function ProjectsTabContent(props: any) {
                   {totalFiltered === 0
                     ? 0
                     : (currentPage - 1) * PROJECTS_PER_PAGE + 1}
-                  –{Math.min(currentPage * PROJECTS_PER_PAGE, totalFiltered)} of{" "}
-                  {totalFiltered}
+                  –{Math.min(currentPage * PROJECTS_PER_PAGE, totalFiltered)}{" "}
+                  of {totalFiltered}
                 </p>
                 <div className="flex items-center gap-2">
                   {usingAnomalyView && anomalyMatchingIds.length > 0 && (
@@ -186,29 +199,12 @@ export function ProjectsTabContent(props: any) {
                 </div>
               </div>
 
-              {projects.length > 0 ? (
-                <ProjectGrid
-                  projects={projects}
-                  selectedIds={selectedIds}
-                  onToggleProjectSelection={toggleProjectSelection}
-                  onRequestDelete={(target) => setDeleteTarget(target)}
-                />
-              ) : (
-                <Card className="border-dashed">
-                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <p className="text-muted-foreground">
-                      No projects match the current filters.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-4"
-                      onClick={resetFilters}
-                    >
-                      Clear Filters
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
+              <ProjectGrid
+                projects={projects}
+                selectedIds={selectedIds}
+                onToggleProjectSelection={toggleProjectSelection}
+                onRequestDelete={(target) => setDeleteTarget(target)}
+              />
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between">
@@ -246,26 +242,32 @@ export function ProjectsTabContent(props: any) {
             </>
           ) : (
             <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                {analyzedPortfolioCount > 0 ? (
-                  <>
-                    <AlertTriangle className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No projects match current filters.</p>
-                    <Button variant="outline" className="mt-4" onClick={resetFilters}>
-                      Reset filters
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-muted-foreground">No projects yet.</p>
-                    <Button asChild className="mt-4">
-                      <Link href="/dashboard/projects/new">
-                        <Plus className="h-4 w-4" />
-                        Create your first project
-                      </Link>
-                    </Button>
-                  </>
-                )}
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <Filter className="h-8 w-8 text-muted-foreground mb-3" />
+                <p className="font-medium">No projects match current filters</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {healthFilter !== "all" && (
+                    <span>Health: <strong>{healthFilter.replace("_", " ")}</strong></span>
+                  )}
+                  {healthFilter !== "all" && anomalyFilter !== "all" && " · "}
+                  {anomalyFilter !== "all" && (
+                    <span>Anomaly: <strong>{anomalyFilter.replace("_", " ")}</strong></span>
+                  )}
+                  {healthFilter === "all" && anomalyFilter === "all" && searchInput && (
+                    <span>Search: <strong>&quot;{searchInput}&quot;</strong></span>
+                  )}
+                </p>
+                <div className="flex items-center gap-3 mt-5">
+                  <Button variant="outline" onClick={resetFilters}>
+                    Clear all filters
+                  </Button>
+                  <Button asChild>
+                    <Link href="/dashboard/projects/new">
+                      <Plus className="h-4 w-4" />
+                      New Project
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
