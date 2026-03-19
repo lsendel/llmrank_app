@@ -41,7 +41,11 @@ describe("IntegrationInsightsService", () => {
       enrichments,
     });
     const result = await service.getInsights("user-1", "proj-1");
-    expect(result).toEqual({ crawlId: null, integrations: null });
+    expect(result).toEqual({
+      crawlId: null,
+      crawlDate: null,
+      integrations: null,
+    });
   });
 
   it("returns empty integrations structure when crawl exists but no enrichments found", async () => {
@@ -79,6 +83,7 @@ describe("IntegrationInsightsService", () => {
     });
     const result = await service.getInsights("user-1", "proj-1");
     expect(result.crawlId).toBe("crawl-1");
+    expect(result.crawlDate).toBe("2024-01-01T00:00:00.000Z");
     expect(result.integrations?.gsc?.topQueries[0].query).toBe("ai seo");
   });
 
@@ -93,6 +98,7 @@ describe("IntegrationInsightsService", () => {
     });
     const result = await service.getInsights("user-1", "proj-1", "crawl-2");
     expect(result.crawlId).toBe("crawl-2");
+    expect(result.crawlDate).toBe("2024-01-01T00:00:00.000Z");
   });
 
   it("throws NOT_FOUND when crawl does not belong to project", async () => {

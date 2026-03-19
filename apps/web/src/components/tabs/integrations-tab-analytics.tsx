@@ -61,9 +61,11 @@ export function IntegrationAnalyticsSection({
                 <BarChart3 className="h-4 w-4 text-primary" />
                 Integration Analytics
               </CardTitle>
-              <CardDescription>
+              <CardDescription
+                title={integrationInsights?.crawlId ?? undefined}
+              >
                 {integrationInsights?.crawlId
-                  ? `Derived from crawl: ${integrationInsights.crawlId}`
+                  ? `Based on crawl from ${new Date(integrationInsights.crawlDate ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                   : "Connect an integration and run a crawl to unlock insights."}
               </CardDescription>
             </div>

@@ -14,6 +14,7 @@ export interface ProjectIntegration {
 
 export interface IntegrationInsights {
   crawlId: string | null;
+  crawlDate: string | null; // ISO 8601 timestamp
   integrations: {
     gsc: {
       topQueries: {
