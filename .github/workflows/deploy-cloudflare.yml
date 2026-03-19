@@ -13,8 +13,6 @@ on:
 jobs:
   migrations:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -22,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -43,8 +41,6 @@ jobs:
   deploy-api:
     needs: migrations
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +48,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -75,8 +71,6 @@ jobs:
   deploy-report-worker:
     needs: migrations
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -84,7 +78,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -107,8 +101,6 @@ jobs:
   deploy-web:
     needs: [deploy-api, deploy-report-worker]
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -116,7 +108,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -143,8 +135,6 @@ jobs:
   deploy-mcp-gateway:
     needs: migrations
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -152,7 +142,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -179,8 +169,6 @@ jobs:
     needs: [deploy-web, deploy-mcp-gateway]
     continue-on-error: true
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -188,7 +176,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
