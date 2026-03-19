@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
+import { SnippetInstallGuides } from "@/components/snippet-install-guides";
 
 interface SnippetSettingsSectionProps {
   projectId: string;
@@ -85,6 +86,32 @@ export function SnippetSettingsSection({
                   <Copy className="h-3 w-3" />
                 )}
               </Button>
+            </div>
+
+            <SnippetInstallGuides />
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2 dark:border-blue-800 dark:bg-blue-950/30">
+              <p className="text-xs font-medium">
+                Cloudflare Auto-Inject (no code changes)
+              </p>
+              <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Go to your Cloudflare dashboard → your site → Zaraz</li>
+                <li>
+                  Click &quot;Add new tool&quot; → &quot;Custom HTML&quot;
+                </li>
+                <li>Paste the snippet code above</li>
+                <li>
+                  Set firing trigger to &quot;Page Load&quot; on all pages
+                </li>
+                <li>
+                  Save — the snippet will be injected on every page
+                  automatically
+                </li>
+              </ol>
+              <p className="text-[10px] text-muted-foreground">
+                Works for any site proxied through Cloudflare, regardless of
+                tech stack.
+              </p>
             </div>
           </div>
         )}
