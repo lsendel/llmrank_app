@@ -68,7 +68,9 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
                   <p className="text-xs text-muted-foreground">
                     Visibility:{" "}
                     <span className="font-medium text-foreground">
-                      {(opp.visibilityRate * 100).toFixed(0)}%
+                      {opp.visibilityRate === 0
+                        ? "Not checked"
+                        : `${(opp.visibilityRate * 100).toFixed(0)}%`}
                     </span>
                   </p>
                 )}

@@ -29,6 +29,9 @@ function narrativeSubtitle(progress: ProjectProgress): string {
   if (delta < 0) {
     return `Your score dropped by ${Math.abs(delta).toFixed(1)} points — ${progress.issuesNew} new issue${progress.issuesNew !== 1 ? "s" : ""} detected`;
   }
+  if (progress.issuesFixed > 0 || progress.issuesNew > 0) {
+    return `Your score is stable — ${progress.issuesFixed} fixed, ${progress.issuesNew} new (net zero change)`;
+  }
   return `Your score is stable — ${progress.issuesPersisting} issue${progress.issuesPersisting !== 1 ? "s" : ""} persist`;
 }
 

@@ -9,21 +9,36 @@ const GradeDistributionChart = dynamic(
     import("@/components/charts/grade-distribution-chart").then((m) => ({
       default: m.GradeDistributionChart,
     })),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[300px] animate-pulse rounded-lg bg-muted/30" />
+    ),
+  },
 );
 const IssueDistributionChart = dynamic(
   () =>
     import("@/components/charts/issue-distribution-chart").then((m) => ({
       default: m.IssueDistributionChart,
     })),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[300px] animate-pulse rounded-lg bg-muted/30" />
+    ),
+  },
 );
 const ScoreTrendChart = dynamic(
   () =>
     import("@/components/charts/score-trend-chart").then((m) => ({
       default: m.ScoreTrendChart,
     })),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[300px] animate-pulse rounded-lg bg-muted/30" />
+    ),
+  },
 );
 import { IntegrationInsightsCards } from "@/components/integration-insights-cards";
 import { IssueCard } from "@/components/issue-card";

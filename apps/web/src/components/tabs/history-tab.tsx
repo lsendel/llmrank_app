@@ -106,12 +106,18 @@ export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
                 <TableRow key={crawl.id}>
                   {canCompare && (
                     <TableCell>
-                      {isComplete && (
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleSelect(crawl.id)}
-                        />
-                      )}
+                      <Checkbox
+                        checked={isSelected}
+                        disabled={!isComplete}
+                        title={
+                          !isComplete
+                            ? "Crawl must complete before comparison"
+                            : undefined
+                        }
+                        onCheckedChange={
+                          isComplete ? () => toggleSelect(crawl.id) : undefined
+                        }
+                      />
                     </TableCell>
                   )}
                   <TableCell>

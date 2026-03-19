@@ -42,28 +42,35 @@ export function ReportsTabToolbar({
   onOpenGenerate: () => void;
 }) {
   return (
-    <div className="flex justify-end gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" disabled={!crawlJobId}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Data
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => void onExport("csv")}>
-            Export as CSV
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void onExport("json")}>
-            Export as JSON
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={!crawlJobId}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => void onExport("csv")}>
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void onExport("json")}>
+              Export as JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      <Button onClick={onOpenGenerate} disabled={!crawlJobId} size="sm">
-        <FileText className="mr-2 h-4 w-4" />
-        Generate Report
-      </Button>
+        <Button onClick={onOpenGenerate} disabled={!crawlJobId} size="sm">
+          <FileText className="mr-2 h-4 w-4" />
+          Generate Report
+        </Button>
+      </div>
+      {!crawlJobId && (
+        <p className="text-xs text-muted-foreground">
+          Run a crawl first to generate reports
+        </p>
+      )}
     </div>
   );
 }
