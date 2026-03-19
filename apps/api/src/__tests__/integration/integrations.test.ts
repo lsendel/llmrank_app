@@ -28,6 +28,7 @@ const mockIntegrationUpsert = vi.fn().mockResolvedValue({
 const mockIntegrationUpdateEnabled = vi.fn().mockResolvedValue(null);
 const mockIntegrationRemove = vi.fn().mockResolvedValue(undefined);
 const mockCrawlGetLatestByProject = vi.fn().mockResolvedValue(null);
+const mockCrawlListByProject = vi.fn().mockResolvedValue([]);
 const mockCrawlGetById = vi.fn().mockResolvedValue(null);
 const mockEnrichmentListByJob = vi.fn().mockResolvedValue([]);
 
@@ -51,6 +52,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
     }),
     crawlQueries: () => ({
       getLatestByProject: mockCrawlGetLatestByProject,
+      listByProject: mockCrawlListByProject,
       getById: mockCrawlGetById,
     }),
     enrichmentQueries: () => ({
@@ -151,6 +153,7 @@ describe("Integration Routes", () => {
     mockProjectGetById.mockResolvedValue(project);
     mockUserGetById.mockResolvedValue(user);
     mockCrawlGetLatestByProject.mockResolvedValue(null);
+    mockCrawlListByProject.mockResolvedValue([]);
     mockCrawlGetById.mockResolvedValue(null);
     mockEnrichmentListByJob.mockResolvedValue([]);
   });
@@ -241,10 +244,9 @@ describe("Integration Routes", () => {
 
   describe("GET /api/integrations/:projectId/insights", () => {
     it("returns aggregated insights for the latest crawl", async () => {
-      mockCrawlGetLatestByProject.mockResolvedValue({
-        id: "crawl-1",
-        projectId: "proj-1",
-      });
+      mockCrawlListByProject.mockResolvedValue([
+        { id: "crawl-1", projectId: "proj-1" },
+      ]);
       mockEnrichmentListByJob.mockResolvedValue([
         {
           id: "enr-1",
@@ -264,10 +266,9 @@ describe("Integration Routes", () => {
     });
 
     it("returns null integrations when no enrichments exist", async () => {
-      mockCrawlGetLatestByProject.mockResolvedValue({
-        id: "crawl-1",
-        projectId: "proj-1",
-      });
+      mockCrawlListByProject.mockResolvedValue([
+        { id: "crawl-1", projectId: "proj-1" },
+      ]);
       mockEnrichmentListByJob.mockResolvedValue([]);
 
       const res = await request("/api/integrations/proj-1/insights");

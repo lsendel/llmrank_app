@@ -14,6 +14,7 @@ const {
   mockDecrypt,
   mockEncrypt,
   mockRefreshAccessToken,
+  mockListPagesByJob,
 } = vi.hoisted(() => ({
   mockGetById: vi.fn(),
   mockListByProject: vi.fn(),
@@ -26,6 +27,7 @@ const {
   mockDecrypt: vi.fn(),
   mockEncrypt: vi.fn(),
   mockRefreshAccessToken: vi.fn(),
+  mockListPagesByJob: vi.fn(),
 }));
 
 vi.mock("@llm-boost/db", () => ({
@@ -40,6 +42,9 @@ vi.mock("@llm-boost/db", () => ({
   })),
   enrichmentQueries: vi.fn(() => ({
     createBatch: mockCreateBatch,
+  })),
+  pageQueries: vi.fn(() => ({
+    listByJob: mockListPagesByJob,
   })),
 }));
 
@@ -94,6 +99,10 @@ describe("runIntegrationEnrichments", () => {
     });
     mockDecrypt.mockResolvedValue(JSON.stringify({ accessToken: "token-123" }));
     mockEncrypt.mockResolvedValue("encrypted-new-creds");
+    mockListPagesByJob.mockResolvedValue([
+      { id: "page-1", url: "https://example.com/page1" },
+      { id: "page-2", url: "https://example.com/page2" },
+    ]);
   });
 
   it("returns early when project not found", async () => {

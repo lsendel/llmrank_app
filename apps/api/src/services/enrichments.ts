@@ -3,6 +3,7 @@ import {
   projectQueries,
   integrationQueries,
   enrichmentQueries,
+  pageQueries,
 } from "@llm-boost/db";
 import { runEnrichments, type ProviderResult } from "@llm-boost/integrations";
 import { decrypt, encrypt } from "../lib/crypto";
@@ -32,7 +33,10 @@ export interface EnrichmentOutput {
  */
 export async function runIntegrationEnrichments(
   input: EnrichmentInput,
-  logger?: { info: (msg: string, data?: any) => void; error: (msg: string, data?: any) => void },
+  logger?: {
+    info: (msg: string, data?: any) => void;
+    error: (msg: string, data?: any) => void;
+  },
 ): Promise<EnrichmentOutput> {
   logger?.info("[enrichments] Starting enrichments", {
     projectId: input.projectId,
@@ -63,7 +67,10 @@ export async function runIntegrationEnrichments(
     return { enrichmentRowsInserted: 0, providerResults: [] };
   }
 
-  const allPageUrls = input.insertedPages.map((p) => p.url);
+  // Fetch all pages for the crawl from the DB so enrichments cover every page,
+  // not just the final ingest batch that triggered this run.
+  const allJobPages = await pageQueries(db).listByJob(input.jobId);
+  const allPageUrls = allJobPages.map((p) => p.url);
 
   // Decrypt credentials and refresh OAuth tokens if needed
   const prepared = (
@@ -78,10 +85,13 @@ export async function runIntegrationEnrichments(
             ),
           );
         } catch {
-          logger?.error("[enrichments] Failed to parse credentials for integration", {
-            integrationId: integration.id,
-            provider: integration.provider,
-          });
+          logger?.error(
+            "[enrichments] Failed to parse credentials for integration",
+            {
+              integrationId: integration.id,
+              provider: integration.provider,
+            },
+          );
           return null;
         }
 
@@ -138,10 +148,13 @@ export async function runIntegrationEnrichments(
                 new Date(Date.now() + refreshed.expiresIn * 1000),
               );
             } catch (err) {
-              logger?.error("[enrichments] Meta token refresh failed for integration", {
-                integrationId: integration.id,
-                error: err instanceof Error ? err.message : String(err),
-              });
+              logger?.error(
+                "[enrichments] Meta token refresh failed for integration",
+                {
+                  integrationId: integration.id,
+                  error: err instanceof Error ? err.message : String(err),
+                },
+              );
             }
           }
         }
@@ -172,8 +185,8 @@ export async function runIntegrationEnrichments(
     providerResults,
   });
 
-  // Map page URLs to page IDs
-  const urlToPageId = new Map(input.insertedPages.map((p) => [p.url, p.id]));
+  // Map page URLs to page IDs (use all pages from DB, not just the batch)
+  const urlToPageId = new Map(allJobPages.map((p) => [p.url, p.id]));
 
   // Batch insert enrichment results
   const enrichmentRows = results

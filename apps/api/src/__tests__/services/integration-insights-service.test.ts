@@ -17,11 +17,11 @@ describe("IntegrationInsightsService", () => {
       getById: vi.fn().mockResolvedValue(buildProject({ id: "proj-1" })),
     });
     crawls = createMockCrawlRepo({
-      getLatestByProject: vi
+      listByProject: vi
         .fn()
-        .mockResolvedValue(
+        .mockResolvedValue([
           buildCrawlJob({ id: "crawl-1", projectId: "proj-1" }),
-        ),
+        ]),
       getById: vi
         .fn()
         .mockResolvedValue(
@@ -34,7 +34,7 @@ describe("IntegrationInsightsService", () => {
   });
 
   it("returns null integrations when project has no crawls", async () => {
-    crawls.getLatestByProject.mockResolvedValue(undefined);
+    crawls.listByProject.mockResolvedValue([]);
     const service = createIntegrationInsightsService({
       projects,
       crawls,
