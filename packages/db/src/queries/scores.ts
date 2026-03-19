@@ -18,6 +18,13 @@ interface ScoreCreateData {
   technicalScore?: number | null;
   contentScore?: number | null;
   aiReadinessScore?: number | null;
+  llmsTxtScore?: number | null;
+  robotsTxtScore?: number | null;
+  sitemapScore?: number | null;
+  schemaMarkupScore?: number | null;
+  metaTagsScore?: number | null;
+  botAccessScore?: number | null;
+  contentCiteabilityScore?: number | null;
   lighthousePerf?: number | null;
   lighthouseSeo?: number | null;
   detail?: unknown;

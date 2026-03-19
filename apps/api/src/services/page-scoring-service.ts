@@ -1,5 +1,6 @@
 import {
   scorePage,
+  scoringResultToDimensions,
   generateRecommendations,
   type PageData,
   type ScoringWeights,
@@ -44,6 +45,7 @@ export function createPageScoringService() {
         };
 
         const result = scorePage(pageData, customWeights);
+        const dims = scoringResultToDimensions(result, result.issues);
 
         scoreRows.push({
           pageId: insertedPage.id,
@@ -52,6 +54,13 @@ export function createPageScoringService() {
           technicalScore: result.technicalScore,
           contentScore: result.contentScore,
           aiReadinessScore: result.aiReadinessScore,
+          llmsTxtScore: dims.llms_txt,
+          robotsTxtScore: dims.robots_crawlability,
+          sitemapScore: dims.sitemap,
+          schemaMarkupScore: dims.schema_markup,
+          metaTagsScore: dims.meta_tags,
+          botAccessScore: dims.bot_access,
+          contentCiteabilityScore: dims.content_citeability,
           lighthousePerf: crawlPageResult.lighthouse?.performance ?? null,
           lighthouseSeo: crawlPageResult.lighthouse?.seo ?? null,
           detail: {

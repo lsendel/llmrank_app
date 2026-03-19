@@ -116,9 +116,12 @@ crawlRoutes.post(
         }
       }
     } catch (error) {
-      c.var.logger.warn("[crawls] Skipping blocked-domain check due to query failure", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      c.var.logger.warn(
+        "[crawls] Skipping blocked-domain check due to query failure",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
 
     const { crawlService } = c.get("container");
@@ -305,11 +308,13 @@ crawlRoutes.get("/:id/ai-audit", withOwnership("crawl"), async (c) => {
   );
 
   function avg(field: (s: (typeof scores)[0]) => number | null) {
-    const sum = scores.reduce((acc, s) => acc + (field(s) ?? 0), 0);
-    return Math.round(sum / totalPages);
+    const values = scores.map(field).filter((v): v is number => v !== null);
+    if (values.length === 0) return null;
+    return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
   }
 
-  function status(score: number) {
+  function status(score: number | null) {
+    if (score === null) return "unknown";
     if (score >= 80) return "pass";
     if (score >= 50) return "warn";
     return "fail";
