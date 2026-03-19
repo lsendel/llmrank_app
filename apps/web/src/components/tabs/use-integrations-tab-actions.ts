@@ -257,6 +257,8 @@ export function useIntegrationsTabActions({
       });
       closeConnectModal();
       await refreshIntegrations();
+      // Auto-sync after connecting
+      setTimeout(() => void handleSync(), 1000);
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
       else setError("Failed to connect integration.");
@@ -268,6 +270,7 @@ export function useIntegrationsTabActions({
     clarityProjectId,
     closeConnectModal,
     connectModal,
+    handleSync,
     projectId,
     refreshIntegrations,
     withAuth,
