@@ -39,10 +39,12 @@ export function WebsiteStep({
     setExtracting(true);
     try {
       const data = await api.wizard.extractKeywords(domain);
+      const extracted = data.extracted ?? [];
+      const aiSuggested = data.aiSuggested ?? [];
       onUpdate({
         keywords: [
-          ...data.extracted.slice(0, 5),
-          ...data.aiSuggested.slice(0, 10),
+          ...extracted.slice(0, 5),
+          ...aiSuggested.slice(0, 10),
         ],
       });
     } finally {
