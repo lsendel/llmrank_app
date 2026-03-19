@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface AiTrafficSummary {
   totalPageviews: number;
@@ -68,17 +69,33 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
   }
 
   useEffect(() => {
-    // Use whatever API fetching pattern the codebase uses
-    // This will be updated in Task 10 to use api.analytics.getSummary()
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/analytics/${projectId}/summary`, {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load analytics");
-        return res.json();
+    api.analytics
+      .getSummary(projectId)
+      .then((data) => {
+        setSummary({
+          totalPageviews: data.totalVisits,
+          aiTraffic: {
+            referral: data.aiTraffic.byProvider
+              .filter((p) => p.type === "referral")
+              .reduce((sum, p) => sum + p.visits, 0),
+            bot: data.aiTraffic.byProvider
+              .filter((p) => p.type === "bot")
+              .reduce((sum, p) => sum + p.visits, 0),
+            total: data.aiTraffic.total,
+          },
+          retentionDays: 30,
+          trend: data.trend,
+          byProvider: Object.fromEntries(
+            data.aiTraffic.byProvider.map((p) => [p.provider, p.visits]),
+          ),
+          topPages: data.topPages,
+        });
       })
-      .then((json) => setSummary(json.data))
-      .catch((err) => setError(err.message))
+      .catch((err: unknown) =>
+        setError(
+          err instanceof Error ? err.message : "Failed to load analytics",
+        ),
+      )
       .finally(() => setLoading(false));
   }, [projectId]);
 

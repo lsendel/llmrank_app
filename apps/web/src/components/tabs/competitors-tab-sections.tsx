@@ -189,12 +189,12 @@ export function CompetitorsBenchmarkSection({
       )}
 
       {!isLoading && competitors.length === 0 && (
-        <StateCard
-          variant="empty"
-          icon={<Trophy className="h-12 w-12 text-muted-foreground/30" />}
-          title="No competitor benchmarks yet"
-          description="Add a competitor domain above to start benchmarking and trend monitoring."
-        />
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-sm font-medium">No benchmarks yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Enter a competitor domain above to compare AI-readiness scores.
+          </p>
+        </div>
       )}
 
       {competitors.map((competitor) => (

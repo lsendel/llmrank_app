@@ -1,5 +1,4 @@
 import {
-  Users,
   Target,
   Plus,
   Trash2,
@@ -12,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { StateMessage } from "@/components/ui/state";
 import {
   Card,
   CardContent,
@@ -235,12 +233,13 @@ export function CompetitorTrackingSection({
             </div>
           ))}
           {competitors?.length === 0 && (
-            <StateMessage
-              variant="empty"
-              compact
-              title="No competitors added yet"
-              description="Add at least one competitor domain to compare visibility and content coverage."
-            />
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm font-medium">No competitors tracked</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Add competitors to benchmark your AI-readiness scores against
+                theirs.
+              </p>
+            </div>
           )}
         </div>
       </CardContent>
@@ -270,17 +269,13 @@ export function PersonaDiscoverySection({
       </CardHeader>
       <CardContent>
         {personas.length === 0 ? (
-          <StateMessage
-            variant="empty"
-            icon={<Users className="h-12 w-12 text-muted-foreground/50" />}
-            title="No personas discovered yet"
-            description="Generate research-backed personas based on your niche."
-            action={
-              <Button onClick={onGeneratePersonas} disabled={generating}>
-                {generating ? "Researching..." : "Discover Personas"}
-              </Button>
-            }
-          />
+          <div className="rounded-lg border border-dashed p-6 text-center">
+            <p className="text-sm font-medium">No personas yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Create personas to understand how different audiences search for
+              your content.
+            </p>
+          </div>
         ) : (
           <div className="space-y-6">
             {personas.map((persona, index) => (
