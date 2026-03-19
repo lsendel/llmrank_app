@@ -50,9 +50,13 @@ export function createCrawlsApi() {
       );
     },
 
-    async get(crawlId: string): Promise<CrawlJob> {
+    async get(
+      crawlId: string,
+      options?: { signal?: AbortSignal },
+    ): Promise<CrawlJob> {
       const res = await apiClient.get<ApiEnvelope<CrawlJob>>(
         `/api/crawls/${crawlId}`,
+        options,
       );
       return res.data;
     },

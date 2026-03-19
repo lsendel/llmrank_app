@@ -42,11 +42,40 @@ type CardId = "goals" | "personas" | "keywords" | "competitors";
 // Component
 // ---------------------------------------------------------------------------
 
+const DISCOVERY_STORAGE_KEY = "llmrank:discovery-state";
+
+interface PersistedDiscoveryState {
+  businessGoal: string | null;
+  selectedPersonas: Array<{
+    label: string;
+    role: string;
+    custom: boolean;
+    jobToBeDone?: string;
+  }>;
+  keywords: string[];
+  selectedCompetitors: string[];
+}
+
+function loadPersistedState(): PersistedDiscoveryState | null {
+  try {
+    const raw = localStorage.getItem(DISCOVERY_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedDiscoveryState;
+  } catch {
+    return null;
+  }
+}
+
 export function DiscoveryScreen({ state, onRetry }: DiscoveryScreenProps) {
   const router = useRouter();
 
+  // ---- Restore persisted state on mount ---------------------------------
+  const persisted = useMemo(() => loadPersistedState(), []);
+
   // ---- Local discovery state (not in the wizard reducer) -----------------
-  const [businessGoal, setBusinessGoal] = useState<string | null>(null);
+  const [businessGoal, setBusinessGoal] = useState<string | null>(
+    persisted?.businessGoal ?? null,
+  );
   const [selectedPersonas, setSelectedPersonas] = useState<
     Array<{
       label: string;
@@ -54,9 +83,13 @@ export function DiscoveryScreen({ state, onRetry }: DiscoveryScreenProps) {
       custom: boolean;
       jobToBeDone?: string;
     }>
-  >([]);
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
+  >(persisted?.selectedPersonas ?? []);
+  const [keywords, setKeywords] = useState<string[]>(
+    persisted?.keywords ?? [],
+  );
+  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>(
+    persisted?.selectedCompetitors ?? [],
+  );
   const [openCard, setOpenCard] = useState<CardId | null>("goals");
   const [userPlan, setUserPlan] = useState<string>("free");
 
@@ -67,6 +100,21 @@ export function DiscoveryScreen({ state, onRetry }: DiscoveryScreenProps) {
       .then((me) => setUserPlan(me.plan))
       .catch(() => {});
   }, []);
+
+  // ---- Persist discovery state to localStorage ---------------------------
+  useEffect(() => {
+    try {
+      const data: PersistedDiscoveryState = {
+        businessGoal,
+        selectedPersonas,
+        keywords,
+        selectedCompetitors,
+      };
+      localStorage.setItem(DISCOVERY_STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // Silently ignore storage errors (e.g. quota exceeded)
+    }
+  }, [businessGoal, selectedPersonas, keywords, selectedCompetitors]);
 
   const planLimits =
     PLAN_LIMITS[userPlan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.free;
@@ -187,6 +235,13 @@ export function DiscoveryScreen({ state, onRetry }: DiscoveryScreenProps) {
       keywords,
       competitors: selectedCompetitors,
     });
+
+    // Clear persisted discovery state after successful save
+    try {
+      localStorage.removeItem(DISCOVERY_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
 
     // Navigate to dashboard regardless of partial failures
     router.push(`/dashboard/projects/${state.projectId}`);

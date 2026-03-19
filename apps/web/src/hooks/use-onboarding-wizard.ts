@@ -362,10 +362,13 @@ export function useOnboardingWizard(tipsLength: number) {
     if (!isActiveCrawlStatus(state.crawl.status)) return;
 
     const crawlId = state.crawlId;
+    const controller = new AbortController();
 
     const poll = async () => {
       try {
-        const updated = await api.crawls.get(crawlId);
+        const updated = await api.crawls.get(crawlId, {
+          signal: controller.signal,
+        });
         dispatch({ type: "SET_CRAWL", crawl: updated as CrawlData });
 
         if (isActiveCrawlStatus(updated.status as CrawlStatus)) {
@@ -374,8 +377,9 @@ export function useOnboardingWizard(tipsLength: number) {
         } else if (updated.status === "complete" && state.projectId) {
           void runDiscovery(state.projectId, crawlId);
         }
-      } catch (_err) {
-        console.warn("Crawl polling failed, retrying with backoff:", _err);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.warn("Crawl polling failed, retrying with backoff:", err);
         intervalRef.current = Math.min(intervalRef.current * 1.5, 30000);
         pollingRef.current = setTimeout(poll, intervalRef.current);
       }
@@ -384,6 +388,7 @@ export function useOnboardingWizard(tipsLength: number) {
     pollingRef.current = setTimeout(poll, intervalRef.current);
 
     return () => {
+      controller.abort();
       if (pollingRef.current) {
         clearTimeout(pollingRef.current);
         pollingRef.current = null;
