@@ -49,6 +49,69 @@ describe("integration insights view helpers", () => {
     expect(items[3]?.value).toContain("170 social engagements");
   });
 
+  it("shows pages tracked and non-indexed count in GSC summary when no queries", () => {
+    const items = buildSummaryItems({
+      gsc: {
+        topQueries: [],
+        totalClicks: 0,
+        totalImpressions: 0,
+        indexedPages: [
+          { url: "https://example.com/", status: "Submitted and indexed" },
+          {
+            url: "https://example.com/about",
+            status: "Discovered - currently not indexed",
+          },
+          {
+            url: "https://example.com/blog",
+            status: "Crawled - currently not available",
+          },
+        ],
+      },
+    });
+
+    expect(items[0]?.label).toBe("GSC");
+    expect(items[0]?.value).toBe("3 pages tracked · 2 not indexed");
+  });
+
+  it("shows 'No index data yet' in GSC summary when no pages tracked", () => {
+    const items = buildSummaryItems({
+      gsc: {
+        topQueries: [],
+        totalClicks: 0,
+        totalImpressions: 0,
+        indexedPages: [],
+      },
+    });
+
+    expect(items[0]?.label).toBe("GSC");
+    expect(items[0]?.value).toBe("No index data yet");
+  });
+
+  it("shows 'No sessions recorded yet' in GA4 summary when all values are zero", () => {
+    const items = buildSummaryItems({
+      ga4: {
+        bounceRate: 0,
+        avgEngagement: 0,
+        topPages: [],
+      },
+    });
+
+    expect(items[0]?.label).toBe("GA4");
+    expect(items[0]?.value).toBe("No sessions recorded yet");
+  });
+
+  it("shows 'No sessions recorded yet' in Clarity summary when all values are zero", () => {
+    const items = buildSummaryItems({
+      clarity: {
+        avgUxScore: 0,
+        rageClickPages: [],
+      },
+    });
+
+    expect(items[0]?.label).toBe("Clarity");
+    expect(items[0]?.value).toBe("No sessions recorded yet");
+  });
+
   it("normalizes urls and indexed status checks", () => {
     expect(stripUrlOrigin("https://example.com/pricing")).toBe("/pricing");
     expect(isIndexedStatus("Indexed, not submitted in sitemap")).toBe(true);

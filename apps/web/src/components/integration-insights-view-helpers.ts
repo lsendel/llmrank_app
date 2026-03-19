@@ -45,7 +45,6 @@ export function buildSummaryItems(integrations: Integrations): SummaryItem[] {
 
   if (gsc) {
     const queryCount = gsc.topQueries?.length ?? 0;
-    const indexedCount = getIndexedPageCount(gsc);
 
     if (queryCount > 0) {
       const avgPos = (
@@ -58,27 +57,39 @@ export function buildSummaryItems(integrations: Integrations): SummaryItem[] {
         value: `${queryCount} queries tracked · avg position ${avgPos}`,
       });
     } else {
+      const totalTracked = gsc.indexedPages.length;
+      const nonIndexedCount = totalTracked - getIndexedPageCount(gsc);
       items.push({
         icon: Search,
         label: "GSC",
-        value: `${indexedCount} indexed pages · ${gsc.totalImpressions ?? 0} impressions`,
+        value:
+          totalTracked > 0
+            ? `${totalTracked} pages tracked · ${nonIndexedCount} not indexed`
+            : "No index data yet",
       });
     }
   }
 
   if (ga4) {
+    const hasData =
+      ga4.topPages.length > 0 || ga4.bounceRate > 0 || ga4.avgEngagement > 0;
     items.push({
       icon: Activity,
       label: "GA4",
-      value: `${ga4.avgEngagement.toFixed(0)}s avg engagement · ${ga4.bounceRate.toFixed(1)}% bounce rate`,
+      value: hasData
+        ? `${ga4.avgEngagement.toFixed(0)}s avg engagement · ${ga4.bounceRate.toFixed(1)}% bounce rate`
+        : "No sessions recorded yet",
     });
   }
 
   if (clarity) {
+    const hasData = clarity.avgUxScore > 0 || clarity.rageClickPages.length > 0;
     items.push({
       icon: MousePointerClick,
       label: "Clarity",
-      value: `${clarity.avgUxScore.toFixed(0)}/100 UX score · ${clarity.rageClickPages.length} rage click pages`,
+      value: hasData
+        ? `${clarity.avgUxScore.toFixed(0)}/100 UX score · ${clarity.rageClickPages.length} rage click pages`
+        : "No sessions recorded yet",
     });
   }
 
