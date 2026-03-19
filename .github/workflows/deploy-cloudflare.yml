@@ -177,6 +177,7 @@ jobs:
 
   record-deployment:
     needs: [deploy-web, deploy-mcp-gateway]
+    continue-on-error: true
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
