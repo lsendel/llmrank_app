@@ -1,5 +1,6 @@
 import {
   Activity,
+  Gauge,
   MousePointerClick,
   Search,
   Share2,
@@ -40,7 +41,7 @@ function getIndexedPageCount(gsc: GscInsights) {
 }
 
 export function buildSummaryItems(integrations: Integrations): SummaryItem[] {
-  const { gsc, ga4, clarity, meta } = integrations;
+  const { gsc, ga4, clarity, meta, psi } = integrations;
   const items: SummaryItem[] = [];
 
   if (gsc) {
@@ -100,6 +101,17 @@ export function buildSummaryItems(integrations: Integrations): SummaryItem[] {
       icon: Share2,
       label: "Meta",
       value: `${totalEngagement.toLocaleString()} social engagements · ${meta.totalShares.toLocaleString()} shares`,
+    });
+  }
+
+  if (psi) {
+    const hasData = psi.avgPerformanceScore > 0;
+    items.push({
+      icon: Gauge,
+      label: "PSI",
+      value: hasData
+        ? `${psi.avgPerformanceScore}/100 performance · ${psi.cwvPassRate}% CWV pass`
+        : "No performance data yet",
     });
   }
 

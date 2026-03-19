@@ -285,8 +285,84 @@ export function aggregateIntegrations(
     };
   }
 
-  // If ALL are null, return null (no usable integration data)
-  if (!gsc && !ga4 && !clarity && !meta) return null;
+  // ---------------------------------------------------------------------------
+  // PSI: Core Web Vitals and lab performance scores
+  // ---------------------------------------------------------------------------
+  const psiEnrichments = enrichments.filter((e) => e.provider === "psi");
+  let psi: ReportIntegrationData["psi"] = null;
+  if (psiEnrichments.length > 0) {
+    let totalPerf = 0;
+    let perfCount = 0;
+    let totalLcp = 0;
+    let lcpCount = 0;
+    let totalCls = 0;
+    let clsCount = 0;
+    let totalFcp = 0;
+    let fcpCount = 0;
+    let cwvPass = 0;
+    const pageScores: {
+      url: string;
+      score: number;
+      lcp: number | null;
+      cls: number | null;
+    }[] = [];
 
-  return { gsc, ga4, clarity, meta };
+    for (const e of psiEnrichments) {
+      const d = e.data as Record<string, unknown>;
+      const score = Number(d.labPerformanceScore ?? 0);
+      if (score > 0) {
+        totalPerf += score;
+        perfCount++;
+      }
+
+      const lcp = d.lcp as Record<string, unknown> | undefined;
+      const cls = d.cls as Record<string, unknown> | undefined;
+      const fcp = d.fcp as Record<string, unknown> | undefined;
+
+      if (lcp?.value != null) {
+        totalLcp += Number(lcp.value);
+        lcpCount++;
+      }
+      if (cls?.value != null) {
+        totalCls += Number(cls.value);
+        clsCount++;
+      }
+      if (fcp?.value != null) {
+        totalFcp += Number(fcp.value);
+        fcpCount++;
+      }
+
+      const crux = String(d.cruxOverall ?? "");
+      if (crux === "FAST" || crux === "AVERAGE") cwvPass++;
+
+      const url = String(d.pageUrl ?? d.url ?? "");
+      if (url && score > 0) {
+        pageScores.push({
+          url,
+          score: Math.round(score * 100),
+          lcp: lcp?.value != null ? Number(lcp.value) : null,
+          cls: cls?.value != null ? Number(cls.value) : null,
+        });
+      }
+    }
+
+    psi = {
+      avgPerformanceScore:
+        perfCount > 0 ? Math.round((totalPerf / perfCount) * 100) : 0,
+      avgLcp: lcpCount > 0 ? Math.round((totalLcp / lcpCount) * 10) / 10 : null,
+      avgCls:
+        clsCount > 0 ? Math.round((totalCls / clsCount) * 1000) / 1000 : null,
+      avgFcp: fcpCount > 0 ? Math.round((totalFcp / fcpCount) * 10) / 10 : null,
+      cwvPassRate:
+        psiEnrichments.length > 0
+          ? Math.round((cwvPass / psiEnrichments.length) * 100)
+          : 0,
+      pageScores: pageScores.sort((a, b) => a.score - b.score).slice(0, 20),
+    };
+  }
+
+  // If ALL are null, return null (no usable integration data)
+  if (!gsc && !ga4 && !clarity && !meta && !psi) return null;
+
+  return { gsc, ga4, clarity, meta, psi };
 }

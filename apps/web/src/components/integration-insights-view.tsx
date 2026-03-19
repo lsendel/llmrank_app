@@ -10,6 +10,7 @@ import {
   GscQueriesSection,
   IntegrationInsightsSummaryBanner,
   MetaSection,
+  PsiSection,
 } from "./integration-insights-view-sections";
 
 interface Props {
@@ -23,7 +24,7 @@ export function IntegrationInsightsView({
 }: Props) {
   if (!insights.integrations) return null;
 
-  const { gsc, ga4, clarity, meta } = insights.integrations;
+  const { gsc, ga4, clarity, meta, psi } = insights.integrations;
   const summaryItems = buildSummaryItems(insights.integrations);
 
   return (
@@ -66,6 +67,16 @@ export function IntegrationInsightsView({
           provider="Microsoft Clarity"
           description="Monitor UX scores and detect rage clicks"
           isConnected={connectedProviders.includes("clarity")}
+        />
+      )}
+
+      {psi ? (
+        <PsiSection psi={psi} />
+      ) : (
+        <ConnectToUnlockCard
+          provider="PageSpeed Insights"
+          description="See Core Web Vitals and lab performance scores"
+          isConnected={connectedProviders.includes("psi")}
         />
       )}
     </div>

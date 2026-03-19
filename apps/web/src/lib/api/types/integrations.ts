@@ -44,5 +44,18 @@ export interface IntegrationInsights {
       adSummary: { spend: number; clicks: number; impressions: number } | null;
       topAdPages: { url: string; clicks: number; spend: number }[] | null;
     } | null;
+    psi: {
+      avgPerformanceScore: number;
+      avgLcp: number | null;
+      avgCls: number | null;
+      avgFcp: number | null;
+      cwvPassRate: number;
+      pageScores: {
+        url: string;
+        score: number;
+        lcp: number | null;
+        cls: number | null;
+      }[];
+    } | null;
   } | null;
 }

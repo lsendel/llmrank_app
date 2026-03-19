@@ -11,6 +11,7 @@ import {
 import {
   AlertCircle,
   DollarSign,
+  Gauge,
   MousePointer2,
   Search,
   Share2,
@@ -47,6 +48,7 @@ type GscInsights = NonNullable<Integrations["gsc"]>;
 type Ga4Insights = NonNullable<Integrations["ga4"]>;
 type MetaInsights = NonNullable<Integrations["meta"]>;
 type ClarityInsights = NonNullable<Integrations["clarity"]>;
+type PsiInsights = NonNullable<Integrations["psi"]>;
 
 export function ConnectToUnlockCard({
   provider,
@@ -602,6 +604,106 @@ export function ClaritySection({ clarity }: { clarity: ClarityInsights }) {
             </div>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function PsiSection({ psi }: { psi: PsiInsights }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Gauge className="h-4 w-4 text-primary" />
+          PageSpeed Insights — Core Web Vitals
+        </CardTitle>
+        <CardDescription>
+          Lab performance scores and field data from CrUX
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="text-sm font-medium">Avg Performance Score</p>
+              <p className="mt-1 text-3xl font-bold">
+                {psi.avgPerformanceScore}
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
+                  / 100
+                </span>
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm font-medium">CWV Pass Rate</p>
+              <p className="mt-1 text-3xl font-bold">
+                {psi.cwvPassRate}
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
+                  %
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {psi.avgLcp != null && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <span className="text-sm font-medium">LCP</span>
+                <span className="text-sm">
+                  {(psi.avgLcp / 1000).toFixed(1)}s
+                </span>
+              </div>
+            )}
+            {psi.avgCls != null && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <span className="text-sm font-medium">CLS</span>
+                <span className="text-sm">{psi.avgCls.toFixed(3)}</span>
+              </div>
+            )}
+            {psi.avgFcp != null && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <span className="text-sm font-medium">FCP</span>
+                <span className="text-sm">
+                  {(psi.avgFcp / 1000).toFixed(1)}s
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        {psi.pageScores.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-medium">Lowest Performing Pages</p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Page</TableHead>
+                  <TableHead className="text-right">Score</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {psi.pageScores.slice(0, 10).map((page) => (
+                  <TableRow key={page.url}>
+                    <TableCell className="max-w-[300px] truncate text-xs">
+                      {stripUrlOrigin(page.url)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge
+                        variant={
+                          page.score >= 90
+                            ? "success"
+                            : page.score >= 50
+                              ? "outline"
+                              : "destructive"
+                        }
+                        className="h-5 px-1.5 text-[10px]"
+                      >
+                        {page.score}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
