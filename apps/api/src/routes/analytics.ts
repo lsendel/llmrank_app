@@ -242,6 +242,73 @@ analyticsRoutes.get(
   },
 );
 
+// ─── GET /analytics/:projectId/verify-snippet — Snippet verification ─────────
+
+analyticsRoutes.get(
+  "/analytics/:projectId/verify-snippet",
+  authMiddleware,
+  async (c) => {
+    const db = c.get("db");
+    const userId = c.get("userId");
+    const projectId = c.req.param("projectId");
+
+    const project = await projectQueries(db).getById(projectId);
+    if (!project || project.userId !== userId) {
+      return c.json(
+        { error: { code: "NOT_FOUND", message: "Project not found" } },
+        404,
+      );
+    }
+
+    const domain = project.domain;
+    const siteUrl = domain.startsWith("http") ? domain : `https://${domain}`;
+
+    try {
+      const res = await fetch(siteUrl, {
+        headers: { "User-Agent": "LLMRank-Snippet-Verifier/1.0" },
+        redirect: "follow",
+      });
+
+      if (!res.ok) {
+        return c.json({
+          data: {
+            installed: false,
+            hasSnippet: false,
+            hasProjectId: false,
+            reason: `Site returned HTTP ${res.status}`,
+          },
+        });
+      }
+
+      const html = await res.text();
+      const hasSnippet = html.includes("api.llmrank.app/s/analytics.js");
+      const hasProjectId = html.includes(projectId);
+
+      return c.json({
+        data: {
+          installed: hasSnippet && hasProjectId,
+          hasSnippet,
+          hasProjectId,
+          reason: !hasSnippet
+            ? "Snippet script tag not found in page HTML"
+            : !hasProjectId
+              ? "Snippet found but project ID doesn't match"
+              : "Snippet correctly installed",
+        },
+      });
+    } catch (err) {
+      return c.json({
+        data: {
+          installed: false,
+          hasSnippet: false,
+          hasProjectId: false,
+          reason: `Could not fetch site: ${err instanceof Error ? err.message : "unknown error"}`,
+        },
+      });
+    }
+  },
+);
+
 // ─── GET /analytics/internal/summary — Admin endpoint ───────────────────────
 
 analyticsRoutes.get(
