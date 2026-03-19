@@ -4,6 +4,8 @@ import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import { generateCrawlSummary, type SummaryInput } from "./summary";
 import { createLogger } from "@llm-boost/shared";
 
+const MAX_ATTEMPTS = 5;
+
 const _PROCESSABLE_TYPES = [
   "integration_enrichment",
   "llm_scoring",
@@ -50,9 +52,10 @@ export async function processOutboxEvents(
         eq(outboxEvents.status, "pending"),
         lte(outboxEvents.availableAt, new Date()),
         sql`${outboxEvents.type} IN ('integration_enrichment', 'llm_scoring', 'crawl_summary')`,
+        sql`${outboxEvents.attempts} <= ${MAX_ATTEMPTS}`,
       ) as any,
     )
-    .limit(10);
+    .limit(50);
 
   if (events.length === 0) {
     return { processed: 0, failed: 0 };
@@ -98,6 +101,30 @@ export async function processOutboxEvents(
         } as any)
         .where(eq(outboxEvents.id, event.id) as any);
     }
+  }
+
+  // Mark events that exceeded max attempts as permanently failed
+  const staleEvents = await db
+    .select({ id: outboxEvents.id })
+    .from(outboxEvents)
+    .where(
+      and(
+        eq(outboxEvents.status, "pending"),
+        sql`${outboxEvents.attempts} > ${MAX_ATTEMPTS}`,
+      ) as any,
+    )
+    .limit(50);
+
+  if (staleEvents.length > 0) {
+    for (const event of staleEvents) {
+      await db
+        .update(outboxEvents)
+        .set({ status: "failed" as any, processedAt: new Date() })
+        .where(eq(outboxEvents.id, event.id) as any);
+    }
+    log.warn(
+      `Marked ${staleEvents.length} outbox events as permanently failed (exceeded ${MAX_ATTEMPTS} attempts)`,
+    );
   }
 
   log.info(`Outbox processing complete`, { processed, failed });

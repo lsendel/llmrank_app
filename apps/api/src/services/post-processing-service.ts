@@ -97,26 +97,52 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         });
       }
 
+      if (batch.is_final) {
+        const hasIntegrationKeys = !!(
+          env.integrationKey &&
+          env.googleClientId &&
+          env.googleClientSecret
+        );
+        if (!hasIntegrationKeys) {
+          console.warn(
+            `[post-processing] Skipping enrichment dispatch for job ${batch.job_id}: ` +
+              `missing env vars (integrationKey=${!!env.integrationKey}, ` +
+              `googleClientId=${!!env.googleClientId}, ` +
+              `googleClientSecret=${!!env.googleClientSecret})`,
+          );
+        }
+      }
+
       if (
         batch.is_final &&
         env.integrationKey &&
         env.googleClientId &&
         env.googleClientSecret
       ) {
-        await dispatchOrRun(deps.outbox, args.executionCtx, {
-          type: "integration_enrichment",
-          payload: {
-            databaseUrl: env.databaseUrl,
-            encryptionKey: env.integrationKey,
-            googleClientId: env.googleClientId,
-            googleClientSecret: env.googleClientSecret,
-            metaAppId: env.metaAppId ?? "",
-            metaAppSecret: env.metaAppSecret ?? "",
-            projectId,
-            jobId: batch.job_id,
-            insertedPages,
-          },
-        });
+        try {
+          await dispatchOrRun(deps.outbox, args.executionCtx, {
+            type: "integration_enrichment",
+            payload: {
+              databaseUrl: env.databaseUrl,
+              encryptionKey: env.integrationKey,
+              googleClientId: env.googleClientId,
+              googleClientSecret: env.googleClientSecret,
+              metaAppId: env.metaAppId ?? "",
+              metaAppSecret: env.metaAppSecret ?? "",
+              projectId,
+              jobId: batch.job_id,
+              insertedPages,
+            },
+          });
+          console.info(
+            `[post-processing] Enrichment event dispatched for job ${batch.job_id}, project ${projectId}`,
+          );
+        } catch (err) {
+          console.error(
+            `[post-processing] Failed to dispatch enrichment for job ${batch.job_id}:`,
+            err,
+          );
+        }
       }
 
       if (batch.is_final) {
