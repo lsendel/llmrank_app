@@ -84,7 +84,7 @@ describe("integration insights view sections", () => {
     expect(screen.getByText("/pricing")).toBeInTheDocument();
     expect(screen.getByText("Submitted and indexed")).toBeInTheDocument();
     expect(screen.getByText(/No rage clicks detected/i)).toBeInTheDocument();
-    expect(screen.getByText(/Lead Capture Tip/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Lead Capture Tip/i)).not.toBeInTheDocument();
   });
 
   it("shows only 10 rows by default when indexedPages has more than 10 entries", () => {

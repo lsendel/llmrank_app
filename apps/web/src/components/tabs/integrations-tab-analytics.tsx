@@ -154,8 +154,7 @@ export function IntegrationAnalyticsSection({
                 </p>
               ) : integrationDeltaMetrics.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No overlapping provider data between the latest two crawls
-                  yet.
+                  Not enough data for trend comparison yet.
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -220,7 +219,9 @@ export function IntegrationAnalyticsSection({
                 >
                   {autoPlanningSignals
                     ? "Planning tasks..."
-                    : `Create up to ${Math.min(signalTaskPlan.items.length, MAX_SIGNAL_TASKS)} tasks`}
+                    : signalTaskPlan.items.length === 1
+                      ? "Create 1 task"
+                      : `Create up to ${Math.min(signalTaskPlan.items.length, MAX_SIGNAL_TASKS)} tasks`}
                 </Button>
               </div>
               {signalTaskPlan.reasons.length > 0 && (

@@ -370,7 +370,12 @@ export function buildIntegrationDeltaMetrics(
     });
   }
 
-  return metrics;
+  // Filter out metrics where both current and previous are zero (no meaningful data)
+  return metrics.filter((m) => {
+    const current = parseFloat(m.currentValue.replace(/[^0-9.-]/g, ""));
+    const delta = parseFloat(m.deltaValue.replace(/[^0-9.-]/g, ""));
+    return current !== 0 || delta !== 0;
+  });
 }
 
 export function buildSignalTaskPlan({

@@ -560,7 +560,9 @@ export function ClaritySection({ clarity }: { clarity: ClarityInsights }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div
+          className={`grid gap-6 ${clarity.rageClickPages.length > 0 ? "md:grid-cols-2" : ""}`}
+        >
           <div className="space-y-4">
             <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-sm font-medium">Average UX Score</p>
@@ -588,15 +590,17 @@ export function ClaritySection({ clarity }: { clarity: ClarityInsights }) {
               </ul>
             </div>
           </div>
-          <div className="flex flex-col items-center justify-center rounded-lg border bg-primary/5 p-6 text-center">
-            <AlertCircle className="mb-4 h-12 w-12 text-primary opacity-20" />
-            <h4 className="mb-2 text-lg font-semibold">Lead Capture Tip</h4>
-            <p className="max-w-[280px] text-sm text-muted-foreground">
-              Users are rage-clicking on {clarity.rageClickPages.length} pages.
-              Fix these to improve your AI visibility score by making your
-              content more accessible.
-            </p>
-          </div>
+          {clarity.rageClickPages.length > 0 && (
+            <div className="flex flex-col items-center justify-center rounded-lg border bg-primary/5 p-6 text-center">
+              <AlertCircle className="mb-4 h-12 w-12 text-primary opacity-20" />
+              <h4 className="mb-2 text-lg font-semibold">Lead Capture Tip</h4>
+              <p className="max-w-[280px] text-sm text-muted-foreground">
+                Users are rage-clicking on {clarity.rageClickPages.length}{" "}
+                pages. Fix these to improve your AI visibility score by making
+                your content more accessible.
+              </p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
