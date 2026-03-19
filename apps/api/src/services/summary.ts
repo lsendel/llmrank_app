@@ -101,7 +101,7 @@ async function persistSummaryWithDb(
 
   const [project, pageScores, issues, crawlJob] = await Promise.all([
     projectQuery.getById(input.projectId),
-    scoreQuery.listByJob(input.jobId),
+    scoreQuery.listAllByJob(input.jobId),
     scoreQuery.getIssuesByJob(input.jobId),
     crawlQuery.getById(input.jobId),
   ]);
@@ -123,7 +123,7 @@ async function persistSummaryWithDb(
     pagesScored: pageScores.length,
     generatedAt: new Date().toISOString(),
     issueCount: issues.length,
-    siteContext: (crawlJob as any)?.siteContext,
+    siteContext: (crawlJob as Record<string, unknown> | undefined)?.siteContext,
   };
 
   await crawlQuery.updateSummaryData(input.jobId, summaryData);

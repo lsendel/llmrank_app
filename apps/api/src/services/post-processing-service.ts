@@ -153,6 +153,11 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             jobId: crawlJobId,
             resendApiKey: env.resendApiKey,
             appBaseUrl: env.appBaseUrl,
+          }).catch((err) => {
+            console.error(
+              `[post-processing] persistCrawlSummaryData failed for job ${crawlJobId}:`,
+              err,
+            );
           }),
         );
       }

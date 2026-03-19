@@ -22,6 +22,7 @@ vi.mock("@llm-boost/db", () => ({
   })),
   scoreQueries: vi.fn(() => ({
     listByJob: mockScoreListByJob,
+    listAllByJob: mockScoreListByJob,
     getIssuesByJob: mockScoreGetIssuesByJob,
   })),
   crawlQueries: vi.fn(() => ({

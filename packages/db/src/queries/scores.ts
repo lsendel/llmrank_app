@@ -81,6 +81,13 @@ export function scoreQueries(db: Database) {
       });
     },
 
+    /** Fetch ALL scores for a job without pagination (for aggregation). */
+    async listAllByJob(jobId: string) {
+      return db.query.pageScores.findMany({
+        where: eq(pageScores.jobId, jobId),
+      });
+    },
+
     async listByJobs(
       jobIds: string[],
       options?: { cursor?: string; limit?: number },

@@ -17,6 +17,7 @@ import {
 } from "@llm-boost/db";
 import { normalizeDomain } from "@llm-boost/shared";
 import { adminPromptRoutes } from "./admin-prompts";
+import { persistCrawlSummaryData } from "../services/summary";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -51,7 +52,9 @@ adminRoutes.get("/metrics", async (c) => {
       try {
         crawlerHealth = JSON.parse(crawlerHealthRaw);
       } catch {
-        c.var.logger.error("[admin] Failed to parse crawler health data from KV");
+        c.var.logger.error(
+          "[admin] Failed to parse crawler health data from KV",
+        );
       }
     }
 
@@ -597,4 +600,49 @@ adminRoutes.put("/settings/:key", async (c) => {
   const queries = adminQueries(db);
   const row = await queries.setSetting(key, body.value, user);
   return c.json({ data: row });
+});
+
+// ─── POST /backfill-summaries — Recompute summary_data for completed crawls ──
+
+adminRoutes.post("/backfill-summaries", async (c) => {
+  const db = c.get("db");
+  const databaseUrl = c.env.DATABASE_URL;
+
+  try {
+    // Get all completed crawls that have NULL summary_data
+    const allJobs = await db.query.crawlJobs.findMany({
+      where: (fields, { eq: eq_ }) => eq_(fields.status, "complete"),
+    });
+
+    const nullJobs = allJobs.filter((j) => j.summaryData == null);
+    const results: { jobId: string; success: boolean; error?: string }[] = [];
+
+    for (const job of nullJobs) {
+      try {
+        await persistCrawlSummaryData({
+          databaseUrl,
+          projectId: job.projectId,
+          jobId: job.id,
+        });
+        results.push({ jobId: job.id, success: true });
+      } catch (err) {
+        results.push({
+          jobId: job.id,
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    return c.json({
+      data: {
+        total: allJobs.length,
+        backfilled: results.filter((r) => r.success).length,
+        failed: results.filter((r) => !r.success).length,
+        details: results,
+      },
+    });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
 });
