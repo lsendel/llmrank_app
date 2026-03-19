@@ -85,6 +85,14 @@ connectRoutes.get("/indices", async (c) => {
     );
   }
 
+  // Helper to redirect errors back to the calling app
+  const redirectError = (code: string, message: string) => {
+    const errorUrl = new URL(callbackUrl);
+    errorUrl.searchParams.set("error", code);
+    errorUrl.searchParams.set("error_message", message);
+    return c.redirect(errorUrl.toString());
+  };
+
   // 2. Check user session
   const auth = createAuth(c.env);
   const session = await auth.api
@@ -92,23 +100,17 @@ connectRoutes.get("/indices", async (c) => {
     .catch(() => null);
 
   if (!session?.user) {
-    return c.json(
-      {
-        code: "UNAUTHENTICATED",
-        message: "Not logged in. Please sign in to LLMRank first.",
-      },
-      401,
+    return redirectError(
+      "unauthenticated",
+      "Not logged in to LLMRank. Please sign in to LLMRank first, then try connecting again.",
     );
   }
 
   // 3. Verify email matches
   if (session.user.email.toLowerCase() !== email.toLowerCase()) {
-    return c.json(
-      {
-        code: "EMAIL_MISMATCH",
-        message: `Logged into LLMRank as ${session.user.email} but indices.app requested ${email}. Please log in with the same account.`,
-      },
-      403,
+    return redirectError(
+      "email_mismatch",
+      `Logged into LLMRank as ${session.user.email} but this site requested ${email}. Please log in to LLMRank with the same email.`,
     );
   }
 
@@ -118,12 +120,9 @@ connectRoutes.get("/indices", async (c) => {
   const projects = await pq.listByUser(session.user.id);
 
   if (projects.length === 0) {
-    return c.json(
-      {
-        code: "NO_PROJECT",
-        message: "No projects found. Create a project on LLMRank first.",
-      },
-      404,
+    return redirectError(
+      "no_project",
+      "No projects found on LLMRank. Create a project on LLMRank first, then try connecting again.",
     );
   }
 
