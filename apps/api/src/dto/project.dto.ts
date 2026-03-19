@@ -13,6 +13,7 @@ export function toProjectResponse(entity: Record<string, any>) {
     siteDescription: entity.siteDescription ?? null,
     industry: entity.industry ?? null,
     pipelineSettings: entity.pipelineSettings ?? {},
+    analyticsSnippetEnabled: entity.analyticsSnippetEnabled ?? false,
     plan: entity.plan ?? null,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt ?? null,
