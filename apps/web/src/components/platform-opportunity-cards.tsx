@@ -101,12 +101,24 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {(
               [
-                { key: "scoring", label: "Scoring Quality" },
-                { key: "llmQuality", label: "LLM Quality" },
-                { key: "engagement", label: "Engagement" },
-                { key: "uxQuality", label: "UX Quality" },
+                { key: "scoring", label: "Scoring Quality", nullLabel: "--" },
+                {
+                  key: "llmQuality",
+                  label: "LLM Quality",
+                  nullLabel: "Needs LLM scoring",
+                },
+                {
+                  key: "engagement",
+                  label: "Engagement",
+                  nullLabel: "No traffic data",
+                },
+                {
+                  key: "uxQuality",
+                  label: "UX Quality",
+                  nullLabel: "No session data",
+                },
               ] as const
-            ).map(({ key, label }) => {
+            ).map(({ key, label, nullLabel }) => {
               const value = contentHealthMatrix[key];
               return (
                 <div
@@ -124,7 +136,7 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">--</p>
+                    <p className="text-xs text-muted-foreground">{nullLabel}</p>
                   )}
                 </div>
               );
