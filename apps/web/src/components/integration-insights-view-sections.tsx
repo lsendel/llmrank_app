@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -24,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -207,7 +209,77 @@ export function GscQueriesSection({ gsc }: { gsc: GscInsights }) {
   );
 }
 
+const PAGE_LIMIT = 10;
+
+type FilterCategory = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+function buildFilterCategories(
+  pages: GscInsights["indexedPages"],
+): FilterCategory[] {
+  const total = pages.length;
+  const notIndexed = pages.filter((p) =>
+    p.status.toLowerCase().includes("not indexed"),
+  ).length;
+  const unknown = pages.filter((p) =>
+    p.status.toLowerCase().includes("unknown"),
+  ).length;
+  const indexed = pages.filter(
+    (p) =>
+      p.status === "Submitted and indexed" ||
+      p.status === "Indexed, not submitted in sitemap",
+  ).length;
+
+  const cats: FilterCategory[] = [{ key: "all", label: "All", count: total }];
+  if (notIndexed > 0)
+    cats.push({ key: "not-indexed", label: "Not indexed", count: notIndexed });
+  if (unknown > 0)
+    cats.push({ key: "unknown", label: "Unknown to Google", count: unknown });
+  if (indexed > 0)
+    cats.push({ key: "indexed", label: "Indexed", count: indexed });
+  return cats;
+}
+
+function filterPages(
+  pages: GscInsights["indexedPages"],
+  filterKey: string,
+): GscInsights["indexedPages"] {
+  if (filterKey === "all") return pages;
+  if (filterKey === "not-indexed")
+    return pages.filter((p) => p.status.toLowerCase().includes("not indexed"));
+  if (filterKey === "unknown")
+    return pages.filter((p) => p.status.toLowerCase().includes("unknown"));
+  if (filterKey === "indexed")
+    return pages.filter(
+      (p) =>
+        p.status === "Submitted and indexed" ||
+        p.status === "Indexed, not submitted in sitemap",
+    );
+  return pages;
+}
+
 export function GscIndexStatusSection({ gsc }: { gsc: GscInsights }) {
+  const [showAll, setShowAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filterCategories = useMemo(
+    () => buildFilterCategories(gsc.indexedPages),
+    [gsc.indexedPages],
+  );
+
+  const filteredPages = useMemo(
+    () => filterPages(gsc.indexedPages, statusFilter),
+    [gsc.indexedPages, statusFilter],
+  );
+
+  const visiblePages = showAll
+    ? filteredPages
+    : filteredPages.slice(0, PAGE_LIMIT);
+  const hasMore = filteredPages.length > PAGE_LIMIT;
+
   return (
     <Card>
       <CardHeader>
@@ -223,33 +295,68 @@ export function GscIndexStatusSection({ gsc }: { gsc: GscInsights }) {
       </CardHeader>
       <CardContent>
         {gsc.indexedPages.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Page</TableHead>
-                <TableHead className="text-right">Index Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {gsc.indexedPages.map((page) => (
-                <TableRow key={page.url}>
-                  <TableCell className="max-w-[300px] truncate text-xs font-medium">
-                    {stripUrlOrigin(page.url)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge
-                      variant={
-                        isIndexedStatus(page.status) ? "success" : "outline"
-                      }
-                      className="h-5 px-1.5 text-[10px]"
-                    >
-                      {page.status}
-                    </Badge>
-                  </TableCell>
+          <>
+            {filterCategories.length > 1 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {filterCategories.map((cat) => (
+                  <Button
+                    key={cat.key}
+                    variant={statusFilter === cat.key ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setStatusFilter(cat.key);
+                      setShowAll(false);
+                    }}
+                  >
+                    {cat.label}
+                    <span className="ml-1 opacity-70">({cat.count})</span>
+                  </Button>
+                ))}
+              </div>
+            )}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Page</TableHead>
+                  <TableHead className="text-right">Index Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {visiblePages.map((page) => (
+                  <TableRow key={page.url}>
+                    <TableCell className="max-w-[300px] truncate text-xs font-medium">
+                      {stripUrlOrigin(page.url)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge
+                        variant={
+                          isIndexedStatus(page.status) ? "success" : "outline"
+                        }
+                        className="h-5 px-1.5 text-[10px]"
+                      >
+                        {page.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {hasMore && (
+              <div className="mt-3 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setShowAll((prev) => !prev)}
+                >
+                  {showAll
+                    ? "Show less"
+                    : `Show all ${filteredPages.length} pages`}
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-sm text-muted-foreground">
             No search queries found yet. This site may be new to Google Search.
