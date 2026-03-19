@@ -38,6 +38,32 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
   const [summary, setSummary] = useState<AiTrafficSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(
+    null,
+  );
+
+  async function handleTestSnippet() {
+    setTesting(true);
+    try {
+      const res = await fetch("https://api.llmrank.app/analytics/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pid: projectId,
+          url: `https://test.llmrank.app/snippet-verify-${Date.now()}`,
+          ref: "",
+          ua: navigator.userAgent,
+        }),
+      });
+      setTestResult(res.status === 204 ? "success" : "error");
+    } catch {
+      setTestResult("error");
+    } finally {
+      setTesting(false);
+      setTimeout(() => setTestResult(null), 5000);
+    }
+  }
 
   useEffect(() => {
     // Use whatever API fetching pattern the codebase uses
@@ -189,6 +215,35 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
       )}
 
       {/* Snippet CTA */}
+      {snippetEnabled && summary.totalPageviews === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-6 text-center">
+            <Code className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              Snippet installed — waiting for traffic
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Data appears within minutes of the first visit. AI traffic from
+              ChatGPT, Claude, and Perplexity will be classified automatically.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={handleTestSnippet}
+              disabled={testing}
+            >
+              {testing
+                ? "Sending test..."
+                : testResult === "success"
+                  ? "✓ Snippet working"
+                  : testResult === "error"
+                    ? "✗ Failed"
+                    : "Verify Snippet"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {!snippetEnabled && summary.totalPageviews === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-6 text-center">

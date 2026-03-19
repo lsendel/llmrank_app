@@ -202,8 +202,8 @@ export function IntegrationCardsSection({
                     </p>
                   )}
                   {integration.lastError && (
-                    <p className="text-xs text-destructive">
-                      {integration.lastError}
+                    <p className="text-xs text-destructive mt-1">
+                      Last sync error: {integration.lastError}
                     </p>
                   )}
 
