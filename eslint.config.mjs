@@ -92,6 +92,8 @@ export default tseslint.config(
       "apps/report-service/**/*.{ts,tsx,js,jsx}",
       "packages/billing/**/*.{ts,tsx,js,jsx}",
       "packages/db/**/*.{ts,tsx,js,jsx}",
+      "packages/pipeline/**/*.{ts,tsx,js,jsx}",
+      "packages/repositories/**/*.{ts,tsx,js,jsx}",
       "packages/reports/**/*.{ts,tsx,js,jsx}",
     ],
     rules: {

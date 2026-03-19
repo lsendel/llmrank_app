@@ -6,6 +6,10 @@ on:
     paths:
       - "apps/crawler/**"
       - "apps/report-service/**"
+      - "packages/pipeline/**"
+      - "packages/parsers/**"
+      - "packages/repositories/**"
+      - "packages/scoring/**"
       - "infra/docker/Dockerfile.crawler"
 
 jobs:
