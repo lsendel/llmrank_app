@@ -14,13 +14,11 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
-  Check,
   Info,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
 import {
-  INTEGRATIONS,
   MAX_SIGNAL_TASKS,
   type IntegrationDeltaMetric,
   type SignalTaskPlan,
@@ -231,73 +229,6 @@ export function IntegrationAnalyticsSection({
                   ))}
                 </ul>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {hasConnectedIntegrations && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              How integrations enhance your reports
-            </CardTitle>
-            <CardDescription>
-              Connected integrations add real-world signals to your AI-readiness
-              scores
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {INTEGRATIONS.map((meta) => {
-                const integration = integrations?.find(
-                  (item) => item.provider === meta.provider,
-                );
-                const isActive =
-                  integration?.hasCredentials && integration?.enabled;
-                const Icon = meta.icon;
-
-                return (
-                  <div
-                    key={meta.provider}
-                    className={`flex items-start gap-3 rounded-lg border p-3 ${
-                      isActive ? "bg-primary/5 border-primary/20" : "opacity-50"
-                    }`}
-                  >
-                    <div
-                      className={`mt-0.5 rounded-md p-1.5 ${
-                        isActive
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{meta.label}</p>
-                        {isActive ? (
-                          <Check className="h-3.5 w-3.5 text-green-500" />
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground">
-                            Not active
-                          </span>
-                        )}
-                      </div>
-                      <ul className="space-y-0.5">
-                        {meta.reportEnhancements.slice(0, 2).map((item) => (
-                          <li
-                            key={item}
-                            className="text-xs text-muted-foreground"
-                          >
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </CardContent>
         </Card>
