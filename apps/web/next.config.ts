@@ -2,9 +2,6 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   transpilePackages: ["@llm-boost/shared", "@react-pdf/renderer"],
   images: {
     formats: ["image/avif", "image/webp"],
