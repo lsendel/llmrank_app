@@ -9,21 +9,33 @@ import { api, type AIAuditResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Shield, AlertTriangle } from "lucide-react";
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<
+  string,
+  {
+    label: string;
+    variant: "success" | "warning" | "destructive" | "secondary";
+    barColor: string;
+  }
+> = {
   pass: {
     label: "Pass",
-    variant: "success" as const,
+    variant: "success",
     barColor: "bg-green-500",
   },
   warn: {
     label: "Warning",
-    variant: "warning" as const,
+    variant: "warning",
     barColor: "bg-amber-500",
   },
   fail: {
     label: "Fail",
-    variant: "destructive" as const,
+    variant: "destructive",
     barColor: "bg-red-500",
+  },
+  unknown: {
+    label: "N/A",
+    variant: "secondary",
+    barColor: "bg-muted",
   },
 };
 
@@ -79,7 +91,7 @@ export function AIAuditCard({ crawlId }: { crawlId: string }) {
         )}
 
         {audit.checks.map((check) => {
-          const config = STATUS_CONFIG[check.status];
+          const config = STATUS_CONFIG[check.status] ?? STATUS_CONFIG.unknown;
           return (
             <div key={check.name} className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
