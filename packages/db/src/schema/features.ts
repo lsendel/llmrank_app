@@ -506,3 +506,28 @@ export const aiPrompts = pgTable(
   },
   (t) => [index("idx_prompts_project").on(t.projectId)],
 );
+
+export const llmBatchJobs = pgTable(
+  "llm_batch_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    batchId: text("batch_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => crawlJobs.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("submitted"),
+    totalRequests: integer("total_requests").notNull().default(0),
+    completedRequests: integer("completed_requests").notNull().default(0),
+    failedRequests: integer("failed_requests").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    completedAt: timestamp("completed_at"),
+    error: text("error"),
+  },
+  (t) => [
+    index("idx_llm_batch_jobs_status").on(t.status),
+    index("idx_llm_batch_jobs_job_id").on(t.jobId),
+  ],
+);
