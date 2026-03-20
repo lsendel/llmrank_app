@@ -85,11 +85,43 @@ export function buildOtherCategoryRows(
   })) satisfies OtherCategoryRow[];
 }
 
+/** Handle both camelCase and snake_case siteContext from DB JSONB. */
+function normalizeSiteContext(
+  raw: SiteContext | undefined,
+): SiteContext | undefined {
+  if (!raw) return raw;
+  // Already camelCase
+  if ("hasLlmsTxt" in raw) return raw;
+  // snake_case from crawler — coerce
+  const r = raw as unknown as Record<string, unknown>;
+  return {
+    hasLlmsTxt: (r.has_llms_txt as boolean) ?? false,
+    hasSitemap: (r.has_sitemap as boolean) ?? false,
+    aiCrawlersBlocked: (r.ai_crawlers_blocked as string[]) ?? [],
+    contentHashes: (r.content_hashes as Record<string, string>) ?? {},
+    sitemapAnalysis: r.sitemap_analysis
+      ? {
+          isValid: (r.sitemap_analysis as Record<string, unknown>)
+            .is_valid as boolean,
+          urlCount: (r.sitemap_analysis as Record<string, unknown>)
+            .url_count as number,
+          staleUrlCount: (r.sitemap_analysis as Record<string, unknown>)
+            .stale_url_count as number,
+          discoveredPageCount: (r.sitemap_analysis as Record<string, unknown>)
+            .discovered_page_count as number,
+        }
+      : undefined,
+  };
+}
+
 export function buildAiReadinessFactors(
   issues: PageIssue[],
-  siteContext?: SiteContext,
+  rawSiteContext?: SiteContext,
 ) {
   const issueCodes = new Set(issues.map((issue) => issue.code));
+  const siteContext = normalizeSiteContext(rawSiteContext);
+
+  const blocked = siteContext?.aiCrawlersBlocked ?? [];
 
   return [
     {
@@ -103,12 +135,10 @@ export function buildAiReadinessFactors(
       code: "AI_CRAWLER_BLOCKED",
       label: "AI crawlers allowed",
       pass: siteContext
-        ? siteContext.aiCrawlersBlocked.length === 0
+        ? blocked.length === 0
         : !issueCodes.has("AI_CRAWLER_BLOCKED"),
       details:
-        siteContext && siteContext.aiCrawlersBlocked.length > 0
-          ? `Blocked: ${siteContext.aiCrawlersBlocked.join(", ")}`
-          : undefined,
+        blocked.length > 0 ? `Blocked: ${blocked.join(", ")}` : undefined,
     },
     {
       code: "NO_SITEMAP",

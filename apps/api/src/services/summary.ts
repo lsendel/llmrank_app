@@ -91,6 +91,29 @@ export async function generateCrawlSummary(input: SummaryInput): Promise<void> {
   await crawlQueries(db).updateSummary(input.jobId, summary);
 }
 
+/** Normalize crawler's snake_case siteContext keys to camelCase for the frontend. */
+function normalizeSiteContext(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as Record<string, unknown>;
+  // Already camelCase — return as-is
+  if ("hasLlmsTxt" in r) return raw;
+  const sa = r.sitemap_analysis as Record<string, unknown> | undefined;
+  return {
+    hasLlmsTxt: r.has_llms_txt ?? false,
+    hasSitemap: r.has_sitemap ?? false,
+    aiCrawlersBlocked: r.ai_crawlers_blocked ?? [],
+    contentHashes: r.content_hashes ?? {},
+    ...(sa && {
+      sitemapAnalysis: {
+        isValid: sa.is_valid,
+        urlCount: sa.url_count,
+        staleUrlCount: sa.stale_url_count,
+        discoveredPageCount: sa.discovered_page_count,
+      },
+    }),
+  };
+}
+
 async function persistSummaryWithDb(
   db: Database,
   input: SummaryDataInput,
@@ -123,7 +146,9 @@ async function persistSummaryWithDb(
     pagesScored: pageScores.length,
     generatedAt: new Date().toISOString(),
     issueCount: issues.length,
-    siteContext: (crawlJob as Record<string, unknown> | undefined)?.siteContext,
+    siteContext: normalizeSiteContext(
+      (crawlJob as Record<string, unknown> | undefined)?.siteContext,
+    ),
   };
 
   await crawlQuery.updateSummaryData(input.jobId, summaryData);
