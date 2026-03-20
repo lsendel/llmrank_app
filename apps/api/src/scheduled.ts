@@ -121,6 +121,22 @@ async function runScheduledTasks(env: Bindings) {
       error: err instanceof Error ? err.message : String(err),
     });
   }
+
+  // 5. Poll pending LLM batch jobs
+  try {
+    const { pollPendingBatches } =
+      await import("./services/batch-polling-service");
+    await pollPendingBatches({
+      DATABASE_URL: env.DATABASE_URL,
+      ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      KV: env.KV,
+      R2: env.R2,
+    });
+  } catch (err) {
+    log.error("Batch polling failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
