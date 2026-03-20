@@ -70,4 +70,95 @@ export class LLMScorer {
 
     return scores;
   }
+
+  /**
+   * Builds batch request objects for the Anthropic Message Batches API.
+   * Checks KV cache first; cached pages are returned separately and excluded
+   * from the requests array. Pages with fewer than MIN_WORD_COUNT words are
+   * also skipped (not added to requests).
+   */
+  async buildBatchRequests(
+    pages: { pageId: string; text: string; contentHash: string }[],
+  ): Promise<{
+    cached: { pageId: string; scores: LLMContentScores }[];
+    requests: {
+      custom_id: string;
+      params: {
+        model: string;
+        max_tokens: number;
+        system: string;
+        messages: { role: "user"; content: string }[];
+      };
+    }[];
+  }> {
+    const cached: { pageId: string; scores: LLMContentScores }[] = [];
+    const requests: {
+      custom_id: string;
+      params: {
+        model: string;
+        max_tokens: number;
+        system: string;
+        messages: { role: "user"; content: string }[];
+      };
+    }[] = [];
+
+    for (const page of pages) {
+      // Check KV cache first
+      if (this.kv) {
+        const cachedScore = await getCachedScore(this.kv, page.contentHash);
+        if (cachedScore) {
+          cached.push({ pageId: page.pageId, scores: cachedScore });
+          continue;
+        }
+      }
+
+      // Skip thin content
+      const wordCount = page.text.split(/\s+/).filter(Boolean).length;
+      if (wordCount < MIN_WORD_COUNT) continue;
+
+      const prompt = buildContentScoringPrompt(page.text);
+      requests.push({
+        custom_id: page.pageId,
+        params: {
+          model: this.model,
+          max_tokens: 1024,
+          system: prompt.system,
+          messages: [{ role: "user", content: prompt.user }],
+        },
+      });
+    }
+
+    return { cached, requests };
+  }
+
+  /**
+   * Parses a single batch result message into LLMContentScores.
+   * Returns null if no text block is found or parsing fails.
+   */
+  processBatchResult(resultMessage: {
+    content: { type: string; text?: string }[];
+  }): LLMContentScores | null {
+    const textBlock = resultMessage.content.find(
+      (block) => block.type === "text",
+    );
+    if (!textBlock || !textBlock.text) return null;
+
+    let text = textBlock.text;
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+    if (fenceMatch) text = fenceMatch[1].trim();
+
+    try {
+      return JSON.parse(text) as LLMContentScores;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Exposes the Anthropic client for batch submission code.
+   */
+  get anthropicClient(): Anthropic {
+    return this.client;
+  }
 }
