@@ -54,49 +54,73 @@ async function resetMonthlyCredits(env: Bindings) {
 
 async function runScheduledTasks(env: Bindings) {
   const db = createDb(env.DATABASE_URL);
+  const log = createLogger({ context: "scheduled-tasks" });
 
-  // 1. Process email notifications
-  const notifications = createNotificationService(db, env.RESEND_API_KEY, {
-    appBaseUrl: env.APP_BASE_URL,
-  });
-  await notifications.processQueue();
+  // Each step is independent — errors in one should not block the others
+  try {
+    const notifications = createNotificationService(db, env.RESEND_API_KEY, {
+      appBaseUrl: env.APP_BASE_URL,
+    });
+    await notifications.processQueue();
+  } catch (err) {
+    log.error("Notification processing failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
-  // 2. Monitoring & Health
-  const monitor = createMonitoringService(db, notifications);
-  await monitor.checkSystemHealth();
+  try {
+    const monitor = createMonitoringService(
+      db,
+      createNotificationService(db, env.RESEND_API_KEY, {
+        appBaseUrl: env.APP_BASE_URL,
+      }),
+    );
+    await monitor.checkSystemHealth();
+    await monitor.checkCrawlerHealth(env.CRAWLER_URL, env.KV, {
+      adminEmail: env.ADMIN_ALERT_EMAIL,
+      slackWebhookUrl: env.SLACK_ALERT_WEBHOOK_URL,
+      resendApiKey: env.RESEND_API_KEY,
+    });
+  } catch (err) {
+    log.error("Health check failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
-  // 2b. Crawler health check
-  await monitor.checkCrawlerHealth(env.CRAWLER_URL, env.KV, {
-    adminEmail: env.ADMIN_ALERT_EMAIL,
-    slackWebhookUrl: env.SLACK_ALERT_WEBHOOK_URL,
-    resendApiKey: env.RESEND_API_KEY,
-  });
+  try {
+    const crawlService = createCrawlService({
+      crawls: createCrawlRepository(db),
+      projects: createProjectRepository(db),
+      users: createUserRepository(db),
+      scores: createScoreRepository(db),
+    });
+    await crawlService.dispatchScheduledJobs({
+      crawlerUrl: env.CRAWLER_URL,
+      sharedSecret: env.SHARED_SECRET,
+      queue: env.CRAWL_QUEUE,
+    });
+  } catch (err) {
+    log.error("Scheduled crawl dispatch failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
-  // 3. Dispatch scheduled crawls
-  const crawlService = createCrawlService({
-    crawls: createCrawlRepository(db),
-    projects: createProjectRepository(db),
-    users: createUserRepository(db),
-    scores: createScoreRepository(db),
-  });
-
-  await crawlService.dispatchScheduledJobs({
-    crawlerUrl: env.CRAWLER_URL,
-    sharedSecret: env.SHARED_SECRET,
-    queue: env.CRAWL_QUEUE,
-  });
-
-  // 4. Process outbox events (enrichments, LLM scoring, crawl summaries)
-  await processOutboxEvents(env.DATABASE_URL, {
-    ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
-    KV: env.KV,
-    R2: env.R2,
-    INTEGRATION_ENCRYPTION_KEY: env.INTEGRATION_ENCRYPTION_KEY,
-    GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID,
-    GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET,
-    META_APP_ID: env.META_APP_ID,
-    META_APP_SECRET: env.META_APP_SECRET,
-  });
+  try {
+    await processOutboxEvents(env.DATABASE_URL, {
+      ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      KV: env.KV,
+      R2: env.R2,
+      INTEGRATION_ENCRYPTION_KEY: env.INTEGRATION_ENCRYPTION_KEY,
+      GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID,
+      GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET,
+      META_APP_ID: env.META_APP_ID,
+      META_APP_SECRET: env.META_APP_SECRET,
+    });
+  } catch (err) {
+    log.error("Outbox processing failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
