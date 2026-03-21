@@ -71,7 +71,14 @@ pub async fn cancel_job(
 
 /// GET /api/v1/health
 ///
-/// Health check endpoint.
-pub async fn health() -> impl IntoResponse {
-    Json(json!({ "status": "ok" }))
+/// Health check endpoint with aggregate metrics.
+pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
+    let metrics = state.job_manager.metrics().await;
+    Json(json!({
+        "status": "ok",
+        "active_jobs": metrics.active_jobs,
+        "total_pages_crawled": metrics.total_pages_crawled,
+        "total_pages_errored": metrics.total_pages_errored,
+        "uptime_secs": metrics.uptime_secs,
+    }))
 }

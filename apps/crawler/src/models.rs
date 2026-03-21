@@ -110,6 +110,16 @@ pub struct ExtractedData {
     pub sentence_length_variance: Option<f64>,
     #[serde(default)]
     pub top_transition_words: Vec<String>,
+    #[serde(default)]
+    pub feed_urls: Vec<String>,
+    #[serde(default)]
+    pub hreflang_urls: Vec<String>,
+    #[serde(default)]
+    pub has_faq_schema: bool,
+    #[serde(default)]
+    pub has_howto_schema: bool,
+    #[serde(default)]
+    pub has_breadcrumb_schema: bool,
 }
 
 // --- Lighthouse Result ---
@@ -168,6 +178,10 @@ pub struct CrawlPageResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site_context: Option<SiteContext>,
     pub timing_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub etag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_modified: Option<String>,
     #[serde(default)]
     pub redirect_chain: Vec<RedirectHop>,
     #[serde(default)]

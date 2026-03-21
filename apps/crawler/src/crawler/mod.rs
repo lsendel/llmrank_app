@@ -1,3 +1,4 @@
+pub mod checkpoint;
 pub mod circuit_breaker;
 pub mod extractor;
 pub mod fetcher;
@@ -161,16 +162,22 @@ impl CrawlEngine {
             None
         };
 
-        let schema_types: Vec<String> = parsed
-            .schema_json_ld
-            .iter()
-            .filter_map(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-            .filter_map(|v| {
-                v.get("@type")
-                    .and_then(|t| t.as_str())
-                    .map(|s| s.to_string())
-            })
-            .collect();
+        let mut schema_types = Vec::new();
+        for sd in structured_data.as_deref().unwrap_or(&[]) {
+            if let Some(t) = sd.get("@type").and_then(|v| v.as_str()) {
+                schema_types.push(t.to_string());
+            }
+            if let Some(arr) = sd.get("@type").and_then(|v| v.as_array()) {
+                for t in arr {
+                    if let Some(s) = t.as_str() {
+                        schema_types.push(s.to_string());
+                    }
+                }
+            }
+        }
+        let has_faq_schema = schema_types.iter().any(|t| t == "FAQPage");
+        let has_howto_schema = schema_types.iter().any(|t| t == "HowTo");
+        let has_breadcrumb_schema = schema_types.iter().any(|t| t == "BreadcrumbList");
 
         let og_tags = if parsed.og_tags.is_empty() {
             None
@@ -247,10 +254,17 @@ impl CrawlEngine {
                 cors_has_issues: parsed.cors_has_issues,
                 sentence_length_variance: parsed.sentence_length_variance,
                 top_transition_words: parsed.top_transition_words,
+                feed_urls: parsed.feed_urls,
+                hreflang_urls: parsed.hreflang_urls,
+                has_faq_schema,
+                has_howto_schema,
+                has_breadcrumb_schema,
             },
             lighthouse: lighthouse_result,
             js_rendered_link_count,
             timing_ms,
+            etag: fetch_result.headers.get("etag").cloned(),
+            last_modified: fetch_result.headers.get("last-modified").cloned(),
             redirect_chain: fetch_result.redirect_chain,
             site_context: self.site_context_data.clone(),
             is_cross_domain_redirect: cross_domain,

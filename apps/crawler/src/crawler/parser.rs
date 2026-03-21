@@ -32,6 +32,8 @@ pub struct ParsedPage {
     pub cors_has_issues: bool,
     pub sentence_length_variance: Option<f64>,
     pub top_transition_words: Vec<String>,
+    pub feed_urls: Vec<String>,
+    pub hreflang_urls: Vec<String>,
     pub custom_extractions: Vec<super::extractor::ExtractorResult>,
 }
 
@@ -69,6 +71,20 @@ impl Parser {
         let cors = super::security::analyze_cors(&document, base_url);
         let pdfs = super::security::extract_pdf_links(&document, base_url);
 
+        // RSS/Atom feeds
+        let feed_selector = Selector::parse("link[rel='alternate'][type*='xml']").unwrap();
+        let feed_urls: Vec<String> = document
+            .select(&feed_selector)
+            .filter_map(|el| el.value().attr("href").map(String::from))
+            .collect();
+
+        // Hreflang alternates
+        let hreflang_selector = Selector::parse("link[rel='alternate'][hreflang]").unwrap();
+        let hreflang_urls: Vec<String> = document
+            .select(&hreflang_selector)
+            .filter_map(|el| el.value().attr("href").map(String::from))
+            .collect();
+
         // Human-Readiness metrics
         let text_content = Self::get_all_text(&document);
         let (variance, transitions) = Self::analyze_human_readiness(&text_content);
@@ -99,6 +115,8 @@ impl Parser {
             cors_has_issues: cors.has_issues,
             sentence_length_variance: variance,
             top_transition_words: transitions,
+            feed_urls,
+            hreflang_urls,
             custom_extractions: vec![],
         }
     }

@@ -1,6 +1,7 @@
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -9,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 
 use crate::config::Config;
+use crate::crawler::checkpoint::CrawlCheckpoint;
 use crate::crawler::fetcher::RateLimitedFetcher;
 use crate::crawler::frontier::Frontier;
 use crate::crawler::robots::RobotsChecker;
@@ -63,12 +65,24 @@ struct JobEntry {
     cancel_token: CancellationToken,
 }
 
+/// Aggregate metrics for the crawler service.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CrawlMetrics {
+    pub active_jobs: usize,
+    pub total_pages_crawled: u64,
+    pub total_pages_errored: u64,
+    pub uptime_secs: u64,
+}
+
 /// Manages crawl job lifecycle: submission, status queries, and cancellation.
 #[derive(Debug)]
 pub struct JobManager {
     _config: Arc<Config>,
     jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>>,
     tx: mpsc::Sender<CrawlJobPayload>,
+    total_pages_crawled: Arc<AtomicU64>,
+    total_pages_errored: Arc<AtomicU64>,
+    start_time: Instant,
 }
 
 impl JobManager {
@@ -78,17 +92,49 @@ impl JobManager {
         let (tx, rx) = mpsc::channel::<CrawlJobPayload>(64);
         let jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>> =
             Arc::new(RwLock::new(HashMap::new()));
+        let total_pages_crawled = Arc::new(AtomicU64::new(0));
+        let total_pages_errored = Arc::new(AtomicU64::new(0));
 
         let manager = JobManager {
             _config: config.clone(),
             jobs: jobs.clone(),
             tx,
+            total_pages_crawled: total_pages_crawled.clone(),
+            total_pages_errored: total_pages_errored.clone(),
+            start_time: Instant::now(),
         };
 
         // Spawn the consumer loop
-        tokio::spawn(Self::process_loop(rx, jobs, config));
+        tokio::spawn(Self::process_loop(
+            rx,
+            jobs,
+            config,
+            total_pages_crawled,
+            total_pages_errored,
+        ));
 
         manager
+    }
+
+    /// Return aggregate metrics for the health endpoint.
+    pub async fn metrics(&self) -> CrawlMetrics {
+        let jobs = self.jobs.read().await;
+        let active_jobs = {
+            let mut count = 0;
+            for entry in jobs.values() {
+                let e = entry.lock().await;
+                if e.status == JobStatusKind::Crawling || e.status == JobStatusKind::Queued {
+                    count += 1;
+                }
+            }
+            count
+        };
+        CrawlMetrics {
+            active_jobs,
+            total_pages_crawled: self.total_pages_crawled.load(Ordering::Relaxed),
+            total_pages_errored: self.total_pages_errored.load(Ordering::Relaxed),
+            uptime_secs: self.start_time.elapsed().as_secs(),
+        }
     }
 
     /// Submit a new crawl job. Returns the job_id.
@@ -144,11 +190,15 @@ impl JobManager {
         mut rx: mpsc::Receiver<CrawlJobPayload>,
         jobs: Arc<RwLock<HashMap<String, Arc<Mutex<JobEntry>>>>>,
         config: Arc<Config>,
+        total_pages_crawled: Arc<AtomicU64>,
+        total_pages_errored: Arc<AtomicU64>,
     ) {
         while let Some(payload) = rx.recv().await {
             let job_id = payload.job_id.clone();
             let jobs_clone = jobs.clone();
             let config_clone = config.clone();
+            let tpc = total_pages_crawled.clone();
+            let tpe = total_pages_errored.clone();
 
             // Get the job entry (created during submit)
             let entry = {
@@ -160,7 +210,7 @@ impl JobManager {
             };
 
             tokio::spawn(async move {
-                Self::run_crawl_job(payload, entry, config_clone).await;
+                Self::run_crawl_job(payload, entry, config_clone, tpc, tpe).await;
 
                 // Clean up is not needed -- we keep the entry for status queries.
                 let _ = jobs_clone;
@@ -173,6 +223,8 @@ impl JobManager {
         payload: CrawlJobPayload,
         entry: Arc<Mutex<JobEntry>>,
         config: Arc<Config>,
+        total_pages_crawled: Arc<AtomicU64>,
+        total_pages_errored: Arc<AtomicU64>,
     ) {
         let cancel_token = {
             let e = entry.lock().await;
@@ -406,6 +458,10 @@ impl JobManager {
                                         &page_result.extracted.internal_links,
                                         depth + 1,
                                     );
+                                    frontier.add_discovered(
+                                        &page_result.extracted.hreflang_urls,
+                                        depth + 1,
+                                    );
                                 }
                                 // Canonical URL resolution: add canonical to frontier if it differs
                                 if let Some(ref canonical) = page_result.canonical_url {
@@ -413,8 +469,44 @@ impl JobManager {
                                         frontier.add_discovered(&[canonical.clone()], depth);
                                     }
                                 }
+                                // SPA detection: if first page has few links and low word count,
+                                // use JS renderer to discover additional links
+                                if pages_crawled == 0
+                                    && page_result.word_count < 50
+                                    && page_result.extracted.internal_links.len() < 3
+                                {
+                                    tracing::info!(
+                                        job_id = %payload.job_id,
+                                        word_count = page_result.word_count,
+                                        link_count = page_result.extracted.internal_links.len(),
+                                        "SPA detected — using JS renderer for link discovery"
+                                    );
+                                    if let Some(ref renderer) = engine.renderer {
+                                        match renderer.render_links(&url).await {
+                                            Ok(links) => {
+                                                let rendered_urls: Vec<String> =
+                                                    links.iter().map(|l| l.url.clone()).collect();
+                                                frontier.add_discovered(&rendered_urls, depth + 1);
+                                                tracing::info!(
+                                                    job_id = %payload.job_id,
+                                                    discovered = rendered_urls.len(),
+                                                    "SPA renderer discovered links"
+                                                );
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!(
+                                                    job_id = %payload.job_id,
+                                                    error = %e,
+                                                    "SPA renderer failed"
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+
                                 batch_pages.push(page_result);
                                 pages_crawled += 1;
+                                total_pages_crawled.fetch_add(1, Ordering::Relaxed);
                             }
                         }
                         Ok((_url, _, Err(CrawlEngineError::BlockedByRobots(u)))) => {
@@ -423,10 +515,12 @@ impl JobManager {
                         Ok((url, _, Err(e))) => {
                             tracing::warn!(url = %url, error = %e, "Crawl failed");
                             pages_errored += 1;
+                            total_pages_errored.fetch_add(1, Ordering::Relaxed);
                         }
                         Err(e) => {
                             tracing::error!("Worker task panicked: {}", e);
                             pages_errored += 1;
+                            total_pages_errored.fetch_add(1, Ordering::Relaxed);
                         }
                     }
 
@@ -483,6 +577,18 @@ impl JobManager {
 
                         batch_index += 1;
                         last_batch_time = Instant::now();
+
+                        // Save checkpoint every 5 batches
+                        if batch_index % 5 == 0 {
+                            let checkpoint = CrawlCheckpoint {
+                                job_id: payload.job_id.clone(),
+                                seen_urls: content_hashes_seen.clone(),
+                                pending_urls: vec![],
+                                pages_crawled: pages_crawled as usize,
+                                batch_index,
+                            };
+                            let _ = checkpoint.save(&CrawlCheckpoint::path_for(&payload.job_id));
+                        }
                     }
                 }
             }
@@ -530,6 +636,9 @@ impl JobManager {
             }
             e.stats = Some(final_stats);
         }
+
+        // Clean up checkpoint file on completion
+        let _ = std::fs::remove_file(CrawlCheckpoint::path_for(&payload.job_id));
 
         tracing::info!(
             job_id = %payload.job_id,
@@ -703,11 +812,18 @@ mod tests {
                 cors_has_issues: false,
                 sentence_length_variance: None,
                 top_transition_words: vec![],
+                feed_urls: vec![],
+                hreflang_urls: vec![],
+                has_faq_schema: false,
+                has_howto_schema: false,
+                has_breadcrumb_schema: false,
             },
             lighthouse: None,
             js_rendered_link_count: None,
             site_context: None,
             timing_ms: 100,
+            etag: None,
+            last_modified: None,
             redirect_chain: vec![],
             is_cross_domain_redirect: false,
             redirect_url: None,
