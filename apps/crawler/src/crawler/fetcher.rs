@@ -32,6 +32,8 @@ pub enum FetchError {
     RateLimitError,
     #[error("Circuit breaker open for domain")]
     CircuitOpen,
+    #[error("Too many redirects (max 10)")]
+    TooManyRedirects,
 }
 
 impl FetchError {
@@ -114,7 +116,7 @@ impl RateLimitedFetcher {
         let client = Client::builder()
             .user_agent(user_agent)
             .timeout(Duration::from_secs(timeout_secs))
-            .redirect(reqwest::redirect::Policy::limited(10))
+            .redirect(reqwest::redirect::Policy::none())
             .gzip(true)
             .pool_max_idle_per_host(20)
             .build()
@@ -193,7 +195,7 @@ impl RateLimitedFetcher {
     }
 
     /// Fetch a URL with rate limiting, adaptive backoff, circuit breaker,
-    /// and retry with exponential backoff.
+    /// retry with exponential backoff, and manual redirect tracking.
     pub async fn fetch(&self, url: &str) -> Result<FetchResult, FetchError> {
         // Extract domain for per-domain rate limiting
         let domain = Url::parse(url)
@@ -218,7 +220,6 @@ impl RateLimitedFetcher {
 
         for attempt in 0..MAX_RETRY_ATTEMPTS {
             if attempt > 0 {
-                // Calculate retry delay based on the attempt
                 let delay = Duration::from_millis(BASE_RETRY_DELAY_MS * 2u64.pow(attempt));
                 tracing::warn!(
                     url = %url,
@@ -230,11 +231,80 @@ impl RateLimitedFetcher {
                 tokio::time::sleep(delay).await;
             }
 
-            match self.client.get(url).send().await {
-                Ok(response) => {
-                    let status_code = response.status().as_u16();
+            // Manual redirect-following loop (max 10 hops)
+            let mut current_url = url.to_string();
+            let mut redirect_chain: Vec<RedirectHop> = Vec::new();
+            let mut too_many_redirects = false;
 
-                    // 429 or 5xx: may retry
+            let result: Result<Option<FetchResult>, FetchError> = 'redirect: {
+                for _ in 0..10 {
+                    match self.client.get(&current_url).send().await {
+                        Ok(response) => {
+                            let status_code = response.status().as_u16();
+
+                            // Check if this is a redirect
+                            if (300..400).contains(&status_code) {
+                                if let Some(location) = response.headers().get("location") {
+                                    redirect_chain.push(RedirectHop {
+                                        url: current_url.clone(),
+                                        status_code,
+                                    });
+
+                                    // Resolve relative URL against current URL
+                                    current_url = Url::parse(&current_url)
+                                        .and_then(|base| {
+                                            base.join(location.to_str().unwrap_or_default())
+                                        })
+                                        .map(|u| u.to_string())
+                                        .unwrap_or_else(|_| {
+                                            location.to_str().unwrap_or_default().to_string()
+                                        });
+                                    continue;
+                                }
+                                // No location header — treat as a normal response
+                            }
+
+                            // Non-redirect response — return result
+                            // Collect response headers
+                            let mut headers = HashMap::new();
+                            for (name, value) in response.headers().iter() {
+                                if let Ok(v) = value.to_str() {
+                                    headers.insert(name.to_string(), v.to_string());
+                                }
+                            }
+
+                            let body = match response.text().await {
+                                Ok(b) => b,
+                                Err(e) => break 'redirect Err(FetchError::classify(e)),
+                            };
+
+                            break 'redirect Ok(Some(FetchResult {
+                                status_code,
+                                body,
+                                headers,
+                                final_url: current_url,
+                                redirect_chain,
+                            }));
+                        }
+                        Err(e) => {
+                            break 'redirect Err(FetchError::classify(e));
+                        }
+                    }
+                }
+                // Exhausted 10 redirect hops
+                too_many_redirects = true;
+                Ok(None)
+            };
+
+            if too_many_redirects {
+                return Err(FetchError::TooManyRedirects);
+            }
+
+            match result {
+                Ok(Some(fetch_result)) => {
+                    let status_code = fetch_result.status_code;
+
+                    // 429 or 503: may retry
                     if status_code == 429 || status_code == 503 {
                         self.record_server_backoff(&domain).await;
                         self.circuit_breaker.record_failure(&domain).await;
@@ -249,7 +319,6 @@ impl RateLimitedFetcher {
                             continue;
                         }
                     } else if (500..600).contains(&status_code) && status_code != 503 {
-                        // Other 5xx errors: retry
                         self.circuit_breaker.record_failure(&domain).await;
 
                         if attempt + 1 < MAX_RETRY_ATTEMPTS {
@@ -261,47 +330,27 @@ impl RateLimitedFetcher {
                             );
                             continue;
                         }
-                    } else if (400..500).contains(&status_code) && status_code != 429 {
-                        // 4xx (except 429): don't retry, return as normal result
                     }
 
-                    // Success (2xx) or non-retryable response: record and return
+                    // Success (2xx) or non-retryable response
                     if (200..300).contains(&status_code) {
                         self.record_success(&domain).await;
                         self.circuit_breaker.record_success(&domain).await;
                     }
 
-                    let final_url = response.url().to_string();
-
-                    // Collect response headers
-                    let mut headers = HashMap::new();
-                    for (name, value) in response.headers().iter() {
-                        if let Ok(v) = value.to_str() {
-                            headers.insert(name.to_string(), v.to_string());
-                        }
-                    }
-
-                    let body = response.text().await?;
-
-                    return Ok(FetchResult {
-                        status_code,
-                        body,
-                        headers,
-                        final_url,
-                        redirect_chain: Vec::new(),
-                    });
+                    return Ok(fetch_result);
                 }
-                Err(e) => {
-                    let classified = FetchError::classify(e);
-
-                    // Only retry on retryable errors (timeout, connection)
+                Ok(None) => {
+                    // Should not reach here (handled by too_many_redirects above)
+                    return Err(FetchError::TooManyRedirects);
+                }
+                Err(classified) => {
                     if classified.is_retryable() && attempt + 1 < MAX_RETRY_ATTEMPTS {
                         self.circuit_breaker.record_failure(&domain).await;
                         last_error = Some(classified);
                         continue;
                     }
 
-                    // Non-retryable or final attempt
                     self.circuit_breaker.record_failure(&domain).await;
                     return Err(classified);
                 }

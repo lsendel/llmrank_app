@@ -28,6 +28,12 @@ pub struct CrawlConfig {
     pub timeout_s: u32,
     #[serde(default = "default_true")]
     pub run_js_render: bool,
+    #[serde(default)]
+    pub known_rate_limit: Option<u32>,
+    #[serde(default)]
+    pub is_spa: Option<bool>,
+    #[serde(default)]
+    pub previous_page_count: Option<u32>,
 }
 
 fn default_true() -> bool {

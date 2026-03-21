@@ -1,9 +1,13 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::IntoResponse,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse,
+    },
     Json,
 };
+use futures::stream::{Stream, StreamExt};
 use serde_json::json;
 
 use crate::models::CrawlJobPayload;
@@ -67,6 +71,23 @@ pub async fn cancel_job(
             "status": "cancelled"
         })),
     )
+}
+
+/// GET /api/v1/jobs/:id/events
+///
+/// Server-Sent Events endpoint for real-time crawl progress streaming.
+pub async fn crawl_events(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+) -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>> {
+    let rx = state.job_manager.subscribe_events(&job_id).await;
+    let stream = tokio_stream::wrappers::BroadcastStream::new(rx).filter_map(|msg| async {
+        match msg {
+            Ok(data) => Some(Ok(Event::default().data(data))),
+            Err(_) => None,
+        }
+    });
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 /// GET /api/v1/health

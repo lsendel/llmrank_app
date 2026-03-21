@@ -30,6 +30,7 @@ uuid = { version = "1", features = ["v4"] }
 regex = "1"
 async-recursion = "1"
 redis = { version = "1.0.3", features = ["tokio-comp"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 [dev-dependencies]
 axum-test = "18"

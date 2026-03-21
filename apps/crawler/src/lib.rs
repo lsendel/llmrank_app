@@ -47,7 +47,12 @@ pub fn build_app(state: AppState) -> Router {
         ));
 
     // Public routes (no auth required)
-    let public_routes = Router::new().route("/api/v1/health", get(server::routes::health));
+    let public_routes = Router::new()
+        .route("/api/v1/health", get(server::routes::health))
+        .route(
+            "/api/v1/jobs/{id}/events",
+            get(server::routes::crawl_events),
+        );
 
     // Combine all routes
     Router::new()

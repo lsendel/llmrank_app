@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use url::Url;
@@ -83,6 +83,7 @@ pub struct JobManager {
     total_pages_crawled: Arc<AtomicU64>,
     total_pages_errored: Arc<AtomicU64>,
     start_time: Instant,
+    event_senders: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
 }
 
 impl JobManager {
@@ -95,6 +96,9 @@ impl JobManager {
         let total_pages_crawled = Arc::new(AtomicU64::new(0));
         let total_pages_errored = Arc::new(AtomicU64::new(0));
 
+        let event_senders: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+
         let manager = JobManager {
             _config: config.clone(),
             jobs: jobs.clone(),
@@ -102,6 +106,7 @@ impl JobManager {
             total_pages_crawled: total_pages_crawled.clone(),
             total_pages_errored: total_pages_errored.clone(),
             start_time: Instant::now(),
+            event_senders: event_senders.clone(),
         };
 
         // Spawn the consumer loop
@@ -111,6 +116,7 @@ impl JobManager {
             config,
             total_pages_crawled,
             total_pages_errored,
+            event_senders,
         ));
 
         manager
@@ -185,6 +191,22 @@ impl JobManager {
         }
     }
 
+    /// Subscribe to real-time SSE events for a job. Creates a broadcast channel if needed.
+    pub async fn subscribe_events(&self, job_id: &str) -> broadcast::Receiver<String> {
+        let senders = self.event_senders.read().await;
+        if let Some(tx) = senders.get(job_id) {
+            return tx.subscribe();
+        }
+        drop(senders);
+
+        let mut senders = self.event_senders.write().await;
+        let tx = senders.entry(job_id.to_string()).or_insert_with(|| {
+            let (tx, _) = broadcast::channel(64);
+            tx
+        });
+        tx.subscribe()
+    }
+
     /// Background loop that takes jobs off the channel and spawns a task for each.
     async fn process_loop(
         mut rx: mpsc::Receiver<CrawlJobPayload>,
@@ -192,6 +214,7 @@ impl JobManager {
         config: Arc<Config>,
         total_pages_crawled: Arc<AtomicU64>,
         total_pages_errored: Arc<AtomicU64>,
+        event_senders: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
     ) {
         while let Some(payload) = rx.recv().await {
             let job_id = payload.job_id.clone();
@@ -199,6 +222,7 @@ impl JobManager {
             let config_clone = config.clone();
             let tpc = total_pages_crawled.clone();
             let tpe = total_pages_errored.clone();
+            let es = event_senders.clone();
 
             // Get the job entry (created during submit)
             let entry = {
@@ -209,8 +233,24 @@ impl JobManager {
                 }
             };
 
+            // Get or create event sender for this job
+            let event_tx = {
+                let mut senders = es.write().await;
+                senders
+                    .entry(job_id.clone())
+                    .or_insert_with(|| {
+                        let (tx, _) = broadcast::channel(64);
+                        tx
+                    })
+                    .clone()
+            };
+
             tokio::spawn(async move {
-                Self::run_crawl_job(payload, entry, config_clone, tpc, tpe).await;
+                Self::run_crawl_job(payload, entry, config_clone, tpc, tpe, event_tx.clone()).await;
+
+                // Remove event sender on completion
+                let mut senders = es.write().await;
+                senders.remove(&job_id);
 
                 // Clean up is not needed -- we keep the entry for status queries.
                 let _ = jobs_clone;
@@ -225,6 +265,7 @@ impl JobManager {
         config: Arc<Config>,
         total_pages_crawled: Arc<AtomicU64>,
         total_pages_errored: Arc<AtomicU64>,
+        event_tx: broadcast::Sender<String>,
     ) {
         let cancel_token = {
             let e = entry.lock().await;
@@ -240,8 +281,10 @@ impl JobManager {
         let job_start = Instant::now();
         let crawl_config = payload.config.clone();
 
-        // Set up components
-        let rate_per_sec = if crawl_config.rate_limit_ms > 0 {
+        // Set up components — use known_rate_limit hint if provided
+        let rate_per_sec = if let Some(known_rate) = crawl_config.known_rate_limit {
+            known_rate.max(1)
+        } else if crawl_config.rate_limit_ms > 0 {
             (1000 / crawl_config.rate_limit_ms).max(1)
         } else {
             2
@@ -436,7 +479,43 @@ impl JobManager {
             tokio::select! {
                 biased;
                 _ = cancel_token.cancelled() => {
-                    tracing::info!(job_id = %payload.job_id, "Job cancelled");
+                    tracing::info!(job_id = %payload.job_id, "Job cancelled — sending partial results");
+
+                    // Send any accumulated pages as a final batch
+                    if !batch_pages.is_empty() {
+                        let cancel_batch = CrawlResultBatch {
+                            job_id: payload.job_id.clone(),
+                            batch_index,
+                            is_final: true,
+                            pages: std::mem::take(&mut batch_pages),
+                            stats: CrawlStats {
+                                pages_found: frontier.pending_count() as u32
+                                    + pages_crawled
+                                    + pages_errored,
+                                pages_crawled,
+                                pages_errored,
+                                elapsed_s: job_start.elapsed().as_secs_f64(),
+                            },
+                        };
+
+                        Self::send_callback(
+                            &callback_client,
+                            &payload.callback_url,
+                            &cancel_batch,
+                            &config.shared_secret,
+                        )
+                        .await;
+
+                        let backlink_entries = collect_backlink_entries(&cancel_batch.pages);
+                        Self::send_backlinks(
+                            &callback_client,
+                            &config.api_base_url,
+                            backlink_entries,
+                            &config.shared_secret,
+                        )
+                        .await;
+                    }
+
                     join_set.abort_all();
                     break;
                 }
@@ -469,11 +548,13 @@ impl JobManager {
                                         frontier.add_discovered(&[canonical.clone()], depth);
                                     }
                                 }
-                                // SPA detection: if first page has few links and low word count,
-                                // use JS renderer to discover additional links
-                                if pages_crawled == 0
-                                    && page_result.word_count < 50
-                                    && page_result.extracted.internal_links.len() < 3
+                                // SPA detection: use JS renderer if is_spa hint is set,
+                                // or if first page has few links and low word count
+                                let spa_hint = crawl_config.is_spa == Some(true) && pages_crawled == 0;
+                                if spa_hint
+                                    || (pages_crawled == 0
+                                        && page_result.word_count < 50
+                                        && page_result.extracted.internal_links.len() < 3)
                                 {
                                     tracing::info!(
                                         job_id = %payload.job_id,
@@ -578,6 +659,15 @@ impl JobManager {
                         batch_index += 1;
                         last_batch_time = Instant::now();
 
+                        // Broadcast SSE progress event
+                        let _ = event_tx.send(serde_json::to_string(&serde_json::json!({
+                            "type": "progress",
+                            "pages_crawled": pages_crawled,
+                            "pages_found": frontier.pending_count() as u32 + pages_crawled + pages_errored,
+                            "pages_errored": pages_errored,
+                            "batch_index": batch_index,
+                        })).unwrap());
+
                         // Save checkpoint every 5 batches
                         if batch_index % 5 == 0 {
                             let checkpoint = CrawlCheckpoint {
@@ -627,6 +717,14 @@ impl JobManager {
             &config.shared_secret,
         )
         .await;
+
+        // Broadcast SSE complete event
+        let _ = event_tx.send(
+            serde_json::to_string(&serde_json::json!({
+                "type": "complete",
+            }))
+            .unwrap(),
+        );
 
         // Update final status
         {
