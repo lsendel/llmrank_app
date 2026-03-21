@@ -1,3 +1,4 @@
+pub mod circuit_breaker;
 pub mod extractor;
 pub mod fetcher;
 pub mod frontier;
