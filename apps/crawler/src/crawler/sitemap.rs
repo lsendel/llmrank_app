@@ -1,3 +1,4 @@
+use futures::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
 use url::Url;
 
@@ -37,22 +38,41 @@ pub async fn fetch_sitemap_urls(
     let mut all_urls: Vec<String> = Vec::new();
     let loc_re = Regex::new(r"<loc>\s*(.*?)\s*</loc>").expect("valid regex");
 
-    for sitemap_url in sitemap_urls {
-        let xml = match fetch_xml(&client, sitemap_url).await {
+    // Fetch all top-level sitemaps concurrently
+    let mut top_futures: FuturesUnordered<_> = sitemap_urls
+        .iter()
+        .map(|url| {
+            let client = client.clone();
+            let url = url.clone();
+            async move { (fetch_xml(&client, &url).await, url) }
+        })
+        .collect();
+
+    while let Some((xml_opt, _sitemap_url)) = top_futures.next().await {
+        let xml = match xml_opt {
             Some(xml) => xml,
             None => continue,
         };
 
         if xml.contains("<sitemapindex") {
-            // Sitemap index — extract child sitemap URLs and fetch them
+            // Sitemap index — extract child sitemap URLs and fetch them concurrently
             let child_urls: Vec<String> = loc_re
                 .captures_iter(&xml)
                 .filter_map(|cap| cap.get(1).map(|m| m.as_str().to_string()))
                 .take(max_child_sitemaps)
                 .collect();
 
-            for child_url in &child_urls {
-                if let Some(child_xml) = fetch_xml(&client, child_url).await {
+            let mut child_futures: FuturesUnordered<_> = child_urls
+                .iter()
+                .map(|url| {
+                    let client = client.clone();
+                    let url = url.clone();
+                    async move { fetch_xml(&client, &url).await }
+                })
+                .collect();
+
+            while let Some(result) = child_futures.next().await {
+                if let Some(child_xml) = result {
                     extract_locs(&loc_re, &child_xml, &mut all_urls);
                 }
             }
