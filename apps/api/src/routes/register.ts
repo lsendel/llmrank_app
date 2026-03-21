@@ -51,6 +51,7 @@ import { promptResearchRoutes } from "./prompt-research";
 import { wizardRoutes } from "./wizard";
 import { connectRoutes } from "./connect";
 import { appRoutes } from "./app";
+import { analyticsRoutes } from "./analytics";
 import { marketingRoutes } from "./marketing";
 
 export function registerApiRoutes(app: Hono<AppEnv>) {
@@ -101,6 +102,7 @@ export function registerApiRoutes(app: Hono<AppEnv>) {
   app.route("/api/trial", trialRoutes);
   app.route("/api/brand", brandPerformanceRoutes);
   app.route("/api/prompt-research", promptResearchRoutes);
+  app.route("/api/analytics", analyticsRoutes);
   app.route("/api/wizard", wizardRoutes);
 }
 

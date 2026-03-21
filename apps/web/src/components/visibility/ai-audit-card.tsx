@@ -57,6 +57,29 @@ export function AIAuditCard({ crawlId }: { crawlId: string }) {
 
   if (!audit || audit.checks.length === 0) return null;
 
+  const allUnknown = audit.checks.every(
+    (c) => c.score === null || c.score === undefined,
+  );
+
+  if (allUnknown) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shield className="h-4 w-4 text-primary" />
+            AI Crawlability Audit
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Per-page AI audit scores are not yet available for this crawl. Run a
+            new crawl to generate detailed crawlability data.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const passing = audit.checks.filter((c) => c.status === "pass").length;
   const total = audit.checks.length;
 

@@ -35,6 +35,10 @@ export class ProjectTabErrorBoundary extends React.Component<
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[ProjectTab] render error:", error, info.componentStack);
+  }
+
   render() {
     if (this.state.hasError) {
       return (

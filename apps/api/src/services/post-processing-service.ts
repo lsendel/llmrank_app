@@ -33,6 +33,8 @@ import {
 import { createPipelineService } from "./pipeline-service";
 import { createAuditService } from "./audit-service";
 import { createReportService } from "./report-service";
+import { createNarrativeService } from "./narrative-service";
+import { createNarrativeRepository } from "@llm-boost/repositories";
 
 export interface PostProcessingDeps {
   crawls: CrawlRepository;
@@ -172,6 +174,33 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             jobId: batch.job_id,
           },
         });
+      }
+
+      // Auto-generate narrative report after crawl completion
+      if (batch.is_final && env.anthropicApiKey) {
+        args.executionCtx.waitUntil(
+          (async () => {
+            try {
+              const db = createDb(env.databaseUrl);
+              const project = await projectQueries(db).getById(projectId);
+              if (!project) return;
+              const narrativeSvc = createNarrativeService({
+                narratives: createNarrativeRepository(db),
+                projects: createProjectRepository(db),
+                users: createUserRepository(db),
+                crawls: createCrawlRepository(db),
+              });
+              await narrativeSvc.generate(
+                project.userId,
+                crawlJobId,
+                "technical",
+                { anthropicApiKey: env.anthropicApiKey! },
+              );
+            } catch {
+              // Non-critical — narrative can be generated on demand
+            }
+          })(),
+        );
       }
 
       // Invalidate dashboard KV cache on crawl completion
