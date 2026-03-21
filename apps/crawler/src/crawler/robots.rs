@@ -13,10 +13,17 @@ pub enum RobotsError {
 /// Known AI bot user agents to check in robots.txt.
 pub const AI_BOT_USER_AGENTS: &[&str] = &["GPTBot", "ClaudeBot", "PerplexityBot", "GoogleOther"];
 
+/// A single parsed robots.txt rule (allow or disallow).
+#[derive(Debug, Clone)]
+struct RobotsRule {
+    path: String,
+    allow: bool,
+}
+
 /// Parsed robots.txt rules for a single domain.
 pub struct RobotsChecker {
-    /// Map from lowercase user-agent to list of disallowed path prefixes.
-    rules: HashMap<String, Vec<String>>,
+    /// Map from lowercase user-agent to list of allow/disallow rules.
+    rules: HashMap<String, Vec<RobotsRule>>,
     /// Sitemaps discovered in robots.txt
     pub sitemaps: Vec<String>,
     /// Whether we successfully fetched and parsed the robots.txt.
@@ -72,6 +79,8 @@ impl RobotsChecker {
     }
 
     /// Check if the given URL is allowed for the specified user agent.
+    /// Implements longest-match precedence per the robots.txt spec:
+    /// the most specific (longest) matching rule wins regardless of allow/disallow order.
     pub fn is_allowed(&self, url: &str, user_agent: &str) -> bool {
         let path = match Url::parse(url) {
             Ok(u) => u.path().to_string(),
@@ -80,23 +89,40 @@ impl RobotsChecker {
 
         let ua_lower = user_agent.to_lowercase();
 
-        // Check specific user-agent rules first, then fall back to wildcard
+        // Check specific user-agent rules first, then fall back to wildcard.
+        // Stop at the first agent that has any matching rules.
         let agents_to_check = [ua_lower.as_str(), "*"];
 
         for agent in &agents_to_check {
-            if let Some(disallowed) = self.rules.get(*agent) {
-                for pattern in disallowed {
-                    if pattern.is_empty() {
-                        // "Disallow:" with empty value means allow all
-                        continue;
-                    }
-                    if path.starts_with(pattern) {
-                        return false;
-                    }
+            if let Some(rules) = self.rules.get(*agent) {
+                // Find the longest matching rule path.
+                let best: Option<&RobotsRule> = rules
+                    .iter()
+                    .filter(|r| {
+                        // Empty Disallow means allow all — treat as a zero-length match
+                        // only if there are no other rules; handled by returning true below.
+                        if r.path.is_empty() {
+                            return false;
+                        }
+                        path.starts_with(r.path.as_str())
+                    })
+                    .max_by_key(|r| r.path.len());
+
+                if let Some(rule) = best {
+                    return rule.allow;
+                }
+
+                // If this agent has rules but none matched, check for an empty Disallow
+                // (which means "allow everything for this agent").
+                // We only stop here if the agent actually had rules defined.
+                if !rules.is_empty() {
+                    // No rule matched — allowed by default for this agent block.
+                    return true;
                 }
             }
         }
 
+        // No rules at all — default allow.
         true
     }
 
@@ -109,16 +135,16 @@ impl RobotsChecker {
             .collect()
     }
 
-    /// Parse robots.txt content into a map of user-agent -> disallowed paths, and list of sitemaps.
-    fn parse_robots_txt(content: &str) -> (HashMap<String, Vec<String>>, Vec<String>) {
-        let mut rules: HashMap<String, Vec<String>> = HashMap::new();
+    /// Parse robots.txt content into a map of user-agent -> rules (allow/disallow), and list of sitemaps.
+    fn parse_robots_txt(content: &str) -> (HashMap<String, Vec<RobotsRule>>, Vec<String>) {
+        let mut rules: HashMap<String, Vec<RobotsRule>> = HashMap::new();
         let mut sitemaps: Vec<String> = Vec::new();
         let mut current_agents: Vec<String> = Vec::new();
 
         for line in content.lines() {
             let line = line.trim();
 
-            // Skip comments and empty lines
+            // Strip inline comments
             let line = if let Some(idx) = line.find('#') {
                 line[..idx].trim()
             } else {
@@ -140,12 +166,20 @@ impl RobotsChecker {
                         let ua = value.to_lowercase();
                         current_agents.push(ua);
                     }
+                    "allow" => {
+                        for agent in &current_agents {
+                            rules.entry(agent.clone()).or_default().push(RobotsRule {
+                                path: value.to_string(),
+                                allow: true,
+                            });
+                        }
+                    }
                     "disallow" => {
                         for agent in &current_agents {
-                            rules
-                                .entry(agent.clone())
-                                .or_default()
-                                .push(value.to_string());
+                            rules.entry(agent.clone()).or_default().push(RobotsRule {
+                                path: value.to_string(),
+                                allow: false,
+                            });
                         }
                     }
                     "sitemap" => {
@@ -154,7 +188,7 @@ impl RobotsChecker {
                         }
                     }
                     _ => {
-                        // Allow, Crawl-delay, etc. — ignored for now
+                        // Crawl-delay, etc. — ignored
                     }
                 }
             }
@@ -228,10 +262,11 @@ Disallow: /search
     #[test]
     fn test_googleother_partial_block() {
         let checker = RobotsChecker::from_content(SAMPLE_ROBOTS);
-        // GoogleOther is blocked for /search but also inherits wildcard /admin/ /private/
+        // GoogleOther has a specific block for /search
         assert!(!checker.is_allowed("https://example.com/search?q=test", "GoogleOther"));
-        assert!(!checker.is_allowed("https://example.com/admin/", "GoogleOther"));
-        // But allowed for other paths (specific UA has no rule, wildcard allows)
+        // Per spec: a specific user-agent block takes full precedence over wildcard.
+        // GoogleOther's block only covers /search, so /admin/ and /blog are both allowed.
+        assert!(checker.is_allowed("https://example.com/admin/", "GoogleOther"));
         assert!(checker.is_allowed("https://example.com/blog", "GoogleOther"));
     }
 
@@ -263,5 +298,13 @@ Disallow: /search
         let content = "User-agent: *\nDisallow:\n";
         let checker = RobotsChecker::from_content(content);
         assert!(checker.is_allowed("https://example.com/anything", "GPTBot"));
+    }
+
+    #[test]
+    fn test_allow_overrides_disallow() {
+        let content = "User-agent: *\nDisallow: /private/\nAllow: /private/public\n";
+        let checker = RobotsChecker::from_content(content);
+        assert!(!checker.is_allowed("https://example.com/private/secret", "*"));
+        assert!(checker.is_allowed("https://example.com/private/public/page", "*"));
     }
 }

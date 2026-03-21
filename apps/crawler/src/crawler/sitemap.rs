@@ -15,11 +15,13 @@ pub struct SitemapResult {
 /// Returns deduplicated URLs filtered to the same domain as `seed_domain`.
 ///
 /// Handles both `<urlset>` (standard) and `<sitemapindex>` (index) formats.
-/// For sitemap indexes, fetches up to `max_child_sitemaps` child sitemaps.
+/// For sitemap indexes, fetches up to `max_child_sitemaps` child sitemaps and recurses
+/// up to `max_depth` levels deep into nested sitemap indexes.
 pub async fn fetch_sitemap_urls(
     sitemap_urls: &[String],
     seed_domain: &str,
     max_child_sitemaps: usize,
+    max_depth: usize,
 ) -> SitemapResult {
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
@@ -54,32 +56,16 @@ pub async fn fetch_sitemap_urls(
             None => continue,
         };
 
-        if xml.contains("<sitemapindex") {
-            // Sitemap index — extract child sitemap URLs and fetch them concurrently
-            let child_urls: Vec<String> = loc_re
-                .captures_iter(&xml)
-                .filter_map(|cap| cap.get(1).map(|m| m.as_str().to_string()))
-                .take(max_child_sitemaps)
-                .collect();
-
-            let mut child_futures: FuturesUnordered<_> = child_urls
-                .iter()
-                .map(|url| {
-                    let client = client.clone();
-                    let url = url.clone();
-                    async move { fetch_xml(&client, &url).await }
-                })
-                .collect();
-
-            while let Some(result) = child_futures.next().await {
-                if let Some(child_xml) = result {
-                    extract_locs(&loc_re, &child_xml, &mut all_urls);
-                }
-            }
-        } else {
-            // Standard sitemap — extract URLs directly
-            extract_locs(&loc_re, &xml, &mut all_urls);
-        }
+        fetch_sitemap_recursive(
+            &client,
+            &loc_re,
+            &xml,
+            max_child_sitemaps,
+            max_depth,
+            0,
+            &mut all_urls,
+        )
+        .await;
     }
 
     let total_count = all_urls.len() as u32;
@@ -102,6 +88,60 @@ pub async fn fetch_sitemap_urls(
     SitemapResult {
         urls: filtered,
         total_count,
+    }
+}
+
+/// Process a single sitemap XML document, recursing into nested sitemap indexes.
+/// `current_depth` tracks how many levels deep we are (0 = top level).
+#[async_recursion::async_recursion]
+async fn fetch_sitemap_recursive(
+    client: &reqwest::Client,
+    loc_re: &Regex,
+    xml: &str,
+    max_child_sitemaps: usize,
+    max_depth: usize,
+    current_depth: usize,
+    out: &mut Vec<String>,
+) {
+    if xml.contains("<sitemapindex") {
+        // Sitemap index — extract child sitemap URLs and fetch them concurrently
+        let child_urls: Vec<String> = loc_re
+            .captures_iter(xml)
+            .filter_map(|cap| cap.get(1).map(|m| m.as_str().to_string()))
+            .take(max_child_sitemaps)
+            .collect();
+
+        let mut child_futures: FuturesUnordered<_> = child_urls
+            .iter()
+            .map(|url| {
+                let client = client.clone();
+                let url = url.clone();
+                async move { (fetch_xml(&client, &url).await, url) }
+            })
+            .collect();
+
+        while let Some((result, _url)) = child_futures.next().await {
+            if let Some(child_xml) = result {
+                if child_xml.contains("<sitemapindex") && current_depth < max_depth {
+                    // Recurse into nested sitemap index
+                    fetch_sitemap_recursive(
+                        client,
+                        loc_re,
+                        &child_xml,
+                        max_child_sitemaps,
+                        max_depth,
+                        current_depth + 1,
+                        out,
+                    )
+                    .await;
+                } else {
+                    extract_locs(loc_re, &child_xml, out);
+                }
+            }
+        }
+    } else {
+        // Standard sitemap — extract URLs directly
+        extract_locs(loc_re, xml, out);
     }
 }
 
@@ -191,6 +231,7 @@ mod tests {
             &["https://nonexistent.invalid/sitemap.xml".to_string()],
             "example.com",
             5,
+            3,
         )
         .await;
         // Should return empty since the URL doesn't exist

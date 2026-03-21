@@ -267,10 +267,12 @@ impl JobManager {
         // Fetch and parse sitemaps discovered in robots.txt
         if !sitemap_urls_from_robots.is_empty() {
             if let Some(ref d) = domain {
+                let max_child = (crawl_config.max_pages as usize / 100).max(10).min(100);
                 let sitemap_result = crate::crawler::sitemap::fetch_sitemap_urls(
                     &sitemap_urls_from_robots,
                     d,
-                    20, // max child sitemaps to fetch from index
+                    max_child,
+                    3, // max recursion depth for nested sitemap indexes
                 )
                 .await;
 
