@@ -31,6 +31,7 @@ export function createPageScoringService() {
         const insertedPage = insertedPages[i];
         const crawlPageResult = batchPages[i];
 
+        const sc = crawlPageResult.site_context;
         const pageData: PageData = {
           url: crawlPageResult.url,
           statusCode: crawlPageResult.status_code,
@@ -42,6 +43,25 @@ export function createPageScoringService() {
           extracted: crawlPageResult.extracted,
           lighthouse: crawlPageResult.lighthouse ?? null,
           llmScores: null,
+          siteContext: sc
+            ? {
+                hasLlmsTxt: sc.has_llms_txt,
+                aiCrawlersBlocked: sc.ai_crawlers_blocked,
+                hasSitemap: sc.has_sitemap,
+                sitemapAnalysis: sc.sitemap_analysis
+                  ? {
+                      isValid: sc.sitemap_analysis.is_valid,
+                      urlCount: sc.sitemap_analysis.url_count,
+                      staleUrlCount: sc.sitemap_analysis.stale_url_count,
+                      discoveredPageCount:
+                        sc.sitemap_analysis.discovered_page_count,
+                    }
+                  : undefined,
+                contentHashes: new Map(Object.entries(sc.content_hashes ?? {})),
+                responseTimeMs: sc.response_time_ms,
+                pageSizeBytes: sc.page_size_bytes,
+              }
+            : undefined,
         };
 
         const result = scorePage(pageData, customWeights);
