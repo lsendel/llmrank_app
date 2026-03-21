@@ -29,6 +29,7 @@ impl RobotsChecker {
         let robots_url = format!("https://{}/robots.txt", domain);
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
+            .user_agent("AISEOBot/1.0")
             .build()?;
 
         let response = match client.get(&robots_url).send().await {
@@ -168,6 +169,7 @@ pub async fn fetch_llms_txt(domain: &str) -> Option<String> {
     let url = format!("https://{}/llms.txt", domain);
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
+        .user_agent("AISEOBot/1.0")
         .build()
         .ok()?;
 

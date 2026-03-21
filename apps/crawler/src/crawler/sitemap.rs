@@ -22,6 +22,7 @@ pub async fn fetch_sitemap_urls(
 ) -> SitemapResult {
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
+        .user_agent("AISEOBot/1.0")
         .build()
     {
         Ok(c) => c,
@@ -86,8 +87,15 @@ pub async fn fetch_sitemap_urls(
 
 /// Fetch XML content from a URL. Returns None on any error.
 async fn fetch_xml(client: &reqwest::Client, url: &str) -> Option<String> {
-    let resp = client.get(url).send().await.ok()?;
+    let resp = match client.get(url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(url = %url, error = %e, "Failed to fetch sitemap");
+            return None;
+        }
+    };
     if !resp.status().is_success() {
+        tracing::warn!(url = %url, status = %resp.status(), "Sitemap fetch returned non-200");
         return None;
     }
     resp.text().await.ok()

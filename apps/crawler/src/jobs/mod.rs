@@ -270,7 +270,7 @@ impl JobManager {
                 let sitemap_result = crate::crawler::sitemap::fetch_sitemap_urls(
                     &sitemap_urls_from_robots,
                     d,
-                    5, // max child sitemaps to fetch from index
+                    20, // max child sitemaps to fetch from index
                 )
                 .await;
 
