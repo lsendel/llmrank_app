@@ -24,6 +24,10 @@ analyticsRoutes.get("/s/analytics.js", (c) => {
 
 // ─── Public beacon endpoint ──────────────────────────────────────────────────
 
+analyticsRoutes.options("/analytics/collect", cors({ origin: "*" }), (c) =>
+  c.body(null, 204),
+);
+
 analyticsRoutes.post("/analytics/collect", cors({ origin: "*" }), async (c) => {
   // Always return 204 — don't leak info to callers
   let body: unknown;
