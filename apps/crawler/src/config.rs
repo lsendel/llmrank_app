@@ -45,7 +45,7 @@ impl Config {
             })?;
 
         let max_concurrent_fetches = env::var("MAX_CONCURRENT_FETCHES")
-            .unwrap_or_else(|_| "10".to_string())
+            .unwrap_or_else(|_| "50".to_string())
             .parse::<usize>()
             .map_err(|_| {
                 ConfigError::InvalidValue("MAX_CONCURRENT_FETCHES", "must be a valid usize")
@@ -69,14 +69,14 @@ impl Config {
             .unwrap_or_else(|_| "/app/scripts/render-links.mjs".to_string());
 
         let batch_page_threshold = env::var("BATCH_PAGE_THRESHOLD")
-            .unwrap_or_else(|_| "25".to_string())
+            .unwrap_or_else(|_| "10".to_string())
             .parse::<usize>()
             .map_err(|_| {
                 ConfigError::InvalidValue("BATCH_PAGE_THRESHOLD", "must be a valid usize")
             })?;
 
         let batch_interval_secs = env::var("BATCH_INTERVAL_SECS")
-            .unwrap_or_else(|_| "15".to_string())
+            .unwrap_or_else(|_| "10".to_string())
             .parse::<u64>()
             .map_err(|_| ConfigError::InvalidValue("BATCH_INTERVAL_SECS", "must be a valid u64"))?;
 

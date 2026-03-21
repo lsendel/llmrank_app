@@ -1,6 +1,6 @@
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -343,13 +343,14 @@ impl JobManager {
                 added = to_add.len(),
                 "Adding sitemap URLs to frontier"
             );
-            frontier.add_discovered(&to_add, 0);
+            frontier.add_discovered_with_priority(&to_add, 0, 80);
         }
         let max_workers = config.max_concurrent_fetches;
 
         let mut pages_crawled: u32 = 0;
         let mut pages_errored: u32 = 0;
         let mut batch_pages: Vec<CrawlPageResult> = Vec::new();
+        let mut content_hashes_seen: HashSet<String> = HashSet::new();
         let mut batch_index: u32 = 0;
         let mut last_batch_time = Instant::now();
         let mut join_set: JoinSet<(String, u32, Result<CrawlPageResult, CrawlEngineError>)> =
@@ -389,15 +390,32 @@ impl JobManager {
                 }
                 Some(result) = join_set.join_next() => {
                     match result {
-                        Ok((_url, depth, Ok(page_result))) => {
-                            if crawl_config.extract_links {
-                                frontier.add_discovered(
-                                    &page_result.extracted.internal_links,
-                                    depth + 1,
+                        Ok((url, depth, Ok(page_result))) => {
+                            // Content deduplication: skip pages with a hash we've already seen
+                            if !page_result.content_hash.is_empty()
+                                && !content_hashes_seen.insert(page_result.content_hash.clone())
+                            {
+                                tracing::debug!(
+                                    url = %url,
+                                    hash = %page_result.content_hash,
+                                    "Skipping duplicate content"
                                 );
+                            } else {
+                                if crawl_config.extract_links {
+                                    frontier.add_discovered(
+                                        &page_result.extracted.internal_links,
+                                        depth + 1,
+                                    );
+                                }
+                                // Canonical URL resolution: add canonical to frontier if it differs
+                                if let Some(ref canonical) = page_result.canonical_url {
+                                    if !canonical.is_empty() && canonical != &url {
+                                        frontier.add_discovered(&[canonical.clone()], depth);
+                                    }
+                                }
+                                batch_pages.push(page_result);
+                                pages_crawled += 1;
                             }
-                            batch_pages.push(page_result);
-                            pages_crawled += 1;
                         }
                         Ok((_url, _, Err(CrawlEngineError::BlockedByRobots(u)))) => {
                             tracing::debug!(url = %u, "Blocked by robots.txt");

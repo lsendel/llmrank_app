@@ -2,17 +2,20 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashSet};
 use url::Url;
 
-/// A URL entry in the frontier queue, ordered by depth (shallow first).
+/// A URL entry in the frontier queue, ordered by priority then depth (shallow first).
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct FrontierEntry {
     url: String,
     depth: u32,
+    priority: u32, // higher = more important
 }
 
 impl Ord for FrontierEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // Reverse depth so BinaryHeap (max-heap) gives us shallowest first
-        Reverse(self.depth).cmp(&Reverse(other.depth))
+        // Higher priority first, then shallower depth first
+        self.priority
+            .cmp(&other.priority)
+            .then_with(|| Reverse(self.depth).cmp(&Reverse(other.depth)))
     }
 }
 
@@ -42,6 +45,7 @@ impl Frontier {
                     queue.push(FrontierEntry {
                         url: normalized,
                         depth: 0,
+                        priority: 100,
                     });
                 }
             }
@@ -66,9 +70,15 @@ impl Frontier {
         }
     }
 
-    /// Add newly discovered URLs at the given depth.
+    /// Add newly discovered URLs at the given depth with default priority 50.
     /// URLs that have already been seen or exceed max_depth are skipped.
     pub fn add_discovered(&mut self, urls: &[String], depth: u32) {
+        self.add_discovered_with_priority(urls, depth, 50);
+    }
+
+    /// Add newly discovered URLs at the given depth with an explicit priority.
+    /// URLs that have already been seen or exceed max_depth are skipped.
+    pub fn add_discovered_with_priority(&mut self, urls: &[String], depth: u32, priority: u32) {
         if depth > self.max_depth {
             return;
         }
@@ -78,6 +88,7 @@ impl Frontier {
                     self.queue.push(FrontierEntry {
                         url: normalized,
                         depth,
+                        priority,
                     });
                 }
             }
