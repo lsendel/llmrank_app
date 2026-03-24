@@ -12,13 +12,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Calendar,
   Download,
   Trash2,
   Loader2,
   FileText,
   FileSpreadsheet,
 } from "lucide-react";
-import { api, type Report } from "@/lib/api";
+import { api, type Report, type ReportSchedule } from "@/lib/api";
 import { track } from "@/lib/telemetry";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -51,11 +52,26 @@ function statusBadge(status: Report["status"]) {
 
 interface Props {
   reports: Report[];
+  schedules?: ReportSchedule[];
+  crawlJobId?: string;
+  sendingNowScheduleId?: string | null;
   onDelete: (id: string) => void;
   onRefresh: () => void;
+  onScheduleSendNow?: (schedule: ReportSchedule) => void | Promise<void>;
+  onScheduleToggle?: (schedule: ReportSchedule) => void | Promise<void>;
+  onScheduleDelete?: (id: string) => void | Promise<void>;
 }
 
-export function ReportList({ reports, onDelete }: Props) {
+export function ReportList({
+  reports,
+  schedules,
+  crawlJobId,
+  sendingNowScheduleId,
+  onDelete,
+  onScheduleSendNow,
+  onScheduleToggle,
+  onScheduleDelete,
+}: Props) {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState<string | null>(null);
 
@@ -90,13 +106,13 @@ export function ReportList({ reports, onDelete }: Props) {
     }
   }
 
-  if (reports.length === 0) {
+  if (reports.length === 0 && (!schedules || schedules.length === 0)) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center">
         <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
         <p className="mt-2 text-sm text-muted-foreground">
-          No reports generated yet. Click &quot;Generate Report&quot; to create
-          one.
+          No reports yet. Click &quot;New Report&quot; to generate one or set up
+          a schedule.
         </p>
       </div>
     );
@@ -115,6 +131,65 @@ export function ReportList({ reports, onDelete }: Props) {
         </TableRow>
       </TableHeader>
       <TableBody>
+        {(schedules ?? []).map((schedule) => (
+          <TableRow key={`schedule-${schedule.id}`} className="bg-muted/30">
+            <TableCell className="font-medium">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    {schedule.type === "summary" ? "Summary" : "Detailed"}
+                    <Badge variant="outline" className="text-xs">
+                      Scheduled
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {schedule.recipientEmail}
+                  </p>
+                </div>
+              </div>
+            </TableCell>
+            <TableCell className="text-xs uppercase">
+              {schedule.format}
+            </TableCell>
+            <TableCell>
+              <Button
+                size="sm"
+                variant={schedule.enabled ? "default" : "outline"}
+                aria-pressed={schedule.enabled}
+                onClick={() => void onScheduleToggle?.(schedule)}
+              >
+                {schedule.enabled ? "Active" : "Paused"}
+              </Button>
+            </TableCell>
+            <TableCell>&mdash;</TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {new Date(schedule.createdAt).toLocaleDateString()}
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!crawlJobId || sendingNowScheduleId === schedule.id}
+                  onClick={() => void onScheduleSendNow?.(schedule)}
+                >
+                  {sendingNowScheduleId === schedule.id
+                    ? "Sending..."
+                    : "Send now"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label="Delete schedule"
+                  onClick={() => void onScheduleDelete?.(schedule.id)}
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
         {reports.map((report) => (
           <TableRow key={report.id}>
             <TableCell className="font-medium">

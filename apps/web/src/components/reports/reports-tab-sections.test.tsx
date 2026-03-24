@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
-  AutoReportSettingsSection,
   ReportsTabLoadingState,
   ReportsTabToolbar,
 } from "./reports-tab-sections";
@@ -24,7 +23,7 @@ describe("reports-tab sections", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Generate Report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /New Report/i }));
     expect(onOpenGenerate).toHaveBeenCalledTimes(1);
 
     fireEvent.pointerDown(screen.getByRole("button", { name: /Export Data/i }));
@@ -32,55 +31,16 @@ describe("reports-tab sections", () => {
     expect(onExport).toHaveBeenCalledWith("csv");
   });
 
-  it("renders schedule rows and preset selection controls", () => {
-    const onAudienceSelect = vi.fn();
+  it("allows opening generate modal without a crawlJobId", () => {
+    const onOpenGenerate = vi.fn();
 
     render(
-      <AutoReportSettingsSection
-        crawlJobId="crawl-1"
-        schedules={[
-          {
-            id: "sched-1",
-            projectId: "proj-1",
-            format: "pdf",
-            type: "summary",
-            recipientEmail: "client@example.com",
-            enabled: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ]}
-        locked={false}
-        audience="executive"
-        recipientInput="client@example.com"
-        format="pdf"
-        type="summary"
-        saving={false}
-        sendingNowScheduleId={null}
-        selectedPreset={{
-          label: "Executive Summary",
-          description: "High-level outcomes for leadership updates.",
-          format: "pdf",
-          type: "summary",
-        }}
-        onAudienceSelect={onAudienceSelect}
-        onRecipientInputChange={vi.fn()}
-        onFormatChange={vi.fn()}
-        onTypeChange={vi.fn()}
-        onCreate={vi.fn()}
-        onSendNow={vi.fn()}
-        onToggle={vi.fn()}
-        onDelete={vi.fn()}
-      />,
+      <ReportsTabToolbar onExport={vi.fn()} onOpenGenerate={onOpenGenerate} />,
     );
 
-    expect(screen.getByText("Auto-Report Settings")).toBeInTheDocument();
-    expect(screen.getByText("client@example.com")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Audience: Executive Summary/i),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /SEO Lead/i }));
-    expect(onAudienceSelect).toHaveBeenCalledWith("seo_lead");
+    const btn = screen.getByRole("button", { name: /New Report/i });
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onOpenGenerate).toHaveBeenCalledTimes(1);
   });
 });

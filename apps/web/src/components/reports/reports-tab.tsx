@@ -3,7 +3,6 @@
 import { GenerateReportModal } from "./generate-report-modal";
 import { ReportList } from "./report-list";
 import {
-  AutoReportSettingsSection,
   ReportsTabLoadingState,
   ReportsTabToolbar,
 } from "./reports-tab-sections";
@@ -21,17 +20,14 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
     projectId,
   });
   const { showModal, setShowModal, handleExport, handleDelete } =
-    useReportsTabActions({
-      crawlJobId,
-      setReports,
-    });
+    useReportsTabActions({ crawlJobId, setReports });
   const autoReportSettings = useAutoReportSettings({
     projectId,
     crawlJobId,
     onReportGenerated: fetchReports,
   });
 
-  if (loading) {
+  if (loading || autoReportSettings.loading) {
     return <ReportsTabLoadingState />;
   }
 
@@ -45,42 +41,32 @@ export default function ReportsTab({ projectId, crawlJobId }: Props) {
 
       <ReportList
         reports={reports}
+        schedules={autoReportSettings.schedules}
+        crawlJobId={crawlJobId}
+        sendingNowScheduleId={autoReportSettings.sendingNowScheduleId}
         onDelete={handleDelete}
         onRefresh={fetchReports}
+        onScheduleSendNow={autoReportSettings.handleSendNow}
+        onScheduleToggle={autoReportSettings.handleToggle}
+        onScheduleDelete={autoReportSettings.handleDelete}
       />
 
-      {crawlJobId && (
-        <GenerateReportModal
-          open={showModal}
-          onClose={() => setShowModal(false)}
-          projectId={projectId}
-          crawlJobId={crawlJobId}
-          onGenerated={fetchReports}
-        />
-      )}
-
-      {!autoReportSettings.loading && (
-        <AutoReportSettingsSection
-          crawlJobId={crawlJobId}
-          schedules={autoReportSettings.schedules}
-          locked={autoReportSettings.locked}
-          audience={autoReportSettings.audience}
-          recipientInput={autoReportSettings.recipientInput}
-          format={autoReportSettings.format}
-          type={autoReportSettings.type}
-          saving={autoReportSettings.saving}
-          sendingNowScheduleId={autoReportSettings.sendingNowScheduleId}
-          selectedPreset={autoReportSettings.selectedPreset}
-          onAudienceSelect={autoReportSettings.handleAudienceSelect}
-          onRecipientInputChange={autoReportSettings.setRecipientInput}
-          onFormatChange={autoReportSettings.setFormat}
-          onTypeChange={autoReportSettings.setType}
-          onCreate={autoReportSettings.handleCreate}
-          onSendNow={autoReportSettings.handleSendNow}
-          onToggle={autoReportSettings.handleToggle}
-          onDelete={autoReportSettings.handleDelete}
-        />
-      )}
+      <GenerateReportModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        projectId={projectId}
+        crawlJobId={crawlJobId}
+        onGenerated={fetchReports}
+        locked={autoReportSettings.locked}
+        onCreateSchedule={async ({ recipientInput, format, type }) => {
+          autoReportSettings.setRecipientInput(recipientInput);
+          autoReportSettings.setFormat(format);
+          autoReportSettings.setType(type);
+          await autoReportSettings.handleCreate();
+          setShowModal(false);
+        }}
+        scheduleSaving={autoReportSettings.saving}
+      />
     </div>
   );
 }

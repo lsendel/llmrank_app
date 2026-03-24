@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ReportsTab from "./reports-tab";
 import type { Report, ReportSchedule } from "@/lib/api";
@@ -9,12 +9,22 @@ const listSchedulesMock = vi.fn<() => Promise<ReportSchedule[]>>();
 const createScheduleMock = vi.fn();
 const generateReportMock = vi.fn();
 
+// Capture props passed to mocked components
+let capturedReportListProps: Record<string, unknown> = {};
+let capturedModalProps: Record<string, unknown> = {};
+
 vi.mock("@/components/reports/report-list", () => ({
-  ReportList: () => <div data-testid="report-list">Report List</div>,
+  ReportList: (props: Record<string, unknown>) => {
+    capturedReportListProps = props;
+    return <div data-testid="report-list">Report List</div>;
+  },
 }));
 
 vi.mock("@/components/reports/generate-report-modal", () => ({
-  GenerateReportModal: () => null,
+  GenerateReportModal: (props: Record<string, unknown>) => {
+    capturedModalProps = props;
+    return null;
+  },
 }));
 
 vi.mock("@/components/ui/use-toast", () => ({
@@ -52,6 +62,8 @@ vi.mock("@/lib/api", () => ({
 describe("ReportsTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedReportListProps = {};
+    capturedModalProps = {};
     listReportsMock.mockResolvedValue([]);
     listSchedulesMock.mockResolvedValue([]);
     createScheduleMock.mockImplementation(async (input) => ({
@@ -81,46 +93,8 @@ describe("ReportsTab", () => {
     });
   });
 
-  it("creates schedules for multiple recipients using the selected preset", async () => {
-    render(<ReportsTab projectId="proj-1" crawlJobId="crawl-1" />);
-
-    await screen.findByText("Auto-Report Settings");
-
-    fireEvent.click(screen.getByRole("button", { name: /Content Lead/i }));
-    fireEvent.change(screen.getByLabelText("Recipient Email"), {
-      target: { value: "team@example.com; owner@example.com" },
-    });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "3. Add Schedule" }),
-      ).not.toBeDisabled(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "3. Add Schedule" }));
-
-    await waitFor(() => expect(createScheduleMock).toHaveBeenCalledTimes(2));
-
-    expect(createScheduleMock).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        projectId: "proj-1",
-        format: "docx",
-        type: "detailed",
-        recipientEmail: "team@example.com",
-      }),
-    );
-    expect(createScheduleMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        projectId: "proj-1",
-        format: "docx",
-        type: "detailed",
-        recipientEmail: "owner@example.com",
-      }),
-    );
-  });
-
-  it("queues a report immediately from an existing schedule", async () => {
-    listSchedulesMock.mockResolvedValue([
+  it("passes schedules to ReportList and schedule handlers to GenerateReportModal", async () => {
+    const schedules: ReportSchedule[] = [
       {
         id: "sched-1",
         projectId: "proj-1",
@@ -131,23 +105,42 @@ describe("ReportsTab", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-    ]);
+    ];
+    listSchedulesMock.mockResolvedValue(schedules);
 
     render(<ReportsTab projectId="proj-1" crawlJobId="crawl-1" />);
-    await screen.findByText("client@example.com");
 
-    fireEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await screen.findByTestId("report-list");
 
-    await waitFor(() =>
-      expect(generateReportMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: "proj-1",
-          crawlJobId: "crawl-1",
-          format: "pdf",
-          type: "summary",
-          config: { preparedFor: "client@example.com" },
-        }),
-      ),
-    );
+    await waitFor(() => {
+      expect(capturedReportListProps.schedules).toEqual(schedules);
+      expect(capturedReportListProps.crawlJobId).toBe("crawl-1");
+      expect(typeof capturedReportListProps.onScheduleSendNow).toBe("function");
+      expect(typeof capturedReportListProps.onScheduleToggle).toBe("function");
+      expect(typeof capturedReportListProps.onScheduleDelete).toBe("function");
+    });
+  });
+
+  it("passes onCreateSchedule and locked to GenerateReportModal", async () => {
+    render(<ReportsTab projectId="proj-1" crawlJobId="crawl-1" />);
+
+    await screen.findByTestId("report-list");
+
+    await waitFor(() => {
+      expect(typeof capturedModalProps.onCreateSchedule).toBe("function");
+      expect(capturedModalProps.locked).toBeDefined();
+      expect(capturedModalProps.scheduleSaving).toBeDefined();
+    });
+  });
+
+  it("renders GenerateReportModal even without crawlJobId", async () => {
+    render(<ReportsTab projectId="proj-1" crawlJobId={undefined} />);
+
+    await screen.findByTestId("report-list");
+
+    await waitFor(() => {
+      expect(capturedModalProps.crawlJobId).toBeUndefined();
+      expect(capturedModalProps.projectId).toBe("proj-1");
+    });
   });
 });
