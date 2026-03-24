@@ -41,7 +41,7 @@
     "d3-force": "^3.0.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.469",
-    "next": "^15",
+    "next": "15.5.14",
     "posthog-js": "^1.347.2",
     "react": "^19",
     "react-dom": "^19",

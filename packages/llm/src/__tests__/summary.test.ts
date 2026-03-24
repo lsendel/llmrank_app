@@ -85,6 +85,7 @@ describe("SummaryGenerator", () => {
           effortLevel: "low",
           recommendation: "Add meta descriptions",
           priority: 20,
+          samplePageUrls: [],
         },
       ],
       pagesScored: 25,
