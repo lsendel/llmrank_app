@@ -6,7 +6,7 @@ const META_AUTH_URL = "https://www.facebook.com/v21.0/dialog/oauth";
 const META_TOKEN_URL = "https://graph.facebook.com/v21.0/oauth/access_token";
 
 export const META_SCOPES = {
-  basic: "public_profile",
+  basic: "pages_show_list,pages_read_engagement,email",
   ads: "ads_read",
 } as const;
 
