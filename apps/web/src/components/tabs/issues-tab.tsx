@@ -19,6 +19,7 @@ import {
   IssuesFilters,
   IssuesFixRateBanner,
   IssuesList,
+  IssuesPagination,
 } from "./issues-tab-sections";
 import { useIssuesTabActions } from "./use-issues-tab-actions";
 import { useIssuesTabData } from "./use-issues-tab-data";
@@ -53,6 +54,10 @@ export function IssuesTab({
     getActionItemForIssue,
     highPriorityBacklog,
     filteredIssues,
+    page,
+    setPage,
+    totalPages,
+    paginatedIssues,
   } = useIssuesTabData({ issues, projectId });
   const {
     autoPlanning,
@@ -108,12 +113,17 @@ export function IssuesTab({
 
       <IssuesList
         issues={issues}
-        filteredIssues={filteredIssues}
+        filteredIssues={paginatedIssues}
         projectId={projectId}
         getActionItemForIssue={getActionItemForIssue}
         onStatusChange={handleStatusChange}
         onTaskCreate={handleCreateTask}
         onTaskUpdate={handleTaskUpdate}
+      />
+      <IssuesPagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
       />
     </div>
   );

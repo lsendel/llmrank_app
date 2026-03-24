@@ -105,13 +105,20 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://llmrank.app",
-      "https://www.llmrank.app",
-      "https://llmboost.com",
-      "https://www.llmboost.com",
-    ],
+    origin: (origin) => {
+      // Allow LLMRank/LLMBoost origins
+      const allowed = [
+        "http://localhost:3000",
+        "https://llmrank.app",
+        "https://www.llmrank.app",
+        "https://llmboost.com",
+        "https://www.llmboost.com",
+      ];
+      if (allowed.includes(origin)) return origin;
+      // Allow all .care domains (families.care, kazoku.care, etc.)
+      if (origin.endsWith(".care")) return origin;
+      return allowed[0];
+    },
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: [

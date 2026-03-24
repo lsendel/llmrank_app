@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
   type ActionItem,
@@ -75,6 +75,20 @@ export function useIssuesTabData({ issues, projectId }: UseIssuesTabDataArgs) {
     ],
   );
 
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [severityFilter, categoryFilter, statusFilter]);
+
+  const totalPages = Math.ceil(filteredIssues.length / PAGE_SIZE);
+
+  const paginatedIssues = useMemo(
+    () => filteredIssues.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredIssues, page],
+  );
+
   return {
     severityFilter,
     setSeverityFilter,
@@ -89,5 +103,9 @@ export function useIssuesTabData({ issues, projectId }: UseIssuesTabDataArgs) {
     getActionItemForIssue: getActionItemForIssueForTab,
     highPriorityBacklog,
     filteredIssues,
+    page,
+    setPage,
+    totalPages,
+    paginatedIssues,
   };
 }
