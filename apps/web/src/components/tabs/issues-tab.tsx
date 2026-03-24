@@ -99,6 +99,8 @@ export function IssuesTab({
         categoryFilter={categoryFilter}
         statusFilter={statusFilter}
         showStatusFilter={(actionItems?.length ?? 0) > 0}
+        filteredIssues={filteredIssues}
+        getActionItemForIssue={getActionItemForIssue}
         onSeverityChange={setSeverityFilter}
         onCategoryChange={setCategoryFilter}
         onStatusChange={setStatusFilter}

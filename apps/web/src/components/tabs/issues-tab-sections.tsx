@@ -6,6 +6,7 @@ import { IssueCard } from "@/components/issue-card";
 import {
   CheckCircle2,
   Clock,
+  Download,
   ListChecks,
   Loader2,
   TrendingUp,
@@ -150,11 +151,70 @@ function formatSeverityLabel(severity: IssueSeverityFilter) {
   return severity.charAt(0).toUpperCase() + severity.slice(1);
 }
 
+function pageSpeedUrl(pageUrl: string): string {
+  return `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(pageUrl)}`;
+}
+
+function buildIssuesMarkdown(
+  issues: PageIssue[],
+  getActionItemForIssue?: (issue: PageIssue) => ActionItem | undefined,
+): string {
+  const lines: string[] = [
+    "# Issues Report",
+    "",
+    `> Exported ${issues.length} issue${issues.length === 1 ? "" : "s"} on ${new Date().toLocaleDateString()}`,
+    "",
+    "| Severity | Status | Issue | Location | PageSpeed |",
+    "|----------|--------|-------|----------|-----------|",
+  ];
+
+  for (const issue of issues) {
+    const status = getActionItemForIssue?.(issue)?.status ?? "backlog";
+    const location = issue.pageUrl ?? "Site-wide";
+    const escapedMessage = issue.message.replace(/\|/g, "\\|");
+    const psiLink = issue.pageUrl
+      ? `[Analyze](${pageSpeedUrl(issue.pageUrl)})`
+      : "—";
+    lines.push(
+      `| ${issue.severity} | ${status} | ${escapedMessage} | ${location} | ${psiLink} |`,
+    );
+  }
+
+  lines.push("", "## Recommendations", "");
+  for (const issue of issues) {
+    lines.push(`### ${issue.message}`);
+    lines.push("");
+    const pageLine = issue.pageUrl
+      ? ` · **Page:** ${issue.pageUrl} · [PageSpeed](${pageSpeedUrl(issue.pageUrl)})`
+      : "";
+    lines.push(
+      `**Severity:** ${issue.severity} · **Category:** ${issue.category}${pageLine}`,
+    );
+    lines.push("");
+    lines.push(issue.recommendation);
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function downloadMarkdown(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function IssuesFilters({
   severityFilter,
   categoryFilter,
   statusFilter,
   showStatusFilter,
+  filteredIssues,
+  getActionItemForIssue,
   onSeverityChange,
   onCategoryChange,
   onStatusChange,
@@ -163,12 +223,14 @@ export function IssuesFilters({
   categoryFilter: IssueCategoryFilter;
   statusFilter: StatusFilter;
   showStatusFilter: boolean;
+  filteredIssues: PageIssue[];
+  getActionItemForIssue?: (issue: PageIssue) => ActionItem | undefined;
   onSeverityChange: (value: IssueSeverityFilter) => void;
   onCategoryChange: (value: IssueCategoryFilter) => void;
   onStatusChange: (value: StatusFilter) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground">
           Severity:
@@ -216,6 +278,23 @@ export function IssuesFilters({
           ))}
         </div>
       )}
+      <div className="ml-auto">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={filteredIssues.length === 0}
+          onClick={() => {
+            const md = buildIssuesMarkdown(
+              filteredIssues,
+              getActionItemForIssue,
+            );
+            downloadMarkdown(md, "issues-report.md");
+          }}
+        >
+          <Download className="mr-1.5 h-4 w-4" />
+          Download ({filteredIssues.length})
+        </Button>
+      </div>
     </div>
   );
 }
