@@ -1,5 +1,16 @@
 export * from "./schema";
-export { createDb, type Database } from "./client";
+export {
+  createAppDb,
+  createAdminDb,
+  type AppDatabase,
+  type AdminDatabase,
+} from "./d1-client";
+export { createAgencyDb, type AgencyDatabase } from "./supabase-client";
+
+// Re-export Database as AppDatabase for gradual migration of consumers
+export type { AppDatabase as Database } from "./d1-client";
+
+// Query modules (keep ALL existing exports exactly as they are)
 export { userQueries } from "./queries/users";
 export { projectQueries } from "./queries/projects";
 export { crawlQueries } from "./queries/crawls";
