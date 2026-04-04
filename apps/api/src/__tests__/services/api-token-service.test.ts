@@ -6,6 +6,7 @@ import {
 } from "../../services/api-token-service";
 import { createMockProjectRepo } from "../helpers/mock-repositories";
 import { buildUser, buildProject } from "../helpers/factories";
+import type { PlanTier } from "@llm-boost/shared";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -87,7 +88,7 @@ describe("ApiTokenService", () => {
 
       const result = await service.create({
         userId: user.id,
-        userPlan: user.plan,
+        userPlan: user.plan as PlanTier,
         projectId: project.id,
         type: "api",
         name: "CI Token",

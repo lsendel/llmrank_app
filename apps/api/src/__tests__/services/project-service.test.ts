@@ -103,7 +103,7 @@ describe("ProjectService", () => {
           technicalScore: 95,
           contentScore: 88,
           aiReadinessScore: 87,
-          detail: {},
+          detail: "{}",
         }),
       ]);
       const service = createProjectService({ projects, users, crawls, scores });

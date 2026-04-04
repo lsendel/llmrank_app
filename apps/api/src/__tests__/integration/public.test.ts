@@ -237,7 +237,7 @@ describe("Public Routes", () => {
         status: "complete",
         pagesScored: 5,
         summary: "Site scored well overall.",
-        completedAt: new Date("2024-06-15"),
+        completedAt: new Date("2024-06-15").toISOString(),
         shareToken: "valid-token",
         shareEnabled: true,
         shareLevel: "full",

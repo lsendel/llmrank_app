@@ -448,7 +448,7 @@ describe("StrategyService", () => {
         monitoringFrequency: "weekly" as const,
         nextBenchmarkAt: null,
         lastBenchmarkAt: null,
-        createdAt: new Date("2024-01-01"),
+        createdAt: new Date("2024-01-01").toISOString(),
       });
       const service = createStrategyService({
         projects,
@@ -488,7 +488,7 @@ describe("StrategyService", () => {
         monitoringFrequency: "weekly" as const,
         nextBenchmarkAt: null,
         lastBenchmarkAt: null,
-        createdAt: new Date("2024-01-01"),
+        createdAt: new Date("2024-01-01").toISOString(),
       });
       projects.getById.mockResolvedValue(
         buildProject({ userId: "other-user" }),
