@@ -13,7 +13,7 @@ const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
 
 vi.mock("@llm-boost/db", () => ({
-  createDb: vi.fn().mockReturnValue({}),
+  createAppDb: vi.fn().mockReturnValue({}),
   scoreQueries: vi.fn(() => ({
     update: mockUpdate,
     updateDetail: mockUpdateDetail,

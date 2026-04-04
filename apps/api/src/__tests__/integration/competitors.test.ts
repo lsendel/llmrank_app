@@ -46,7 +46,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       listByProject: mockCompBenchListByProject,
       getLatest: mockCompBenchGetLatest,
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 

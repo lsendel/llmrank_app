@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { leadQueries } from "../../queries/leads";
-import type { Database } from "../../client";
+import type { AppDatabase } from "../../d1-client";
 
 // ---------------------------------------------------------------------------
 // Mock DB builder – chainable drizzle-like object
@@ -51,7 +51,7 @@ function createMockDb() {
   return {
     chain,
     queryHandlers,
-    db: { ...chain, query: queryProxy } as unknown as Database,
+    db: { ...chain, query: queryProxy } as unknown as AppDatabase,
   };
 }
 

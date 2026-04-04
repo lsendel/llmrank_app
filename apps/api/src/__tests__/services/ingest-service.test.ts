@@ -122,7 +122,7 @@ vi.mock("../../services/frontier-service", () => ({
 }));
 
 vi.mock("@llm-boost/db", () => ({
-  createDb: vi.fn().mockReturnValue({}),
+  createAppDb: vi.fn().mockReturnValue({}),
   projectQueries: vi.fn().mockReturnValue({
     getById: vi.fn().mockResolvedValue({
       id: "proj-1",

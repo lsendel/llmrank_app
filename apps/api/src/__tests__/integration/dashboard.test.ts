@@ -62,7 +62,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       getStatsForUser: mockGetStatsForUser,
       getRecentForUser: mockGetRecentForUser,
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 

@@ -31,7 +31,7 @@ const {
 }));
 
 vi.mock("@llm-boost/db", () => ({
-  createDb: vi.fn().mockReturnValue({}),
+  createAppDb: vi.fn().mockReturnValue({}),
   projectQueries: vi.fn(() => ({
     getById: mockGetById,
   })),

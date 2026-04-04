@@ -1,25 +1,25 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
-import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
-let _db: NeonHttpDatabase | null = null;
+let _db: PostgresJsDatabase | null = null;
 
-export function getTestDb(): NeonHttpDatabase {
+export function getTestDb(): PostgresJsDatabase {
   if (_db) return _db;
   const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) throw new Error("TEST_DATABASE_URL or DATABASE_URL must be set");
-  const sql = neon(url);
-  _db = drizzle(sql);
+  const client = postgres(url);
+  _db = drizzle(client);
   return _db;
 }
 
 /**
- * Get a raw neon sql tagged-template function for direct SQL execution.
+ * Get a raw postgres client for direct SQL execution.
  */
 function getRawSql() {
   const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) throw new Error("TEST_DATABASE_URL or DATABASE_URL must be set");
-  return neon(url);
+  return postgres(url);
 }
 
 /**
