@@ -159,8 +159,9 @@ competitorRoutes.get("/", async (c) => {
   };
 
   if (latestCrawl?.summaryData) {
-    // summaryData is a jsonb field containing aggregated scores
-    const summary = latestCrawl.summaryData as any;
+    // summaryData may be a JSON string (D1 text column) or object
+    const raw = latestCrawl.summaryData;
+    const summary = (typeof raw === "string" ? JSON.parse(raw) : raw) as any;
     projectScores = {
       overall: summary.overallScore ?? 0,
       technical: summary.technicalScore ?? 0,

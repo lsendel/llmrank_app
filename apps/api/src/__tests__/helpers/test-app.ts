@@ -56,6 +56,7 @@ export function createTestApp(options: TestAppOptions = {}) {
   // Inject DB, DI container + fake auth (bypasses Clerk JWT verification)
   app.use("*", async (c, next) => {
     c.set("db", db);
+    c.set("agencyDb", db as any);
     c.set("container", container);
     c.set("userId", userId);
     c.set("requestId", "test-req-id");

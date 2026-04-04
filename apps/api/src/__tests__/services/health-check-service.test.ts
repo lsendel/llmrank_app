@@ -19,6 +19,7 @@ const mockIssues = vi.fn().mockResolvedValue([
 
 vi.mock("@llm-boost/db", () => ({
   createAppDb: vi.fn().mockReturnValue({}),
+  createAgencyDb: vi.fn().mockReturnValue({}),
   projectQueries: () => ({
     getById: vi.fn().mockResolvedValue(mockProject),
   }),

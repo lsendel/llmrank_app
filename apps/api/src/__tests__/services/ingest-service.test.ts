@@ -88,6 +88,15 @@ vi.mock("@llm-boost/scoring", () => ({
   scorePage: mockScorePage,
   detectContentType: mockDetectContentType,
   generateRecommendations: mockGenerateRecommendations,
+  scoringResultToDimensions: vi.fn().mockReturnValue({
+    llms_txt: 100,
+    robots_txt: 100,
+    sitemap: 100,
+    schema_markup: 100,
+    meta_tags: 100,
+    bot_access: 100,
+    content_citeability: 100,
+  }),
 }));
 
 vi.mock("../../services/llm-scoring", () => ({

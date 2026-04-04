@@ -36,6 +36,7 @@ vi.mock("@llm-boost/db", () => ({
     getIssuesByJob: mockGetIssuesByJob,
   }),
   createAppDb: vi.fn().mockReturnValue({}),
+  createAgencyDb: vi.fn().mockReturnValue({}),
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({

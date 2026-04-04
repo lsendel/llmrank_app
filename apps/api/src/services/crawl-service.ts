@@ -261,7 +261,11 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         ...enriched,
         projectName: project.name,
         summary: crawlJob.summary,
-        summaryData: crawlJob.summaryData ?? null,
+        summaryData: crawlJob.summaryData
+          ? typeof crawlJob.summaryData === "string"
+            ? JSON.parse(crawlJob.summaryData)
+            : crawlJob.summaryData
+          : null,
       };
     },
 
