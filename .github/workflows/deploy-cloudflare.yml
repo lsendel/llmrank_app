@@ -7,7 +7,6 @@ on:
       - "packages/**"
       - "apps/web/**"
       - "apps/api/**"
-      - "apps/report-worker/**"
       - "apps/mcp-gateway/**"
 
 jobs:
@@ -33,10 +32,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Push DB schema to Neon
-        run: pnpm --filter @llm-boost/db push
+      - name: Apply D1 migrations
+        run: |
+          npx wrangler d1 migrations apply llmrank-app --remote
+          npx wrangler d1 migrations apply llmrank-admin --remote
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+
+      - name: Push Supabase schema
+        run: pnpm --filter @llm-boost/db push:supabase
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
 
   deploy-api:
     needs: migrations
@@ -68,38 +75,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
-  deploy-report-worker:
-    needs: migrations
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Setup Turborepo cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
-      - name: Deploy Report Worker
-        run: npx wrangler deploy
-        working-directory: apps/report-worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-
   deploy-web:
-    needs: [deploy-api, deploy-report-worker]
+    needs: [deploy-api]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
