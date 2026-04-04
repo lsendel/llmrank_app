@@ -43,7 +43,7 @@ database_id = "dce35bee-1dbe-4661-9534-3109cb4535a0"
 
 [[hyperdrive]]
 binding = "SUPABASE"
-id = "TO_BE_CREATED"
+id = "4be2d23ea72a4dcaa9aaa9a2d9af8f9f"
 
 [vars]
 CRAWLER_URL = "https://llmrank-crawler.fly.dev"
