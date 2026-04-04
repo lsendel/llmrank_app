@@ -1,6 +1,6 @@
 import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
-import type { Database } from "../client";
-import { analyticsEvents, analyticsDailyRollups } from "../schema/analytics";
+import type { AgencyDatabase as Database } from "../supabase-client";
+import { analyticsEvents, analyticsDailyRollups } from "../schema";
 
 const FIRST_PARTY_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
 

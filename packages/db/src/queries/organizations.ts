@@ -1,15 +1,13 @@
-import { eq, and, desc, gte, sql, ilike } from "drizzle-orm";
-import type { Database } from "../client";
+import { eq, and, desc, gte, sql, like } from "drizzle-orm";
+import type { AppDatabase as Database } from "../d1-client";
 import {
   organizations,
   orgMembers,
   orgInvites,
   auditLogs,
   users,
-  orgRoleEnum,
 } from "../schema";
-
-type OrgRole = (typeof orgRoleEnum.enumValues)[number];
+import type { OrgRole } from "../schema/enums";
 
 // ---------------------------------------------------------------------------
 // Organization CRUD
@@ -239,7 +237,7 @@ export function auditLogQueries(db: Database) {
 
       // Build conditions array
       const conditions = [eq(auditLogs.orgId, orgId)];
-      if (action) conditions.push(ilike(auditLogs.action, `%${action}%`));
+      if (action) conditions.push(like(auditLogs.action, `%${action}%`));
       if (since) conditions.push(gte(auditLogs.createdAt, since));
 
       const where = and(...conditions);
@@ -267,7 +265,7 @@ export function auditLogQueries(db: Database) {
           .limit(limit)
           .offset(offset),
         db
-          .select({ count: sql<number>`count(*)::int` })
+          .select({ count: sql<number>`count(*)` })
           .from(auditLogs)
           .where(where),
       ]);

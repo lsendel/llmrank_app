@@ -1,8 +1,7 @@
 import { eq, and, desc, gte, sql } from "drizzle-orm";
-import type { Database } from "../client";
-import { reports, reportStatusEnum } from "../schema";
-
-type ReportStatus = (typeof reportStatusEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { reports } from "../schema";
+import type { ReportStatus } from "../schema/enums";
 
 export function reportQueries(db: Database) {
   return {

@@ -1,5 +1,5 @@
 import { eq, desc } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AgencyDatabase as Database } from "../supabase-client";
 import { brandSentimentSnapshots } from "../schema";
 
 export function brandSentimentQueries(db: Database) {

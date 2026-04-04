@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { subscriptions, payments } from "../schema";
 
 export function billingQueries(db: Database) {

@@ -1,5 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AgencyDatabase as Database } from "../supabase-client";
 import { llmBatchJobs } from "../schema";
 
 export function batchJobQueries(db: Database) {

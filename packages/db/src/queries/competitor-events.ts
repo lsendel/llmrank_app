@@ -1,10 +1,7 @@
 import { eq, and, desc, gte, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AgencyDatabase as Database } from "../supabase-client";
 import { competitorEvents } from "../schema";
-import type { competitorEventTypeEnum, alertSeverityEnum } from "../schema";
-
-type CompetitorEventType = (typeof competitorEventTypeEnum.enumValues)[number];
-type AlertSeverity = (typeof alertSeverityEnum.enumValues)[number];
+import type { CompetitorEventType, AlertSeverity } from "../schema/enums";
 
 export function competitorEventQueries(db: Database) {
   return {

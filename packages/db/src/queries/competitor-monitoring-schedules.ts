@@ -1,5 +1,5 @@
 import { eq, and, desc, lte, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AgencyDatabase as Database } from "../supabase-client";
 import { competitorMonitoringSchedules } from "../schema";
 
 export function competitorMonitoringScheduleQueries(db: Database) {

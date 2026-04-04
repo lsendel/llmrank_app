@@ -1,5 +1,5 @@
 import { eq, and, desc, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { aiPrompts } from "../schema";
 
 export function aiPromptQueries(db: Database) {
@@ -44,7 +44,7 @@ export function aiPromptQueries(db: Database) {
 
     async countByProject(projectId: string) {
       const [row] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(aiPrompts)
         .where(eq(aiPrompts.projectId, projectId));
       return row?.count ?? 0;

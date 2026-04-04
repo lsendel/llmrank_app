@@ -1,5 +1,5 @@
 import { eq, desc } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { logUploads } from "../schema";
 
 export function logQueries(db: Database) {

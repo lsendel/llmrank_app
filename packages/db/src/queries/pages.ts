@@ -1,5 +1,5 @@
 import { and, eq, gt } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { pages } from "../schema";
 
 export function pageQueries(db: Database) {

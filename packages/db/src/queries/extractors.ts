@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { customExtractors } from "../schema";
 
 export function extractorQueries(db: Database) {

@@ -1,15 +1,7 @@
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
-import type { Database } from "../client";
-import {
-  pageScores,
-  pages,
-  issues,
-  issueCategoryEnum,
-  issueSeverityEnum,
-} from "../schema";
-
-type IssueCategory = (typeof issueCategoryEnum.enumValues)[number];
-type IssueSeverity = (typeof issueSeverityEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { pageScores, pages, issues } from "../schema";
+import type { IssueCategory, IssueSeverity } from "../schema/enums";
 
 interface ScoreCreateData {
   pageId: string;
@@ -212,7 +204,7 @@ export function scoreQueries(db: Database) {
       const [updated] = await db
         .update(pageScores)
         .set({
-          detail: sql`COALESCE(${pageScores.detail}, '{}'::jsonb) || ${JSON.stringify(detailPatch)}::jsonb`,
+          detail: sql`json_patch(COALESCE(${pageScores.detail}, '{}'), ${JSON.stringify(detailPatch)})`,
         })
         .where(eq(pageScores.id, pageScoreId))
         .returning();

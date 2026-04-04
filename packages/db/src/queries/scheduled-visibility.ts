@@ -1,5 +1,5 @@
 import { and, eq, lte, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { scheduledVisibilityQueries } from "../schema";
 
 export function scheduledVisibilityQueryQueries(db: Database) {
@@ -91,7 +91,7 @@ export function scheduledVisibilityQueryQueries(db: Database) {
 
     async countByProject(projectId: string) {
       const [result] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(scheduledVisibilityQueries)
         .where(eq(scheduledVisibilityQueries.projectId, projectId));
       return result?.count ?? 0;

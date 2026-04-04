@@ -1,9 +1,7 @@
 import { eq, and } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { pageEnrichments } from "../schema";
-import { integrationProviderEnum } from "../schema/enums";
-
-type IntegrationProvider = (typeof integrationProviderEnum.enumValues)[number];
+import type { IntegrationProvider } from "../schema/enums";
 
 export function enrichmentQueries(db: Database) {
   return {

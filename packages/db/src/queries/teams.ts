@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { teams, teamMembers, teamInvitations } from "../schema";
 import { randomUUID } from "node:crypto";
 

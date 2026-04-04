@@ -1,5 +1,5 @@
 import { eq, desc, sql, inArray } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { savedKeywords } from "../schema";
 
 export function savedKeywordQueries(db: Database) {
@@ -47,7 +47,7 @@ export function savedKeywordQueries(db: Database) {
 
     async countByProject(projectId: string) {
       const [row] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(savedKeywords)
         .where(eq(savedKeywords.projectId, projectId));
       return row?.count ?? 0;
@@ -58,7 +58,7 @@ export function savedKeywordQueries(db: Database) {
       const rows = await db
         .select({
           projectId: savedKeywords.projectId,
-          count: sql<number>`count(*)::int`,
+          count: sql<number>`count(*)`,
         })
         .from(savedKeywords)
         .where(inArray(savedKeywords.projectId, projectIds))

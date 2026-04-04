@@ -1,10 +1,8 @@
 import { eq, and, sql } from "drizzle-orm";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import type { Database } from "../client";
-import { users, planEnum, personaEnum } from "../schema";
-
-type Plan = (typeof planEnum.enumValues)[number];
-type Persona = (typeof personaEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { users } from "../schema";
+import type { Plan, Persona } from "../schema/enums";
 
 export function userQueries(db: Database) {
   return {
@@ -70,7 +68,12 @@ export function userQueries(db: Database) {
         : 999999;
       await db
         .update(users)
-        .set({ plan, stripeSubId, crawlCreditsRemaining, updatedAt: new Date() })
+        .set({
+          plan,
+          stripeSubId,
+          crawlCreditsRemaining,
+          updatedAt: new Date(),
+        })
         .where(eq(users.id, id));
     },
 

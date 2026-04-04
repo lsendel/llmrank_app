@@ -1,5 +1,5 @@
 import { eq, lt } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { scanResults } from "../schema";
 
 export function scanResultQueries(db: Database) {

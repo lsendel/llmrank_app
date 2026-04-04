@@ -6,16 +6,10 @@ import {
   inArray,
   type InferSelectModel,
 } from "drizzle-orm";
-import type { Database } from "../client";
-import {
-  crawlJobs,
-  crawlStatusEnum,
-  projects,
-  pageScores,
-  pages,
-} from "../schema";
+import type { AppDatabase as Database } from "../d1-client";
+import { crawlJobs, projects, pageScores, pages } from "../schema";
+import type { CrawlStatus } from "../schema/enums";
 
-type CrawlStatus = (typeof crawlStatusEnum.enumValues)[number];
 type PageScore = InferSelectModel<typeof pageScores>;
 
 export function crawlQueries(db: Database) {

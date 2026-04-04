@@ -1,5 +1,5 @@
 import { eq, and, isNull, lte } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AdminDatabase as Database } from "../d1-client";
 import { leads } from "../schema";
 
 export function leadQueries(db: Database) {

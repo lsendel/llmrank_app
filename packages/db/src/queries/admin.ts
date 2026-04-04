@@ -3,14 +3,14 @@ import {
   sql,
   and,
   or,
-  ilike,
+  like,
   desc,
   count,
   countDistinct,
   inArray,
   gt,
 } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AdminDatabase as Database } from "../d1-client";
 import {
   users,
   subscriptions,
@@ -109,7 +109,7 @@ export function adminQueries(db: Database) {
 
       const [avgDurationResult] = await db
         .select({
-          value: sql<number>`coalesce(avg(extract(epoch from ${crawlJobs.completedAt} - ${crawlJobs.startedAt})), 0)`,
+          value: sql<number>`coalesce(avg(unixepoch(${crawlJobs.completedAt}) - unixepoch(${crawlJobs.startedAt})), 0)`,
         })
         .from(crawlJobs)
         .where(
@@ -156,8 +156,8 @@ export function adminQueries(db: Database) {
 
       const where = opts.search
         ? or(
-            ilike(users.email, `%${opts.search}%`),
-            ilike(users.name, `%${opts.search}%`),
+            like(users.email, `%${opts.search}%`),
+            like(users.name, `%${opts.search}%`),
           )
         : undefined;
 
@@ -317,7 +317,7 @@ export function adminQueries(db: Database) {
     async replayOutboxEvent(eventId: string) {
       const [row] = await db
         .update(outboxEvents)
-        .set({ status: "pending", availableAt: sql`NOW()` })
+        .set({ status: "pending", availableAt: sql`datetime('now')` })
         .where(eq(outboxEvents.id, eventId))
         .returning({ id: outboxEvents.id, status: outboxEvents.status });
       return row ?? null;

@@ -1,8 +1,8 @@
 import { eq, sql } from "drizzle-orm";
-import type { Database } from "../client";
-import { outboxEvents, eventStatusEnum } from "../schema";
-
-export type EventStatus = (typeof eventStatusEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { outboxEvents } from "../schema";
+import type { EventStatus } from "../schema/enums";
+export type { EventStatus };
 
 export interface OutboxEventData {
   type: string;
@@ -32,9 +32,8 @@ export function outboxQueries(db: Database) {
           sql`${outboxEvents.id} IN (
             SELECT id FROM ${outboxEvents}
             WHERE ${outboxEvents.status} = 'pending'
-              AND ${outboxEvents.availableAt} <= NOW()
+              AND ${outboxEvents.availableAt} <= datetime('now')
             ORDER BY ${outboxEvents.availableAt}
-            FOR UPDATE SKIP LOCKED
             LIMIT ${limit}
           )`,
         )
@@ -55,7 +54,7 @@ export function outboxQueries(db: Database) {
         .set({
           status: "pending",
           attempts: sql`${outboxEvents.attempts} + 1`,
-          availableAt: sql`NOW() + interval '${retryDelaySeconds} seconds'`,
+          availableAt: sql`datetime('now', '+' || ${retryDelaySeconds} || ' seconds')`,
         })
         .where(eq(outboxEvents.id, id));
     },

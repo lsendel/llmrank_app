@@ -1,5 +1,5 @@
 import { eq, desc, lte, and, inArray } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { competitors } from "../schema";
 
 export function competitorQueries(db: Database) {
