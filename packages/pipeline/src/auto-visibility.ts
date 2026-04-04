@@ -1,5 +1,5 @@
 import {
-  createDb,
+  createAgencyDb,
   savedKeywordQueries,
   projectQueries,
   userQueries,
@@ -41,7 +41,8 @@ export async function runAutoVisibilityChecks(
   input: AutoVisibilityInput,
 ): Promise<void> {
   const log = createLogger({ context: "auto-visibility" });
-  const db = createDb(input.databaseUrl);
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) return;

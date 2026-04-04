@@ -1,12 +1,12 @@
 import {
-  createDb,
+  createAgencyDb,
   projectQueries,
   userQueries,
   competitorBenchmarkQueries,
 } from "@llm-boost/db";
 import { createCompetitorBenchmarkService } from "./competitor-benchmark";
 import { createCompetitorRepository } from "@llm-boost/repositories";
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 import { createLogger } from "@llm-boost/shared";
 
 export interface AutoCompetitorInput {
@@ -143,7 +143,8 @@ export async function runAutoCompetitorDiscovery(
   input: AutoCompetitorInput,
 ): Promise<void> {
   const log = createLogger({ context: "auto-competitor" });
-  const db = createDb(input.databaseUrl);
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
 
   // Small delay to let site description service finish
   await new Promise((r) => setTimeout(r, 3000));
@@ -155,7 +156,7 @@ export async function runAutoCompetitorDiscovery(
   const user = await userQueries(db).getById(project.userId);
   if (!user) return;
 
-  const limits = PLAN_LIMITS[user.plan];
+  const limits = PLAN_LIMITS[user.plan as PlanTier];
   if ((limits.competitorsPerProject ?? 0) === 0) {
     log.info("Auto-competitor skipped: plan has no competitor slots", {
       projectId: input.projectId,

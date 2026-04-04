@@ -1,10 +1,10 @@
 import {
-  createDb,
+  createAgencyDb,
   personaQueries,
   projectQueries,
   userQueries,
 } from "@llm-boost/db";
-import { PLAN_LIMITS } from "@llm-boost/shared";
+import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
 import { createLogger } from "@llm-boost/shared";
 
 export interface AutoPersonaInput {
@@ -17,7 +17,8 @@ export async function runAutoPersonaGeneration(
   input: AutoPersonaInput,
 ): Promise<void> {
   const log = createLogger({ context: "auto-persona" });
-  const db = createDb(input.databaseUrl);
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) return;
@@ -25,7 +26,7 @@ export async function runAutoPersonaGeneration(
   const user = await userQueries(db).getById(project.userId);
   if (!user) return;
 
-  const limits = PLAN_LIMITS[user.plan];
+  const limits = PLAN_LIMITS[user.plan as PlanTier];
   if (!limits.personaRefinement) {
     log.info("Auto-persona skipped: free plan", {
       projectId: input.projectId,

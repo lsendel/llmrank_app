@@ -356,7 +356,8 @@ export interface VisibilityRepository {
 }
 
 export function createVisibilityRepository(db: Database): VisibilityRepository {
-  const queries = visibilityQueries(db);
+  // TODO: visibilityQueries expects AgencyDatabase (Supabase); repositories need unified DB type
+  const queries = visibilityQueries(db as any);
   return {
     listByProject: (projectId, filters) =>
       queries.listByProject(projectId, filters),
@@ -636,5 +637,6 @@ export interface NarrativeRepository {
 }
 
 export function createNarrativeRepository(db: Database): NarrativeRepository {
-  return narrativeQueries(db);
+  // TODO: narrativeQueries expects AgencyDatabase (Supabase); repositories need unified DB type
+  return narrativeQueries(db as any);
 }

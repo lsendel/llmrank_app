@@ -1,5 +1,5 @@
 import {
-  createDb,
+  createAgencyDb,
   projectQueries,
   savedKeywordQueries,
   competitorQueries,
@@ -32,7 +32,8 @@ export interface HealthCheckResult {
 export async function runHealthCheck(
   input: HealthCheckInput,
 ): Promise<HealthCheckResult> {
-  const db = createDb(input.databaseUrl);
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) throw new Error("Project not found");
 

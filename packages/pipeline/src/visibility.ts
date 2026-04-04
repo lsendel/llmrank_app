@@ -1,4 +1,8 @@
-import { ERROR_CODES, canRunVisibilityChecks } from "@llm-boost/shared";
+import {
+  ERROR_CODES,
+  canRunVisibilityChecks,
+  type PlanTier,
+} from "@llm-boost/shared";
 import { VisibilityChecker, analyzeBrandSentiment } from "@llm-boost/llm";
 import type {
   ProjectRepository,
@@ -51,7 +55,13 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
         projectIds,
         since,
       );
-      if (!canRunVisibilityChecks(user.plan, used, args.providers.length)) {
+      if (
+        !canRunVisibilityChecks(
+          user.plan as PlanTier,
+          used,
+          args.providers.length,
+        )
+      ) {
         throw new ServiceError(
           "PLAN_LIMIT_REACHED",
           429,

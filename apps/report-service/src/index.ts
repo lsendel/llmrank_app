@@ -1,7 +1,11 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
-import { createDb, reports, eq } from "@llm-boost/db";
+import { createAgencyDb, reports, eq } from "@llm-boost/db";
+// TODO: Report service on Fly.io cannot access D1 directly.
+// It needs to be refactored to call the API for D1 operations (reports table).
+// For now, it connects to Supabase which has the agency tables.
+// The `reports` table operations below will need an API endpoint.
 import { renderPdf, renderDocx, aggregateReportData } from "@llm-boost/reports";
 import type { GenerateReportJob } from "@llm-boost/reports";
 import { fetchReportData } from "./data-fetcher";
@@ -11,7 +15,7 @@ import { fetchReportData } from "./data-fetcher";
 // ---------------------------------------------------------------------------
 
 const PORT = parseInt(process.env.PORT ?? "8080", 10);
-const DATABASE_URL = process.env.DATABASE_URL!;
+const SUPABASE_DATABASE_URL = process.env.SUPABASE_DATABASE_URL!;
 const SHARED_SECRET = process.env.SHARED_SECRET!;
 const API_BASE_URL = process.env.API_BASE_URL!; // e.g. https://api.llmrank.app
 
@@ -139,7 +143,8 @@ app.post("/generate", async (c) => {
   }
 
   const job: GenerateReportJob = JSON.parse(body);
-  const db = createDb(DATABASE_URL);
+  // TODO: report-service needs API-based access to D1 tables (reports table is SQLite/D1)
+  const db = createAgencyDb(SUPABASE_DATABASE_URL) as any;
 
   // Respond immediately — process in the background
   // (Fly.io keeps the process alive, unlike CF Workers)
@@ -222,7 +227,8 @@ const PIPELINE_STEPS = [
 ] as const;
 
 async function executePipeline(job: PipelineJob): Promise<void> {
-  const db = createDb(DATABASE_URL);
+  // TODO: report-service needs API-based access to D1 tables (pipeline_runs is SQLite/D1)
+  const db = createAgencyDb(SUPABASE_DATABASE_URL) as any;
   const { pipelineRunQueries } = await import("@llm-boost/db");
   const runs = pipelineRunQueries(db);
   const skipSteps = new Set(job.skipSteps ?? []);
@@ -244,7 +250,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
         case "site_description": {
           const { runAutoSiteDescription } = await import("./pipeline-steps");
           await runAutoSiteDescription({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             crawlJobId: job.crawlJobId,
             anthropicApiKey: job.keys.anthropicApiKey,
@@ -254,7 +260,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
         case "personas": {
           const { runAutoPersonaGeneration } = await import("./pipeline-steps");
           await runAutoPersonaGeneration({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             anthropicApiKey: job.keys.anthropicApiKey,
           });
@@ -263,7 +269,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
         case "keywords": {
           const { runAutoKeywordGeneration } = await import("./pipeline-steps");
           await runAutoKeywordGeneration({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             crawlJobId: job.crawlJobId,
             anthropicApiKey: job.keys.anthropicApiKey,
@@ -274,7 +280,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
           const { runAutoCompetitorDiscovery } =
             await import("./pipeline-steps");
           await runAutoCompetitorDiscovery({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             anthropicApiKey: job.keys.anthropicApiKey,
             perplexityApiKey: job.keys.perplexityApiKey,
@@ -285,7 +291,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
         case "visibility_check": {
           const { runAutoVisibilityChecks } = await import("./pipeline-steps");
           await runAutoVisibilityChecks({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             apiKeys: {
               anthropicApiKey: job.keys.anthropicApiKey,
@@ -298,7 +304,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
         case "content_optimization": {
           const { runContentOptimization } = await import("./pipeline-steps");
           const result = await runContentOptimization({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             crawlJobId: job.crawlJobId,
             anthropicApiKey: job.keys.anthropicApiKey,
@@ -329,7 +335,7 @@ async function executePipeline(job: PipelineJob): Promise<void> {
         case "health_check": {
           const { runHealthCheck } = await import("./pipeline-steps");
           const result = await runHealthCheck({
-            databaseUrl: DATABASE_URL,
+            databaseUrl: SUPABASE_DATABASE_URL,
             projectId: job.projectId,
             crawlJobId: job.crawlJobId,
           });
@@ -392,7 +398,7 @@ app.post("/pipeline/run", async (c) => {
   // Run in background — respond 202 immediately
   executePipeline(job).catch((e) => {
     console.error(`Pipeline ${job.runId} uncaught error:`, e);
-    const db = createDb(DATABASE_URL);
+    const db = createAgencyDb(SUPABASE_DATABASE_URL) as any;
     import("@llm-boost/db").then(({ pipelineRunQueries }) => {
       pipelineRunQueries(db)
         .updateStatus(job.runId, "failed", {
