@@ -286,8 +286,8 @@ v1Routes.get("/projects/:id/visibility", async (c) => {
     return c.json({ error: { code: "FORBIDDEN", message: scopeErr } }, 403);
   }
 
-  const db = c.get("db");
-  const vq = visibilityQueries(db);
+  const agencyDb = c.get("agencyDb");
+  const vq = visibilityQueries(agencyDb);
 
   const [checks, trends] = await Promise.all([
     vq.listByProject(projectId),

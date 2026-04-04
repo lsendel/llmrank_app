@@ -1,17 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { createDb, batchJobQueries, scoreQueries } from "@llm-boost/db";
+import { createAgencyDb, batchJobQueries, scoreQueries } from "@llm-boost/db";
 import { LLMScorer } from "@llm-boost/llm";
 import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ service: "batch-polling" });
 
 export async function pollPendingBatches(env: {
-  DATABASE_URL: string;
+  AGENCY_DB_URL: string;
   ANTHROPIC_API_KEY: string;
   KV?: KVNamespace;
   R2?: R2Bucket;
 }): Promise<{ polled: number; completed: number }> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAgencyDb(env.AGENCY_DB_URL);
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const pending = await batchJobQueries(db).listPending();
 

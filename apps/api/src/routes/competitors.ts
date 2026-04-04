@@ -3,6 +3,7 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { handleServiceError } from "../lib/error-handler";
 import { createAuditService } from "../services/audit-service";
+import { createCompetitorInsightsService } from "../services/competitor-insights-service";
 import { createCompetitorBenchmarkService } from "@llm-boost/pipeline";
 import { computeNextBenchmarkAt } from "../services/competitor-monitor-service";
 import { diffBenchmarks } from "../services/competitor-diff-service";
@@ -14,7 +15,9 @@ import {
   projectQueries,
   crawlQueries,
 } from "@llm-boost/db";
+import { createVisibilityRepository } from "@llm-boost/repositories";
 import { PLAN_LIMITS, resolveEffectivePlan } from "@llm-boost/shared";
+import { resolveLocaleForPlan } from "../lib/visibility-locale";
 
 export const competitorRoutes = new Hono<AppEnv>();
 competitorRoutes.use("*", authMiddleware);
@@ -25,6 +28,7 @@ const UUID_RE =
 // POST /api/competitors/benchmark — Trigger benchmark of a competitor domain
 competitorRoutes.post("/benchmark", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
 
   const body = await c.req.json<{
@@ -86,7 +90,7 @@ competitorRoutes.post("/benchmark", async (c) => {
     }
 
     const service = createCompetitorBenchmarkService({
-      competitorBenchmarks: competitorBenchmarkQueries(db),
+      competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
       competitors: competitorQueries(db),
     });
 
@@ -115,6 +119,7 @@ competitorRoutes.post("/benchmark", async (c) => {
 // GET /api/competitors?projectId=xxx — Get competitor comparisons for a project
 competitorRoutes.get("/", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.query("projectId");
 
@@ -163,7 +168,7 @@ competitorRoutes.get("/", async (c) => {
   }
 
   const service = createCompetitorBenchmarkService({
-    competitorBenchmarks: competitorBenchmarkQueries(db),
+    competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
     competitors: competitorQueries(db),
   });
 
@@ -175,9 +180,79 @@ competitorRoutes.get("/", async (c) => {
   return c.json({ data: { projectScores, competitors: comparison } });
 });
 
+// GET /api/competitors/insights?projectId=xxx — Winning queries and inferred themes
+competitorRoutes.get("/insights", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId query parameter required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  const user = await userQueries(db).getById(userId);
+  if (!user) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "User not found" } },
+      404,
+    );
+  }
+
+  const localeResolution = resolveLocaleForPlan({
+    plan: user.plan,
+    region: c.req.query("region") || undefined,
+    language: c.req.query("language") || undefined,
+  });
+  if ("error" in localeResolution) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: localeResolution.error,
+        },
+      },
+      422,
+    );
+  }
+
+  const competitors = await competitorQueries(db).listByProject(projectId);
+  const insightsService = createCompetitorInsightsService({
+    visibility: createVisibilityRepository(db),
+  });
+
+  try {
+    const data = await insightsService.getProjectInsights({
+      projectId,
+      competitorDomains: competitors.map((competitor) => competitor.domain),
+      filters: localeResolution.locale,
+    });
+
+    return c.json({ data });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
 // GET /api/competitors/feed — Activity feed of competitor events
 competitorRoutes.get("/feed", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.query("projectId");
 
@@ -231,7 +306,7 @@ competitorRoutes.get("/feed", async (c) => {
   const severity = c.req.query("severity");
   const domain = c.req.query("domain");
 
-  const eventQueries = competitorEventQueries(db);
+  const eventQueries = competitorEventQueries(agencyDb);
   const [data, total] = await Promise.all([
     eventQueries.listByProject(projectId, {
       limit,
@@ -253,6 +328,7 @@ competitorRoutes.get("/feed", async (c) => {
 // GET /api/competitors/trends — Score trends for a competitor domain
 competitorRoutes.get("/trends", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.query("projectId");
   const domain = c.req.query("domain");
@@ -299,7 +375,7 @@ competitorRoutes.get("/trends", async (c) => {
   const since = new Date();
   since.setDate(since.getDate() - limits.competitorTrendDays);
 
-  const benchmarks = await competitorBenchmarkQueries(db).listByDomain(
+  const benchmarks = await competitorBenchmarkQueries(agencyDb).listByDomain(
     projectId,
     domain,
     { since },
@@ -321,6 +397,7 @@ competitorRoutes.get("/trends", async (c) => {
 // GET /api/competitors/cadence — Content publishing cadence per competitor
 competitorRoutes.get("/cadence", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.query("projectId");
 
@@ -345,7 +422,7 @@ competitorRoutes.get("/cadence", async (c) => {
   }
 
   const competitors = await competitorQueries(db).listByProject(projectId);
-  const eventQueries = competitorEventQueries(db);
+  const eventQueries = competitorEventQueries(agencyDb);
 
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -384,6 +461,7 @@ competitorRoutes.get("/cadence", async (c) => {
 // GET /api/competitors/comparison/:projectId — Structured comparison table
 competitorRoutes.get("/comparison/:projectId", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
@@ -397,7 +475,7 @@ competitorRoutes.get("/comparison/:projectId", async (c) => {
 
   const competitors = await competitorQueries(db).listByProject(projectId);
   const benchmarks =
-    await competitorBenchmarkQueries(db).listByProject(projectId);
+    await competitorBenchmarkQueries(agencyDb).listByProject(projectId);
 
   const comparison = {
     ownDomain: project.domain,
@@ -521,6 +599,7 @@ competitorRoutes.patch("/:id/monitoring", async (c) => {
 // POST /api/competitors/:id/rebenchmark — Manually trigger a re-benchmark
 competitorRoutes.post("/:id/rebenchmark", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const competitorId = c.req.param("id");
 
@@ -575,7 +654,7 @@ competitorRoutes.post("/:id/rebenchmark", async (c) => {
     }
 
     // Get previous benchmark for diffing
-    const benchmarkQ = competitorBenchmarkQueries(db);
+    const benchmarkQ = competitorBenchmarkQueries(agencyDb);
     const previous = await benchmarkQ.getLatest(
       competitor.projectId,
       competitor.domain,
@@ -599,7 +678,7 @@ competitorRoutes.post("/:id/rebenchmark", async (c) => {
       previous ?? null,
       benchmark,
     );
-    const eventQueries = competitorEventQueries(db);
+    const eventQueries = competitorEventQueries(agencyDb);
     const storedEvents = [];
 
     for (const event of diffEvents) {

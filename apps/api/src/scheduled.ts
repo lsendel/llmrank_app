@@ -1,4 +1,11 @@
-import { createDb, type Database, users, userQueries } from "@llm-boost/db";
+import {
+  createAppDb,
+  createAdminDb,
+  createAgencyDb,
+  type AppDatabase,
+  users,
+  userQueries,
+} from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import {
   createCrawlRepository,
@@ -39,7 +46,7 @@ import type { Bindings } from "./index";
 // ---------------------------------------------------------------------------
 
 async function resetMonthlyCredits(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
   const queries = userQueries(db);
   for (const [plan, limits] of Object.entries(PLAN_LIMITS)) {
     const credits = Number.isFinite(limits.crawlsPerMonth)
@@ -53,7 +60,7 @@ async function resetMonthlyCredits(env: Bindings) {
 }
 
 async function runScheduledTasks(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
   const log = createLogger({ context: "scheduled-tasks" });
 
   // Each step is independent — errors in one should not block the others
@@ -127,7 +134,7 @@ async function runScheduledTasks(env: Bindings) {
     const { pollPendingBatches } =
       await import("./services/batch-polling-service");
     await pollPendingBatches({
-      DATABASE_URL: env.DATABASE_URL,
+      AGENCY_DB_URL: env.SUPABASE.connectionString,
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
       KV: env.KV,
       R2: env.R2,
@@ -144,12 +151,13 @@ async function runScheduledTasks(env: Bindings) {
 // ---------------------------------------------------------------------------
 
 async function cleanupExpiredData(env: Bindings): Promise<void> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const adminDb = createAdminDb(env.D1_ADMIN);
 
   const deletedScans = await scanResultQueries(db).deleteExpired();
   console.log(`Cleaned up ${deletedScans} expired scan results`);
 
-  const deletedLeads = await leadQueries(db).deleteOldUnconverted(90);
+  const deletedLeads = await leadQueries(adminDb).deleteOldUnconverted(90);
   console.log(`Cleaned up ${deletedLeads} stale leads`);
 }
 
@@ -165,7 +173,7 @@ interface VisibilityCheckResult {
 }
 
 async function detectAndEmitChanges(
-  db: Database,
+  db: AppDatabase,
   schedule: { id: string; projectId: string; query: string },
   project: { id: string; userId: string; domain: string },
   results: VisibilityCheckResult[],
@@ -227,9 +235,10 @@ async function detectAndEmitChanges(
 }
 
 async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
   const scheduleRepo = scheduledVisibilityQueryQueries(db);
-  const visQueries = visibilityQueries(db);
+  const visQueries = visibilityQueries(agencyDb);
 
   const dueQueries = await scheduleRepo.getDueQueries(new Date());
   const batch = dueQueries.slice(0, 10);
@@ -332,17 +341,18 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
 }
 
 async function processScheduledCompetitorChecks(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
   const { createCompetitorBenchmarkService } =
     await import("@llm-boost/pipeline");
   const benchmarkService = createCompetitorBenchmarkService({
-    competitorBenchmarks: competitorBenchmarkQueries(db),
+    competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
     competitors: competitorDbQueries(db),
   });
   const monitorService = createCompetitorMonitorService({
     competitors: competitorDbQueries(db),
-    competitorBenchmarks: competitorBenchmarkQueries(db),
-    competitorEvents: competitorEventQueries(db),
+    competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
+    competitorEvents: competitorEventQueries(agencyDb),
     outbox: outboxQueries(db),
     benchmarkService,
   });
@@ -368,26 +378,26 @@ export async function handleScheduled(
   } else if (controller.cron === "0 3 * * *") {
     await cleanupExpiredData(env);
   } else if (controller.cron === "0 9 * * 1") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     const digest = createDigestService(db, env.RESEND_API_KEY, {
       appBaseUrl: env.APP_BASE_URL,
     });
     await digest.processWeeklyDigests();
   } else if (controller.cron === "0 9 1 * *") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     const digest = createDigestService(db, env.RESEND_API_KEY, {
       appBaseUrl: env.APP_BASE_URL,
     });
     await digest.processMonthlyDigests();
   } else if (controller.cron === "0 4 * * *") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     await aggregateBenchmarks(db, env.KV);
   } else if (controller.cron === "0 2 * * 7") {
     await processScheduledCompetitorChecks(env);
   } else if (controller.cron === "0 2 * * *") {
     // Daily analytics rollup at 2 AM UTC
-    const db = createDb(env.DATABASE_URL);
-    const queries = analyticsQueries(db);
+    const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
+    const queries = analyticsQueries(agencyDb);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const dateStr = yesterday.toISOString().split("T")[0];

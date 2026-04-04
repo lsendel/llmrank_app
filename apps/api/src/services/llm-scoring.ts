@@ -1,5 +1,6 @@
 import {
-  createDb,
+  createAppDb,
+  createAgencyDb,
   scoreQueries,
   pageQueries,
   batchJobQueries,
@@ -50,7 +51,7 @@ async function extractTextFromR2(
 
 /** Helper: re-score a page with LLM scores and persist to DB. */
 async function persistLLMScore(
-  db: ReturnType<typeof createDb>,
+  db: ReturnType<typeof createAppDb>,
   scoreRowId: string,
   pageId: string,
   jobId: string,
@@ -142,7 +143,10 @@ async function persistLLMScore(
  * for small batches or on batch submission failure.
  */
 export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
-  const db = createDb(input.databaseUrl);
+  // In Fly.io report service context, databaseUrl is the Supabase connection string
+  // which serves as both app-level and agency-level db access
+  const db = createAgencyDb(input.databaseUrl) as any;
+  const agencyDb = createAgencyDb(input.databaseUrl);
   const scorer = new LLMScorer({
     anthropicApiKey: input.anthropicApiKey,
     kvNamespace: input.kvNamespace,
@@ -276,7 +280,7 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
     });
 
     // Store batch job reference for the polling service to pick up
-    await batchJobQueries(db).create({
+    await batchJobQueries(agencyDb).create({
       batchId: batch.id,
       jobId: input.jobId,
       projectId: input.projectId ?? "",
@@ -327,7 +331,7 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
 }
 
 interface RescoreInput {
-  databaseUrl: string;
+  databaseUrl: string; // Supabase connection string (Fly.io report service context)
   anthropicApiKey: string;
   kvNamespace?: KVNamespace;
   r2Bucket: R2Bucket;
@@ -338,7 +342,7 @@ interface RescoreInput {
  * Re-runs LLM content scoring on all pages in a completed crawl job.
  */
 export async function rescoreLLM(input: RescoreInput) {
-  const db = createDb(input.databaseUrl);
+  const db = createAgencyDb(input.databaseUrl) as any;
   const scorer = new LLMScorer({
     anthropicApiKey: input.anthropicApiKey,
     kvNamespace: input.kvNamespace,

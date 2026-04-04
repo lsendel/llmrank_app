@@ -22,6 +22,7 @@ narrativeRoutes.use("*", authMiddleware);
 // POST /api/narratives/generate — Trigger narrative generation
 narrativeRoutes.post("/generate", async (c) => {
   const db = c.get("db");
+  const adminDb = c.get("adminDb");
   const userId = c.get("userId");
   const body = await c.req.json();
 
@@ -40,6 +41,8 @@ narrativeRoutes.post("/generate", async (c) => {
   }
 
   const service = createNarrativeService({
+    db,
+    adminDb,
     narratives: createNarrativeRepository(db),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
@@ -62,11 +65,14 @@ narrativeRoutes.post("/generate", async (c) => {
 // GET /api/narratives/:crawlJobId — Fetch narrative for a crawl
 narrativeRoutes.get("/:crawlJobId", async (c) => {
   const db = c.get("db");
+  const adminDb = c.get("adminDb");
   const userId = c.get("userId");
   const crawlJobId = c.req.param("crawlJobId");
   const tone = (c.req.query("tone") ?? "technical") as "technical" | "business";
 
   const service = createNarrativeService({
+    db,
+    adminDb,
     narratives: createNarrativeRepository(db),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
@@ -84,6 +90,7 @@ narrativeRoutes.get("/:crawlJobId", async (c) => {
 // PATCH /api/narratives/:crawlJobId/sections/:sectionId — Edit section (Agency)
 narrativeRoutes.patch("/:crawlJobId/sections/:sectionId", async (c) => {
   const db = c.get("db");
+  const adminDb = c.get("adminDb");
   const userId = c.get("userId");
   const crawlJobId = c.req.param("crawlJobId");
   const sectionId = c.req.param("sectionId");
@@ -104,6 +111,8 @@ narrativeRoutes.patch("/:crawlJobId/sections/:sectionId", async (c) => {
   }
 
   const service = createNarrativeService({
+    db,
+    adminDb,
     narratives: createNarrativeRepository(db),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
@@ -128,6 +137,7 @@ narrativeRoutes.post(
   "/:crawlJobId/sections/:sectionType/regenerate",
   async (c) => {
     const db = c.get("db");
+    const adminDb = c.get("adminDb");
     const userId = c.get("userId");
     const crawlJobId = c.req.param("crawlJobId");
     const sectionType = c.req.param("sectionType");
@@ -136,6 +146,8 @@ narrativeRoutes.post(
     const parsed = RegenerateNarrativeSectionSchema.safeParse(body);
 
     const service = createNarrativeService({
+      db,
+      adminDb,
       narratives: createNarrativeRepository(db),
       projects: createProjectRepository(db),
       users: createUserRepository(db),
@@ -146,6 +158,7 @@ narrativeRoutes.post(
       const result = await service.regenerateSection(
         userId,
         crawlJobId,
+        parsed.success ? parsed.data.tone : "technical",
         sectionType as any,
         parsed.success ? parsed.data.instructions : undefined,
         { anthropicApiKey: c.env.ANTHROPIC_API_KEY },
@@ -160,10 +173,13 @@ narrativeRoutes.post(
 // DELETE /api/narratives/:crawlJobId
 narrativeRoutes.delete("/:crawlJobId", async (c) => {
   const db = c.get("db");
+  const adminDb = c.get("adminDb");
   const userId = c.get("userId");
   const crawlJobId = c.req.param("crawlJobId");
 
   const service = createNarrativeService({
+    db,
+    adminDb,
     narratives: createNarrativeRepository(db),
     projects: createProjectRepository(db),
     users: createUserRepository(db),

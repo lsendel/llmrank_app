@@ -1,6 +1,8 @@
 import {
-  createDb,
-  type Database,
+  createAppDb,
+  createAdminDb,
+  createAgencyDb,
+  type AppDatabase,
   users,
   userQueries,
   competitorBenchmarkQueries,
@@ -44,7 +46,7 @@ interface VisibilityCheckResult {
 }
 
 async function resetMonthlyCredits(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
   const queries = userQueries(db);
   for (const [plan, limits] of Object.entries(PLAN_LIMITS)) {
     const credits = Number.isFinite(limits.crawlsPerMonth)
@@ -58,7 +60,7 @@ async function resetMonthlyCredits(env: Bindings) {
 }
 
 async function runScheduledTasks(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
   const notifications = createNotificationService(db, env.RESEND_API_KEY, {
     appBaseUrl: env.APP_BASE_URL,
   });
@@ -98,16 +100,17 @@ async function runScheduledTasks(env: Bindings) {
 }
 
 async function cleanupExpiredData(env: Bindings): Promise<void> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const adminDb = createAdminDb(env.D1_ADMIN);
   const logger = createLogger({ requestId: "cron-cleanup" });
   const deletedScans = await scanResultQueries(db).deleteExpired();
   logger.info("Cleaned up expired scan results", { deletedScans });
-  const deletedLeads = await leadQueries(db).deleteOldUnconverted(90);
+  const deletedLeads = await leadQueries(adminDb).deleteOldUnconverted(90);
   logger.info("Cleaned up stale leads", { deletedLeads });
 }
 
 async function detectAndEmitChanges(
-  db: Database,
+  db: AppDatabase,
   schedule: { id: string; projectId: string; query: string },
   project: { id: string; userId: string; domain: string },
   results: VisibilityCheckResult[],
@@ -169,9 +172,10 @@ async function detectAndEmitChanges(
 }
 
 async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
   const scheduleRepo = scheduledVisibilityQueryQueries(db);
-  const visQueries = visibilityQueries(db);
+  const visQueries = visibilityQueries(agencyDb);
   const dueQueries = await scheduleRepo.getDueQueries(new Date());
   const batch = dueQueries.slice(0, 10);
 
@@ -273,19 +277,20 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
 }
 
 async function processScheduledCompetitorChecks(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
   const logger = createLogger({ requestId: "cron-competitor-checks" });
   const { createCompetitorBenchmarkService } =
     await import("@llm-boost/pipeline");
   const benchmarkService = createCompetitorBenchmarkService({
-    competitorBenchmarks: competitorBenchmarkQueries(db),
+    competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
     competitors: competitorQueries(db),
   });
   const monitorService = createCompetitorMonitorService(
     {
       competitors: competitorQueries(db),
-      competitorBenchmarks: competitorBenchmarkQueries(db),
-      competitorEvents: competitorEventQueries(db),
+      competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
+      competitorEvents: competitorEventQueries(agencyDb),
       outbox: outboxQueries(db),
       benchmarkService,
     },
@@ -311,19 +316,19 @@ export async function handleScheduled(
   } else if (controller.cron === "0 3 * * *") {
     await cleanupExpiredData(env);
   } else if (controller.cron === "0 9 * * 1") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     const digest = createDigestService(db, env.RESEND_API_KEY, {
       appBaseUrl: env.APP_BASE_URL,
     });
     await digest.processWeeklyDigests();
   } else if (controller.cron === "0 9 1 * *") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     const digest = createDigestService(db, env.RESEND_API_KEY, {
       appBaseUrl: env.APP_BASE_URL,
     });
     await digest.processMonthlyDigests();
   } else if (controller.cron === "0 4 * * *") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     await aggregateBenchmarks(db, env.KV);
   } else if (controller.cron === "0 2 * * 7") {
     await processScheduledCompetitorChecks(env);
