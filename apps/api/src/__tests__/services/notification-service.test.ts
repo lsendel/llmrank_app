@@ -50,14 +50,15 @@ describe("NotificationService", () => {
       });
 
       expect(insertValuesMock).toHaveBeenCalledWith({
+        id: expect.any(String),
         type: "email:crawl_completed",
         eventType: "crawl_completed",
         userId: "u1",
-        payload: {
+        payload: JSON.stringify({
           userId: "u1",
           to: "user@test.com",
           data: { projectId: "p1" },
-        },
+        }),
         status: "pending",
       });
     });
@@ -73,7 +74,7 @@ describe("NotificationService", () => {
             technicalScore: 90,
             contentScore: 86,
             aiReadinessScore: 82,
-            detail: { performanceScore: 70 },
+            detail: JSON.stringify({ performanceScore: 70 }),
           },
         ],
         issueCount: 5,
@@ -90,10 +91,11 @@ describe("NotificationService", () => {
       });
 
       expect(insertValuesMock).toHaveBeenCalledWith({
+        id: expect.any(String),
         type: "email:crawl_completed",
         eventType: "crawl_completed",
         userId: user.id,
-        payload: {
+        payload: JSON.stringify({
           userId: user.id,
           to: "user@test.com",
           data: {
@@ -105,7 +107,7 @@ describe("NotificationService", () => {
             issueCount: 5,
             reportUrl: "https://staging.llmboost.io/dashboard/projects/p1",
           },
-        },
+        }),
         status: "pending",
       });
     });
@@ -131,7 +133,9 @@ describe("NotificationService", () => {
         generatedAt: new Date().toISOString(),
         issueCount: 4,
       };
-      const { db } = createDbMock(user, { summaryData });
+      const { db } = createDbMock(user, {
+        summaryData: JSON.stringify(summaryData),
+      });
       const service = createNotificationService(db, RESEND_KEY);
 
       await service.sendCrawlComplete({
@@ -141,17 +145,14 @@ describe("NotificationService", () => {
         jobId: "j1",
       });
 
-      expect(insertValuesMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            data: expect.objectContaining({
-              score: 91,
-              grade: "A",
-              issueCount: 4,
-            }),
-          }),
-        }),
+      const calledPayload = JSON.parse(
+        insertValuesMock.mock.calls[0][0].payload,
       );
+      expect(calledPayload.data).toMatchObject({
+        score: 91,
+        grade: "A",
+        issueCount: 4,
+      });
       expect((db.query as any).pageScores.findMany).not.toHaveBeenCalled();
     });
 
@@ -181,17 +182,14 @@ describe("NotificationService", () => {
         jobId: "j1",
       });
 
-      expect(insertValuesMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            data: expect.objectContaining({
-              score: null,
-              grade: null,
-              issueCount: 0,
-            }),
-          }),
-        }),
+      const calledPayload2 = JSON.parse(
+        insertValuesMock.mock.calls[0][0].payload,
       );
+      expect(calledPayload2.data).toMatchObject({
+        score: null,
+        grade: null,
+        issueCount: 0,
+      });
     });
   });
 
@@ -210,10 +208,11 @@ describe("NotificationService", () => {
       });
 
       expect(insertValuesMock).toHaveBeenCalledWith({
+        id: expect.any(String),
         type: "email:score_drop",
         eventType: "score_drop",
         userId: user.id,
-        payload: {
+        payload: JSON.stringify({
           userId: user.id,
           to: "user@test.com",
           data: {
@@ -223,7 +222,7 @@ describe("NotificationService", () => {
             previousScore: 85,
             currentScore: 70,
           },
-        },
+        }),
         status: "pending",
       });
     });

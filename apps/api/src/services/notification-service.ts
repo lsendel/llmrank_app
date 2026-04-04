@@ -375,7 +375,10 @@ async function buildCrawlCompletePayload(
     },
   });
 
-  const cachedSummary = crawl?.summaryData as CrawlSummaryData | null;
+  const rawSummary = crawl?.summaryData;
+  const cachedSummary = (
+    typeof rawSummary === "string" ? JSON.parse(rawSummary) : rawSummary
+  ) as CrawlSummaryData | null;
   if (cachedSummary) {
     return {
       projectName: args.projectName,

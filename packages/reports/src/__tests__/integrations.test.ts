@@ -21,7 +21,7 @@ describe("aggregateIntegrations", () => {
 
   it("returns null when no matching providers exist", () => {
     const enrichments: RawEnrichment[] = [
-      makeEnrichment({ provider: "psi", data: { score: 90 } }),
+      makeEnrichment({ provider: "unknown_provider", data: { score: 90 } }),
     ];
     expect(aggregateIntegrations(enrichments)).toBeNull();
   });
