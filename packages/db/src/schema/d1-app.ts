@@ -140,7 +140,7 @@ export const orgMembers = sqliteTable(
     invitedAt: text("invited_at"),
     joinedAt: text("joined_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
   },
   (t) => [
     uniqueIndex("idx_org_members_unique").on(t.orgId, t.userId),
@@ -191,7 +191,7 @@ export const teamMembers = sqliteTable(
     role: text("role").notNull().default("viewer"),
     joinedAt: text("joined_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
   },
   (t) => [
     uniqueIndex("idx_team_members_unique").on(t.teamId, t.userId),
@@ -547,10 +547,10 @@ export const discoveredLinks = sqliteTable(
     rel: text("rel").notNull().default("dofollow"),
     discoveredAt: text("discovered_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
     lastSeenAt: text("last_seen_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
   },
   (t) => [
     uniqueIndex("idx_discovered_links_unique").on(t.sourceUrl, t.targetUrl),
@@ -694,7 +694,7 @@ export const planPriceHistory = sqliteTable(
     reason: text("reason"),
     changedAt: text("changed_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
   },
   (t) => [index("idx_price_history_plan").on(t.planCode)],
 );
@@ -738,7 +738,7 @@ export const pageEnrichments = sqliteTable(
     data: text("data").notNull(),
     fetchedAt: text("fetched_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
   },
   (t) => [
     index("idx_enrichments_page").on(t.pageId),
@@ -759,7 +759,7 @@ export const outboxEvents = sqliteTable(
     userId: text("user_id"),
     availableAt: text("available_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
     processedAt: text("processed_at"),
     createdAt: createdAt(),
   },
@@ -1008,7 +1008,7 @@ export const aiPrompts = sqliteTable(
     source: text("source").notNull().default("discovered"),
     discoveredAt: text("discovered_at")
       .notNull()
-      .default(sql`datetime('now')`),
+      .default(sql`(datetime('now'))`),
   },
   (t) => [index("idx_prompts_project").on(t.projectId)],
 );

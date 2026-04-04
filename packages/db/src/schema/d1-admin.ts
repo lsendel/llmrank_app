@@ -23,11 +23,8 @@ export const adminSettings = sqliteTable("admin_settings", {
   }),
   updatedAt: text("updated_at")
     .notNull()
-    .default(sql`datetime('now')`),
+    .default(sql`(datetime('now'))`),
 });
-
-// promptStatusEnum is now a TS type only
-export type PromptStatus = "draft" | "active" | "archived";
 
 export const promptTemplates = sqliteTable("prompt_templates", {
   id: uuidText("id").primaryKey(),

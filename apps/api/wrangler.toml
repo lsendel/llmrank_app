@@ -35,11 +35,13 @@ binding = "BROWSER"
 binding = "D1_APP"
 database_name = "llmrank-app"
 database_id = "07b047c1-2272-456b-b4dc-6d2b3b280247"
+migrations_dir = "../../packages/db/migrations/d1"
 
 [[d1_databases]]
 binding = "D1_ADMIN"
 database_name = "llmrank-admin"
 database_id = "dce35bee-1dbe-4661-9534-3109cb4535a0"
+migrations_dir = "../../packages/db/migrations/d1"
 
 [[hyperdrive]]
 binding = "SUPABASE"

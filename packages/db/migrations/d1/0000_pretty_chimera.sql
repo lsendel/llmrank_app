@@ -10,8 +10,8 @@ CREATE TABLE `account` (
 	`refresh_token_expires_at` text,
 	`scope` text,
 	`password` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE INDEX `idx_account_user_id` ON `account` (`user_id`);--> statement-breakpoint
@@ -30,8 +30,8 @@ CREATE TABLE `action_items` (
 	`due_at` text,
 	`verified_at` text,
 	`verified_by_crawl_id` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`assignee_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
@@ -53,7 +53,7 @@ CREATE TABLE `ai_prompts` (
 	`your_mentioned` integer DEFAULT false,
 	`competitors_mentioned` text,
 	`source` text DEFAULT 'discovered' NOT NULL,
-	`discovered_at` text DEFAULT datetime('now') NOT NULL,
+	`discovered_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -66,7 +66,7 @@ CREATE TABLE `alerts` (
 	`message` text NOT NULL,
 	`data` text DEFAULT '{}',
 	`acknowledged_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -84,7 +84,7 @@ CREATE TABLE `api_tokens` (
 	`last_used_at` text,
 	`expires_at` text,
 	`revoked_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -100,7 +100,7 @@ CREATE TABLE `competitors` (
 	`monitoring_frequency` text DEFAULT 'weekly' NOT NULL,
 	`next_benchmark_at` text,
 	`last_benchmark_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -118,7 +118,7 @@ CREATE TABLE `content_fixes` (
 	`status` text DEFAULT 'generated' NOT NULL,
 	`tokens_used` integer,
 	`model` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade
@@ -137,7 +137,7 @@ CREATE TABLE `crawl_insights` (
 	`headline` text NOT NULL,
 	`summary` text,
 	`data` text DEFAULT '{}' NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`crawl_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -168,7 +168,7 @@ CREATE TABLE `crawl_jobs` (
 	`cancelled_at` text,
 	`cancelled_by` text,
 	`cancel_reason` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`cancelled_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -185,8 +185,8 @@ CREATE TABLE `custom_extractors` (
 	`type` text NOT NULL,
 	`selector` text NOT NULL,
 	`attribute` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -199,8 +199,8 @@ CREATE TABLE `discovered_links` (
 	`target_domain` text NOT NULL,
 	`anchor_text` text,
 	`rel` text DEFAULT 'dofollow' NOT NULL,
-	`discovered_at` text DEFAULT datetime('now') NOT NULL,
-	`last_seen_at` text DEFAULT datetime('now') NOT NULL
+	`discovered_at` text DEFAULT (datetime('now')) NOT NULL,
+	`last_seen_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `idx_discovered_links_unique` ON `discovered_links` (`source_url`,`target_url`);--> statement-breakpoint
@@ -216,7 +216,7 @@ CREATE TABLE `issues` (
 	`message` text NOT NULL,
 	`recommendation` text,
 	`data` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`job_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -233,7 +233,7 @@ CREATE TABLE `log_uploads` (
 	`crawler_requests` integer DEFAULT 0 NOT NULL,
 	`unique_ips` integer DEFAULT 0 NOT NULL,
 	`summary` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -247,8 +247,8 @@ CREATE TABLE `notification_channels` (
 	`config` text DEFAULT '{}' NOT NULL,
 	`event_types` text DEFAULT '[]' NOT NULL,
 	`enabled` integer DEFAULT true NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -263,7 +263,7 @@ CREATE TABLE `org_invites` (
 	`invited_by` text NOT NULL,
 	`expires_at` text NOT NULL,
 	`accepted_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`invited_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -277,7 +277,7 @@ CREATE TABLE `org_members` (
 	`role` text DEFAULT 'member' NOT NULL,
 	`invited_by` text,
 	`invited_at` text,
-	`joined_at` text DEFAULT datetime('now') NOT NULL,
+	`joined_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`invited_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
@@ -296,8 +296,8 @@ CREATE TABLE `organizations` (
 	`sso_enabled` integer DEFAULT false NOT NULL,
 	`sso_provider` text,
 	`sso_config` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `organizations_slug_unique` ON `organizations` (`slug`);--> statement-breakpoint
@@ -311,9 +311,9 @@ CREATE TABLE `outbox_events` (
 	`attempts` integer DEFAULT 0 NOT NULL,
 	`project_id` text,
 	`user_id` text,
-	`available_at` text DEFAULT datetime('now') NOT NULL,
+	`available_at` text DEFAULT (datetime('now')) NOT NULL,
 	`processed_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE INDEX `idx_outbox_status_available` ON `outbox_events` (`status`,`available_at`);--> statement-breakpoint
@@ -323,7 +323,7 @@ CREATE TABLE `page_enrichments` (
 	`job_id` text NOT NULL,
 	`provider` text NOT NULL,
 	`data` text NOT NULL,
-	`fetched_at` text DEFAULT datetime('now') NOT NULL,
+	`fetched_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`job_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -342,7 +342,7 @@ CREATE TABLE `page_insights` (
 	`headline` text NOT NULL,
 	`summary` text,
 	`data` text DEFAULT '{}' NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`crawl_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade
@@ -371,7 +371,7 @@ CREATE TABLE `page_scores` (
 	`detail` text,
 	`platform_scores` text,
 	`recommendations` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`job_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -396,7 +396,7 @@ CREATE TABLE `pages` (
 	`r2_raw_key` text,
 	`r2_lh_key` text,
 	`crawled_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`job_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -411,7 +411,7 @@ CREATE TABLE `payments` (
 	`amount_cents` integer NOT NULL,
 	`currency` text DEFAULT 'usd' NOT NULL,
 	`status` text DEFAULT 'succeeded' NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -433,7 +433,7 @@ CREATE TABLE `personas` (
 	`funnel_stage` text DEFAULT 'education' NOT NULL,
 	`avatar_url` text,
 	`is_auto_generated` integer DEFAULT true NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -449,7 +449,7 @@ CREATE TABLE `pipeline_runs` (
 	`started_at` text,
 	`completed_at` text,
 	`error` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`crawl_job_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -463,7 +463,7 @@ CREATE TABLE `plan_price_history` (
 	`new_price_cents` integer NOT NULL,
 	`changed_by` text,
 	`reason` text,
-	`changed_at` text DEFAULT datetime('now') NOT NULL,
+	`changed_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`changed_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -478,8 +478,8 @@ CREATE TABLE `project_integrations` (
 	`token_expires_at` text,
 	`last_sync_at` text,
 	`last_error` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -506,8 +506,8 @@ CREATE TABLE `projects` (
 	`favicon_url` text,
 	`analytics_snippet_enabled` integer DEFAULT false NOT NULL,
 	`deleted_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -526,7 +526,7 @@ CREATE TABLE `promos` (
 	`expires_at` text,
 	`active` integer DEFAULT true NOT NULL,
 	`created_by` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -540,8 +540,8 @@ CREATE TABLE `report_schedules` (
 	`type` text DEFAULT 'summary' NOT NULL,
 	`recipient_email` text NOT NULL,
 	`enabled` integer DEFAULT true NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -560,7 +560,7 @@ CREATE TABLE `reports` (
 	`error` text,
 	`generated_at` text,
 	`expires_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`crawl_job_id`) REFERENCES `crawl_jobs`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
@@ -576,7 +576,7 @@ CREATE TABLE `saved_keywords` (
 	`relevance_score` real,
 	`funnel_stage` text,
 	`persona_id` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`persona_id`) REFERENCES `personas`(`id`) ON UPDATE no action ON DELETE set null
 );
@@ -592,7 +592,7 @@ CREATE TABLE `scan_results` (
 	`quick_wins` text NOT NULL,
 	`site_context` text,
 	`ip_hash` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`expires_at` text NOT NULL
 );
 --> statement-breakpoint
@@ -606,7 +606,7 @@ CREATE TABLE `scheduled_visibility_queries` (
 	`last_run_at` text,
 	`next_run_at` text NOT NULL,
 	`enabled` integer DEFAULT true NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -619,7 +619,7 @@ CREATE TABLE `scoring_profiles` (
 	`is_default` integer DEFAULT false NOT NULL,
 	`weights` text NOT NULL,
 	`disabled_factors` text DEFAULT '[]',
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -628,8 +628,8 @@ CREATE TABLE `session` (
 	`id` text PRIMARY KEY NOT NULL,
 	`expires_at` text NOT NULL,
 	`token` text NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	`ip_address` text,
 	`user_agent` text,
 	`user_id` text NOT NULL,
@@ -649,7 +649,7 @@ CREATE TABLE `subscriptions` (
 	`current_period_end` text,
 	`cancel_at_period_end` integer DEFAULT false NOT NULL,
 	`canceled_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -663,7 +663,7 @@ CREATE TABLE `team_invitations` (
 	`role` text DEFAULT 'viewer' NOT NULL,
 	`token` text NOT NULL,
 	`expires_at` text NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`team_id`) REFERENCES `teams`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -674,7 +674,7 @@ CREATE TABLE `team_members` (
 	`team_id` text NOT NULL,
 	`user_id` text NOT NULL,
 	`role` text DEFAULT 'viewer' NOT NULL,
-	`joined_at` text DEFAULT datetime('now') NOT NULL,
+	`joined_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`team_id`) REFERENCES `teams`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -686,7 +686,7 @@ CREATE TABLE `teams` (
 	`name` text NOT NULL,
 	`owner_id` text NOT NULL,
 	`plan` text DEFAULT 'free' NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -718,8 +718,8 @@ CREATE TABLE `users` (
 	`trial_started_at` text,
 	`trial_ends_at` text,
 	`last_signed_in` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
@@ -729,8 +729,8 @@ CREATE TABLE `verification` (
 	`identifier` text NOT NULL,
 	`value` text NOT NULL,
 	`expires_at` text NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
-	`updated_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `admin_audit_logs` (
@@ -740,7 +740,7 @@ CREATE TABLE `admin_audit_logs` (
 	`target_type` text NOT NULL,
 	`target_id` text NOT NULL,
 	`reason` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`actor_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -749,7 +749,7 @@ CREATE TABLE `admin_settings` (
 	`key` text PRIMARY KEY NOT NULL,
 	`value` text DEFAULT '{}' NOT NULL,
 	`updated_by` text,
-	`updated_at` text DEFAULT datetime('now') NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`updated_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
@@ -763,7 +763,7 @@ CREATE TABLE `audit_logs` (
 	`metadata` text DEFAULT '{}',
 	`ip_address` text,
 	`user_agent` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`actor_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -775,7 +775,7 @@ CREATE TABLE `blocked_domains` (
 	`domain` text NOT NULL,
 	`reason` text,
 	`blocked_by` text NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`blocked_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
@@ -788,7 +788,7 @@ CREATE TABLE `leads` (
 	`scan_result_id` text,
 	`converted_at` text,
 	`project_id` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `prompt_metrics` (
@@ -802,7 +802,7 @@ CREATE TABLE `prompt_metrics` (
 	`error_rate_bps` integer,
 	`period_start` text NOT NULL,
 	`period_end` text NOT NULL,
-	`created_at` text DEFAULT datetime('now') NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`prompt_id`) REFERENCES `prompt_templates`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -823,5 +823,5 @@ CREATE TABLE `prompt_templates` (
 	`parent_id` text,
 	`created_by` text,
 	`activated_at` text,
-	`created_at` text DEFAULT datetime('now') NOT NULL
+	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );

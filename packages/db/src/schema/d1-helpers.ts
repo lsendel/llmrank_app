@@ -25,11 +25,11 @@ export function uuidText(name: string) {
 export function createdAt(name = "created_at") {
   return text(name)
     .notNull()
-    .default(sql`datetime('now')`);
+    .default(sql`(datetime('now'))`);
 }
 
 export function updatedAt(name = "updated_at") {
   return text(name)
     .notNull()
-    .default(sql`datetime('now')`);
+    .default(sql`(datetime('now'))`);
 }
