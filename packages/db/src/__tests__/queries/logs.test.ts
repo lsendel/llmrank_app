@@ -82,13 +82,14 @@ describe("logQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       projectId: "p1",
       userId: "u1",
       filename: "access.log",
       totalRequests: 1000,
       crawlerRequests: 200,
       uniqueIPs: 50,
-      summary: { googlebot: 150, bingbot: 50 },
+      summary: JSON.stringify({ googlebot: 150, bingbot: 50 }),
     });
     expect(result).toEqual(logUpload);
   });

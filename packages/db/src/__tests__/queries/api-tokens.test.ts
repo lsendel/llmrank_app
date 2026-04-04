@@ -90,12 +90,13 @@ describe("apiTokenQueries", () => {
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: expect.any(String),
         userId: "u1",
         projectId: "p1",
         name: "My Token",
         tokenHash: "hash123",
         tokenPrefix: "llmb_",
-        scopes: ["read", "write"],
+        scopes: JSON.stringify(["read", "write"]),
       }),
     );
     expect(result).toEqual(newToken);
@@ -129,13 +130,12 @@ describe("apiTokenQueries", () => {
   });
 
   it("findByHash returns null for expired token", async () => {
-    const pastDate = new Date("2020-01-01");
     const token = {
       id: "tok1",
       userId: "u1",
       tokenHash: "hash123",
       revokedAt: null,
-      expiresAt: pastDate,
+      expiresAt: "2020-01-01T00:00:00.000Z",
     };
     mock.chain.then.mockImplementationOnce((resolve: any) => resolve([token]));
 
@@ -173,7 +173,7 @@ describe("apiTokenQueries", () => {
 
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith(
-      expect.objectContaining({ revokedAt: expect.any(Date) }),
+      expect.objectContaining({ revokedAt: expect.any(String) }),
     );
     expect(mock.chain.where).toHaveBeenCalled();
     expect(result).toEqual(revokedToken);
@@ -193,7 +193,7 @@ describe("apiTokenQueries", () => {
 
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith(
-      expect.objectContaining({ lastUsedAt: expect.any(Date) }),
+      expect.objectContaining({ lastUsedAt: expect.any(String) }),
     );
     expect(mock.chain.where).toHaveBeenCalled();
   });

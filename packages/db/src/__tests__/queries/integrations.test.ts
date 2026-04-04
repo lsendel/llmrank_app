@@ -114,11 +114,12 @@ describe("integrationQueries", () => {
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: expect.any(String),
         projectId: "p1",
         provider: "psi",
         enabled: true,
         encryptedCredentials: null,
-        config: {},
+        config: JSON.stringify({}),
         tokenExpiresAt: null,
       }),
     );
@@ -162,7 +163,7 @@ describe("integrationQueries", () => {
     await queries.updateEnabled("int1", true);
 
     const setArg = mock.chain.set.mock.calls[0][0];
-    expect(setArg.updatedAt).toBeInstanceOf(Date);
+    expect(typeof setArg.updatedAt).toBe("string");
   });
 
   // --- updateCredentials ---
@@ -180,7 +181,7 @@ describe("integrationQueries", () => {
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
         encryptedCredentials: "new_enc",
-        tokenExpiresAt: expiry,
+        tokenExpiresAt: expiry.toISOString(),
       }),
     );
     expect(result).toEqual(updated);
@@ -209,7 +210,7 @@ describe("integrationQueries", () => {
 
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        lastSyncAt: expect.any(Date),
+        lastSyncAt: expect.any(String),
         lastError: null,
       }),
     );

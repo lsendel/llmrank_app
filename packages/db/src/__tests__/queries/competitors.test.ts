@@ -100,6 +100,7 @@ describe("competitorQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       projectId: "p1",
       domain: "new-rival.com",
     });

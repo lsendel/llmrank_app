@@ -298,8 +298,8 @@ describe("adminQueries", () => {
         errorMessage: "Duplicate crawl",
         cancelledBy: "admin1",
         cancelReason: "Duplicate crawl",
-        completedAt: expect.any(Date),
-        cancelledAt: expect.any(Date),
+        completedAt: expect.any(String),
+        cancelledAt: expect.any(String),
       }),
     );
     expect(result).toEqual(cancelled);
@@ -325,6 +325,7 @@ describe("adminQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       actorId: "admin1",
       action: "cancel_crawl",
       targetType: "crawl_job",
@@ -343,6 +344,7 @@ describe("adminQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       actorId: "admin1",
       action: "retry_crawl",
       targetType: "crawl_job",

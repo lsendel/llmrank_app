@@ -81,6 +81,7 @@ describe("reportScheduleQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       projectId: "p1",
       format: "pdf",
       type: "summary",

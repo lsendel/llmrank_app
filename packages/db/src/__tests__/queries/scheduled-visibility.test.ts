@@ -85,7 +85,7 @@ describe("scheduledVisibilityQueryQueries", () => {
     // The values call should include a nextRunAt computed from the frequency
     const valuesArg = mock.chain.values.mock.calls[0][0];
     expect(valuesArg).toHaveProperty("nextRunAt");
-    expect(valuesArg.nextRunAt).toBeInstanceOf(Date);
+    expect(typeof valuesArg.nextRunAt).toBe("string");
     expect(result).toEqual(row);
   });
 
@@ -164,7 +164,7 @@ describe("scheduledVisibilityQueryQueries", () => {
     expect(mock.chain.set).toHaveBeenCalled();
     const setArg = mock.chain.set.mock.calls[0][0];
     expect(setArg).toHaveProperty("nextRunAt");
-    expect(setArg.nextRunAt).toBeInstanceOf(Date);
+    expect(typeof setArg.nextRunAt).toBe("string");
     expect(setArg.frequency).toBe("weekly");
   });
 
@@ -225,9 +225,9 @@ describe("scheduledVisibilityQueryQueries", () => {
     expect(mock.chain.set).toHaveBeenCalled();
     const setArg = mock.chain.set.mock.calls[0][0];
     expect(setArg).toHaveProperty("lastRunAt");
-    expect(setArg.lastRunAt).toBeInstanceOf(Date);
+    expect(typeof setArg.lastRunAt).toBe("string");
     expect(setArg).toHaveProperty("nextRunAt");
-    expect(setArg.nextRunAt).toBeInstanceOf(Date);
+    expect(typeof setArg.nextRunAt).toBe("string");
     expect(result).toEqual(updated);
   });
 

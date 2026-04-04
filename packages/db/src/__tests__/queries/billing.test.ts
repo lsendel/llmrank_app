@@ -129,8 +129,8 @@ describe("billingQueries", () => {
 
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith({
-      currentPeriodStart: start,
-      currentPeriodEnd: end,
+      currentPeriodStart: start.toISOString(),
+      currentPeriodEnd: end.toISOString(),
       status: "active",
     });
     expect(result).toEqual(updated);
@@ -168,7 +168,7 @@ describe("billingQueries", () => {
 
     expect(mock.chain.set).toHaveBeenCalledWith({
       status: "canceled",
-      canceledAt,
+      canceledAt: canceledAt.toISOString(),
       cancelAtPeriodEnd: false,
     });
     expect(result).toEqual(updated);
@@ -184,7 +184,7 @@ describe("billingQueries", () => {
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
         cancelAtPeriodEnd: true,
-        canceledAt: expect.any(Date),
+        canceledAt: expect.any(String),
       }),
     );
     expect(result).toEqual(updated);

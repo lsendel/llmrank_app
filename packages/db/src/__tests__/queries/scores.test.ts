@@ -71,11 +71,14 @@ describe("scoreQueries", () => {
     });
 
     expect(mock.chain.insert).toHaveBeenCalled();
-    expect(mock.chain.values).toHaveBeenCalledWith({
-      pageId: "pg1",
-      jobId: "j1",
-      overallScore: 85,
-    });
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expect.any(String),
+        pageId: "pg1",
+        jobId: "j1",
+        overallScore: 85,
+      }),
+    );
     expect(result).toEqual(score);
   });
 

@@ -195,7 +195,7 @@ describe("leadQueries", () => {
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        convertedAt: expect.any(Date),
+        convertedAt: expect.any(String),
         projectId: "p1",
       }),
     );

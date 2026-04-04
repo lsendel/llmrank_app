@@ -100,7 +100,18 @@ describe("pageQueries", () => {
 
     const result = await queries.createBatch([row]);
 
-    expect(mock.chain.values).toHaveBeenCalledWith([row]);
+    expect(mock.chain.values).toHaveBeenCalledWith([
+      expect.objectContaining({
+        jobId: row.jobId,
+        projectId: row.projectId,
+        url: row.url,
+        title: row.title,
+        statusCode: row.statusCode,
+        wordCount: row.wordCount,
+        contentHash: row.contentHash,
+        id: expect.any(String),
+      }),
+    ]);
     expect(result).toHaveLength(1);
   });
 

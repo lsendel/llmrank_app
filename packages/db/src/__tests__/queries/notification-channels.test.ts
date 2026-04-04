@@ -82,11 +82,12 @@ describe("notificationChannelQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       userId: "u1",
       projectId: null,
       channelType: "email",
-      config: { address: "user@example.com" },
-      eventTypes: ["crawl_complete", "score_drop"],
+      config: JSON.stringify({ address: "user@example.com" }),
+      eventTypes: JSON.stringify(["crawl_complete", "score_drop"]),
     });
     expect(result).toEqual(channel);
   });

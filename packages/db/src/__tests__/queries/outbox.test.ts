@@ -74,9 +74,10 @@ describe("outboxQueries", () => {
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: expect.any(String),
         type: "crawl.completed",
-        payload: { jobId: "j1" },
-        availableAt: expect.any(Date),
+        payload: JSON.stringify({ jobId: "j1" }),
+        availableAt: expect.any(String),
       }),
     );
     expect(result).toEqual(event);
@@ -93,7 +94,7 @@ describe("outboxQueries", () => {
     });
 
     expect(mock.chain.values).toHaveBeenCalledWith(
-      expect.objectContaining({ availableAt: scheduledAt }),
+      expect.objectContaining({ availableAt: scheduledAt.toISOString() }),
     );
   });
 
@@ -138,7 +139,7 @@ describe("outboxQueries", () => {
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "completed",
-        processedAt: expect.any(Date),
+        processedAt: expect.any(String),
       }),
     );
     expect(mock.chain.where).toHaveBeenCalled();
