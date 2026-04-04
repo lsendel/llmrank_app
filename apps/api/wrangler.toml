@@ -31,6 +31,20 @@ queue = "llm-boost-crawls"
 [browser]
 binding = "BROWSER"
 
+[[d1_databases]]
+binding = "D1_APP"
+database_name = "llmrank-app"
+database_id = "TO_BE_CREATED"
+
+[[d1_databases]]
+binding = "D1_ADMIN"
+database_name = "llmrank-admin"
+database_id = "TO_BE_CREATED"
+
+[[hyperdrive]]
+binding = "SUPABASE"
+id = "TO_BE_CREATED"
+
 [vars]
 CRAWLER_URL = "https://llmrank-crawler.fly.dev"
 REPORT_SERVICE_URL = "https://llm-boost-reports.fly.dev"
@@ -51,6 +65,6 @@ BETTER_AUTH_URL = "https://api.llmrank.app"
 crons = ["0 0 1 * *", "*/5 * * * *", "*/15 * * * *", "0 3 * * *", "0 4 * * *", "0 9 * * 1", "0 9 1 * *", "0 2 * * 7", "0 2 * * *"] # Reset monthly + Scheduled crawls every 5 min + Visibility checks every 15 min + Daily cleanup 3AM + Benchmark aggregation 4AM + Weekly digest Mon 9AM + Monthly digest 1st 9AM + Competitor monitoring Sun 2AM + Analytics rollup 2AM daily
 
 # Secrets (set via `wrangler secret put`):
-# DATABASE_URL, SHARED_SECRET, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# SUPABASE_DATABASE_URL, SHARED_SECRET, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
 # CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, RESEND_API_KEY,
 # META_APP_ID, META_APP_SECRET

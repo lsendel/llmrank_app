@@ -2,7 +2,14 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { timing } from "hono/timing";
-import { createDb, type Database } from "@llm-boost/db";
+import {
+  createAppDb,
+  createAdminDb,
+  createAgencyDb,
+  type AppDatabase,
+  type AdminDatabase,
+  type AgencyDatabase,
+} from "@llm-boost/db";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { cacheMiddleware } from "./middleware/cache";
 import { apiVersionMiddleware } from "./middleware/api-version";
@@ -29,7 +36,9 @@ export type Bindings = {
   CRAWL_QUEUE: Queue<any>;
   REPORT_SERVICE_URL: string;
   BROWSER: any;
-  DATABASE_URL: string;
+  D1_APP: D1Database;
+  D1_ADMIN: D1Database;
+  SUPABASE: Hyperdrive;
   SHARED_SECRET: string;
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
@@ -61,7 +70,9 @@ export type Bindings = {
 };
 
 export type Variables = {
-  db: Database;
+  db: AppDatabase;
+  adminDb: AdminDatabase;
+  agencyDb: AgencyDatabase;
   userId: string;
   user?: { id: string; plan: string; status: string; [key: string]: unknown };
   parsedBody: string;
@@ -142,23 +153,12 @@ app.use(
 
 app.use("*", async (c, next) => {
   initSentry(c.env);
-
-  if (!c.env.DATABASE_URL) {
-    const log = createLogger({ requestId: c.get("requestId") });
-    log.error("DATABASE_URL binding is missing");
-    return c.json(
-      {
-        error: {
-          code: "CONFIG_ERROR",
-          message: "Database configuration is missing",
-        },
-      },
-      500,
-    );
-  }
-
-  const db = createDb(c.env.DATABASE_URL);
+  const db = createAppDb(c.env.D1_APP);
+  const adminDb = createAdminDb(c.env.D1_ADMIN);
+  const agencyDb = createAgencyDb(c.env.SUPABASE.connectionString);
   c.set("db", db);
+  c.set("adminDb", adminDb);
+  c.set("agencyDb", agencyDb);
   c.set("container", createContainer(db));
   c.set("logger", createLogger({ requestId: c.get("requestId") }));
   await next();
