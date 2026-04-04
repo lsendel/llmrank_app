@@ -168,7 +168,7 @@ export function projectQueries(db: Database) {
       const offsetSql =
         query?.offset !== undefined ? sql`OFFSET ${query.offset}` : sql``;
 
-      const summaryResult = await db.execute(
+      const summaryResult = await db.all(
         sql`
           SELECT
             p.id AS project_id,
@@ -214,9 +214,8 @@ export function projectQueries(db: Database) {
         `,
       );
 
-      const summaryRows = (summaryResult?.results ??
-        summaryResult?.rows ??
-        []) as Array<Record<string, unknown>>;
+      const summaryRows =
+        (summaryResult as unknown as Array<Record<string, unknown>>) ?? [];
       if (summaryRows.length === 0) return [];
 
       const projectIds = summaryRows
@@ -289,7 +288,7 @@ export function projectQueries(db: Database) {
         : sql``;
       const healthFilter = portfolioHealthWhere(query?.health);
 
-      const result = await db.execute(
+      const result = await db.all(
         sql`
           SELECT COUNT(*) AS total
           FROM projects p
@@ -311,9 +310,7 @@ export function projectQueries(db: Database) {
         `,
       );
 
-      const rows = (result?.results ?? result?.rows ?? []) as Array<
-        Record<string, unknown>
-      >;
+      const rows = (result as unknown as Array<Record<string, unknown>>) ?? [];
       const [row] = rows;
       return Number(row?.total ?? 0);
     },
@@ -333,10 +330,16 @@ export function projectQueries(db: Database) {
       const [project] = await db
         .insert(projects)
         .values({
+          id: crypto.randomUUID(),
           userId: data.userId,
           name: data.name,
           domain: data.domain,
-          settings: data.settings ?? {},
+          settings:
+            data.settings != null
+              ? typeof data.settings === "string"
+                ? data.settings
+                : JSON.stringify(data.settings)
+              : "{}",
         })
         .returning();
       return project;
@@ -358,9 +361,28 @@ export function projectQueries(db: Database) {
         analyticsSnippetEnabled?: boolean;
       },
     ) {
+      const setData: Record<string, unknown> = {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      if (data.settings !== undefined)
+        setData.settings =
+          typeof data.settings === "string"
+            ? data.settings
+            : JSON.stringify(data.settings);
+      if (data.branding !== undefined)
+        setData.branding =
+          typeof data.branding === "string"
+            ? data.branding
+            : JSON.stringify(data.branding);
+      if (data.pipelineSettings !== undefined)
+        setData.pipelineSettings =
+          typeof data.pipelineSettings === "string"
+            ? data.pipelineSettings
+            : JSON.stringify(data.pipelineSettings);
       const [updated] = await db
         .update(projects)
-        .set({ ...data, updatedAt: new Date() })
+        .set(setData)
         .where(and(eq(projects.id, id), isNull(projects.deletedAt)))
         .returning();
       return updated;
@@ -370,7 +392,10 @@ export function projectQueries(db: Database) {
     async delete(id: string) {
       await db
         .update(projects)
-        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .set({
+          deletedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(projects.id, id));
     },
 
@@ -391,7 +416,7 @@ export function projectQueries(db: Database) {
     async updateNextCrawl(id: string, nextAt: Date) {
       await db
         .update(projects)
-        .set({ nextCrawlAt: nextAt })
+        .set({ nextCrawlAt: nextAt.toISOString() })
         .where(eq(projects.id, id));
     },
   };

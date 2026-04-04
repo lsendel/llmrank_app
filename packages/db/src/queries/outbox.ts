@@ -16,9 +16,10 @@ export function outboxQueries(db: Database) {
       const [row] = await db
         .insert(outboxEvents)
         .values({
+          id: crypto.randomUUID(),
           type: event.type,
-          payload: event.payload,
-          availableAt: event.availableAt ?? new Date(),
+          payload: JSON.stringify(event.payload),
+          availableAt: (event.availableAt ?? new Date()).toISOString(),
         })
         .returning();
       return row;
@@ -44,7 +45,7 @@ export function outboxQueries(db: Database) {
     async markCompleted(id: string) {
       await db
         .update(outboxEvents)
-        .set({ status: "completed", processedAt: new Date() })
+        .set({ status: "completed", processedAt: new Date().toISOString() })
         .where(eq(outboxEvents.id, id));
     },
 

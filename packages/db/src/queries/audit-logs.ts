@@ -14,7 +14,15 @@ export function auditLogWriteQueries(db: Database) {
       ipAddress?: string;
       userAgent?: string;
     }) {
-      const [log] = await db.insert(auditLogs).values(data).returning();
+      const [log] = await db
+        .insert(auditLogs)
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          metadata:
+            data.metadata != null ? JSON.stringify(data.metadata) : undefined,
+        })
+        .returning();
       return log;
     },
 
@@ -42,7 +50,10 @@ export function auditLogWriteQueries(db: Database) {
         .select({ count: sql<number>`count(*)` })
         .from(auditLogs)
         .where(
-          and(eq(auditLogs.action, action), gte(auditLogs.createdAt, since)),
+          and(
+            eq(auditLogs.action, action),
+            gte(auditLogs.createdAt, since.toISOString()),
+          ),
         );
       return rows[0]?.count ?? 0;
     },

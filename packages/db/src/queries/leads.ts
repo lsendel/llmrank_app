@@ -1,5 +1,5 @@
 import { eq, and, isNull, lte } from "drizzle-orm";
-import type { AdminDatabase as Database } from "../d1-client";
+import type { AppDatabase as Database } from "../d1-client";
 import { leads } from "../schema";
 
 export function leadQueries(db: Database) {
@@ -13,6 +13,7 @@ export function leadQueries(db: Database) {
       const [lead] = await db
         .insert(leads)
         .values({
+          id: crypto.randomUUID(),
           email: data.email,
           reportToken: data.reportToken ?? null,
           source: data.source ?? "shared_report",
@@ -39,7 +40,7 @@ export function leadQueries(db: Database) {
     async markConverted(id: string, projectId: string) {
       const [updated] = await db
         .update(leads)
-        .set({ convertedAt: new Date(), projectId })
+        .set({ convertedAt: new Date().toISOString(), projectId })
         .where(eq(leads.id, id))
         .returning();
       return updated ?? null;
@@ -49,7 +50,12 @@ export function leadQueries(db: Database) {
       const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
       const deleted = await db
         .delete(leads)
-        .where(and(isNull(leads.convertedAt), lte(leads.createdAt, cutoff)))
+        .where(
+          and(
+            isNull(leads.convertedAt),
+            lte(leads.createdAt, cutoff.toISOString()),
+          ),
+        )
         .returning({ id: leads.id });
       return deleted.length;
     },

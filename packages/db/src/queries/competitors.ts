@@ -31,6 +31,7 @@ export function competitorQueries(db: Database) {
       const [competitor] = await db
         .insert(competitors)
         .values({
+          id: crypto.randomUUID(),
           projectId,
           domain,
           ...(source ? { source } : {}),
@@ -45,7 +46,12 @@ export function competitorQueries(db: Database) {
       source = "user_added",
     ) {
       if (domains.length === 0) return [];
-      const rows = domains.map((domain) => ({ projectId, domain, source }));
+      const rows = domains.map((domain) => ({
+        id: crypto.randomUUID(),
+        projectId,
+        domain,
+        source,
+      }));
       return db
         .insert(competitors)
         .values(rows)
@@ -78,9 +84,18 @@ export function competitorQueries(db: Database) {
         lastBenchmarkAt?: Date | null;
       },
     ) {
+      const setData: Record<string, unknown> = {};
+      if (data.monitoringEnabled !== undefined)
+        setData.monitoringEnabled = data.monitoringEnabled;
+      if (data.monitoringFrequency !== undefined)
+        setData.monitoringFrequency = data.monitoringFrequency;
+      if (data.nextBenchmarkAt !== undefined)
+        setData.nextBenchmarkAt = data.nextBenchmarkAt?.toISOString() ?? null;
+      if (data.lastBenchmarkAt !== undefined)
+        setData.lastBenchmarkAt = data.lastBenchmarkAt?.toISOString() ?? null;
       const [updated] = await db
         .update(competitors)
-        .set(data as typeof competitors.$inferInsert)
+        .set(setData)
         .where(eq(competitors.id, id))
         .returning();
       return updated;
@@ -89,7 +104,7 @@ export function competitorQueries(db: Database) {
     async listDueForBenchmark(now: Date, limit = 20) {
       return db.query.competitors.findMany({
         where: and(
-          lte(competitors.nextBenchmarkAt, now),
+          lte(competitors.nextBenchmarkAt, now.toISOString()),
           eq(competitors.monitoringEnabled, true),
         ),
         limit,

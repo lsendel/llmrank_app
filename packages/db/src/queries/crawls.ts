@@ -18,8 +18,12 @@ export function crawlQueries(db: Database) {
       const [job] = await db
         .insert(crawlJobs)
         .values({
+          id: crypto.randomUUID(),
           projectId: data.projectId,
-          config: data.config,
+          config:
+            typeof data.config === "string"
+              ? data.config
+              : JSON.stringify(data.config),
           status: "pending",
         })
         .returning();
@@ -40,9 +44,28 @@ export function crawlQueries(db: Database) {
         siteContext?: unknown;
       },
     ) {
+      const setData: Record<string, unknown> = { status: update.status };
+      if (update.pagesFound !== undefined)
+        setData.pagesFound = update.pagesFound;
+      if (update.pagesCrawled !== undefined)
+        setData.pagesCrawled = update.pagesCrawled;
+      if (update.pagesScored !== undefined)
+        setData.pagesScored = update.pagesScored;
+      if (update.errorMessage !== undefined)
+        setData.errorMessage = update.errorMessage;
+      if (update.r2Prefix !== undefined) setData.r2Prefix = update.r2Prefix;
+      if (update.startedAt !== undefined)
+        setData.startedAt = update.startedAt.toISOString();
+      if (update.completedAt !== undefined)
+        setData.completedAt = update.completedAt.toISOString();
+      if (update.siteContext !== undefined)
+        setData.siteContext =
+          typeof update.siteContext === "string"
+            ? update.siteContext
+            : JSON.stringify(update.siteContext);
       const [updated] = await db
         .update(crawlJobs)
-        .set(update)
+        .set(setData)
         .where(eq(crawlJobs.id, id))
         .returning();
       return updated;
@@ -174,9 +197,9 @@ export function crawlQueries(db: Database) {
         .set({
           shareToken: token,
           shareEnabled: true,
-          sharedAt: new Date(),
+          sharedAt: new Date().toISOString(),
           shareLevel: options?.level ?? "summary",
-          shareExpiresAt: options?.expiresAt ?? null,
+          shareExpiresAt: options?.expiresAt?.toISOString() ?? null,
         })
         .where(eq(crawlJobs.id, id))
         .returning();
@@ -214,7 +237,7 @@ export function crawlQueries(db: Database) {
       const update: Record<string, unknown> = {};
       if (settings.level !== undefined) update.shareLevel = settings.level;
       if (settings.expiresAt !== undefined)
-        update.shareExpiresAt = settings.expiresAt;
+        update.shareExpiresAt = settings.expiresAt?.toISOString() ?? null;
       const [updated] = await db
         .update(crawlJobs)
         .set(update)
@@ -235,7 +258,12 @@ export function crawlQueries(db: Database) {
     async updateSummaryData(id: string, summaryData: unknown) {
       const [updated] = await db
         .update(crawlJobs)
-        .set({ summaryData })
+        .set({
+          summaryData:
+            typeof summaryData === "string"
+              ? summaryData
+              : JSON.stringify(summaryData),
+        })
         .where(eq(crawlJobs.id, id))
         .returning();
       return updated;

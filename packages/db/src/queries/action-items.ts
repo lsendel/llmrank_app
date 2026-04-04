@@ -50,7 +50,7 @@ export function actionItemQueries(db: Database) {
     async updateStatus(id: string, status: ActionItemStatus) {
       const [updated] = await db
         .update(actionItems)
-        .set({ status, updatedAt: new Date() })
+        .set({ status, updatedAt: new Date().toISOString() })
         .where(eq(actionItems.id, id))
         .returning();
       return updated;
@@ -68,7 +68,14 @@ export function actionItemQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(actionItems)
-        .set({ ...data, updatedAt: new Date() })
+        .set({
+          ...data,
+          dueAt:
+            data.dueAt !== undefined
+              ? (data.dueAt?.toISOString() ?? null)
+              : undefined,
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(actionItems.id, id))
         .returning();
       return updated;

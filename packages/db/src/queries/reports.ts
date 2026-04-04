@@ -33,7 +33,10 @@ export function reportQueries(db: Database) {
         .select({ count: sql<number>`count(*)` })
         .from(reports)
         .where(
-          and(eq(reports.userId, userId), gte(reports.createdAt, startOfMonth)),
+          and(
+            eq(reports.userId, userId),
+            gte(reports.createdAt, startOfMonth.toISOString()),
+          ),
         );
       return Number(rows[0]?.count ?? 0);
     },

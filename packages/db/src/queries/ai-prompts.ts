@@ -18,7 +18,17 @@ export function aiPromptQueries(db: Database) {
       }[],
     ) {
       if (data.length === 0) return [];
-      return db.insert(aiPrompts).values(data).returning();
+      const rows = data.map((d) => ({
+        ...d,
+        id: crypto.randomUUID(),
+        competitorsMentioned:
+          d.competitorsMentioned != null
+            ? typeof d.competitorsMentioned === "string"
+              ? d.competitorsMentioned
+              : JSON.stringify(d.competitorsMentioned)
+            : undefined,
+      }));
+      return db.insert(aiPrompts).values(rows).returning();
     },
 
     async listByProject(
@@ -64,9 +74,17 @@ export function aiPromptQueries(db: Database) {
         competitorsMentioned?: unknown;
       },
     ) {
+      const setData: Record<string, unknown> = {};
+      if (data.yourMentioned !== undefined)
+        setData.yourMentioned = data.yourMentioned;
+      if (data.competitorsMentioned !== undefined)
+        setData.competitorsMentioned =
+          typeof data.competitorsMentioned === "string"
+            ? data.competitorsMentioned
+            : JSON.stringify(data.competitorsMentioned);
       const [row] = await db
         .update(aiPrompts)
-        .set(data)
+        .set(setData)
         .where(and(eq(aiPrompts.id, id), eq(aiPrompts.projectId, projectId)))
         .returning();
       return row ?? null;

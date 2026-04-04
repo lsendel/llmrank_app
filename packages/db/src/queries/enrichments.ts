@@ -14,7 +14,16 @@ export function enrichmentQueries(db: Database) {
       }[],
     ) {
       if (rows.length === 0) return [];
-      return db.insert(pageEnrichments).values(rows).returning();
+      return db
+        .insert(pageEnrichments)
+        .values(
+          rows.map((r) => ({
+            ...r,
+            id: crypto.randomUUID(),
+            data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
+          })),
+        )
+        .returning();
     },
 
     async listByPage(pageId: string) {

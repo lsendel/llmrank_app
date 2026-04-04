@@ -27,7 +27,10 @@ export function billingQueries(db: Database) {
       stripeSubscriptionId: string;
       stripeCustomerId: string;
     }) {
-      const [sub] = await db.insert(subscriptions).values(data).returning();
+      const [sub] = await db
+        .insert(subscriptions)
+        .values({ ...data, id: crypto.randomUUID() })
+        .returning();
       return sub;
     },
 
@@ -39,8 +42,8 @@ export function billingQueries(db: Database) {
       const [sub] = await db
         .update(subscriptions)
         .set({
-          currentPeriodStart: periodStart,
-          currentPeriodEnd: periodEnd,
+          currentPeriodStart: periodStart.toISOString(),
+          currentPeriodEnd: periodEnd.toISOString(),
           status: "active",
         })
         .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
@@ -65,7 +68,7 @@ export function billingQueries(db: Database) {
         .update(subscriptions)
         .set({
           status: "canceled",
-          canceledAt,
+          canceledAt: canceledAt.toISOString(),
           cancelAtPeriodEnd: false,
         })
         .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
@@ -76,7 +79,7 @@ export function billingQueries(db: Database) {
     async markCancelAtPeriodEnd(stripeSubscriptionId: string) {
       const [sub] = await db
         .update(subscriptions)
-        .set({ cancelAtPeriodEnd: true, canceledAt: new Date() })
+        .set({ cancelAtPeriodEnd: true, canceledAt: new Date().toISOString() })
         .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
         .returning();
       return sub;
@@ -96,7 +99,10 @@ export function billingQueries(db: Database) {
       currency: string;
       status: "succeeded" | "pending" | "failed";
     }) {
-      const [payment] = await db.insert(payments).values(data).returning();
+      const [payment] = await db
+        .insert(payments)
+        .values({ ...data, id: crypto.randomUUID() })
+        .returning();
       return payment;
     },
 

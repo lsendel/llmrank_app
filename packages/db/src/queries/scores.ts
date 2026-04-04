@@ -35,17 +35,43 @@ interface IssueCreateData {
   data?: unknown;
 }
 
+function jsonStr(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  return typeof v === "string" ? v : JSON.stringify(v);
+}
+
+function serializeScore(data: ScoreCreateData) {
+  return {
+    ...data,
+    id: crypto.randomUUID(),
+    detail: jsonStr(data.detail),
+    platformScores: jsonStr(data.platformScores),
+    recommendations: jsonStr(data.recommendations),
+  };
+}
+
+function serializeIssue(data: IssueCreateData) {
+  return {
+    ...data,
+    id: crypto.randomUUID(),
+    data: jsonStr(data.data),
+  };
+}
+
 export function scoreQueries(db: Database) {
   return {
     async create(data: ScoreCreateData) {
-      const [score] = await db.insert(pageScores).values(data).returning();
+      const [score] = await db
+        .insert(pageScores)
+        .values(serializeScore(data))
+        .returning();
       return score;
     },
 
     /** Batch insert scores — single INSERT for N pages instead of N round-trips. */
     async createBatch(rows: ScoreCreateData[]) {
       if (rows.length === 0) return [];
-      return db.insert(pageScores).values(rows).returning();
+      return db.insert(pageScores).values(rows.map(serializeScore)).returning();
     },
 
     async getByPage(pageId: string) {
@@ -102,7 +128,7 @@ export function scoreQueries(db: Database) {
 
     async createIssues(rows: IssueCreateData[]) {
       if (rows.length === 0) return [];
-      return db.insert(issues).values(rows).returning();
+      return db.insert(issues).values(rows.map(serializeIssue)).returning();
     },
 
     async getIssuesByPage(pageId: string) {
@@ -189,9 +215,15 @@ export function scoreQueries(db: Database) {
     },
 
     async update(id: string, data: Partial<ScoreCreateData>) {
+      const setData: Record<string, unknown> = { ...data };
+      if (data.detail !== undefined) setData.detail = jsonStr(data.detail);
+      if (data.platformScores !== undefined)
+        setData.platformScores = jsonStr(data.platformScores);
+      if (data.recommendations !== undefined)
+        setData.recommendations = jsonStr(data.recommendations);
       const [updated] = await db
         .update(pageScores)
-        .set(data)
+        .set(setData)
         .where(eq(pageScores.id, id))
         .returning();
       return updated;

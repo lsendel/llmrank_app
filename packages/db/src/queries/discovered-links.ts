@@ -42,10 +42,10 @@ export function discoveredLinkQueries(db: Database) {
         chunks.map((chunk) =>
           db
             .insert(discoveredLinks)
-            .values(chunk)
+            .values(chunk.map((c) => ({ ...c, id: crypto.randomUUID() })))
             .onConflictDoUpdate({
               target: [discoveredLinks.sourceUrl, discoveredLinks.targetUrl],
-              set: { lastSeenAt: new Date() },
+              set: { lastSeenAt: new Date().toISOString() },
             }),
         ),
       );

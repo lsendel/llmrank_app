@@ -192,7 +192,7 @@ export function analyticsQueries(db: Database) {
             LIMIT ${batchSize}
           )
         `);
-        deleted = result.rowCount ?? 0;
+        deleted = (result as unknown as { changes?: number })?.changes ?? 0;
       }
     },
   };

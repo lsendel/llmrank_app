@@ -30,25 +30,32 @@ export function integrationQueries(db: Database) {
       config?: unknown;
       tokenExpiresAt?: Date | null;
     }) {
+      const configStr =
+        data.config != null
+          ? typeof data.config === "string"
+            ? data.config
+            : JSON.stringify(data.config)
+          : "{}";
       const [row] = await db
         .insert(projectIntegrations)
         .values({
+          id: crypto.randomUUID(),
           projectId: data.projectId,
           provider: data.provider,
           encryptedCredentials: data.encryptedCredentials ?? null,
-          config: data.config ?? {},
-          tokenExpiresAt: data.tokenExpiresAt ?? null,
+          config: configStr,
+          tokenExpiresAt: data.tokenExpiresAt?.toISOString() ?? null,
           enabled: true,
         })
         .onConflictDoUpdate({
           target: [projectIntegrations.projectId, projectIntegrations.provider],
           set: {
             encryptedCredentials: data.encryptedCredentials ?? null,
-            config: data.config ?? {},
-            tokenExpiresAt: data.tokenExpiresAt ?? null,
+            config: configStr,
+            tokenExpiresAt: data.tokenExpiresAt?.toISOString() ?? null,
             enabled: true,
             lastError: null,
-            updatedAt: new Date(),
+            updatedAt: new Date().toISOString(),
           },
         })
         .returning();
@@ -58,7 +65,7 @@ export function integrationQueries(db: Database) {
     async updateEnabled(id: string, enabled: boolean) {
       const [updated] = await db
         .update(projectIntegrations)
-        .set({ enabled, updatedAt: new Date() })
+        .set({ enabled, updatedAt: new Date().toISOString() })
         .where(eq(projectIntegrations.id, id))
         .returning();
       return updated;
@@ -73,8 +80,8 @@ export function integrationQueries(db: Database) {
         .update(projectIntegrations)
         .set({
           encryptedCredentials,
-          tokenExpiresAt: tokenExpiresAt ?? null,
-          updatedAt: new Date(),
+          tokenExpiresAt: tokenExpiresAt?.toISOString() ?? null,
+          updatedAt: new Date().toISOString(),
         })
         .where(eq(projectIntegrations.id, id))
         .returning();
@@ -85,9 +92,9 @@ export function integrationQueries(db: Database) {
       const [updated] = await db
         .update(projectIntegrations)
         .set({
-          lastSyncAt: new Date(),
+          lastSyncAt: new Date().toISOString(),
           lastError: error ?? null,
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         })
         .where(eq(projectIntegrations.id, id))
         .returning();

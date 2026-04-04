@@ -24,7 +24,19 @@ export function pageQueries(db: Database) {
       }>,
     ) {
       if (rows.length === 0) return [];
-      return db.insert(pages).values(rows).returning();
+      return db
+        .insert(pages)
+        .values(
+          rows.map((r) => ({
+            ...r,
+            id: crypto.randomUUID(),
+            crawledAt:
+              r.crawledAt instanceof Date
+                ? r.crawledAt.toISOString()
+                : (r.crawledAt ?? null),
+          })),
+        )
+        .returning();
     },
 
     async getById(id: string) {

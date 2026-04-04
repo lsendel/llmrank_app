@@ -6,10 +6,11 @@
  * Requires: DATABASE_URL env var
  */
 
+// @ts-expect-error - neon import for seed script only (not part of D1 runtime)
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { eq } from "drizzle-orm";
-import { promptTemplates } from "../schema/admin";
+import { promptTemplates } from "../schema/d1-admin";
 import { createHash } from "crypto";
 
 const sql = neon(process.env.DATABASE_URL!);

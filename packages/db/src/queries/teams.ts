@@ -10,9 +10,13 @@ export function teamQueries(db: Database) {
       ownerId: string;
       plan?: "free" | "starter" | "pro" | "agency";
     }) {
-      const [team] = await db.insert(teams).values(data).returning();
+      const [team] = await db
+        .insert(teams)
+        .values({ ...data, id: crypto.randomUUID() })
+        .returning();
       // Auto-add owner as member
       await db.insert(teamMembers).values({
+        id: crypto.randomUUID(),
         teamId: team.id,
         userId: data.ownerId,
         role: "owner",
@@ -53,7 +57,7 @@ export function teamQueries(db: Database) {
     ) {
       const [row] = await db
         .insert(teamMembers)
-        .values({ teamId, userId, role })
+        .values({ id: crypto.randomUUID(), teamId, userId, role })
         .returning();
       return row;
     },
@@ -101,7 +105,14 @@ export function teamQueries(db: Database) {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       const [row] = await db
         .insert(teamInvitations)
-        .values({ teamId, email, role, token, expiresAt })
+        .values({
+          id: crypto.randomUUID(),
+          teamId,
+          email,
+          role,
+          token,
+          expiresAt: expiresAt.toISOString(),
+        })
         .returning();
       return row;
     },

@@ -13,7 +13,19 @@ export function logQueries(db: Database) {
       uniqueIPs: number;
       summary: unknown;
     }) {
-      const [upload] = await db.insert(logUploads).values(data).returning();
+      const [upload] = await db
+        .insert(logUploads)
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          summary:
+            data.summary != null
+              ? typeof data.summary === "string"
+                ? data.summary
+                : JSON.stringify(data.summary)
+              : null,
+        })
+        .returning();
       return upload;
     },
 

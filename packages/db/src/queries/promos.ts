@@ -39,7 +39,12 @@ export function promoQueries(db: Database) {
     }) {
       const [promo] = await db
         .insert(promos)
-        .values({ ...data, code: data.code.toUpperCase() })
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          code: data.code.toUpperCase(),
+          expiresAt: data.expiresAt?.toISOString(),
+        })
         .returning();
       return promo;
     },

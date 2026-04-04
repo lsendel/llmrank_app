@@ -12,7 +12,7 @@ export function reportScheduleQueries(db: Database) {
     }) {
       const [schedule] = await db
         .insert(reportSchedules)
-        .values(data)
+        .values({ ...data, id: crypto.randomUUID() })
         .returning();
       return schedule;
     },
@@ -49,7 +49,7 @@ export function reportScheduleQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(reportSchedules)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...data, updatedAt: new Date().toISOString() })
         .where(eq(reportSchedules.id, id))
         .returning();
       return updated;

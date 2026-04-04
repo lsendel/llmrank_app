@@ -65,7 +65,7 @@ describe("leadQueries", () => {
 
   beforeEach(() => {
     mock = createMockDb();
-    queries = leadQueries(mock.db);
+    queries = leadQueries(mock.db as unknown as AppDatabase);
   });
 
   // --- create ---

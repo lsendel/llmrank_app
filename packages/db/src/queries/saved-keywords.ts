@@ -19,7 +19,10 @@ export function savedKeywordQueries(db: Database) {
       funnelStage?: "education" | "comparison" | "purchase";
       personaId?: string;
     }) {
-      const [kw] = await db.insert(savedKeywords).values(data).returning();
+      const [kw] = await db
+        .insert(savedKeywords)
+        .values({ ...data, id: crypto.randomUUID() })
+        .returning();
       return kw;
     },
 
@@ -34,7 +37,10 @@ export function savedKeywordQueries(db: Database) {
       }>,
     ) {
       if (rows.length === 0) return [];
-      return db.insert(savedKeywords).values(rows).returning();
+      return db
+        .insert(savedKeywords)
+        .values(rows.map((r) => ({ ...r, id: crypto.randomUUID() })))
+        .returning();
     },
 
     async remove(id: string) {

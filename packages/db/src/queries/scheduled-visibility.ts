@@ -13,7 +13,14 @@ export function scheduledVisibilityQueryQueries(db: Database) {
       const nextRunAt = computeNextRun(data.frequency);
       const [row] = await db
         .insert(scheduledVisibilityQueries)
-        .values({ ...data, nextRunAt })
+        .values({
+          id: crypto.randomUUID(),
+          projectId: data.projectId,
+          query: data.query,
+          providers: JSON.stringify(data.providers),
+          frequency: data.frequency,
+          nextRunAt: nextRunAt.toISOString(),
+        })
         .returning();
       return row;
     },
@@ -45,9 +52,14 @@ export function scheduledVisibilityQueryQueries(db: Database) {
         enabled: boolean;
       }>,
     ) {
-      const updates: Record<string, unknown> = { ...data };
+      const updates: Record<string, unknown> = {};
+      if (data.query !== undefined) updates.query = data.query;
+      if (data.providers !== undefined)
+        updates.providers = JSON.stringify(data.providers);
+      if (data.frequency !== undefined) updates.frequency = data.frequency;
+      if (data.enabled !== undefined) updates.enabled = data.enabled;
       if (data.frequency) {
-        updates.nextRunAt = computeNextRun(data.frequency);
+        updates.nextRunAt = computeNextRun(data.frequency).toISOString();
       }
       const [updated] = await db
         .update(scheduledVisibilityQueries)
@@ -69,7 +81,7 @@ export function scheduledVisibilityQueryQueries(db: Database) {
         .from(scheduledVisibilityQueries)
         .where(
           and(
-            lte(scheduledVisibilityQueries.nextRunAt, now),
+            lte(scheduledVisibilityQueries.nextRunAt, now.toISOString()),
             eq(scheduledVisibilityQueries.enabled, true),
           ),
         )
@@ -81,8 +93,8 @@ export function scheduledVisibilityQueryQueries(db: Database) {
       const [updated] = await db
         .update(scheduledVisibilityQueries)
         .set({
-          lastRunAt: now,
-          nextRunAt: computeNextRun(frequency, now),
+          lastRunAt: now.toISOString(),
+          nextRunAt: computeNextRun(frequency, now).toISOString(),
         })
         .where(eq(scheduledVisibilityQueries.id, id))
         .returning();

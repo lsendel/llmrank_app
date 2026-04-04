@@ -26,7 +26,7 @@ export function contentFixQueries(db: Database) {
         .where(
           and(
             eq(contentFixes.userId, userId),
-            gte(contentFixes.createdAt, startOfMonth),
+            gte(contentFixes.createdAt, startOfMonth.toISOString()),
           ),
         );
       return row?.count ?? 0;

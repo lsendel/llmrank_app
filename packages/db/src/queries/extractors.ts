@@ -19,7 +19,7 @@ export function extractorQueries(db: Database) {
     }) {
       const [extractor] = await db
         .insert(customExtractors)
-        .values(data)
+        .values({ ...data, id: crypto.randomUUID() })
         .returning();
       return extractor;
     },
@@ -31,7 +31,7 @@ export function extractorQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(customExtractors)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...data, updatedAt: new Date().toISOString() })
         .where(
           and(
             eq(customExtractors.id, id),
