@@ -78,7 +78,10 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         });
       }
 
-      const crawlConfig = buildCrawlConfig(project, user.plan);
+      const crawlConfig = buildCrawlConfig(
+        project,
+        user.plan as import("@llm-boost/shared").PlanTier,
+      );
       let crawlJob: Awaited<ReturnType<CrawlRepository["create"]>>;
       try {
         const existingLatest = await deps.crawls.getLatestByProject(

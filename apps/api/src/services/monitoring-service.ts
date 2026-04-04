@@ -48,7 +48,7 @@ export function createMonitoringService(
         .where(
           and(
             inArray(crawlJobs.status, ["crawling", "scoring"]),
-            lt(crawlJobs.createdAt, oneHourAgo),
+            lt(crawlJobs.createdAt, oneHourAgo.toISOString()),
           ),
         );
 

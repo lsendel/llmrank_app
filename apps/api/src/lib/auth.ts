@@ -1,16 +1,16 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createDb } from "@llm-boost/db";
+import { createAppDb } from "@llm-boost/db";
 import * as schema from "@llm-boost/db";
 import type { Bindings } from "../index";
 import { convertLeadToProject } from "../services/lead-conversion-service";
 
 export function createAuth(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
 
   return betterAuth({
     database: drizzleAdapter(db, {
-      provider: "pg",
+      provider: "sqlite",
       schema: {
         user: schema.users,
         session: schema.session,

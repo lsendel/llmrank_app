@@ -16,7 +16,11 @@ import {
   crawlQueries,
 } from "@llm-boost/db";
 import { createVisibilityRepository } from "@llm-boost/repositories";
-import { PLAN_LIMITS, resolveEffectivePlan } from "@llm-boost/shared";
+import {
+  PLAN_LIMITS,
+  resolveEffectivePlan,
+  type PlanTier,
+} from "@llm-boost/shared";
 import { resolveLocaleForPlan } from "../lib/visibility-locale";
 
 export const competitorRoutes = new Hono<AppEnv>();
@@ -76,7 +80,7 @@ competitorRoutes.post("/benchmark", async (c) => {
       );
     }
 
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits = PLAN_LIMITS[(user?.plan ?? "free") as PlanTier];
     if (limits.competitorsPerProject === 0) {
       return c.json(
         {
@@ -278,7 +282,7 @@ competitorRoutes.get("/feed", async (c) => {
 
   const user = await userQueries(db).getById(userId);
   const effectivePlan = resolveEffectivePlan({
-    plan: user?.plan ?? "free",
+    plan: (user?.plan ?? "free") as PlanTier,
     trialEndsAt: user?.trialEndsAt ?? null,
   });
   const limits = PLAN_LIMITS[effectivePlan];
@@ -355,7 +359,7 @@ competitorRoutes.get("/trends", async (c) => {
 
   const user = await userQueries(db).getById(userId);
   const effectivePlan = resolveEffectivePlan({
-    plan: user?.plan ?? "free",
+    plan: (user?.plan ?? "free") as PlanTier,
     trialEndsAt: user?.trialEndsAt ?? null,
   });
   const limits = PLAN_LIMITS[effectivePlan];
@@ -559,7 +563,7 @@ competitorRoutes.patch("/:id/monitoring", async (c) => {
     // Check plan allows the requested frequency
     const user = await userQueries(db).getById(userId);
     const effectivePlan = resolveEffectivePlan({
-      plan: user?.plan ?? "free",
+      plan: (user?.plan ?? "free") as PlanTier,
       trialEndsAt: user?.trialEndsAt ?? null,
     });
     const limits = PLAN_LIMITS[effectivePlan];
@@ -619,7 +623,7 @@ competitorRoutes.post("/:id/rebenchmark", async (c) => {
     // Check plan limit
     const user = await userQueries(db).getById(userId);
     const effectivePlan = resolveEffectivePlan({
-      plan: user?.plan ?? "free",
+      plan: (user?.plan ?? "free") as PlanTier,
       trialEndsAt: user?.trialEndsAt ?? null,
     });
     const limits = PLAN_LIMITS[effectivePlan];

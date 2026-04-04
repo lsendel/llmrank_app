@@ -38,7 +38,8 @@ export interface IngestServiceDeps {
 }
 
 export interface BatchEnvironment {
-  databaseUrl: string;
+  d1: D1Database;
+  supabaseConnectionString?: string;
   anthropicApiKey?: string;
   kvNamespace?: KVNamespace;
   r2: R2Bucket;
@@ -111,7 +112,7 @@ export function createIngestService(deps: IngestServiceDeps) {
       if (crawlStatus.canTransitionTo("crawling")) {
         await deps.crawls.updateStatus(crawlJob.id, {
           status: "crawling",
-          startedAt: crawlJob.startedAt ?? new Date(),
+          startedAt: (crawlJob.startedAt ?? new Date().toISOString()) as any,
         });
       }
 
@@ -152,7 +153,11 @@ export function createIngestService(deps: IngestServiceDeps) {
             project.scoringProfileId,
           );
           if (profile?.weights) {
-            customWeights = profile.weights as ScoringWeights;
+            customWeights = (
+              typeof profile.weights === "string"
+                ? JSON.parse(profile.weights)
+                : profile.weights
+            ) as ScoringWeights;
           }
         }
       }
@@ -231,7 +236,7 @@ export function createIngestService(deps: IngestServiceDeps) {
         );
       }
       return rescoreLLM({
-        databaseUrl: args.env.databaseUrl,
+        databaseUrl: args.env.supabaseConnectionString!,
         anthropicApiKey: args.env.anthropicApiKey,
         kvNamespace: args.env.kvNamespace,
         r2Bucket: args.env.r2,

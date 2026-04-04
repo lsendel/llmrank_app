@@ -259,7 +259,7 @@ export function createNarrativeService(deps: Deps) {
         deps.db,
         crawl,
         project,
-        narrative.tone,
+        narrative.tone as "technical" | "business",
       );
       const sectionPrompts = await resolveNarrativeSectionPrompts(
         deps.adminDb,

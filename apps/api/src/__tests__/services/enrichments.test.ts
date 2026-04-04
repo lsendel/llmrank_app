@@ -69,7 +69,7 @@ import { runIntegrationEnrichments } from "../../services/enrichments";
 
 function baseInput(overrides: Record<string, unknown> = {}) {
   return {
-    databaseUrl: "postgresql://test",
+    d1: {} as D1Database,
     encryptionKey: "abc123hex",
     googleClientId: "goog-client-id",
     googleClientSecret: "goog-client-secret",

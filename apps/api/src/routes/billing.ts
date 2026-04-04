@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { createBillingRepository, createUserRepository } from "@llm-boost/repositories";
+import {
+  createBillingRepository,
+  createUserRepository,
+} from "@llm-boost/repositories";
 import {
   StripeGateway,
   handleWebhook,
@@ -91,9 +94,9 @@ billingRoutes.get("/subscription", authMiddleware, async (c) => {
           id: sub.id,
           planCode: sub.planCode,
           status: sub.status,
-          currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
+          currentPeriodEnd: sub.currentPeriodEnd ?? null,
           cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-          canceledAt: sub.canceledAt?.toISOString() ?? null,
+          canceledAt: sub.canceledAt ?? null,
         }
       : null,
   });
@@ -117,7 +120,7 @@ billingRoutes.get("/payments", authMiddleware, async (c) => {
       currency: p.currency,
       status: p.status,
       stripeInvoiceId: p.stripeInvoiceId,
-      createdAt: p.createdAt.toISOString(),
+      createdAt: p.createdAt,
     })),
   });
 });

@@ -25,7 +25,8 @@ import { createRegressionService } from "./regression-service";
 import { createFrontierService } from "./frontier-service";
 import {
   actionItemQueries,
-  createDb,
+  createAppDb,
+  createAdminDb,
   outboxEvents,
   projectQueries,
   reportScheduleQueries,
@@ -44,7 +45,9 @@ export interface PostProcessingDeps {
 }
 
 export interface PostProcessingEnv {
-  databaseUrl: string;
+  d1: D1Database;
+  d1Admin?: D1Database;
+  supabaseConnectionString?: string;
   anthropicApiKey?: string;
   kvNamespace?: KVNamespace;
   r2: R2Bucket;
@@ -87,7 +90,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         await dispatchOrRun(deps.outbox, args.executionCtx, {
           type: "llm_scoring",
           payload: {
-            databaseUrl: env.databaseUrl,
+            d1: env.d1,
             anthropicApiKey: env.anthropicApiKey,
             kvNamespace: env.kvNamespace,
             r2Bucket: env.r2,
@@ -125,7 +128,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
           await dispatchOrRun(deps.outbox, args.executionCtx, {
             type: "integration_enrichment",
             payload: {
-              databaseUrl: env.databaseUrl,
+              d1: env.d1,
               encryptionKey: env.integrationKey,
               googleClientId: env.googleClientId,
               googleClientSecret: env.googleClientSecret,
@@ -150,7 +153,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
       if (batch.is_final) {
         args.executionCtx.waitUntil(
           persistCrawlSummaryData({
-            databaseUrl: env.databaseUrl,
+            d1: env.d1,
             projectId,
             jobId: crawlJobId,
             resendApiKey: env.resendApiKey,
@@ -168,7 +171,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         await dispatchOrRun(deps.outbox, args.executionCtx, {
           type: "crawl_summary",
           payload: {
-            databaseUrl: env.databaseUrl,
+            d1: env.d1,
             anthropicApiKey: env.anthropicApiKey,
             projectId,
             jobId: batch.job_id,
@@ -181,10 +184,12 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         args.executionCtx.waitUntil(
           (async () => {
             try {
-              const db = createDb(env.databaseUrl);
+              const db = createAppDb(env.d1);
               const project = await projectQueries(db).getById(projectId);
               if (!project) return;
               const narrativeSvc = createNarrativeService({
+                db,
+                adminDb: env.d1Admin ? createAdminDb(env.d1Admin) : (db as any),
                 narratives: createNarrativeRepository(db),
                 projects: createProjectRepository(db),
                 users: createUserRepository(db),
@@ -224,7 +229,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
                 const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
                 const res = await fetch(faviconUrl, { method: "HEAD" });
                 if (res.ok) {
-                  const db = createDb(env.databaseUrl);
+                  const db = createAppDb(env.d1);
                   await projectQueries(db).update(projectId, { faviconUrl });
                 }
               } catch {
@@ -239,7 +244,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
       if (batch.is_final && env.resendApiKey && deps.users && deps.projects) {
         const project = await deps.projects.getById(projectId);
         if (project) {
-          const db = createDb(env.databaseUrl);
+          const db = createAppDb(env.d1);
           const notifier = createNotificationService(db, env.resendApiKey, {
             appBaseUrl: env.appBaseUrl,
           });
@@ -260,16 +265,20 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             notifications: {
               create: (data) =>
                 db.insert(outboxEvents).values({
+                  id: crypto.randomUUID(),
                   type: "notification",
                   eventType: data.type,
                   userId: data.userId,
                   projectId,
-                  payload: data.data,
+                  payload:
+                    typeof data.data === "string"
+                      ? data.data
+                      : JSON.stringify(data.data),
                   status: "pending",
                 }),
             },
             actionItems: {
-              create: (data) => actionItemQueries(db).create(data),
+              create: (data: any) => actionItemQueries(db).create(data),
               getOpenByProjectIssueCode: (pid, issueCode) =>
                 actionItemQueries(db).getOpenByProjectIssueCode(pid, issueCode),
             },
@@ -285,7 +294,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
 
       // Run AI intelligence pipeline (replaces individual auto-service calls)
       if (batch.is_final && env.anthropicApiKey) {
-        const db = createDb(env.databaseUrl);
+        const db = createAppDb(env.d1);
         const project = await projectQueries(db).getById(projectId);
         const settings = (project?.pipelineSettings ?? {}) as Record<
           string,
@@ -295,7 +304,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         if (settings.autoRunOnCrawl !== false) {
           const audit = createAuditService(db);
           const pipeline = createPipelineService(db, audit, {
-            databaseUrl: env.databaseUrl,
+            databaseUrl: env.supabaseConnectionString ?? "",
             anthropicApiKey: env.anthropicApiKey,
             perplexityApiKey: env.perplexityApiKey,
             grokApiKey: env.xaiApiKey,
@@ -311,7 +320,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
 
       // Auto-generate scheduled reports after each completed crawl.
       if (batch.is_final && env.reportServiceUrl && env.sharedSecret) {
-        const db = createDb(env.databaseUrl);
+        const db = createAppDb(env.d1);
         const project = await projectQueries(db).getById(projectId);
 
         if (project) {
@@ -335,8 +344,8 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
                       {
                         projectId,
                         crawlJobId,
-                        type: schedule.type,
-                        format: schedule.format,
+                        type: schedule.type as "summary" | "detailed",
+                        format: schedule.format as "pdf" | "docx",
                         config: { preparedFor: schedule.recipientEmail },
                       },
                       {

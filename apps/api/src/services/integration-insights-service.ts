@@ -26,7 +26,7 @@ export function createIntegrationInsightsService(
           throw new ServiceError("NOT_FOUND", 404, "Crawl not found");
         }
         const rows = await deps.enrichments.listByJob(crawl.id);
-        const crawlDate = crawl.createdAt.toISOString();
+        const crawlDate = crawl.createdAt;
         if (rows.length === 0) {
           return {
             crawlId: crawl.id,
@@ -36,7 +36,9 @@ export function createIntegrationInsightsService(
         }
         const normalized = rows.map((row) => ({
           provider: row.provider,
-          data: row.data as Record<string, unknown>,
+          data: (typeof row.data === "string"
+            ? JSON.parse(row.data)
+            : row.data) as Record<string, unknown>,
         }));
         return {
           crawlId: crawl.id,
@@ -57,17 +59,19 @@ export function createIntegrationInsightsService(
         if (rows.length > 0) {
           const normalized = rows.map((row) => ({
             provider: row.provider,
-            data: row.data as Record<string, unknown>,
+            data: (typeof row.data === "string"
+              ? JSON.parse(row.data)
+              : row.data) as Record<string, unknown>,
           }));
           const integrations = aggregateIntegrations(normalized);
-          const crawlDate = crawl.createdAt.toISOString();
+          const crawlDate = crawl.createdAt;
           return { crawlId: crawl.id, crawlDate, integrations };
         }
       }
 
       // No crawl has enrichments yet
       const latestCrawl = recentCrawls[0];
-      const crawlDate = latestCrawl.createdAt.toISOString();
+      const crawlDate = latestCrawl.createdAt;
       return {
         crawlId: latestCrawl.id,
         crawlDate,

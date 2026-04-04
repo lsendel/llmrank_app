@@ -3,7 +3,6 @@ import {
   createAdminDb,
   createAgencyDb,
   type AppDatabase,
-  users,
   userQueries,
   competitorBenchmarkQueries,
   competitorQueries,
@@ -53,7 +52,7 @@ async function resetMonthlyCredits(env: Bindings) {
       ? limits.crawlsPerMonth
       : 999999;
     await queries.resetCrawlCreditsForPlan(
-      plan as (typeof users.plan.enumValues)[number],
+      plan as "free" | "starter" | "pro" | "agency",
       credits,
     );
   }
@@ -87,7 +86,7 @@ async function runScheduledTasks(env: Bindings) {
     queue: env.CRAWL_QUEUE,
   });
 
-  await processOutboxEvents(env.DATABASE_URL, {
+  await processOutboxEvents(env.D1_APP, {
     ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
     KV: env.KV,
     R2: env.R2,
@@ -105,7 +104,9 @@ async function cleanupExpiredData(env: Bindings): Promise<void> {
   const logger = createLogger({ requestId: "cron-cleanup" });
   const deletedScans = await scanResultQueries(db).deleteExpired();
   logger.info("Cleaned up expired scan results", { deletedScans });
-  const deletedLeads = await leadQueries(adminDb).deleteOldUnconverted(90);
+  const deletedLeads = await leadQueries(adminDb as any).deleteOldUnconverted(
+    90,
+  );
   logger.info("Cleaned up stale leads", { deletedLeads });
 }
 
@@ -125,29 +126,31 @@ async function detectAndEmitChanges(
 
     if (previous.brandMentioned === true && result.brandMentioned === false) {
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: "notification",
         eventType: "mention_lost",
         userId: project.userId,
         projectId: project.id,
-        payload: {
+        payload: JSON.stringify({
           query: schedule.query,
           provider: result.provider,
           domain: project.domain,
-        },
+        }),
       });
     }
 
     if (previous.brandMentioned === false && result.brandMentioned === true) {
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: "notification",
         eventType: "mention_gained",
         userId: project.userId,
         projectId: project.id,
-        payload: {
+        payload: JSON.stringify({
           query: schedule.query,
           provider: result.provider,
           domain: project.domain,
-        },
+        }),
       });
     }
 
@@ -156,16 +159,17 @@ async function detectAndEmitChanges(
       result.citationPosition != null
     ) {
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: "notification",
         eventType: "position_changed",
         userId: project.userId,
         projectId: project.id,
-        payload: {
+        payload: JSON.stringify({
           query: schedule.query,
           provider: result.provider,
           oldPosition: previous.citationPosition,
           newPosition: result.citationPosition,
-        },
+        }),
       });
     }
   }
@@ -179,12 +183,21 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
   const dueQueries = await scheduleRepo.getDueQueries(new Date());
   const batch = dueQueries.slice(0, 10);
 
-  for (const schedule of batch) {
+  for (const rawSchedule of batch) {
+    const schedule = {
+      ...rawSchedule,
+      providers: (typeof rawSchedule.providers === "string"
+        ? JSON.parse(rawSchedule.providers)
+        : rawSchedule.providers) as string[],
+    };
     try {
       const pq = projectQueries(db);
       const project = await pq.getById(schedule.projectId);
       if (!project) {
-        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        await scheduleRepo.markRun(
+          schedule.id,
+          schedule.frequency as "daily" | "weekly" | "hourly",
+        );
         continue;
       }
 
@@ -230,7 +243,10 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
       });
 
       if (!stored || stored.length === 0) {
-        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        await scheduleRepo.markRun(
+          schedule.id,
+          schedule.frequency as "daily" | "weekly" | "hourly",
+        );
         continue;
       }
 
@@ -248,7 +264,10 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         results,
         previousByProvider,
       );
-      await scheduleRepo.markRun(schedule.id, schedule.frequency);
+      await scheduleRepo.markRun(
+        schedule.id,
+        schedule.frequency as "daily" | "weekly" | "hourly",
+      );
 
       trackServer(
         env.POSTHOG_API_KEY,
@@ -271,7 +290,10 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         scheduleId: schedule.id,
         error: err instanceof Error ? err.message : String(err),
       });
-      await scheduleRepo.markRun(schedule.id, schedule.frequency);
+      await scheduleRepo.markRun(
+        schedule.id,
+        schedule.frequency as "daily" | "weekly" | "hourly",
+      );
     }
   }
 }

@@ -128,7 +128,11 @@ export function createDigestService(
 
     const latest = completed[0];
     const previous = completed.length > 1 ? completed[1] : null;
-    const sd = latest.summaryData as Record<string, unknown>;
+    const sd = (
+      typeof latest.summaryData === "string"
+        ? JSON.parse(latest.summaryData)
+        : latest.summaryData
+    ) as Record<string, unknown>;
 
     const currentScore =
       typeof sd.overallScore === "number" ? sd.overallScore : 0;
@@ -209,7 +213,11 @@ export function createDigestService(
 
         const latest = completed[0];
         const previous = completed.length > 1 ? completed[1] : null;
-        const sd = latest.summaryData as Record<string, unknown>;
+        const sd = (
+          typeof latest.summaryData === "string"
+            ? JSON.parse(latest.summaryData)
+            : latest.summaryData
+        ) as Record<string, unknown>;
 
         const currentScore =
           typeof sd.overallScore === "number" ? sd.overallScore : 0;

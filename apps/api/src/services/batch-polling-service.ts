@@ -50,11 +50,11 @@ export async function pollPendingBatches(env: {
             const scores = scorer.processBatchResult(result.result.message);
             if (scores) {
               // Look up the score row for this page
-              const scoreRow = await scoreQueries(db).getByPage(
+              const scoreRow = await scoreQueries(db as any).getByPage(
                 result.custom_id,
               );
               if (scoreRow) {
-                await scoreQueries(db).updateDetail(scoreRow.id, {
+                await scoreQueries(db as any).updateDetail(scoreRow.id, {
                   llmContentScores: scores,
                 });
               }

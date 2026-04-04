@@ -1,5 +1,5 @@
 import {
-  createDb,
+  createAppDb,
   projectQueries,
   integrationQueries,
   enrichmentQueries,
@@ -11,7 +11,7 @@ import { refreshAccessToken } from "../lib/google-oauth";
 import { refreshLongLivedToken } from "../lib/meta-oauth";
 
 export interface EnrichmentInput {
-  databaseUrl: string;
+  d1: D1Database;
   encryptionKey: string;
   googleClientId: string;
   googleClientSecret: string;
@@ -43,7 +43,7 @@ export async function runIntegrationEnrichments(
     jobId: input.jobId,
     pageCount: input.insertedPages.length,
   });
-  const db = createDb(input.databaseUrl);
+  const db = createAppDb(input.d1);
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) {
@@ -100,7 +100,7 @@ export async function runIntegrationEnrichments(
           (integration.provider === "gsc" || integration.provider === "ga4") &&
           creds.refreshToken &&
           integration.tokenExpiresAt &&
-          integration.tokenExpiresAt < new Date()
+          new Date(integration.tokenExpiresAt) < new Date()
         ) {
           const refreshed = await refreshAccessToken({
             refreshToken: creds.refreshToken,
@@ -129,7 +129,7 @@ export async function runIntegrationEnrichments(
           const sevenDaysFromNow = new Date(
             Date.now() + 7 * 24 * 60 * 60 * 1000,
           );
-          if (integration.tokenExpiresAt < sevenDaysFromNow) {
+          if (new Date(integration.tokenExpiresAt) < sevenDaysFromNow) {
             try {
               const refreshed = await refreshLongLivedToken({
                 token: creds.accessToken,

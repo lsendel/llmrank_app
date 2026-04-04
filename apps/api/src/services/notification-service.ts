@@ -78,14 +78,15 @@ export function createNotificationService(
       });
 
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: `email:${args.template}`,
         eventType: args.template,
         userId: args.userId,
-        payload: {
+        payload: JSON.stringify({
           userId: args.userId,
           to: args.to,
           data: args.data,
-        },
+        }),
         status: "pending",
       });
     },
@@ -105,14 +106,15 @@ export function createNotificationService(
       if (!webhookUrl) return;
 
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: `webhook:${args.event}`,
         eventType: args.event,
         projectId: args.projectId,
         userId: (project as any).userId ?? null,
-        payload: {
+        payload: JSON.stringify({
           url: webhookUrl,
           data: args.payload,
-        },
+        }),
         status: "pending",
       });
     },
@@ -157,11 +159,12 @@ export function createNotificationService(
       // User-level webhook
       if (user.webhookUrl) {
         await db.insert(outboxEvents).values({
+          id: crypto.randomUUID(),
           type: "webhook:alert",
           eventType: "score_drop",
           userId: args.userId,
           projectId: args.projectId,
-          payload: {
+          payload: JSON.stringify({
             webhookUrl: user.webhookUrl,
             event: "score_drop",
             data: {
@@ -171,7 +174,7 @@ export function createNotificationService(
               currentScore: args.currentScore,
               delta: args.currentScore - args.previousScore,
             },
-          },
+          }),
           status: "pending",
         });
       }
@@ -212,7 +215,7 @@ export function createNotificationService(
         .where(
           and(
             eq(outboxEvents.status, "pending"),
-            lte(outboxEvents.availableAt, new Date()),
+            lte(outboxEvents.availableAt, new Date().toISOString()),
           ) as any,
         )
         .limit(20);
@@ -297,14 +300,18 @@ export function createNotificationService(
                 switch (channel.channelType) {
                   case "webhook":
                     await sendWebhook(
-                      channel.config as Record<string, unknown>,
-                      event as OutboxEvent,
+                      (typeof channel.config === "string"
+                        ? JSON.parse(channel.config)
+                        : channel.config) as Record<string, unknown>,
+                      event as unknown as OutboxEvent,
                     );
                     break;
                   case "slack_incoming":
                     await sendSlackIncoming(
-                      channel.config as Record<string, unknown>,
-                      event as OutboxEvent,
+                      (typeof channel.config === "string"
+                        ? JSON.parse(channel.config)
+                        : channel.config) as Record<string, unknown>,
+                      event as unknown as OutboxEvent,
                     );
                     break;
                   // email handled by existing Resend path above

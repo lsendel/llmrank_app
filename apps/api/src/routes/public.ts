@@ -427,7 +427,7 @@ publicRoutes.get("/reports/:token", async (c) => {
     config: {} as ReportConfig,
   };
 
-  const raw = await fetchReportData(db, job);
+  const raw = await fetchReportData(db, job, c.get("agencyDb"));
   const aggregated = aggregateReportData(raw, { type: "detailed" });
 
   // Filter data based on share level
@@ -544,7 +544,10 @@ publicRoutes.get("/scan-results/:id", async (c) => {
       domain: result.domain,
       url: result.url,
       scores: result.scores,
-      issues: (result.issues as any[]).slice(0, 3),
+      issues: (typeof result.issues === "string"
+        ? (JSON.parse(result.issues) as any[])
+        : (result.issues as any[])
+      ).slice(0, 3),
       siteContext: (result as any).siteContext,
       // quickWins omitted for gated view
       createdAt: result.createdAt,

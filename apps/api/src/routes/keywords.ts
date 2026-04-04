@@ -47,7 +47,10 @@ keywordRoutes.post("/:projectId", async (c) => {
     }
 
     const user = await userQueries(db).getById(userId);
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     const count = await savedKeywordQueries(db).countByProject(projectId);
 
     if (count >= limits.savedKeywordsPerProject) {
@@ -111,7 +114,10 @@ keywordRoutes.post("/:projectId/batch", async (c) => {
     }
 
     const user = await userQueries(db).getById(userId);
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     const count = await savedKeywordQueries(db).countByProject(projectId);
 
     const body = await c.req.json<{ keywords: string[] }>();

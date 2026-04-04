@@ -44,7 +44,12 @@ const enforcePlan = (requiredTier: PlanTier) => {
       );
     }
 
-    if (!meetsMinimumTier(user.plan, requiredTier)) {
+    if (
+      !meetsMinimumTier(
+        user.plan as import("@llm-boost/shared").PlanTier,
+        requiredTier,
+      )
+    ) {
       return c.json(
         {
           error: {

@@ -51,7 +51,7 @@ competitorWatchlistRoutes.post("/", async (c) => {
 
     const user = await userQueries(db).getById(userId);
     const effectivePlan = resolveEffectivePlan({
-      plan: user?.plan ?? "free",
+      plan: (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier,
       trialEndsAt: user?.trialEndsAt ?? null,
     });
     const limits = PLAN_LIMITS[effectivePlan];

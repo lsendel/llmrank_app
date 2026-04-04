@@ -36,7 +36,8 @@ ingestRoutes.post("/batch", async (c) => {
     const data = await service.processBatch({
       rawBody,
       env: {
-        databaseUrl: c.env.DATABASE_URL,
+        d1: c.env.D1_APP,
+        supabaseConnectionString: c.env.SUPABASE.connectionString,
         anthropicApiKey: c.env.ANTHROPIC_API_KEY,
         kvNamespace: c.env.KV,
         seenUrls: c.env.SEEN_URLS,
@@ -84,7 +85,8 @@ ingestRoutes.post("/rescore-llm", async (c) => {
     const result = await service.rescoreLLMJob({
       jobId: job_id,
       env: {
-        databaseUrl: c.env.DATABASE_URL,
+        d1: c.env.D1_APP,
+        supabaseConnectionString: c.env.SUPABASE.connectionString,
         anthropicApiKey: c.env.ANTHROPIC_API_KEY,
         kvNamespace: c.env.KV,
         r2: c.env.R2,

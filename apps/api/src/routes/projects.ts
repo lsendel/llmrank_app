@@ -462,7 +462,7 @@ projectRoutes.post(
     const { runAutoCompetitorDiscovery } = await import("@llm-boost/pipeline");
 
     const promise = runAutoCompetitorDiscovery({
-      databaseUrl: c.env.DATABASE_URL,
+      databaseUrl: c.env.SUPABASE.connectionString,
       projectId,
       anthropicApiKey: c.env.ANTHROPIC_API_KEY,
       perplexityApiKey: c.env.PERPLEXITY_API_KEY,

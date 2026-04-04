@@ -41,7 +41,7 @@ generatorRoutes.post("/:id/generate/sitemap", async (c) => {
       .filter((p) => p.statusCode === 200)
       .map((p) => ({
         url: p.url,
-        lastmod: latestCrawl.completedAt?.toISOString().split("T")[0],
+        lastmod: latestCrawl.completedAt?.split("T")[0],
       })),
   );
 

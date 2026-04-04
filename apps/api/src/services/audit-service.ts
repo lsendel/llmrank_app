@@ -13,7 +13,7 @@ export interface AuditEvent {
 }
 
 export function createAuditService(db: Database) {
-  const audit = auditLogWriteQueries(db);
+  const audit = auditLogWriteQueries(db as any);
   const outbox = outboxQueries(db);
 
   return {

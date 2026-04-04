@@ -3,8 +3,12 @@ import type { AppEnv } from "../index";
 import { eq, desc, and } from "drizzle-orm";
 import { promptTemplates, promptMetrics } from "@llm-boost/db";
 import Anthropic from "@anthropic-ai/sdk";
+import { authMiddleware } from "../middleware/auth";
+import { adminMiddleware } from "../middleware/admin";
 
 export const adminPromptRoutes = new Hono<AppEnv>();
+
+adminPromptRoutes.use("*", authMiddleware, adminMiddleware);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -46,16 +50,13 @@ adminPromptRoutes.get("/", async (c) => {
     }
   }
 
-  // Group by category
-  const grouped: Record<string, (typeof allPrompts)[number][]> = {};
-  for (const p of latestBySlug.values()) {
-    if (!grouped[p.category]) {
-      grouped[p.category] = [];
-    }
-    grouped[p.category].push(p);
-  }
-
-  return c.json({ data: grouped });
+  return c.json({
+    data: Array.from(latestBySlug.values()).sort((left, right) =>
+      left.category === right.category
+        ? left.name.localeCompare(right.name)
+        : left.category.localeCompare(right.category),
+    ),
+  });
 });
 
 // ─── GET /:id — Get single prompt by ID with version history ─────────────────
@@ -155,15 +156,16 @@ adminPromptRoutes.post("/:slug/versions", async (c) => {
   const [created] = await db
     .insert(promptTemplates)
     .values({
+      id: crypto.randomUUID(),
       name: body.name,
       slug,
       category: body.category,
       description: body.description ?? null,
       systemPrompt: body.systemPrompt,
       userPromptTemplate: body.userPromptTemplate,
-      variables: body.variables ?? null,
+      variables: body.variables ? JSON.stringify(body.variables) : null,
       model: body.model,
-      modelConfig: body.modelConfig ?? null,
+      modelConfig: body.modelConfig ? JSON.stringify(body.modelConfig) : null,
       version: nextVersion,
       contentHash,
       status: "draft",
@@ -208,7 +210,7 @@ adminPromptRoutes.post("/:id/activate", async (c) => {
   // Activate this version
   const [activated] = await db
     .update(promptTemplates)
-    .set({ status: "active", activatedAt: new Date() })
+    .set({ status: "active", activatedAt: new Date().toISOString() })
     .where(eq(promptTemplates.id, id))
     .returning();
 
@@ -284,13 +286,17 @@ adminPromptRoutes.post("/:id/test", async (c) => {
     const client = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
     const startTime = Date.now();
 
+    const parsedModelConfig =
+      typeof prompt.modelConfig === "string"
+        ? JSON.parse(prompt.modelConfig)
+        : prompt.modelConfig;
     const response = await client.messages.create({
       model: prompt.model,
-      max_tokens: prompt.modelConfig?.maxTokens ?? 1024,
+      max_tokens: parsedModelConfig?.maxTokens ?? 1024,
       system: prompt.systemPrompt,
       messages: [{ role: "user", content: interpolatedUserPrompt }],
-      ...(prompt.modelConfig?.temperature != null
-        ? { temperature: prompt.modelConfig.temperature }
+      ...(parsedModelConfig?.temperature != null
+        ? { temperature: parsedModelConfig.temperature }
         : {}),
     });
 

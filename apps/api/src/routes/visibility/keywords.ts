@@ -71,7 +71,10 @@ visibilityKeywordRoutes.post(
       const kwRepo = savedKwQueries(db);
       const existingCount = await kwRepo.countByProject(projectId);
       const user = await createUserRepository(db).getById(userId);
-      const limits = PLAN_LIMITS[user?.plan ?? "free"];
+      const limits =
+        PLAN_LIMITS[
+          (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+        ];
       const remainingSlots = Math.max(
         0,
         limits.savedKeywordsPerProject - existingCount,

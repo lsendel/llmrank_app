@@ -58,7 +58,11 @@ trendRoutes.get("/:projectId", async (c) => {
   const trendPoints: TrendPoint[] = [];
   for (const crawl of completedCrawls) {
     if (crawl.summaryData) {
-      const sd = crawl.summaryData as Record<string, unknown>;
+      const sd = (
+        typeof crawl.summaryData === "string"
+          ? JSON.parse(crawl.summaryData)
+          : crawl.summaryData
+      ) as Record<string, unknown>;
       const num = (key1: string, key2: string): number => {
         const val1 = sd[key1];
         const val2 = sd[key2];

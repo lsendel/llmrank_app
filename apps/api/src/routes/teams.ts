@@ -125,7 +125,7 @@ teamRoutes.post("/accept-invite", async (c) => {
     );
   }
 
-  if (invitation.expiresAt < new Date()) {
+  if (new Date(invitation.expiresAt) < new Date()) {
     return c.json(
       { error: { code: "EXPIRED", message: "Invitation has expired" } },
       410,

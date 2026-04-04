@@ -455,7 +455,7 @@ integrationRoutes.post("/:projectId/sync", async (c) => {
   const insertedPages = pages.map((p) => ({ id: p.id, url: p.url }));
 
   const output = await runIntegrationEnrichments({
-    databaseUrl: c.env.DATABASE_URL,
+    d1: c.env.D1_APP,
     encryptionKey: c.env.INTEGRATION_ENCRYPTION_KEY,
     googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
     googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,
