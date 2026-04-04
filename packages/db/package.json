@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@llm-boost/shared": "workspace:*",
-    "@neondatabase/serverless": "^0.10",
+    "postgres": "^3.4",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
