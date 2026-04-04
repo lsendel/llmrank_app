@@ -1,5 +1,5 @@
 import {
-  type Database,
+  type AppDatabase as Database,
   projectQueries,
   userQueries,
   crawlQueries,
