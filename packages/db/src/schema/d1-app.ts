@@ -8,7 +8,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-import { createdAt, textId, updatedAt, uuidText } from "./d1-helpers";
+import { createdAt, dateText, textId, updatedAt, uuidText } from "./d1-helpers";
 
 // ─── Identity ────────────────────────────────────────────────────────────────
 
@@ -51,19 +51,27 @@ export const users = sqliteTable("users", {
   lastDigestSentAt: text("last_digest_sent_at"),
   trialStartedAt: text("trial_started_at"),
   trialEndsAt: text("trial_ends_at"),
-  lastSignedIn: text("last_signed_in"),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
+  lastSignedIn: dateText("last_signed_in"),
+  createdAt: dateText("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: dateText("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
 });
 
 export const session = sqliteTable(
   "session",
   {
     id: textId(),
-    expiresAt: text("expires_at").notNull(),
+    expiresAt: dateText("expires_at").notNull(),
     token: text("token").notNull().unique(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
+    createdAt: dateText("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: dateText("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     userId: text("user_id")
@@ -83,12 +91,16 @@ export const account = sqliteTable(
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
     idToken: text("id_token"),
-    accessTokenExpiresAt: text("access_token_expires_at"),
-    refreshTokenExpiresAt: text("refresh_token_expires_at"),
+    accessTokenExpiresAt: dateText("access_token_expires_at"),
+    refreshTokenExpiresAt: dateText("refresh_token_expires_at"),
     scope: text("scope"),
     password: text("password"),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
+    createdAt: dateText("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: dateText("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (t) => [index("idx_account_user_id").on(t.userId)],
 );
@@ -97,9 +109,13 @@ export const verification = sqliteTable("verification", {
   id: textId(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: text("expires_at").notNull(),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
+  expiresAt: dateText("expires_at").notNull(),
+  createdAt: dateText("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: dateText("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
 });
 
 export const organizations = sqliteTable(
