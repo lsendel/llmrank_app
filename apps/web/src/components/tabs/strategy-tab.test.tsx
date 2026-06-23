@@ -77,7 +77,7 @@ describe("Strategy Tab", () => {
   it("renders persona discovery section", () => {
     render(<StrategyTab projectId="proj-1" />);
     expect(screen.getByText("Persona Discovery")).toBeInTheDocument();
-    expect(screen.getByText("Discover Personas")).toBeInTheDocument();
+    expect(screen.getByText("No personas yet")).toBeInTheDocument();
   });
 
   it("renders demand model flow controls", () => {

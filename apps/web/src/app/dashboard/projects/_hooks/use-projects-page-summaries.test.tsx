@@ -46,16 +46,21 @@ describe("useProjectsPageSummaries", () => {
   });
 
   it("computes anomaly and page summaries from the provided projects", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-03-20T00:00:00.000Z"));
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const daysAgo = (days: number) =>
+      new Date(now - days * DAY_MS).toISOString();
 
+    // Dates are relative to "now" so the test is independent of the wall clock:
+    // the stale project's crawl is well past the staleness threshold, the
+    // low-score project's crawl is recent.
     const staleProject = makeProject({
       id: "stale",
       latestCrawl: {
         status: "complete",
         overallScore: 82,
-        createdAt: "2026-02-20T00:00:00.000Z",
-        completedAt: "2026-02-25T00:00:00.000Z",
+        createdAt: daysAgo(65),
+        completedAt: daysAgo(60),
       },
     });
     const lowScoreProject = makeProject({
@@ -63,8 +68,8 @@ describe("useProjectsPageSummaries", () => {
       latestCrawl: {
         status: "complete",
         overallScore: 45,
-        createdAt: "2026-03-10T00:00:00.000Z",
-        completedAt: "2026-03-10T00:00:00.000Z",
+        createdAt: daysAgo(2),
+        completedAt: daysAgo(2),
       },
     });
     const inProgressProject = makeProject({
@@ -72,7 +77,7 @@ describe("useProjectsPageSummaries", () => {
       latestCrawl: {
         status: "crawling",
         overallScore: null,
-        createdAt: "2026-03-19T00:00:00.000Z",
+        createdAt: daysAgo(1),
       },
     });
     const failedManualProject = makeProject({
@@ -82,7 +87,7 @@ describe("useProjectsPageSummaries", () => {
       latestCrawl: {
         status: "failed",
         overallScore: 70,
-        createdAt: "2026-03-18T00:00:00.000Z",
+        createdAt: daysAgo(3),
       },
     });
     const noCrawlProject = makeProject({ id: "new", latestCrawl: null });
