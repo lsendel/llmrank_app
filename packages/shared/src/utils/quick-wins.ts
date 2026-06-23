@@ -15,7 +15,7 @@ export interface QuickWin {
   implementationSnippet?: string;
   priority: number;
   affectedPages: number;
-  samplePageUrls: string[];
+  samplePageUrls?: string[];
 }
 
 interface IssueInstance {
