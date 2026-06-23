@@ -4,6 +4,7 @@ import type { NarrativeInput, TokenUsage } from "../types";
 import { BASE_SYSTEM_PROMPT } from "../prompts/base-prompt";
 import { getToneAdapter } from "../prompts/tone-adapters";
 import { SECTION_PROMPTS } from "../prompts/section-prompts";
+import type { NarrativeResolvedPrompt } from "../prompts/runtime-prompts";
 import { selectDataForSection } from "../utils/data-selector";
 import { calculateCost } from "../utils/token-tracker";
 
@@ -75,21 +76,27 @@ export async function generateSection(
   config: SectionConfig,
   input: NarrativeInput,
   model: string,
+  resolvedPrompt?: NarrativeResolvedPrompt,
 ): Promise<{ section: NarrativeSection; tokenUsage: TokenUsage }> {
   const dataContext = selectDataForSection(config.type, input);
   const toneAdapter = getToneAdapter(input.tone);
 
-  const userPrompt = `${SECTION_PROMPTS[config.type]}
+  const userPrompt =
+    resolvedPrompt?.user ??
+    `${SECTION_PROMPTS[config.type]}
 
 Here is the data for your analysis:
 
 ${JSON.stringify(dataContext, null, 2)}`;
 
   const response = await client.messages.create({
-    model,
-    max_tokens: 1024,
-    system: `${BASE_SYSTEM_PROMPT}\n\n${toneAdapter}`,
+    model: resolvedPrompt?.model ?? model,
+    max_tokens: resolvedPrompt?.maxTokens ?? 1024,
+    system: resolvedPrompt?.system ?? `${BASE_SYSTEM_PROMPT}\n\n${toneAdapter}`,
     messages: [{ role: "user", content: userPrompt }],
+    ...(resolvedPrompt?.temperature != null
+      ? { temperature: resolvedPrompt.temperature }
+      : {}),
   });
 
   const content =

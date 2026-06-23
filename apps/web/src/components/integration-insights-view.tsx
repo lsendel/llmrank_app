@@ -103,6 +103,7 @@ export function IntegrationInsightsView({
           provider="Google Search Console"
           description="See your top queries, impressions, clicks, and search positions"
           isConnected={connectedProviders.includes("gsc")}
+          resourceKey="gsc"
         />
       )}
 
@@ -119,6 +120,7 @@ export function IntegrationInsightsView({
           provider="Google Analytics 4"
           description="Track bounce rate, engagement time, and top landing pages"
           isConnected={connectedProviders.includes("ga4")}
+          resourceKey="ga4"
         />
       )}
 
@@ -135,6 +137,7 @@ export function IntegrationInsightsView({
           provider="Meta"
           description="See social engagement, shares, reactions, and ad performance data"
           isConnected={connectedProviders.includes("meta")}
+          resourceKey="meta"
         />
       )}
 
@@ -151,6 +154,7 @@ export function IntegrationInsightsView({
           provider="Microsoft Clarity"
           description="Monitor UX scores and detect rage clicks"
           isConnected={connectedProviders.includes("clarity")}
+          resourceKey="clarity"
         />
       )}
 
@@ -167,6 +171,7 @@ export function IntegrationInsightsView({
           provider="PageSpeed Insights"
           description="See Core Web Vitals and lab performance scores"
           isConnected={connectedProviders.includes("psi")}
+          resourceKey="psi"
         />
       )}
     </div>

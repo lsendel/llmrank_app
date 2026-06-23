@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Factory, Search, Zap } from "lucide-react";
 import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
 // List of target industries for programmatic SEO
 const INDUSTRIES = [
@@ -35,15 +36,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const capitalizedIndustry = capitalize(industry);
 
   return {
-    title: `AI SEO Audit for ${capitalizedIndustry} - Rank in ChatGPT & Perplexity`,
-    description: `Audit your ${capitalizedIndustry} website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, and Gemini with our specialized audit tool.`,
-    alternates: {
-      canonical: `/audit/${industry}`,
-    },
-    openGraph: {
-      title: `AI Search Optimization for ${capitalizedIndustry}`,
-      description: `Don't be invisible to AI. Audit your ${capitalizedIndustry} website and get cited in generative search answers.`,
-    },
+    ...buildPublicMetadata({
+      title: `AI SEO Audit for ${capitalizedIndustry} - Rank in ChatGPT & Perplexity`,
+      description: `Audit your ${capitalizedIndustry} website for AI-readiness across 37 factors. Improve visibility in ChatGPT, Claude, and Gemini with our specialized audit tool.`,
+      path: `/audit/${industry}`,
+      openGraphTitle: `AI Search Optimization for ${capitalizedIndustry}`,
+      openGraphDescription: `Don't be invisible to AI. Audit your ${capitalizedIndustry} website and get cited in generative search answers.`,
+    }),
   };
 }
 

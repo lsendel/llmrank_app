@@ -58,6 +58,12 @@ describe("integrations-tab sections", () => {
     expect(screen.getAllByText("Pro+")).toHaveLength(2);
     expect(screen.getAllByText("Agency+")).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Connect" })).toHaveLength(1);
+    expect(
+      screen.getByRole("link", { name: /Open Search Console/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Open Meta Business/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders connected integration actions and test feedback", () => {
@@ -89,6 +95,9 @@ describe("integrations-tab sections", () => {
     expect(screen.getByText("Test Connection")).toBeInTheDocument();
     expect(screen.getByText("Disconnect")).toBeInTheDocument();
     expect(screen.getByText("Connection healthy")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Open Search Console/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders the integration loading state", () => {
@@ -184,7 +193,7 @@ describe("integrations-tab sections", () => {
       screen.getByText(/3 pages are not indexed in Google/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("How integrations enhance your reports"),
+      screen.getByText("Insight Delta & Action Shortcuts"),
     ).toBeInTheDocument();
   });
 

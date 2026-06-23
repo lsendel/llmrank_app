@@ -21,6 +21,7 @@ type IntegrationMeta = {
   signupUrl?: string;
   signupHint?: string;
   docsUrl?: string;
+  consoleUrl?: string;
   dataCollected: string[];
   reportEnhancements: string[];
 };
@@ -68,6 +69,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
     icon: Search,
     signupUrl: "https://search.google.com/search-console",
     signupHint: "Go to Search Console and click Add property",
+    consoleUrl: "https://search.google.com/search-console",
     dataCollected: [
       "Top search queries with impressions, clicks, and position",
       "Page-level index coverage status",
@@ -87,6 +89,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
     minPlan: "pro",
     icon: Gauge,
     docsUrl: "https://developers.google.com/speed/docs/insights/v5/get-started",
+    consoleUrl: "https://pagespeed.web.dev/",
     dataCollected: [
       "Core Web Vitals (LCP, FID, CLS) per page",
       "Lab performance scores from Lighthouse",
@@ -106,6 +109,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
     minPlan: "agency",
     icon: Activity,
     signupUrl: "https://analytics.google.com",
+    consoleUrl: "https://analytics.google.com",
     dataCollected: [
       "Average engagement time per page",
       "Bounce rate and session duration",
@@ -124,6 +128,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
     description: "Heatmaps, dead clicks, rage clicks, scroll depth",
     minPlan: "agency",
     icon: MousePointerClick,
+    consoleUrl: "https://clarity.microsoft.com/projects",
     dataCollected: [
       "UX quality score per page (0-100)",
       "Rage click and dead click detection",
@@ -143,6 +148,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
     minPlan: "free",
     icon: Share2,
     docsUrl: "https://developers.facebook.com/docs/graph-api/",
+    consoleUrl: "https://business.facebook.com/",
     dataCollected: [
       "Shares, reactions, and comments per page URL",
       "Open Graph tag validation (og:title, og:image)",

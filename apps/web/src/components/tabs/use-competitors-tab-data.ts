@@ -1,6 +1,10 @@
 import { useCallback, useMemo } from "react";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import { api, type StrategyCompetitor } from "@/lib/api";
+import {
+  api,
+  type CompetitorInsight,
+  type StrategyCompetitor,
+} from "@/lib/api";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { usePlan } from "@/hooks/use-plan";
 import {
@@ -35,6 +39,13 @@ export function useCompetitorsTabData({
     useCallback(() => api.strategy.getCompetitors(projectId), [projectId]),
   );
 
+  const { data: competitorInsights, mutate: mutateInsights } = useApiSWR<
+    CompetitorInsight[]
+  >(
+    `competitor-insights-${projectId}`,
+    useCallback(() => api.benchmarks.insights(projectId), [projectId]),
+  );
+
   const projectScores = data?.projectScores;
   const competitors = useMemo(
     () => data?.competitors ?? [],
@@ -62,7 +73,9 @@ export function useCompetitorsTabData({
     competitorDomains,
     strategyByDomain,
     trendCompetitors,
+    competitorInsights: competitorInsights ?? [],
     mutateBenchmarks,
     mutateStrategy,
+    mutateInsights,
   };
 }

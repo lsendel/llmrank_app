@@ -5,10 +5,11 @@ import { Brain } from "lucide-react";
 import { StateCard } from "@/components/ui/state";
 
 interface AiAnalysisTabProps {
+  projectId: string;
   crawlJobId?: string;
 }
 
-export function AiAnalysisTab({ crawlJobId }: AiAnalysisTabProps) {
+export function AiAnalysisTab({ projectId, crawlJobId }: AiAnalysisTabProps) {
   if (!crawlJobId) {
     return (
       <StateCard
@@ -21,5 +22,5 @@ export function AiAnalysisTab({ crawlJobId }: AiAnalysisTabProps) {
     );
   }
 
-  return <NarrativeViewer crawlJobId={crawlJobId} />;
+  return <NarrativeViewer crawlJobId={crawlJobId} projectId={projectId} />;
 }

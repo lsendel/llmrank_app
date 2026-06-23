@@ -155,7 +155,12 @@ const ISSUE_TO_FIX_TYPE: Record<string, string> = {
   MISSING_CANONICAL: "canonical",
   BAD_HEADING_HIERARCHY: "heading_structure",
   AI_CRAWLER_BLOCKED: "robots_txt",
+  MISSING_SPEAKABLE: "speakable",
+  THIN_CONTENT_FOR_AI: "content_expansion",
 };
+
+/** Issue codes that have AI fix prompts on the backend */
+export const SUPPORTED_FIX_CODES = new Set(Object.keys(ISSUE_TO_FIX_TYPE));
 
 function getFixType(issueCode: string): string {
   return ISSUE_TO_FIX_TYPE[issueCode] ?? issueCode;

@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StateMessage } from "@/components/ui/state";
+import { IntegrationResourceLinks } from "@/components/integrations/integration-resource-links";
 import type { ProjectIntegration } from "@/lib/api";
 import { BarChart3, Check, ExternalLink } from "lucide-react";
 import {
@@ -208,13 +209,16 @@ export function IntegrationCardsSection({
               </CardHeader>
               <CardContent className="space-y-3">
                 {isLocked ? (
-                  <p className="text-sm text-muted-foreground">
-                    Upgrade to{" "}
-                    <span className="font-medium text-foreground">
-                      {meta.minPlan === "agency" ? "Agency" : "Pro"}
-                    </span>{" "}
-                    to unlock this integration.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Upgrade to{" "}
+                      <span className="font-medium text-foreground">
+                        {meta.minPlan === "agency" ? "Agency" : "Pro"}
+                      </span>{" "}
+                      to unlock this integration.
+                    </p>
+                    <IntegrationResourceLinks resourceKey={meta.provider} />
+                  </div>
                 ) : isConnected && integration ? (
                   <>
                     <div className="flex items-center justify-between">
@@ -253,6 +257,8 @@ export function IntegrationCardsSection({
                         Last sync error: {integration.lastError}
                       </p>
                     )}
+
+                    <IntegrationResourceLinks resourceKey={meta.provider} />
 
                     {testResult?.id === integration.id && (
                       <div
@@ -326,34 +332,7 @@ export function IntegrationCardsSection({
                       </ul>
                     </div>
 
-                    {meta.signupUrl && (
-                      <p className="text-xs text-muted-foreground">
-                        {meta.signupHint ? (
-                          <a
-                            href={meta.signupUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
-                          >
-                            {meta.signupHint}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <>
-                            Don&apos;t have an account?{" "}
-                            <a
-                              href={meta.signupUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
-                            >
-                              Sign up here
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </>
-                        )}
-                      </p>
-                    )}
+                    <IntegrationResourceLinks resourceKey={meta.provider} />
 
                     <Button
                       size="sm"

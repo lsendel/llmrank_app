@@ -4,6 +4,8 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Search,
+  Sparkles,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -24,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { StateCard, StateMessage } from "@/components/ui/state";
-import { type StrategyCompetitor } from "@/lib/api";
+import { type CompetitorInsight, type StrategyCompetitor } from "@/lib/api";
 import { cn, scoreColor } from "@/lib/utils";
 import {
   ago,
@@ -83,6 +85,7 @@ export function CompetitorsBenchmarkSection({
   rebenchmarkingId,
   togglingId,
   competitors,
+  competitorInsights,
   projectScores,
   strategyByDomain,
   onDomainChange,
@@ -101,6 +104,7 @@ export function CompetitorsBenchmarkSection({
   rebenchmarkingId: string | null;
   togglingId: string | null;
   competitors: BenchmarkCompetitor[];
+  competitorInsights: CompetitorInsight[];
   projectScores: Record<string, number> | undefined;
   strategyByDomain: Map<string, StrategyCompetitor>;
   onDomainChange: (value: string) => void;
@@ -210,8 +214,186 @@ export function CompetitorsBenchmarkSection({
         />
       ))}
 
+      {competitors.length > 0 && (
+        <CompetitorWinningQueriesSection insights={competitorInsights} />
+      )}
+
+      {competitors.length > 0 && (
+        <CompetitorThemesSection insights={competitorInsights} />
+      )}
+
       {competitors.length > 0 && <ContentGapAnalysis projectId={projectId} />}
     </>
+  );
+}
+
+function CompetitorWinningQueriesSection({
+  insights,
+}: {
+  insights: CompetitorInsight[];
+}) {
+  const rows = insights
+    .flatMap((insight) =>
+      insight.winningQueries.map((query) => ({
+        competitorDomain: insight.competitorDomain,
+        ...query,
+      })),
+    )
+    .sort((a, b) => {
+      if (a.yourMentioned !== b.yourMentioned) {
+        return Number(a.yourMentioned) - Number(b.yourMentioned);
+      }
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return (a.bestPosition ?? Infinity) - (b.bestPosition ?? Infinity);
+    })
+    .slice(0, 12);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Search className="h-4 w-4 text-primary" />
+          Top Competitor-Winning Queries
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <StateMessage
+            variant="empty"
+            compact
+            title="No competitor query wins yet"
+            description="Run visibility checks to see which prompts competitors are winning across AI providers."
+          />
+        ) : (
+          <div className="space-y-3">
+            {rows.map((row) => (
+              <div
+                key={`${row.competitorDomain}-${row.query}`}
+                className="rounded-lg border p-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium">{row.query}</p>
+                  <Badge variant="outline">{row.competitorDomain}</Badge>
+                  <Badge
+                    variant={row.yourMentioned ? "secondary" : "destructive"}
+                  >
+                    {row.yourMentioned ? "Overlap" : "Gap"}
+                  </Badge>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>{row.wins} wins</span>
+                  <span>
+                    Best position{" "}
+                    {row.bestPosition != null ? `#${row.bestPosition}` : "--"}
+                  </span>
+                  <span>
+                    Avg. position{" "}
+                    {row.avgPosition != null ? `#${row.avgPosition}` : "--"}
+                  </span>
+                  <span>
+                    Last seen {new Date(row.lastSeenAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {row.providers.map((provider) => (
+                    <Badge
+                      key={provider}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      {provider}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompetitorThemesSection({
+  insights,
+}: {
+  insights: CompetitorInsight[];
+}) {
+  const rows = insights.filter(
+    (insight) =>
+      insight.inferredThemes.length > 0 || insight.homepageSignals !== null,
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sparkles className="h-4 w-4 text-primary" />
+          Inferred Messaging Themes
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <StateMessage
+            variant="empty"
+            compact
+            title="No inferred themes yet"
+            description="Themes are inferred from competitor homepages and the queries they currently win."
+          />
+        ) : (
+          <div className="space-y-4">
+            {rows.map((insight) => (
+              <div
+                key={insight.competitorDomain}
+                className="rounded-lg border p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium">
+                    {insight.competitorDomain}
+                  </p>
+                  {insight.homepageSignals?.title && (
+                    <span className="text-xs text-muted-foreground">
+                      {insight.homepageSignals.title}
+                    </span>
+                  )}
+                </div>
+
+                {insight.inferredThemes.length === 0 ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Homepage signals were fetched, but there was not enough
+                    overlap with winning queries to infer stable themes yet.
+                  </p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {insight.inferredThemes.map((theme) => (
+                      <div key={`${insight.competitorDomain}-${theme.label}`}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary">{theme.label}</Badge>
+                          <span className="text-xs capitalize text-muted-foreground">
+                            {theme.source}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {theme.evidence.map((evidence) => (
+                            <Badge
+                              key={`${theme.label}-${evidence}`}
+                              variant="outline"
+                              className="max-w-full text-xs"
+                            >
+                              {evidence}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

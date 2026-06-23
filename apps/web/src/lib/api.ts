@@ -199,7 +199,13 @@ export type {
   OrganizationInvite,
 } from "./api/types/organizations";
 
-export type { Benchmarks } from "./api/types/benchmarks";
+export type {
+  Benchmarks,
+  CompetitorInsight,
+  CompetitorWinningQuery,
+  CompetitorTheme,
+  CompetitorHomepageSignals,
+} from "./api/types/benchmarks";
 export type {
   BillingInfo,
   PaymentRecord,

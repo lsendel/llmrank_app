@@ -88,7 +88,6 @@ export default tseslint.config(
   {
     files: [
       "apps/api/**/*.{ts,tsx,js,jsx}",
-      "apps/report-worker/**/*.{ts,tsx,js,jsx}",
       "apps/report-service/**/*.{ts,tsx,js,jsx}",
       "packages/billing/**/*.{ts,tsx,js,jsx}",
       "packages/db/**/*.{ts,tsx,js,jsx}",

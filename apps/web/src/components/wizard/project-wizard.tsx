@@ -9,6 +9,7 @@ import { CompetitorsStep } from "./steps/competitors-step";
 import { LaunchStep } from "./steps/launch-step";
 import { CrawlProgressStream } from "./crawl-progress-stream";
 import { api } from "@/lib/api";
+import { launchProjectWizard } from "./project-wizard-launch";
 
 const STEPS = ["Website", "Crawl Scope", "Competitors", "Launch"];
 
@@ -66,41 +67,31 @@ export function ProjectWizard({
   async function handleLaunch() {
     setLaunching(true);
     try {
-      // 1. Create project
-      let normalizedDomain = data.domain.trim();
-      if (
-        !normalizedDomain.startsWith("http://") &&
-        !normalizedDomain.startsWith("https://")
-      ) {
-        normalizedDomain = `https://${normalizedDomain}`;
+      const result = await launchProjectWizard(
+        {
+          ...data,
+          keywords: data.keywords.map((keyword) => ({
+            keyword: keyword.keyword,
+          })),
+        },
+        {
+          createProject: (input) => api.projects.create(input),
+          createKeywordsBatch: (projectId, keywords) =>
+            api.keywords.createBatch(projectId, keywords),
+          addCompetitor: (projectId, domain) =>
+            api.competitorMonitoring.addCompetitor(projectId, domain),
+          startCrawl: (projectId) => api.crawls.start(projectId),
+        },
+      );
+
+      setProjectId(result.projectId);
+
+      if (result.crawlStartFailed || !result.crawlId) {
+        router.push(`/dashboard/projects/${result.projectId}?autocrawl=failed`);
+        return;
       }
 
-      const project = await api.projects.create({
-        name: data.name.trim(),
-        domain: normalizedDomain,
-      });
-      setProjectId(project.id);
-
-      // 2. Save keywords
-      const selectedKeywords = data.keywords.map((k) => k.keyword);
-      if (selectedKeywords.length > 0) {
-        await api.keywords.createBatch(project.id, selectedKeywords);
-      }
-
-      // 3. Benchmark selected competitors (saves them to the project)
-      const selectedCompetitors = data.competitors
-        .filter((c) => c.selected)
-        .map((c) => c.domain);
-      for (const compDomain of selectedCompetitors) {
-        // Uses existing POST /api/competitors/benchmark endpoint
-        await api.competitorMonitoring
-          .addCompetitor(project.id, compDomain)
-          .catch(() => {}); // best-effort
-      }
-
-      // 4. Start crawl
-      const crawl = await api.crawls.start(project.id);
-      setCrawlId(crawl.id);
+      setCrawlId(result.crawlId);
     } catch (err) {
       console.error("Wizard launch failed:", err);
       setLaunching(false);

@@ -22,7 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
-import { AiFixButton } from "@/components/ai-fix-button";
+import { AiFixButton, SUPPORTED_FIX_CODES } from "@/components/ai-fix-button";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -148,7 +148,7 @@ export function QuickWinsCard({
                         {win.affectedPages} pages
                       </Badge>
                     )}
-                    {projectId && (
+                    {projectId && SUPPORTED_FIX_CODES.has(win.code) && (
                       <span onClick={(e) => e.stopPropagation()}>
                         <AiFixButton
                           projectId={projectId}
@@ -161,6 +161,33 @@ export function QuickWinsCard({
                   <p className="text-xs text-muted-foreground">
                     {win.recommendation}
                   </p>
+                  {win.samplePageUrls && win.samplePageUrls.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                      <span className="font-medium">Found on:</span>
+                      {win.samplePageUrls.map((url) => {
+                        let path: string;
+                        try {
+                          path = new URL(url).pathname;
+                        } catch {
+                          path = url;
+                        }
+                        return (
+                          <span
+                            key={url}
+                            className="rounded bg-muted px-1.5 py-0.5 font-mono"
+                            title={url}
+                          >
+                            {path === "/" ? "/" : path}
+                          </span>
+                        );
+                      })}
+                      {win.affectedPages > win.samplePageUrls.length && (
+                        <span>
+                          +{win.affectedPages - win.samplePageUrls.length} more
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {isExpanded && win.implementationSnippet && (
                     <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-3 text-xs">
                       <code>{win.implementationSnippet}</code>

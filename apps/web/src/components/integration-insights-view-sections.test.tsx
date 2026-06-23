@@ -38,11 +38,13 @@ describe("integration insights view sections", () => {
         <ConnectToUnlockCard
           provider="Google Search Console"
           description="See your top queries"
+          resourceKey="gsc"
         />
         <ConnectToUnlockCard
           provider="Meta"
           description="See social engagement"
           isConnected
+          resourceKey="meta"
         />
       </>,
     );
@@ -54,6 +56,12 @@ describe("integration insights view sections", () => {
       screen.getByText("Connect Google Search Console to unlock"),
     ).toBeInTheDocument();
     expect(screen.getByText("Meta — No data yet")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Open Search Console/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Add ad account/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders gsc index status and clarity fallback states", () => {

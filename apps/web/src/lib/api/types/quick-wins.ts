@@ -11,6 +11,7 @@ export interface QuickWin {
   implementationSnippet?: string;
   priority: number;
   affectedPages: number;
+  samplePageUrls?: string[];
   owner?: string;
   pillar?: string;
   docsUrl?: string;

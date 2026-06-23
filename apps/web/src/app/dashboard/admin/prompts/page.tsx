@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PromptEditor } from "@/components/admin/prompt-editor";
 import { PromptVersionHistory } from "@/components/admin/prompt-version-history";
@@ -21,29 +23,37 @@ const CATEGORY_ORDER = [
 ];
 
 export default function AdminPromptsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPrompt, setSelectedPrompt] = useState<PromptTemplate | null>(
     null,
   );
   const [versions, setVersions] = useState<PromptTemplate[]>([]);
+  const categoryFilter = searchParams.get("category") ?? "all";
 
-  useEffect(() => {
-    loadPrompts();
-  }, []);
-
-  async function loadPrompts() {
+  const loadPrompts = useCallback(async () => {
     setLoading(true);
     try {
       const res =
-        await apiClient.get<ApiEnvelope<PromptTemplate[]>>(
-          "/api/admin/prompts",
-        );
-      setPrompts(res.data);
+        await apiClient.get<
+          ApiEnvelope<PromptTemplate[] | Record<string, PromptTemplate[]>>
+        >("/api/admin/prompts");
+
+      const data = Array.isArray(res.data)
+        ? res.data
+        : Object.values(res.data ?? {}).flat();
+
+      setPrompts(data);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    void loadPrompts();
+  }, [loadPrompts]);
 
   async function selectPrompt(prompt: PromptTemplate) {
     setSelectedPrompt(prompt);
@@ -64,9 +74,17 @@ export default function AdminPromptsPage() {
     description: string;
   }) {
     if (!selectedPrompt) return;
+    const variables = [
+      ...(data.userPromptTemplate.match(/\{\{(\w+)\}\}/g) ?? []),
+    ].map((value) => value.replace(/[{}]/g, ""));
     const res = await apiClient.post<ApiEnvelope<PromptTemplate>>(
       `/api/admin/prompts/${selectedPrompt.slug}/versions`,
-      data,
+      {
+        ...data,
+        name: selectedPrompt.name,
+        category: selectedPrompt.category,
+        variables: Array.from(new Set(variables)),
+      },
     );
     setSelectedPrompt(res.data);
     await loadPrompts();
@@ -87,18 +105,41 @@ export default function AdminPromptsPage() {
     if (selectedPrompt) await selectPrompt(selectedPrompt);
   }
 
-  // Group by category
+  const visiblePrompts = useMemo(
+    () =>
+      categoryFilter === "all"
+        ? prompts
+        : prompts.filter((prompt) => prompt.category === categoryFilter),
+    [categoryFilter, prompts],
+  );
+
+  const availableCategories = useMemo(
+    () =>
+      Array.from(new Set(prompts.map((prompt) => prompt.category))).sort(
+        (left, right) => {
+          const leftIndex = CATEGORY_ORDER.indexOf(left);
+          const rightIndex = CATEGORY_ORDER.indexOf(right);
+          if (leftIndex === -1 && rightIndex === -1) {
+            return left.localeCompare(right);
+          }
+          if (leftIndex === -1) return 1;
+          if (rightIndex === -1) return -1;
+          return leftIndex - rightIndex;
+        },
+      ),
+    [prompts],
+  );
+
   const grouped = CATEGORY_ORDER.reduce(
     (acc, cat) => {
-      const items = prompts.filter((p) => p.category === cat);
+      const items = visiblePrompts.filter((p) => p.category === cat);
       if (items.length > 0) acc[cat] = items;
       return acc;
     },
     {} as Record<string, PromptTemplate[]>,
   );
 
-  // Include any categories not in the fixed order
-  for (const prompt of prompts) {
+  for (const prompt of visiblePrompts) {
     if (!CATEGORY_ORDER.includes(prompt.category)) {
       if (!grouped[prompt.category]) grouped[prompt.category] = [];
       if (!grouped[prompt.category].find((p) => p.id === prompt.id)) {
@@ -111,7 +152,10 @@ export default function AdminPromptsPage() {
     return (
       <div className="space-y-6 p-6">
         <button
-          onClick={() => setSelectedPrompt(null)}
+          onClick={() => {
+            setSelectedPrompt(null);
+            setVersions([]);
+          }}
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           ← Back to prompts
@@ -144,11 +188,34 @@ export default function AdminPromptsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
+      <div className="space-y-3">
         <h1 className="text-2xl font-bold">Prompt Management</h1>
         <p className="text-sm text-muted-foreground">
           Manage LLM prompt templates with version control and testing.
         </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={categoryFilter === "all" ? "default" : "outline"}
+            onClick={() => router.replace("/dashboard/admin/prompts")}
+          >
+            All
+          </Button>
+          {availableCategories.map((category) => (
+            <Button
+              key={category}
+              size="sm"
+              variant={categoryFilter === category ? "default" : "outline"}
+              onClick={() =>
+                router.replace(
+                  `/dashboard/admin/prompts?category=${encodeURIComponent(category)}`,
+                )
+              }
+            >
+              {category}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -156,6 +223,10 @@ export default function AdminPromptsPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
+        </div>
+      ) : Object.keys(grouped).length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-sm text-muted-foreground">
+          No prompts found for this category.
         </div>
       ) : (
         Object.entries(grouped).map(([category, items]) => (

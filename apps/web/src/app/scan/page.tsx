@@ -6,11 +6,16 @@ import {
   faqSchema,
   webPageSchema,
 } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "Free AI SEO Scanner | LLM Rank",
   description:
     "Check if your website is ready for AI search engines. Get a free 37-factor audit for ChatGPT, Claude, and Perplexity visibility.",
+  path: "/scan",
+  openGraphTitle: "Free AI SEO Scanner",
+  openGraphDescription:
+    "Instant AI-readiness audit. See how your site relates to ChatGPT, Claude, and Perplexity.",
   keywords: [
     "ai seo scanner",
     "llm seo audit",
@@ -18,14 +23,7 @@ export const metadata: Metadata = {
     "ai readiness score",
     "free seo audit for ai search",
   ],
-  alternates: { canonical: "/scan" },
-  openGraph: {
-    title: "Free AI SEO Scanner",
-    description:
-      "Instant AI-readiness audit. See how your site relates to ChatGPT, Claude, and Perplexity.",
-    url: "https://llmrank.app/scan",
-  },
-};
+});
 
 const SCAN_FAQ = [
   {

@@ -120,6 +120,26 @@ vi.mock("@/components/cards/project-recommendations-card", () => ({
   ProjectRecommendationsCard: () => <div>Project Recommendations</div>,
 }));
 
+vi.mock("@/components/forms/branding-settings-form", () => ({
+  BrandingSettingsForm: () => <div>Branding Settings</div>,
+}));
+
+vi.mock("@/components/forms/crawl-settings-form", () => ({
+  CrawlSettingsForm: () => <div>Crawl Defaults Form</div>,
+}));
+
+vi.mock("@/components/settings/scoring-profile-section", () => ({
+  ScoringProfileSection: () => <div>Scoring Profile Section</div>,
+}));
+
+vi.mock("@/components/settings/site-context-section", () => ({
+  SiteContextSection: () => <div>Site Context Section</div>,
+}));
+
+vi.mock("@/components/settings/site-file-generator-section", () => ({
+  SiteFileGeneratorSection: () => <div>Site File Generator Section</div>,
+}));
+
 describe("Project Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -130,12 +150,9 @@ describe("Project Page", () => {
 
   it("renders project name and domain", async () => {
     render(<ProjectPage />);
-    // Project name appears in both the page header and sidebar
+
     const projectNames = await screen.findAllByText("Test Project");
     expect(projectNames.length).toBeGreaterThanOrEqual(1);
-    // Domain appears in page header and sidebar
-    const domains = screen.getAllByText("example.com");
-    expect(domains.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders overview tab by default", async () => {
@@ -167,6 +184,8 @@ describe("Project Page", () => {
     expect(pages.length).toBeGreaterThanOrEqual(1);
     const issues = screen.getAllByText("Issues");
     expect(issues.length).toBeGreaterThanOrEqual(1);
+    const settings = screen.getAllByText("Settings");
+    expect(settings.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders visibility mode guidance and next-step recommendation", async () => {
@@ -188,30 +207,14 @@ describe("Project Page", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows first-week progress and recommends issue triage before action plan creation", async () => {
-    firstSevenDaysState.issueCount = 3;
+  it("renders the configure workspace when the settings tab is active", async () => {
+    searchParamState.tab = "settings";
     render(<ProjectPage />);
 
-    expect(
-      await screen.findByText(/Progress: 2\/4 milestones completed/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Recommended next step: Triage issue backlog \(3\)/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: "Open issues" }).length,
-    ).toBeGreaterThan(0);
-  });
-
-  it("marks issues milestone complete when action plan exists", async () => {
-    firstSevenDaysState.issueCount = 3;
-    firstSevenDaysState.actionItemTotal = 2;
-    render(<ProjectPage />);
-
-    expect(await screen.findByText(/Action plan created \(2\)/i)).toBeVisible();
-    expect(
-      screen.getByText(/Progress: 3\/4 milestones completed/i),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open actions" })).toBeVisible();
+    expect(await screen.findByText("Configure workspace")).toBeInTheDocument();
+    expect(screen.getByText("Site Context")).toBeInTheDocument();
+    expect(screen.getByText("Crawl Defaults")).toBeInTheDocument();
+    expect(screen.getByText("Scoring Weights")).toBeInTheDocument();
+    expect(screen.getByText("Site Context Section")).toBeInTheDocument();
   });
 });

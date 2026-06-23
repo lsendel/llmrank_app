@@ -408,7 +408,10 @@ export default function ProjectPage() {
 
               {visibilityMode === "ai-analysis" && (
                 <ProjectTabErrorBoundary>
-                  <AiAnalysisTab crawlJobId={selectedCrawlId} />
+                  <AiAnalysisTab
+                    projectId={project.id}
+                    crawlJobId={selectedCrawlId}
+                  />
                 </ProjectTabErrorBoundary>
               )}
             </div>

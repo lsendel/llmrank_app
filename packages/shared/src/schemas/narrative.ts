@@ -48,6 +48,7 @@ export type EditNarrativeSectionInput = z.infer<
 >;
 
 export const RegenerateNarrativeSectionSchema = z.object({
+  tone: z.enum(narrativeToneValues).default("technical"),
   instructions: z.string().max(500).optional(),
 });
 export type RegenerateNarrativeSectionInput = z.infer<

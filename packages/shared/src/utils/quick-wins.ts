@@ -15,6 +15,7 @@ export interface QuickWin {
   implementationSnippet?: string;
   priority: number;
   affectedPages: number;
+  samplePageUrls: string[];
 }
 
 interface IssueInstance {
@@ -24,6 +25,7 @@ interface IssueInstance {
   message: string;
   recommendation: string | null;
   data?: Record<string, unknown> | unknown;
+  pageUrl?: string | null;
 }
 
 const EFFORT_DIVISOR: Record<EffortLevel, number> = {
@@ -44,19 +46,34 @@ const SEVERITY_MULTIPLIER: Record<string, number> = {
  */
 export function getQuickWins(issues: IssueInstance[], limit = 5): QuickWin[] {
   // Group issues by code and count affected pages
-  const codeMap = new Map<string, { count: number; sample: IssueInstance }>();
+  const MAX_SAMPLE_URLS = 3;
+  const codeMap = new Map<
+    string,
+    { count: number; sample: IssueInstance; urls: string[] }
+  >();
   for (const issue of issues) {
     const existing = codeMap.get(issue.code);
     if (existing) {
       existing.count++;
+      if (
+        issue.pageUrl &&
+        existing.urls.length < MAX_SAMPLE_URLS &&
+        !existing.urls.includes(issue.pageUrl)
+      ) {
+        existing.urls.push(issue.pageUrl);
+      }
     } else {
-      codeMap.set(issue.code, { count: 1, sample: issue });
+      codeMap.set(issue.code, {
+        count: 1,
+        sample: issue,
+        urls: issue.pageUrl ? [issue.pageUrl] : [],
+      });
     }
   }
 
   const wins: QuickWin[] = [];
 
-  for (const [code, { count, sample }] of codeMap) {
+  for (const [code, { count, sample, urls }] of codeMap) {
     const def: IssueDefinition | undefined = ISSUE_DEFINITIONS[code];
     if (!def) continue;
 
@@ -78,6 +95,7 @@ export function getQuickWins(issues: IssueInstance[], limit = 5): QuickWin[] {
       implementationSnippet: def.implementationSnippet,
       priority,
       affectedPages: count,
+      samplePageUrls: urls,
     });
   }
 

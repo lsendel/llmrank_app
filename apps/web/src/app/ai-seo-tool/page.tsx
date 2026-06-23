@@ -3,21 +3,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Search, BarChart3, Zap } from "lucide-react";
 import { JsonLd, webPageSchema, faqSchema } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "AI SEO Tool - How to Rank in ChatGPT & Perplexity",
   description:
     "The complete AI SEO tool for modern search optimization. Audit 37 factors, improve citation-worthiness, and track visibility in ChatGPT, Claude, and Gemini.",
-  openGraph: {
-    title: "AI SEO Tool - Rank in ChatGPT & Perplexity",
-    description:
-      "Audit your website for AI-readiness. Get 37 distinct scoring factors to improve visibility in Generative AI search engines.",
-    url: "https://llmrank.app/ai-seo-tool",
-  },
-  alternates: {
-    canonical: "/ai-seo-tool",
-  },
-};
+  path: "/ai-seo-tool",
+  openGraphTitle: "AI SEO Tool - Rank in ChatGPT & Perplexity",
+  openGraphDescription:
+    "Audit your website for AI-readiness. Get 37 distinct scoring factors to improve visibility in Generative AI search engines.",
+});
 
 const FEATURES = [
   {

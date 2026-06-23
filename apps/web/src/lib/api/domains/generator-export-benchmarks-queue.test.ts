@@ -84,6 +84,24 @@ describe("generator/export/benchmarks/queue api domains", () => {
     expect(result).toEqual({ projectScores: { overall: 80 }, competitors: [] });
   });
 
+  it("loads competitor insight rows with optional locale filters", async () => {
+    getMock.mockResolvedValue({
+      data: [{ competitorDomain: "example.com", winningQueries: [] }],
+    });
+
+    const result = await benchmarksApi.insights("proj-1", {
+      region: "us",
+      language: "en",
+    });
+
+    expect(getMock).toHaveBeenCalledWith(
+      "/api/competitors/insights?projectId=proj-1&region=us&language=en",
+    );
+    expect(result).toEqual([
+      { competitorDomain: "example.com", winningQueries: [] },
+    ]);
+  });
+
   it("triggers benchmark runs with the expected payload", async () => {
     postMock.mockResolvedValue(undefined);
 

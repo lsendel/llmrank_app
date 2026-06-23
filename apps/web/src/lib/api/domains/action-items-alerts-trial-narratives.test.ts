@@ -122,6 +122,31 @@ describe("action-items/alerts/trial/narratives api domains", () => {
     expect(result).toEqual({ sectionId: "intro", editedContent: "Updated" });
   });
 
+  it("posts narrative regeneration requests with tone and instructions", async () => {
+    postMock.mockResolvedValue({
+      data: { type: "technical_analysis", content: "<p>Updated</p>" },
+    });
+
+    const result = await narrativesApi.regenerateSection(
+      "crawl-1",
+      "technical_analysis",
+      "business",
+      "Focus on executive impact",
+    );
+
+    expect(postMock).toHaveBeenCalledWith(
+      "/api/narratives/crawl-1/sections/technical_analysis/regenerate",
+      {
+        tone: "business",
+        instructions: "Focus on executive impact",
+      },
+    );
+    expect(result).toEqual({
+      type: "technical_analysis",
+      content: "<p>Updated</p>",
+    });
+  });
+
   it("deletes narratives by crawl job id", async () => {
     deleteMock.mockResolvedValue({ data: { deleted: true } });
 

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IntegrationResourceLinks } from "@/components/integrations/integration-resource-links";
 import {
   Table,
   TableBody,
@@ -54,10 +55,12 @@ export function ConnectToUnlockCard({
   provider,
   description,
   isConnected,
+  resourceKey,
 }: {
   provider: string;
   description: string;
   isConnected?: boolean;
+  resourceKey?: string;
 }) {
   return (
     <Card className="relative overflow-hidden">
@@ -70,6 +73,11 @@ export function ConnectToUnlockCard({
               Sync failed or no matching property found. Check the integration
               settings and try Sync Now again.
             </p>
+            <IntegrationResourceLinks
+              resourceKey={resourceKey}
+              className="justify-center"
+              linkClassName="text-[11px]"
+            />
           </>
         ) : (
           <>
@@ -77,6 +85,11 @@ export function ConnectToUnlockCard({
             <p className="max-w-[200px] text-center text-xs text-muted-foreground">
               {description}
             </p>
+            <IntegrationResourceLinks
+              resourceKey={resourceKey}
+              className="justify-center"
+              linkClassName="text-[11px]"
+            />
           </>
         )}
       </div>

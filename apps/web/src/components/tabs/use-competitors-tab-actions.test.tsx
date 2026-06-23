@@ -24,12 +24,14 @@ describe("useCompetitorsTabActions", () => {
   it("benchmarks a competitor and refreshes both data sources", async () => {
     const mutateBenchmarks = vi.fn(async () => undefined);
     const mutateStrategy = vi.fn(async () => undefined);
+    const mutateInsights = vi.fn(async () => undefined);
 
     const { result } = renderHook(() =>
       useCompetitorsTabActions({
         projectId: "proj-1",
         mutateBenchmarks,
         mutateStrategy,
+        mutateInsights,
       }),
     );
 
@@ -47,6 +49,7 @@ describe("useCompetitorsTabActions", () => {
     });
     expect(mutateBenchmarks).toHaveBeenCalledTimes(1);
     expect(mutateStrategy).toHaveBeenCalledTimes(1);
+    expect(mutateInsights).toHaveBeenCalledTimes(1);
     expect(result.current.newDomain).toBe("");
     expect(result.current.error).toBeNull();
   });
@@ -63,6 +66,7 @@ describe("useCompetitorsTabActions", () => {
         projectId: "proj-1",
         mutateBenchmarks: vi.fn(async () => undefined),
         mutateStrategy: vi.fn(async () => undefined),
+        mutateInsights: vi.fn(async () => undefined),
       }),
     );
 

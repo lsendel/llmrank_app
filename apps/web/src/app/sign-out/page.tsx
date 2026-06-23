@@ -12,6 +12,7 @@ export default function SignOutPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <h1 className="sr-only">Signing out of LLM Rank</h1>
       <p className="text-sm text-muted-foreground">Signing out...</p>
     </div>
   );

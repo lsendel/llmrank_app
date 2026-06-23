@@ -47,11 +47,12 @@ export function createNarrativesApi() {
     async regenerateSection(
       crawlJobId: string,
       sectionType: string,
+      tone: NarrativeTone = "technical",
       instructions?: string,
     ): Promise<NarrativeResponse> {
       const res = await apiClient.post<ApiEnvelope<NarrativeResponse>>(
         `/api/narratives/${crawlJobId}/sections/${sectionType}/regenerate`,
-        { instructions },
+        { tone, instructions },
       );
       return res.data;
     },

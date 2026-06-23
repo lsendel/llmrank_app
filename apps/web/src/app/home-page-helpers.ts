@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { LucideIcon } from "lucide-react";
 import { Layers, TrendingUp, Users } from "lucide-react";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
 type HomePageLink = {
   href: string;
@@ -33,21 +34,16 @@ type HomePageStat = {
   descriptionClassName: string;
 };
 
-export const HOME_PAGE_METADATA: Metadata = {
+export const HOME_PAGE_METADATA: Metadata = buildPublicMetadata({
   title:
     "Rank in ChatGPT, Claude & Perplexity | AI Search Optimization Platform",
   description:
     "LLM Rank analyses your website across 37 AI ranking factors. The first B2B platform for AI Search Optimization (AISO). Get your AI-Readiness Score today.",
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "Rank in ChatGPT, Claude & Perplexity | LLM Rank",
-    description:
-      "The first AI Search Optimization (AISO) platform. Audit your website for AI-readiness and become the cited source in AI answers.",
-    url: "https://llmrank.app",
-    siteName: "LLM Rank",
-    type: "website",
-  },
-};
+  path: "/",
+  openGraphTitle: "Rank in ChatGPT, Claude & Perplexity | LLM Rank",
+  openGraphDescription:
+    "The first AI Search Optimization (AISO) platform. Audit your website for AI-readiness and become the cited source in AI answers.",
+});
 
 export const HOME_PAGE_FAQ_ITEMS = [
   {

@@ -83,6 +83,35 @@ describe("competitors-tab sections", () => {
             },
           },
         ]}
+        competitorInsights={[
+          {
+            competitorDomain: "example.com",
+            winningQueries: [
+              {
+                query: "ai seo software",
+                providers: ["chatgpt", "perplexity"],
+                wins: 3,
+                bestPosition: 1,
+                avgPosition: 1.7,
+                lastSeenAt: "2024-01-02T00:00:00.000Z",
+                yourMentioned: false,
+                yourCited: false,
+              },
+            ],
+            inferredThemes: [
+              {
+                label: "AI SEO",
+                source: "mixed",
+                evidence: ["AI SEO platform", "ai seo software"],
+              },
+            ],
+            homepageSignals: {
+              title: "AI SEO platform",
+              metaDescription: "Grow visibility in AI answers",
+              headings: ["AI SEO platform for teams"],
+            },
+          },
+        ]}
         projectScores={{
           overall: 80,
           technical: 78,
@@ -114,8 +143,14 @@ describe("competitors-tab sections", () => {
     expect(screen.getByText("Discovery proj-1")).toBeInTheDocument();
     expect(screen.getByText("Upgrade Prompt")).toBeInTheDocument();
     expect(screen.getByText("Competitor Benchmarking")).toBeInTheDocument();
-    expect(screen.getByText("example.com")).toBeInTheDocument();
+    expect(screen.getAllByText("example.com").length).toBeGreaterThan(0);
     expect(screen.getByText("You lead")).toBeInTheDocument();
+    expect(
+      screen.getByText("Top Competitor-Winning Queries"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("ai seo software").length).toBeGreaterThan(0);
+    expect(screen.getByText("Inferred Messaging Themes")).toBeInTheDocument();
+    expect(screen.getByText("AI SEO")).toBeInTheDocument();
     expect(screen.getByText("Gap Analysis proj-1")).toBeInTheDocument();
     expect(screen.getByText("Re-benchmark")).toBeInTheDocument();
   });

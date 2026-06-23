@@ -8,6 +8,8 @@ export const DEFAULT_PROJECT_VISIBILITY_PROVIDERS = [
   "gemini",
 ] as const;
 
+type ProjectWorkspaceSchedule = "manual" | "daily" | "weekly" | "monthly";
+
 function toTitleCase(value: string): string {
   return value
     .split(/\s+/)
@@ -53,7 +55,9 @@ export interface ApplyWorkspaceDefaultsInput {
   domainOrUrl: string;
   title?: string | null;
   defaults?: {
-    schedule?: "manual" | "daily" | "weekly" | "monthly";
+    schedule?: ProjectWorkspaceSchedule;
+    maxPages?: number;
+    maxDepth?: number;
     autoRunOnCrawl?: boolean;
     enableVisibilitySchedule?: boolean;
     enableWeeklyDigest?: boolean;
@@ -65,21 +69,32 @@ export interface ApplyWorkspaceDefaultsResult {
   digestEnabled: boolean;
 }
 
+function deriveVisibilityScheduleFrequency(
+  schedule: ProjectWorkspaceSchedule,
+): "daily" | "weekly" {
+  return schedule === "daily" ? "daily" : "weekly";
+}
+
 export async function applyProjectWorkspaceDefaults(
   input: ApplyWorkspaceDefaultsInput,
 ): Promise<ApplyWorkspaceDefaultsResult> {
   const { projectId, domainOrUrl, title, defaults } = input;
 
   const schedule = defaults?.schedule ?? "weekly";
+  const maxPages = defaults?.maxPages;
+  const maxDepth = defaults?.maxDepth;
   const autoRunOnCrawl = defaults?.autoRunOnCrawl ?? true;
   const enableVisibilitySchedule = defaults?.enableVisibilitySchedule ?? true;
   const enableWeeklyDigest = defaults?.enableWeeklyDigest ?? true;
+  const projectSettings = {
+    schedule,
+    ...(typeof maxPages === "number" ? { maxPages } : {}),
+    ...(typeof maxDepth === "number" ? { maxDepth } : {}),
+  };
 
   const operations: Promise<unknown>[] = [
     api.projects.update(projectId, {
-      settings: {
-        schedule,
-      },
+      settings: projectSettings,
     }),
     api.pipeline.updateSettings(projectId, {
       autoRunOnCrawl,
@@ -92,7 +107,7 @@ export async function applyProjectWorkspaceDefaults(
         projectId,
         query: deriveVisibilitySeedQuery(domainOrUrl, title),
         providers: [...DEFAULT_PROJECT_VISIBILITY_PROVIDERS],
-        frequency: "weekly",
+        frequency: deriveVisibilityScheduleFrequency(schedule),
       }),
     );
   } else {

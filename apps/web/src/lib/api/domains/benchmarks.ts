@@ -1,6 +1,6 @@
 import { apiClient } from "../core/client";
 import type { ApiEnvelope } from "../core/types";
-import type { Benchmarks } from "../types/benchmarks";
+import type { Benchmarks, CompetitorInsight } from "../types/benchmarks";
 
 type BenchmarksListResponse = {
   projectScores: Record<string, number>;
@@ -24,6 +24,20 @@ export function createBenchmarksApi() {
     async list(projectId: string): Promise<BenchmarksListResponse> {
       const res = await apiClient.get<ApiEnvelope<BenchmarksListResponse>>(
         `/api/competitors?projectId=${projectId}`,
+      );
+      return res.data;
+    },
+
+    async insights(
+      projectId: string,
+      filters?: { region?: string; language?: string },
+    ): Promise<CompetitorInsight[]> {
+      const params = new URLSearchParams({ projectId });
+      if (filters?.region) params.set("region", filters.region);
+      if (filters?.language) params.set("language", filters.language);
+
+      const res = await apiClient.get<ApiEnvelope<CompetitorInsight[]>>(
+        `/api/competitors/insights?${params.toString()}`,
       );
       return res.data;
     },

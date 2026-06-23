@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 import { LeaderboardClient } from "./client";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "AI Readiness Leaderboard | LLM Rank",
   description:
     "See which websites are most visible in ChatGPT, Claude, and Perplexity. The leaderboard ranks sites by their AI-readiness score across 37 factors.",
-  openGraph: {
-    title: "AI Readiness Leaderboard",
-    description:
-      "See which websites are most visible in ChatGPT, Claude, and Perplexity. Ranged by 37-factor AI-readiness scores.",
-    url: "https://llmrank.app/leaderboard",
-  },
-};
+  path: "/leaderboard",
+  openGraphTitle: "AI Readiness Leaderboard",
+  openGraphDescription:
+    "See which websites are most visible in ChatGPT, Claude, and Perplexity. Ranked by 37-factor AI-readiness scores.",
+});
 
 export default function LeaderboardPage() {
   return (

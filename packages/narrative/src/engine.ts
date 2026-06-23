@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { NarrativeSection, NarrativeSectionType } from "@llm-boost/shared";
 import type { NarrativeInput, NarrativeReport, TokenUsage } from "./types";
 import { getApplicableSections, generateSection } from "./sections";
+import type { NarrativeResolvedPrompt } from "./prompts/runtime-prompts";
 import { mergeTokenUsage } from "./utils/token-tracker";
 import { SECTION_PROMPTS } from "./prompts/section-prompts";
 import { BASE_SYSTEM_PROMPT } from "./prompts/base-prompt";
@@ -13,15 +14,22 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
 export interface NarrativeEngineOptions {
   anthropicApiKey: string;
   model?: string;
+  sectionPrompts?: Partial<
+    Record<NarrativeSectionType, NarrativeResolvedPrompt>
+  >;
 }
 
 export class NarrativeEngine {
   private client: Anthropic;
   private model: string;
+  private sectionPrompts: Partial<
+    Record<NarrativeSectionType, NarrativeResolvedPrompt>
+  >;
 
   constructor(options: NarrativeEngineOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
     this.model = options.model ?? DEFAULT_MODEL;
+    this.sectionPrompts = options.sectionPrompts ?? {};
   }
 
   async generate(input: NarrativeInput): Promise<NarrativeReport> {
@@ -29,7 +37,13 @@ export class NarrativeEngine {
 
     const results = await Promise.allSettled(
       applicableSections.map((config) =>
-        generateSection(this.client, config, input, this.model),
+        generateSection(
+          this.client,
+          config,
+          input,
+          this.model,
+          this.sectionPrompts[config.type],
+        ),
       ),
     );
 
@@ -45,6 +59,10 @@ export class NarrativeEngine {
     }
 
     sections.sort((a, b) => a.order - b.order);
+
+    if (sections.length === 0) {
+      throw new Error("No narrative sections could be generated");
+    }
 
     return {
       sections,
@@ -76,15 +94,24 @@ Here is the data for your analysis:
 
 ${JSON.stringify(dataContext, null, 2)}`;
 
+    const resolvedPrompt = this.sectionPrompts[config.type];
+    if (resolvedPrompt?.user) {
+      userPrompt = resolvedPrompt.user;
+    }
+
     if (instructions) {
       userPrompt += `\n\nAdditional instructions from the user: ${instructions}`;
     }
 
     const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 1024,
-      system: `${BASE_SYSTEM_PROMPT}\n\n${toneAdapter}`,
+      model: resolvedPrompt?.model ?? this.model,
+      max_tokens: resolvedPrompt?.maxTokens ?? 1024,
+      system:
+        resolvedPrompt?.system ?? `${BASE_SYSTEM_PROMPT}\n\n${toneAdapter}`,
       messages: [{ role: "user", content: userPrompt }],
+      ...(resolvedPrompt?.temperature != null
+        ? { temperature: resolvedPrompt.temperature }
+        : {}),
     });
 
     const content =

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   api,
   type ActionItem,
@@ -21,11 +21,39 @@ type UseIssuesTabDataArgs = {
 };
 
 export function useIssuesTabData({ issues, projectId }: UseIssuesTabDataArgs) {
-  const [severityFilter, setSeverityFilter] =
-    useState<IssueSeverityFilter>("all");
-  const [categoryFilter, setCategoryFilter] =
-    useState<IssueCategoryFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [filters, setFilters] = useState<{
+    severityFilter: IssueSeverityFilter;
+    categoryFilter: IssueCategoryFilter;
+    statusFilter: StatusFilter;
+    page: number;
+  }>({
+    severityFilter: "all",
+    categoryFilter: "all",
+    statusFilter: "all",
+    page: 1,
+  });
+
+  const { severityFilter, categoryFilter, statusFilter, page } = filters;
+
+  const setSeverityFilter = useCallback(
+    (value: IssueSeverityFilter) =>
+      setFilters((prev) => ({ ...prev, severityFilter: value, page: 1 })),
+    [],
+  );
+  const setCategoryFilter = useCallback(
+    (value: IssueCategoryFilter) =>
+      setFilters((prev) => ({ ...prev, categoryFilter: value, page: 1 })),
+    [],
+  );
+  const setStatusFilter = useCallback(
+    (value: StatusFilter) =>
+      setFilters((prev) => ({ ...prev, statusFilter: value, page: 1 })),
+    [],
+  );
+  const setPage = useCallback(
+    (value: number) => setFilters((prev) => ({ ...prev, page: value })),
+    [],
+  );
 
   const { data: actionItems, mutate: mutateItems } = useApiSWR<ActionItem[]>(
     projectId ? `action-items-${projectId}` : null,
@@ -76,12 +104,6 @@ export function useIssuesTabData({ issues, projectId }: UseIssuesTabDataArgs) {
   );
 
   const PAGE_SIZE = 25;
-  const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    setPage(1);
-  }, [severityFilter, categoryFilter, statusFilter]);
-
   const totalPages = Math.ceil(filteredIssues.length / PAGE_SIZE);
 
   const paginatedIssues = useMemo(
