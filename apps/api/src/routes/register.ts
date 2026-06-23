@@ -31,6 +31,7 @@ import { notificationChannelRoutes } from "./notification-channels";
 import { visibilityScheduleRoutes } from "./visibility-schedules";
 import { tokenRoutes } from "./api-tokens";
 import { v1Routes } from "./v1";
+import { sitesRoutes } from "./sites";
 import { scoringProfileRoutes } from "./scoring-profiles";
 import { brandingRoutes } from "./branding";
 import { exportRoutes } from "./exports";
@@ -86,6 +87,10 @@ export function registerApiRoutes(app: Hono<AppEnv>) {
   app.route("/api/notification-channels", notificationChannelRoutes);
   app.route("/api/tokens", tokenRoutes);
   app.route("/api/v1", v1Routes);
+  // Root-level external-consumer endpoint: GET /sites/:id/scores (families.care
+  // llmrank_sync). Mounted at root (not /api/...) to match the consumer URL
+  // https://api.llmrank.app/sites/:id/scores.
+  app.route("/sites", sitesRoutes);
   app.route("/api/scoring-profiles", scoringProfileRoutes);
   app.route("/api/projects", generatorRoutes);
   app.route("/api/teams", teamRoutes);
