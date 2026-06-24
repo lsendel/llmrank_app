@@ -253,7 +253,12 @@ export function visibilityQueries(db: Database) {
         .from(visibilityChecks)
         .where(
           and(
-            inArray(visibilityChecks.projectId, projectIds),
+            // Cast project_id to text for the IN comparison: it's a `uuid`
+            // column but drizzle's `inArray` binds the array values as `text`
+            // (unlike `eq`, which encodes the column type), so an unguarded
+            // `uuid IN (text, text)` fails with `operator does not exist:
+            // uuid = text`. Comparing as text sidesteps it.
+            inArray(sql`${visibilityChecks.projectId}::text`, projectIds),
             // Cast the bound param to a timestamp: checked_at is `timestamp`
             // and the driver sends ISO strings as `text`, which Postgres won't
             // implicitly compare (`operator does not exist: timestamp >= text`).
