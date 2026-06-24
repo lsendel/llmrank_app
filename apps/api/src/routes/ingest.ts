@@ -32,9 +32,19 @@ ingestRoutes.use("*", async (c, next) => {
   }
   await next();
   try {
+    let body = "";
+    try {
+      body = await c.res.clone().text();
+    } catch {
+      /* ignore */
+    }
     await c.env.KV?.put(
       "debug:ingest:after",
-      JSON.stringify({ ...dbg, status: c.res.status }),
+      JSON.stringify({
+        ...dbg,
+        status: c.res.status,
+        body: body.slice(0, 1500),
+      }),
       { expirationTtl: 3600 },
     );
   } catch {
