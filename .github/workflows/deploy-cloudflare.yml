@@ -1,6 +1,7 @@
 name: Deploy Cloudflare
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -33,6 +34,7 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Apply D1 migrations
+        working-directory: apps/api
         run: |
           npx wrangler d1 migrations apply llmrank-app --remote
           npx wrangler d1 migrations apply llmrank-admin --remote
