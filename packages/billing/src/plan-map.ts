@@ -1,10 +1,10 @@
 export const STRIPE_PLAN_MAP: Record<string, string> = {
   // Starter: $79/mo (LLM Rank Starter)
-  price_1T4Q7EDCh0pk99lVKTeiEdoa: "starter",
+  price_1TlrIxEIdJiOrMNNMt1jYls9: "starter",
   // Pro: $149/mo (LLM Rank Pro)
-  price_1T4Q7EDCh0pk99lVkRY1ZKth: "pro",
+  price_1TlrIyEIdJiOrMNNHjB2CWQB: "pro",
   // Agency: $299/mo (LLM Rank Agency)
-  price_1T4Q7EDCh0pk99lV7q6Q7O5S: "agency",
+  price_1TlrIyEIdJiOrMNNASu4QmFn: "agency",
 };
 
 export const PLAN_TO_PRICE: Record<string, string> = Object.fromEntries(
