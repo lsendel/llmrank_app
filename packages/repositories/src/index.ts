@@ -355,7 +355,10 @@ export interface VisibilityRepository {
   countSinceByProjects(projectIds: string[], since: Date): Promise<number>;
 }
 
-export function createVisibilityRepository(db: Database): VisibilityRepository {
+// db may be the app (D1) or agency (Supabase) connection depending on caller;
+// visibility_checks lives in Supabase. Typed loosely until the repositories
+// adopt a unified DB type (see TODO below). See also v1.ts which passes agencyDb.
+export function createVisibilityRepository(db: any): VisibilityRepository {
   // TODO: visibilityQueries expects AgencyDatabase (Supabase); repositories need unified DB type
   const queries = visibilityQueries(db as any);
   return {

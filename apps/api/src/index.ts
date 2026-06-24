@@ -33,7 +33,6 @@ export type Bindings = {
   R2: R2Bucket;
   KV: KVNamespace;
   SEEN_URLS: KVNamespace;
-  CRAWL_QUEUE: Queue<any>;
   REPORT_SERVICE_URL: string;
   BROWSER: any;
   D1_APP: D1Database;

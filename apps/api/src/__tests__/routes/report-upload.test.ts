@@ -36,12 +36,10 @@ async function sign(
 
 function createBindings(): { env: Bindings; r2Put: ReturnType<typeof vi.fn> } {
   const r2Put = vi.fn().mockResolvedValue(undefined);
-  const queue = { send: vi.fn().mockResolvedValue(undefined) } as any;
   const env: Bindings = {
     R2: { put: r2Put } as any,
     KV: {} as KVNamespace,
     SEEN_URLS: {} as KVNamespace,
-    CRAWL_QUEUE: queue,
     REPORT_SERVICE_URL: "https://reports",
     BROWSER: null as unknown as import("@cloudflare/puppeteer").BrowserWorker,
     D1_APP: {} as D1Database,

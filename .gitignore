@@ -35,3 +35,4 @@ output/playwright/
 
 # Screenshots (root only)
 /*.png
+.gstack/

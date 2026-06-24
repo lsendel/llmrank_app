@@ -41,7 +41,6 @@ ingestRoutes.post("/batch", async (c) => {
         anthropicApiKey: c.env.ANTHROPIC_API_KEY,
         kvNamespace: c.env.KV,
         seenUrls: c.env.SEEN_URLS,
-        queue: c.env.CRAWL_QUEUE,
         r2: c.env.R2,
         integrationKey: c.env.INTEGRATION_ENCRYPTION_KEY,
         googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
