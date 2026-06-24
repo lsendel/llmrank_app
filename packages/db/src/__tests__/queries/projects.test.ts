@@ -195,26 +195,32 @@ describe("projectQueries", () => {
   });
 
   // --- getDueForCrawl ---
+  // getDueForCrawl uses an explicit select + leftJoin (the D1 schema has no
+  // drizzle relations), so rows come back as { projects, users } and are
+  // flattened to { ...project, user }. The select chain terminates at .limit().
   it("getDueForCrawl returns projects due for scheduled crawling", async () => {
-    const dueProjects = [
-      { id: "p5", name: "Due", crawlSchedule: "weekly", user: { id: "u1" } },
-    ];
-    mock.db.query.projects.findMany.mockResolvedValueOnce(dueProjects);
+    mock.chain.limit.mockResolvedValueOnce([
+      {
+        projects: { id: "p5", name: "Due", crawlSchedule: "weekly" },
+        users: { id: "u1" },
+      },
+    ]);
 
     const result = await queries.getDueForCrawl(5);
 
-    expect(mock.db.query.projects.findMany).toHaveBeenCalledTimes(1);
-    expect(result).toEqual(dueProjects);
+    expect(mock.chain.leftJoin).toHaveBeenCalled();
+    expect(mock.chain.limit).toHaveBeenCalledWith(5);
+    expect(result).toEqual([
+      { id: "p5", name: "Due", crawlSchedule: "weekly", user: { id: "u1" } },
+    ]);
   });
 
   it("getDueForCrawl uses default limit of 10", async () => {
-    mock.db.query.projects.findMany.mockResolvedValueOnce([]);
+    mock.chain.limit.mockResolvedValueOnce([]);
 
     await queries.getDueForCrawl();
 
-    expect(mock.db.query.projects.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 10 }),
-    );
+    expect(mock.chain.limit).toHaveBeenCalledWith(10);
   });
 
   // --- updateNextCrawl ---
