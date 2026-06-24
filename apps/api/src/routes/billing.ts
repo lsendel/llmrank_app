@@ -224,13 +224,22 @@ billingRoutes.post("/upgrade", authMiddleware, async (c) => {
     users: createUserRepository(db),
   });
 
+  // Build Stripe redirect URLs server-side. The client may omit them (which
+  // would make Stripe reject an empty success_url with a 500); redirect URLs
+  // should be server-controlled anyway.
+  const appBase = (c.env.APP_BASE_URL || "https://llmrank.app").replace(
+    /\/+$/,
+    "",
+  );
+
   try {
     const data = await service.upgrade({
       userId,
       targetPlan: body.plan,
       stripeSecretKey: c.env.STRIPE_SECRET_KEY,
-      successUrl: body.successUrl ?? "",
-      cancelUrl: body.cancelUrl ?? "",
+      successUrl:
+        body.successUrl || `${appBase}/dashboard/billing?upgraded=true`,
+      cancelUrl: body.cancelUrl || `${appBase}/dashboard/billing`,
       db,
     });
     return c.json({ data });
