@@ -108,7 +108,7 @@ visibilityRoutes.post(
       const service = createVisibilityService({
         projects: createProjectRepository(db),
         users: createUserRepository(db),
-        visibility: createVisibilityRepository(db),
+        visibility: createVisibilityRepository(c.get("agencyDb")),
         competitors: createCompetitorRepository(db),
       });
 
@@ -179,7 +179,7 @@ visibilityRoutes.get("/:projectId", async (c) => {
   const service = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
   });
 
@@ -286,7 +286,7 @@ visibilityRoutes.get("/:projectId/brand-performance", async (c) => {
     );
   }
 
-  const checks = await createVisibilityRepository(db).listByProject(
+  const checks = await createVisibilityRepository(c.get("agencyDb")).listByProject(
     projectId,
     localeResolution.locale,
   );
@@ -533,7 +533,7 @@ visibilityRoutes.get("/:projectId/gaps", async (c) => {
   const service = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
   });
 
@@ -640,7 +640,7 @@ visibilityRoutes.get("/:projectId/trends", async (c) => {
   const service = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
   });
 

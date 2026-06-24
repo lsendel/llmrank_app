@@ -216,7 +216,7 @@ promptResearchRoutes.post("/:projectId/check", async (c) => {
   const visibility = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
   });
 

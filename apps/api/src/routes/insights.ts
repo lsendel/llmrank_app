@@ -73,7 +73,7 @@ insightsRoutes.get("/:crawlId/fused-insights", async (c) => {
     scores: createScoreRepository(db),
     pages: createPageRepository(db),
     enrichments: createEnrichmentRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
   });
 
   try {

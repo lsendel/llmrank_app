@@ -46,7 +46,7 @@ visibilityScoreRoutes.get("/:projectId/ai-score", async (c) => {
   const service = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
   });
 
@@ -143,7 +143,7 @@ visibilityScoreRoutes.get("/:projectId/ai-score/trend", async (c) => {
   const service = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
   });
 

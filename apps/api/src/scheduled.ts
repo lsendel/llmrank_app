@@ -289,7 +289,7 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
       const visibilityService = createVisibilityService({
         projects: createProjectRepository(db),
         users: createUserRepository(db),
-        visibility: createVisibilityRepository(db),
+        visibility: createVisibilityRepository(agencyDb),
         competitors: createCompetitorRepository(db),
       });
 
