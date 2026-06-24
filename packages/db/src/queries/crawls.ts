@@ -39,8 +39,8 @@ export function crawlQueries(db: Database) {
         pagesScored?: number;
         errorMessage?: string;
         r2Prefix?: string;
-        startedAt?: Date;
-        completedAt?: Date;
+        startedAt?: Date | string;
+        completedAt?: Date | string;
         siteContext?: unknown;
       },
     ) {
@@ -55,9 +55,15 @@ export function crawlQueries(db: Database) {
         setData.errorMessage = update.errorMessage;
       if (update.r2Prefix !== undefined) setData.r2Prefix = update.r2Prefix;
       if (update.startedAt !== undefined)
-        setData.startedAt = update.startedAt.toISOString();
+        setData.startedAt =
+          update.startedAt instanceof Date
+            ? update.startedAt.toISOString()
+            : update.startedAt;
       if (update.completedAt !== undefined)
-        setData.completedAt = update.completedAt.toISOString();
+        setData.completedAt =
+          update.completedAt instanceof Date
+            ? update.completedAt.toISOString()
+            : update.completedAt;
       if (update.siteContext !== undefined)
         setData.siteContext =
           typeof update.siteContext === "string"
