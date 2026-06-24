@@ -476,6 +476,8 @@ v1Routes.post("/projects/:id/visibility/check", async (c) => {
   }
 
   const db = c.get("db");
+  // visibility_checks lives in the agency (Supabase) DB, not the D1 app DB.
+  const agencyDb = c.get("agencyDb");
   const pq = projectQueries(db);
   const project = await pq.getById(projectId);
   if (!project) {
@@ -505,7 +507,7 @@ v1Routes.post("/projects/:id/visibility/check", async (c) => {
   const service = createVisibilityService({
     projects: createProjectRepository(db),
     users: createUserRepository(db),
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(agencyDb),
     competitors: createCompetitorRepository(db),
   });
 
