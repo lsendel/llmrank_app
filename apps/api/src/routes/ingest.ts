@@ -12,6 +12,36 @@ import { handleServiceError } from "../lib/error-handler";
 
 export const ingestRoutes = new Hono<AppEnv>();
 
+// [TEMP DEBUG PROBE] records callback arrival (pre-HMAC) + final status to KV
+// so we can diagnose why crawl results aren't ingesting. Remove after.
+ingestRoutes.use("*", async (c, next) => {
+  const dbg = {
+    ts: new Date().toISOString(),
+    method: c.req.method,
+    url: c.req.url,
+    hasSig: !!c.req.header("X-Signature"),
+    xTimestamp: c.req.header("X-Timestamp") ?? null,
+    ua: c.req.header("User-Agent") ?? null,
+  };
+  try {
+    await c.env.KV?.put("debug:ingest:arrived", JSON.stringify(dbg), {
+      expirationTtl: 3600,
+    });
+  } catch {
+    /* ignore */
+  }
+  await next();
+  try {
+    await c.env.KV?.put(
+      "debug:ingest:after",
+      JSON.stringify({ ...dbg, status: c.res.status }),
+      { expirationTtl: 3600 },
+    );
+  } catch {
+    /* ignore */
+  }
+});
+
 // All ingest routes require HMAC verification
 ingestRoutes.use("*", hmacMiddleware);
 
