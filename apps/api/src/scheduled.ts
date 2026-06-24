@@ -103,7 +103,10 @@ async function runScheduledTasks(env: Bindings) {
     await crawlService.dispatchScheduledJobs({
       crawlerUrl: env.CRAWLER_URL,
       sharedSecret: env.SHARED_SECRET,
-      queue: env.CRAWL_QUEUE,
+      // Dispatch straight to the crawler. CRAWL_QUEUE has no consumer, so
+      // routing through it would strand jobs in "queued". baseUrl is the API's
+      // own origin so the crawler posts results back to /ingest/batch here.
+      baseUrl: env.BETTER_AUTH_URL,
     });
   } catch (err) {
     log.error("Scheduled crawl dispatch failed", {

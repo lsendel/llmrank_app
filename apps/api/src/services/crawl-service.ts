@@ -510,7 +510,8 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         } else if (env.crawlerUrl) {
           const payload: CrawlJobPayload = {
             job_id: job.id,
-            callback_url: `${env.crawlerUrl}/ingest/batch`,
+            // Results post back to THIS API's /ingest/batch, not the crawler.
+            callback_url: `${env.baseUrl ?? ""}/ingest/batch`,
             config,
           };
 

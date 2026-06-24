@@ -10,7 +10,7 @@ import {
   inArray,
 } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
-import { projects } from "../schema";
+import { projects, users } from "../schema";
 
 export interface ProjectListQuery {
   q?: string;
@@ -400,17 +400,22 @@ export function projectQueries(db: Database) {
     },
 
     async getDueForCrawl(limit = 10) {
-      return db.query.projects.findMany({
-        where: and(
-          isNull(projects.deletedAt),
-          sql`${projects.nextCrawlAt} <= datetime('now')`,
-          sql`${projects.crawlSchedule} != 'manual'`,
-        ),
-        limit,
-        with: {
-          user: true,
-        },
-      });
+      // Explicit join instead of a relational `with` query: the D1 schema does
+      // not define drizzle relations(), so `db.query.projects.findMany({ with })`
+      // throws "Cannot read properties of undefined (reading 'referencedTable')".
+      const rows = await db
+        .select()
+        .from(projects)
+        .leftJoin(users, eq(projects.userId, users.id))
+        .where(
+          and(
+            isNull(projects.deletedAt),
+            sql`${projects.nextCrawlAt} <= datetime('now')`,
+            sql`${projects.crawlSchedule} != 'manual'`,
+          ),
+        )
+        .limit(limit);
+      return rows.map((row) => ({ ...row.projects, user: row.users }));
     },
 
     async updateNextCrawl(id: string, nextAt: Date) {
