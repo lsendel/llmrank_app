@@ -50,7 +50,7 @@ visibilityRecommendationRoutes.get("/:projectId/recommendations", async (c) => {
       );
     }
 
-    const checks = await createVisibilityRepository(db).listByProject(
+    const checks = await createVisibilityRepository(c.get("agencyDb")).listByProject(
       projectId,
       localeResolution.locale,
     );

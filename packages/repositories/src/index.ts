@@ -1,11 +1,11 @@
 import {
   type AppDatabase as Database,
+  type AgencyDatabase,
   projectQueries,
   userQueries,
   crawlQueries,
   scoreQueries,
   visibilityQueries,
-  visibilityChecks,
   competitorQueries,
   pageQueries,
   billingQueries,
@@ -19,8 +19,6 @@ import {
   pageInsightQueries,
   type CrawlInsightInsert,
   type PageInsightInsert,
-  and,
-  sql,
 } from "@llm-boost/db";
 
 // ---------------------------------------------------------------------------
@@ -355,29 +353,21 @@ export interface VisibilityRepository {
   countSinceByProjects(projectIds: string[], since: Date): Promise<number>;
 }
 
-// db may be the app (D1) or agency (Supabase) connection depending on caller;
-// visibility_checks lives in Supabase. Typed loosely until the repositories
-// adopt a unified DB type (see TODO below). See also v1.ts which passes agencyDb.
-export function createVisibilityRepository(db: any): VisibilityRepository {
-  // TODO: visibilityQueries expects AgencyDatabase (Supabase); repositories need unified DB type
-  const queries = visibilityQueries(db as any);
+// visibility_checks lives in the Supabase agency DB (not D1), so this
+// repository must be constructed with the agency database. Passing the D1
+// app DB here is a bug — the table does not exist there. See visibilityQueries.
+export function createVisibilityRepository(
+  db: AgencyDatabase,
+): VisibilityRepository {
+  const queries = visibilityQueries(db);
   return {
     listByProject: (projectId, filters) =>
       queries.listByProject(projectId, filters),
     getTrends: (projectId, filters) => queries.getTrends(projectId, filters),
     create: (data) => queries.create(data),
-    async countSince(projectId, since) {
-      const rows = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(visibilityChecks)
-        .where(
-          and(
-            sql`${visibilityChecks.projectId} = ${projectId}`,
-            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
-          ),
-        );
-      return Number(rows[0]?.count ?? 0);
-    },
+    // Delegate to the query layer, which applies the Postgres ::timestamptz /
+    // ::text casts the agency (Supabase) DB requires for these comparisons.
+    countSince: (projectId, since) => queries.countSince(projectId, since),
     countSinceByProjects: (projectIds, since) =>
       queries.countSinceByProjects(projectIds, since),
   };

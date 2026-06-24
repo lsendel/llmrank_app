@@ -238,7 +238,7 @@ competitorRoutes.get("/insights", async (c) => {
 
   const competitors = await competitorQueries(db).listByProject(projectId);
   const insightsService = createCompetitorInsightsService({
-    visibility: createVisibilityRepository(db),
+    visibility: createVisibilityRepository(c.get("agencyDb")),
   });
 
   try {
