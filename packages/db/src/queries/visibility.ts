@@ -237,7 +237,10 @@ export function visibilityQueries(db: Database) {
         .where(
           and(
             eq(visibilityChecks.projectId, projectId),
-            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
+            // Cast the bound param to a timestamp: checked_at is `timestamp`
+            // and the driver sends ISO strings as `text`, which Postgres won't
+            // implicitly compare (`operator does not exist: timestamp >= text`).
+            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}::timestamptz`,
           ),
         );
       return row?.count ?? 0;
@@ -251,7 +254,10 @@ export function visibilityQueries(db: Database) {
         .where(
           and(
             inArray(visibilityChecks.projectId, projectIds),
-            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}`,
+            // Cast the bound param to a timestamp: checked_at is `timestamp`
+            // and the driver sends ISO strings as `text`, which Postgres won't
+            // implicitly compare (`operator does not exist: timestamp >= text`).
+            sql`${visibilityChecks.checkedAt} >= ${since.toISOString()}::timestamptz`,
           ),
         );
       return row?.count ?? 0;
