@@ -353,8 +353,9 @@ export function createRecommendationsService(db: Database) {
             } satisfies PortfolioPriorityItem;
           }
 
-          const lastCrawlAt =
-            crawl.completedAt?.toISOString() ?? crawl.createdAt.toISOString();
+          const lastCrawlAt = crawl.completedAt
+            ? new Date(crawl.completedAt).toISOString()
+            : new Date(crawl.createdAt).toISOString();
 
           if (crawl.status !== "complete") {
             return {
@@ -404,7 +405,7 @@ export function createRecommendationsService(db: Database) {
           );
           const daysSinceCrawl = crawl.completedAt
             ? Math.floor(
-                (Date.now() - crawl.completedAt.getTime()) /
+                (Date.now() - new Date(crawl.completedAt).getTime()) /
                   (1000 * 60 * 60 * 24),
               )
             : 0;
@@ -632,7 +633,8 @@ export function createRecommendationsService(db: Database) {
       // Check crawl age
       const daysSinceCrawl = latestCrawl.completedAt
         ? Math.floor(
-            (Date.now() - latestCrawl.completedAt.getTime()) / 86400000,
+            (Date.now() - new Date(latestCrawl.completedAt).getTime()) /
+              86400000,
           )
         : null;
       if (daysSinceCrawl && daysSinceCrawl > 14) {

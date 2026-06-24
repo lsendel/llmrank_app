@@ -28,7 +28,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       getByClerkId: vi.fn().mockResolvedValue(null),
       upsertFromClerk: vi.fn().mockResolvedValue(buildUser()),
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 

@@ -16,7 +16,7 @@ const mockGetProjectProgress = vi.fn().mockResolvedValue(null);
 const mockSendScoreDrop = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
-  createDb: vi.fn().mockReturnValue({}),
+  createAppDb: vi.fn().mockReturnValue({}),
   projectQueries: vi.fn(() => ({
     getById: mockProjectGetById,
   })),
@@ -118,7 +118,7 @@ describe("crawl summaries", () => {
   describe("persistCrawlSummaryData", () => {
     it("persists aggregate metrics and quick wins", async () => {
       const result = await persistCrawlSummaryData({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         projectId: "proj-1",
         jobId: "job-1",
       });
@@ -141,7 +141,7 @@ describe("crawl summaries", () => {
       mockProjectGetById.mockResolvedValueOnce(null);
 
       const result = await persistCrawlSummaryData({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         projectId: "proj-1",
         jobId: "job-1",
       });
@@ -173,7 +173,7 @@ describe("crawl summaries", () => {
       });
 
       await persistCrawlSummaryData({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         projectId: "proj-1",
         jobId: "job-1",
         resendApiKey: "sk-resend",
@@ -192,7 +192,7 @@ describe("crawl summaries", () => {
   describe("generateCrawlSummary", () => {
     it("generates and stores a summary for a completed crawl", async () => {
       await generateCrawlSummary({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         anthropicApiKey: "sk-test",
         projectId: "proj-1",
         jobId: "job-1",
@@ -217,7 +217,7 @@ describe("crawl summaries", () => {
       mockProjectGetById.mockResolvedValue(null);
 
       await generateCrawlSummary({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         anthropicApiKey: "sk-test",
         projectId: "proj-1",
         jobId: "job-1",
@@ -232,7 +232,7 @@ describe("crawl summaries", () => {
       mockScoreListByJob.mockResolvedValue([]);
 
       await generateCrawlSummary({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         anthropicApiKey: "sk-test",
         projectId: "proj-1",
         jobId: "job-1",
@@ -245,7 +245,7 @@ describe("crawl summaries", () => {
 
     it("passes quick wins to the summary generator", async () => {
       await generateCrawlSummary({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         anthropicApiKey: "sk-test",
         projectId: "proj-1",
         jobId: "job-1",
@@ -260,7 +260,7 @@ describe("crawl summaries", () => {
 
     it("passes category scores to the summary generator", async () => {
       await generateCrawlSummary({
-        databaseUrl: "postgresql://test",
+        d1: {} as D1Database,
         anthropicApiKey: "sk-test",
         projectId: "proj-1",
         jobId: "job-1",

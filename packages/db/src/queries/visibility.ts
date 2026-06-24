@@ -1,8 +1,7 @@
 import { eq, and, desc, sql, isNotNull, inArray } from "drizzle-orm";
-import type { Database } from "../client";
-import { visibilityChecks, llmProviderEnum } from "../schema";
-
-type LLMProvider = (typeof llmProviderEnum.enumValues)[number];
+import type { AgencyDatabase as Database } from "../supabase-client";
+import { visibilityChecks } from "../schema";
+import type { LlmProvider } from "../schema/enums";
 
 export interface VisibilityTrendRow {
   weekStart: string;
@@ -16,7 +15,7 @@ export function visibilityQueries(db: Database) {
   return {
     async create(data: {
       projectId: string;
-      llmProvider: LLMProvider;
+      llmProvider: LlmProvider;
       query: string;
       keywordId?: string | null;
       responseText?: string | null;
@@ -73,7 +72,7 @@ export function visibilityQueries(db: Database) {
           and(
             eq(visibilityChecks.projectId, projectId),
             eq(visibilityChecks.query, query),
-            eq(visibilityChecks.llmProvider, provider as LLMProvider),
+            eq(visibilityChecks.llmProvider, provider as LlmProvider),
           ),
         )
         .orderBy(desc(visibilityChecks.checkedAt))

@@ -35,7 +35,10 @@ dashboardRoutes.get("/stats", async (c) => {
         crawlQueries(db).getRecentForUser(userId, 1),
       ]);
 
-      const limits = PLAN_LIMITS[user?.plan ?? "free"];
+      const limits =
+        PLAN_LIMITS[
+          (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+        ];
       const creditsTotal =
         limits.crawlsPerMonth === Infinity ? 999 : limits.crawlsPerMonth;
 
@@ -57,7 +60,7 @@ dashboardRoutes.get("/stats", async (c) => {
             format: "pdf",
             config: {} as ReportConfig,
           };
-          const raw = await fetchReportData(db, job);
+          const raw = await fetchReportData(db, job, c.get("agencyDb"));
           const aggregated = aggregateReportData(raw, {
             type: "detailed",
           });

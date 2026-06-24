@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "Privacy Policy — AI-Readiness",
   description:
     "LLM Rank privacy policy explaining how we collect, use, and protect your data when using our AI-readiness SEO platform.",
-  alternates: { canonical: "/privacy" },
-  openGraph: {
-    title: "Privacy Policy | LLM Rank",
-    description:
-      "How LLM Rank collects, uses, and protects your data. Covers third-party services, data retention, and your privacy rights.",
-    url: "https://llmrank.app/privacy",
-  },
-};
+  path: "/privacy",
+  openGraphTitle: "Privacy Policy | LLM Rank",
+  openGraphDescription:
+    "How LLM Rank collects, uses, and protects your data. Covers third-party services, data retention, and your privacy rights.",
+});
 
 export default function PrivacyPage() {
   return (

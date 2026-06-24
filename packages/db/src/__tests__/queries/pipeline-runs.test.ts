@@ -124,7 +124,7 @@ describe("pipelineRunQueries", () => {
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
         currentStep: "competitors",
-        stepResults: expect.objectContaining({
+        stepResults: JSON.stringify({
           site_description: { status: "completed" },
           competitors: { status: "completed", duration_ms: 500 },
         }),

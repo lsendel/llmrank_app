@@ -56,7 +56,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       countByUserThisMonth: mockContentFixCountByUserThisMonth,
       listByProject: mockContentFixListByProject,
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 

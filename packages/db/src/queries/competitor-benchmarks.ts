@@ -1,5 +1,5 @@
 import { eq, and, desc, gte } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AgencyDatabase as Database } from "../supabase-client";
 import { competitorBenchmarks } from "../schema";
 
 export function competitorBenchmarkQueries(db: Database) {

@@ -12,10 +12,11 @@ import { gradeBadgeColor, gradeColor } from "./workspace-shared";
 export const workspaceSecondaryTabRoutes = new Hono<AppEnv>();
 
 workspaceSecondaryTabRoutes.get("/projects/:id/tab/visibility", async (c) => {
-  const db = c.get("db");
   const projectId = c.req.param("id");
 
-  const checks = await visibilityQueries(db).listByProject(projectId);
+  const checks = await visibilityQueries(c.get("agencyDb")).listByProject(
+    projectId,
+  );
   const recent = checks.slice(0, 20);
 
   return c.html(
@@ -125,14 +126,17 @@ workspaceSecondaryTabRoutes.get("/projects/:id/tab/history", async (c) => {
   const projectId = c.req.param("id");
 
   const crawls = await crawlQueries(db).listByProject(projectId);
-  const completedIds = crawls.filter((crawl) => crawl.status === "complete").map((crawl) => crawl.id);
+  const completedIds = crawls
+    .filter((crawl) => crawl.status === "complete")
+    .map((crawl) => crawl.id);
 
   const scoreMap = new Map<string, number>();
   for (const id of completedIds) {
     const scores = await scoreQueries(db).listByJob(id);
     if (scores.length > 0) {
       const avg = Math.round(
-        scores.reduce((sum, score) => sum + score.overallScore, 0) / scores.length,
+        scores.reduce((sum, score) => sum + score.overallScore, 0) /
+          scores.length,
       );
       scoreMap.set(id, avg);
     }

@@ -27,6 +27,7 @@ function ConnectFlow() {
 
   return (
     <div className="text-center">
+      <h1 className="sr-only">Connect Indices</h1>
       <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600" />
       <p className="mt-4 text-sm text-gray-600">Connecting to Indices...</p>
     </div>
@@ -39,6 +40,7 @@ export default function ConnectIndicesPage() {
       <Suspense
         fallback={
           <div className="text-center">
+            <h1 className="sr-only">Connect Indices</h1>
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600" />
             <p className="mt-4 text-sm text-gray-600">Loading...</p>
           </div>

@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { apiTokens } from "../schema";
 
 export function apiTokenQueries(db: Database) {
@@ -14,7 +14,15 @@ export function apiTokenQueries(db: Database) {
       scopes: string[];
       expiresAt?: Date | null;
     }) {
-      const [token] = await db.insert(apiTokens).values(data).returning();
+      const [token] = await db
+        .insert(apiTokens)
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          scopes: JSON.stringify(data.scopes),
+          expiresAt: data.expiresAt?.toISOString() ?? null,
+        })
+        .returning();
       return token;
     },
 
@@ -26,7 +34,8 @@ export function apiTokenQueries(db: Database) {
           and(eq(apiTokens.tokenHash, tokenHash), isNull(apiTokens.revokedAt)),
         );
       if (!token) return null;
-      if (token.expiresAt && token.expiresAt < new Date()) return null;
+      if (token.expiresAt && token.expiresAt < new Date().toISOString())
+        return null;
       return token;
     },
 
@@ -52,7 +61,7 @@ export function apiTokenQueries(db: Database) {
     async revoke(id: string) {
       const [token] = await db
         .update(apiTokens)
-        .set({ revokedAt: new Date() })
+        .set({ revokedAt: new Date().toISOString() })
         .where(eq(apiTokens.id, id))
         .returning();
       return token ?? null;
@@ -61,7 +70,7 @@ export function apiTokenQueries(db: Database) {
     async updateLastUsed(id: string) {
       await db
         .update(apiTokens)
-        .set({ lastUsedAt: new Date() })
+        .set({ lastUsedAt: new Date().toISOString() })
         .where(eq(apiTokens.id, id));
     },
 

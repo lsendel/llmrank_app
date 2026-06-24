@@ -74,6 +74,7 @@ describe("reportQueries", () => {
     mock.chain.returning.mockResolvedValueOnce([report]);
 
     const result = await queries.create({
+      id: "r1",
       projectId: "p1",
       userId: "u1",
       crawlJobId: "c1",

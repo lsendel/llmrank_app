@@ -1,5 +1,5 @@
 import { eq, and, desc, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { promos } from "../schema";
 
 export function promoQueries(db: Database) {
@@ -39,7 +39,12 @@ export function promoQueries(db: Database) {
     }) {
       const [promo] = await db
         .insert(promos)
-        .values({ ...data, code: data.code.toUpperCase() })
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          code: data.code.toUpperCase(),
+          expiresAt: data.expiresAt?.toISOString(),
+        })
         .returning();
       return promo;
     },

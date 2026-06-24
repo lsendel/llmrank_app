@@ -6,21 +6,19 @@ import {
   webPageSchema,
   breadcrumbSchema,
 } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 import { WORKFLOW_TONE_COPY } from "@/lib/microcopy";
 import { IntegrationCatalogClient } from "./catalog-client";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "Integrations for SEO and AI Visibility",
   description:
     "Connect Google Search Console, GA4, MCP, and workflow tools to turn SEO and AI visibility data into action.",
-  alternates: { canonical: "/integrations" },
-  openGraph: {
-    title: "Integrations | LLM Rank",
-    description:
-      "Connect Google Search Console, GA4, WordPress, and Slack to your AI-readiness workflow.",
-    url: "https://llmrank.app/integrations",
-  },
-};
+  path: "/integrations",
+  openGraphTitle: "Integrations | LLM Rank",
+  openGraphDescription:
+    "Connect Google Search Console, GA4, WordPress, and Slack to your AI-readiness workflow.",
+});
 
 export default function IntegrationsPage() {
   return (

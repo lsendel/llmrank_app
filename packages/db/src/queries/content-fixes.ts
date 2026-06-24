@@ -1,8 +1,7 @@
 import { eq, and, desc, sql, gte } from "drizzle-orm";
-import type { Database } from "../client";
-import { contentFixes, fixStatusEnum } from "../schema";
-
-type FixStatus = (typeof fixStatusEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { contentFixes } from "../schema";
+import type { FixStatus } from "../schema/enums";
 
 export function contentFixQueries(db: Database) {
   return {
@@ -22,12 +21,12 @@ export function contentFixQueries(db: Database) {
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
       const [row] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(contentFixes)
         .where(
           and(
             eq(contentFixes.userId, userId),
-            gte(contentFixes.createdAt, startOfMonth),
+            gte(contentFixes.createdAt, startOfMonth.toISOString()),
           ),
         );
       return row?.count ?? 0;

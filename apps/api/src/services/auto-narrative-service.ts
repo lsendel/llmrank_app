@@ -1,4 +1,9 @@
-import { createDb, projectQueries, userQueries } from "@llm-boost/db";
+import {
+  createAppDb,
+  createAdminDb,
+  projectQueries,
+  userQueries,
+} from "@llm-boost/db";
 import { createNarrativeService } from "./narrative-service";
 import {
   createNarrativeRepository,
@@ -9,7 +14,8 @@ import {
 import { createLogger } from "@llm-boost/shared";
 
 export interface AutoNarrativeInput {
-  databaseUrl: string;
+  d1: D1Database;
+  d1Admin: D1Database;
   projectId: string;
   crawlJobId: string;
   anthropicApiKey: string;
@@ -19,7 +25,7 @@ export async function runAutoNarrativeRegeneration(
   input: AutoNarrativeInput,
 ): Promise<void> {
   const log = createLogger({ context: "auto-narrative" });
-  const db = createDb(input.databaseUrl);
+  const db = createAppDb(input.d1);
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) return;
@@ -45,6 +51,8 @@ export async function runAutoNarrativeRegeneration(
   }
 
   const service = createNarrativeService({
+    db,
+    adminDb: createAdminDb(input.d1Admin),
     narratives: narrativeRepo,
     projects: createProjectRepository(db),
     users: createUserRepository(db),

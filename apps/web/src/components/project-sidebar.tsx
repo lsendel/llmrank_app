@@ -15,6 +15,7 @@ import {
   Download,
   Play,
   Route,
+  Settings,
   Zap,
   TrendingUp,
 } from "lucide-react";
@@ -71,6 +72,11 @@ const NAV_GROUPS: NavGroup[] = [
       { tab: "automation", label: "Automation", icon: Play },
       { tab: "logs", label: "Logs", icon: Route },
     ],
+  },
+  {
+    id: "configure",
+    label: "Configure",
+    items: [{ tab: "settings", label: "Settings", icon: Settings }],
   },
 ];
 

@@ -44,7 +44,7 @@ export const enforceProjectLimit = createMiddleware<AppEnv>(async (c, next) => {
     );
   }
 
-  const limits = PLAN_LIMITS[user.plan];
+  const limits = PLAN_LIMITS[user.plan as import("@llm-boost/shared").PlanTier];
   const { projectQueries } = await import("@llm-boost/db");
   const projectCount = await projectQueries(db).countByUser(userId);
 

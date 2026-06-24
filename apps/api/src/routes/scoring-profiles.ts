@@ -61,7 +61,11 @@ scoringProfileRoutes.post("/", async (c) => {
   const profile = await scoringProfileQueries(db).create({
     userId,
     ...createData,
-  });
+    weights: JSON.stringify(createData.weights),
+    disabledFactors: createData.disabledFactors
+      ? JSON.stringify(createData.disabledFactors)
+      : null,
+  } as any);
   return c.json({ data: profile }, 201);
 });
 
@@ -90,7 +94,12 @@ scoringProfileRoutes.put("/:id", async (c) => {
       422,
     );
   }
-  const updated = await scoringProfileQueries(db).update(id, body.data);
+  const serialized: Record<string, unknown> = { ...body.data };
+  if (serialized.weights)
+    serialized.weights = JSON.stringify(serialized.weights);
+  if (serialized.disabledFactors)
+    serialized.disabledFactors = JSON.stringify(serialized.disabledFactors);
+  const updated = await scoringProfileQueries(db).update(id, serialized as any);
   return c.json({ data: updated });
 });
 

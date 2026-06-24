@@ -1,7 +1,8 @@
 import {
-  createDb,
-  type Database,
-  users,
+  createAppDb,
+  createAdminDb,
+  createAgencyDb,
+  type AppDatabase,
   userQueries,
   competitorBenchmarkQueries,
   competitorQueries,
@@ -44,21 +45,21 @@ interface VisibilityCheckResult {
 }
 
 async function resetMonthlyCredits(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
   const queries = userQueries(db);
   for (const [plan, limits] of Object.entries(PLAN_LIMITS)) {
     const credits = Number.isFinite(limits.crawlsPerMonth)
       ? limits.crawlsPerMonth
       : 999999;
     await queries.resetCrawlCreditsForPlan(
-      plan as (typeof users.plan.enumValues)[number],
+      plan as "free" | "starter" | "pro" | "agency",
       credits,
     );
   }
 }
 
 async function runScheduledTasks(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
   const notifications = createNotificationService(db, env.RESEND_API_KEY, {
     appBaseUrl: env.APP_BASE_URL,
   });
@@ -85,7 +86,7 @@ async function runScheduledTasks(env: Bindings) {
     queue: env.CRAWL_QUEUE,
   });
 
-  await processOutboxEvents(env.DATABASE_URL, {
+  await processOutboxEvents(env.D1_APP, {
     ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
     KV: env.KV,
     R2: env.R2,
@@ -98,16 +99,19 @@ async function runScheduledTasks(env: Bindings) {
 }
 
 async function cleanupExpiredData(env: Bindings): Promise<void> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const adminDb = createAdminDb(env.D1_ADMIN);
   const logger = createLogger({ requestId: "cron-cleanup" });
   const deletedScans = await scanResultQueries(db).deleteExpired();
   logger.info("Cleaned up expired scan results", { deletedScans });
-  const deletedLeads = await leadQueries(db).deleteOldUnconverted(90);
+  const deletedLeads = await leadQueries(adminDb as any).deleteOldUnconverted(
+    90,
+  );
   logger.info("Cleaned up stale leads", { deletedLeads });
 }
 
 async function detectAndEmitChanges(
-  db: Database,
+  db: AppDatabase,
   schedule: { id: string; projectId: string; query: string },
   project: { id: string; userId: string; domain: string },
   results: VisibilityCheckResult[],
@@ -122,29 +126,31 @@ async function detectAndEmitChanges(
 
     if (previous.brandMentioned === true && result.brandMentioned === false) {
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: "notification",
         eventType: "mention_lost",
         userId: project.userId,
         projectId: project.id,
-        payload: {
+        payload: JSON.stringify({
           query: schedule.query,
           provider: result.provider,
           domain: project.domain,
-        },
+        }),
       });
     }
 
     if (previous.brandMentioned === false && result.brandMentioned === true) {
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: "notification",
         eventType: "mention_gained",
         userId: project.userId,
         projectId: project.id,
-        payload: {
+        payload: JSON.stringify({
           query: schedule.query,
           provider: result.provider,
           domain: project.domain,
-        },
+        }),
       });
     }
 
@@ -153,34 +159,45 @@ async function detectAndEmitChanges(
       result.citationPosition != null
     ) {
       await db.insert(outboxEvents).values({
+        id: crypto.randomUUID(),
         type: "notification",
         eventType: "position_changed",
         userId: project.userId,
         projectId: project.id,
-        payload: {
+        payload: JSON.stringify({
           query: schedule.query,
           provider: result.provider,
           oldPosition: previous.citationPosition,
           newPosition: result.citationPosition,
-        },
+        }),
       });
     }
   }
 }
 
 async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
   const scheduleRepo = scheduledVisibilityQueryQueries(db);
-  const visQueries = visibilityQueries(db);
+  const visQueries = visibilityQueries(agencyDb);
   const dueQueries = await scheduleRepo.getDueQueries(new Date());
   const batch = dueQueries.slice(0, 10);
 
-  for (const schedule of batch) {
+  for (const rawSchedule of batch) {
+    const schedule = {
+      ...rawSchedule,
+      providers: (typeof rawSchedule.providers === "string"
+        ? JSON.parse(rawSchedule.providers)
+        : rawSchedule.providers) as string[],
+    };
     try {
       const pq = projectQueries(db);
       const project = await pq.getById(schedule.projectId);
       if (!project) {
-        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        await scheduleRepo.markRun(
+          schedule.id,
+          schedule.frequency as "daily" | "weekly" | "hourly",
+        );
         continue;
       }
 
@@ -226,7 +243,10 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
       });
 
       if (!stored || stored.length === 0) {
-        await scheduleRepo.markRun(schedule.id, schedule.frequency);
+        await scheduleRepo.markRun(
+          schedule.id,
+          schedule.frequency as "daily" | "weekly" | "hourly",
+        );
         continue;
       }
 
@@ -244,7 +264,10 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         results,
         previousByProvider,
       );
-      await scheduleRepo.markRun(schedule.id, schedule.frequency);
+      await scheduleRepo.markRun(
+        schedule.id,
+        schedule.frequency as "daily" | "weekly" | "hourly",
+      );
 
       trackServer(
         env.POSTHOG_API_KEY,
@@ -267,25 +290,29 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         scheduleId: schedule.id,
         error: err instanceof Error ? err.message : String(err),
       });
-      await scheduleRepo.markRun(schedule.id, schedule.frequency);
+      await scheduleRepo.markRun(
+        schedule.id,
+        schedule.frequency as "daily" | "weekly" | "hourly",
+      );
     }
   }
 }
 
 async function processScheduledCompetitorChecks(env: Bindings) {
-  const db = createDb(env.DATABASE_URL);
+  const db = createAppDb(env.D1_APP);
+  const agencyDb = createAgencyDb(env.SUPABASE.connectionString);
   const logger = createLogger({ requestId: "cron-competitor-checks" });
   const { createCompetitorBenchmarkService } =
     await import("@llm-boost/pipeline");
   const benchmarkService = createCompetitorBenchmarkService({
-    competitorBenchmarks: competitorBenchmarkQueries(db),
+    competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
     competitors: competitorQueries(db),
   });
   const monitorService = createCompetitorMonitorService(
     {
       competitors: competitorQueries(db),
-      competitorBenchmarks: competitorBenchmarkQueries(db),
-      competitorEvents: competitorEventQueries(db),
+      competitorBenchmarks: competitorBenchmarkQueries(agencyDb),
+      competitorEvents: competitorEventQueries(agencyDb),
       outbox: outboxQueries(db),
       benchmarkService,
     },
@@ -311,19 +338,19 @@ export async function handleScheduled(
   } else if (controller.cron === "0 3 * * *") {
     await cleanupExpiredData(env);
   } else if (controller.cron === "0 9 * * 1") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     const digest = createDigestService(db, env.RESEND_API_KEY, {
       appBaseUrl: env.APP_BASE_URL,
     });
     await digest.processWeeklyDigests();
   } else if (controller.cron === "0 9 1 * *") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     const digest = createDigestService(db, env.RESEND_API_KEY, {
       appBaseUrl: env.APP_BASE_URL,
     });
     await digest.processMonthlyDigests();
   } else if (controller.cron === "0 4 * * *") {
-    const db = createDb(env.DATABASE_URL);
+    const db = createAppDb(env.D1_APP);
     await aggregateBenchmarks(db, env.KV);
   } else if (controller.cron === "0 2 * * 7") {
     await processScheduledCompetitorChecks(env);

@@ -75,8 +75,9 @@ sitesRoutes.get("/:id/scores", async (c) => {
     1000,
   );
 
-  const db = c.get("db");
-  const cited = await visibilityQueries(db).getCitedPages(projectId);
+  // visibility_checks lives in Supabase (agency db), not the D1 app db.
+  const agencyDb = c.get("agencyDb");
+  const cited = await visibilityQueries(agencyDb).getCitedPages(projectId);
 
   const scores = cited.slice(0, limit).map((row) => ({
     url: row.citedUrl,

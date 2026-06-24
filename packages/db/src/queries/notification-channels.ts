@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { notificationChannels } from "../schema";
 
 export function notificationChannelQueries(db: Database) {
@@ -14,11 +14,12 @@ export function notificationChannelQueries(db: Database) {
       const [channel] = await db
         .insert(notificationChannels)
         .values({
+          id: crypto.randomUUID(),
           userId: data.userId,
           projectId: data.projectId ?? null,
           channelType: data.channelType,
-          config: data.config,
-          eventTypes: data.eventTypes,
+          config: JSON.stringify(data.config),
+          eventTypes: JSON.stringify(data.eventTypes),
         })
         .returning();
       return channel;
@@ -48,9 +49,17 @@ export function notificationChannelQueries(db: Database) {
         enabled: boolean;
       }>,
     ) {
+      const setData: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
+      };
+      if (data.config !== undefined)
+        setData.config = JSON.stringify(data.config);
+      if (data.eventTypes !== undefined)
+        setData.eventTypes = JSON.stringify(data.eventTypes);
+      if (data.enabled !== undefined) setData.enabled = data.enabled;
       const [updated] = await db
         .update(notificationChannels)
-        .set({ ...data, updatedAt: new Date() })
+        .set(setData)
         .where(eq(notificationChannels.id, id))
         .returning();
       return updated ?? null;
@@ -76,12 +85,17 @@ export function notificationChannelQueries(db: Database) {
       projectId?: string,
     ) {
       const rows = await this.listByUser(userId);
-      return rows.filter(
-        (ch) =>
+      return rows.filter((ch) => {
+        const types: string[] =
+          typeof ch.eventTypes === "string"
+            ? JSON.parse(ch.eventTypes)
+            : ch.eventTypes;
+        return (
           ch.enabled &&
-          ch.eventTypes.includes(eventType) &&
-          (!ch.projectId || ch.projectId === projectId),
-      );
+          types.includes(eventType) &&
+          (!ch.projectId || ch.projectId === projectId)
+        );
+      });
     },
   };
 }

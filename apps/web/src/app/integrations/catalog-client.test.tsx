@@ -109,7 +109,13 @@ describe("IntegrationCatalogClient", () => {
       screen.getByRole("link", { name: "Sign In to Connect" }),
     ).toHaveAttribute("href", "/sign-in");
     expect(
+      screen.getByRole("link", { name: /Open Search Console/i }),
+    ).toHaveAttribute("href", "https://search.google.com/search-console");
+    expect(
       screen.getByRole("link", { name: "View Setup Guide" }),
+    ).toHaveAttribute("href", "/mcp");
+    expect(
+      screen.getByRole("link", { name: /Open MCP setup guide/i }),
     ).toHaveAttribute("href", "/mcp");
     expect(screen.getByRole("button", { name: "Coming Soon" })).toBeDisabled();
   });

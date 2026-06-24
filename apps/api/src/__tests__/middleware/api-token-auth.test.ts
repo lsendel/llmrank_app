@@ -57,7 +57,7 @@ vi.mock("@llm-boost/db", () => ({
     listByProject: mockVisListByProject,
     getTrends: mockVisGetTrends,
   })),
-  createDb: vi.fn(),
+  createAppDb: vi.fn(),
 }));
 
 vi.mock("../../lib/auth", () => ({
@@ -139,7 +139,11 @@ describe("apiTokenAuth middleware", () => {
 
     app.use("*", async (c, next) => {
       setupMiddleware(c);
-      (c.env as Record<string, unknown>) = { KV: kv, DATABASE_URL: "test" };
+      (c.env as Record<string, unknown>) = {
+        KV: kv,
+        D1_APP: {} as D1Database,
+        D1_ADMIN: {} as D1Database,
+      };
       await next();
     });
 
@@ -341,7 +345,8 @@ describe("tokenRoutes (CRUD)", () => {
       setupMiddleware(c);
       (c.env as Record<string, unknown>) = {
         KV: createMockKV(),
-        DATABASE_URL: "test",
+        D1_APP: {} as D1Database,
+        D1_ADMIN: {} as D1Database,
         BETTER_AUTH_SECRET: "test-secret",
       };
       await next();
@@ -508,7 +513,11 @@ describe("v1Routes (token-authenticated)", () => {
 
     app.use("*", async (c, next) => {
       setupMiddleware(c);
-      (c.env as Record<string, unknown>) = { KV: kv, DATABASE_URL: "test" };
+      (c.env as Record<string, unknown>) = {
+        KV: kv,
+        D1_APP: {} as D1Database,
+        D1_ADMIN: {} as D1Database,
+      };
       await next();
     });
 

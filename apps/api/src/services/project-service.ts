@@ -92,7 +92,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       }
 
       const existingProjectCount = await deps.projects.countByUser(userId);
-      const plan = Plan.from(user.plan);
+      const plan = Plan.from(user.plan as import("@llm-boost/shared").PlanTier);
       if (!plan.canCreateProject(existingProjectCount)) {
         const err = ERROR_CODES.PLAN_LIMIT_REACHED;
         throw new ServiceError(

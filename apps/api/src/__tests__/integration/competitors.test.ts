@@ -46,7 +46,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       listByProject: mockCompBenchListByProject,
       getLatest: mockCompBenchGetLatest,
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 
@@ -57,7 +57,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
 const mockBenchmarkCompetitor = vi.fn();
 const mockGetComparison = vi.fn();
 
-vi.mock("../../services/competitor-benchmark-service", () => ({
+vi.mock("@llm-boost/pipeline", () => ({
   createCompetitorBenchmarkService: vi.fn().mockReturnValue({
     benchmarkCompetitor: (...args: any[]) => mockBenchmarkCompetitor(...args),
     getComparison: (...args: any[]) => mockGetComparison(...args),
@@ -299,14 +299,14 @@ describe("Competitors Routes", () => {
     it("returns 200 with comparison data when crawl data exists", async () => {
       mockCrawlGetLatestByProject.mockResolvedValue({
         id: "crawl-1",
-        summaryData: {
+        summaryData: JSON.stringify({
           overallScore: 85,
           technicalScore: 90,
           contentScore: 80,
           aiReadinessScore: 82,
           performanceScore: 88,
           letterGrade: "B",
-        },
+        }),
       });
 
       mockGetComparison.mockResolvedValue([

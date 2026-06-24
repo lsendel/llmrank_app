@@ -24,6 +24,7 @@ describe("useCompetitorsTabData", () => {
   it("loads benchmarks and strategy competitors while deriving lookup state", () => {
     const mutateBenchmarks = vi.fn();
     const mutateStrategy = vi.fn();
+    const mutateInsights = vi.fn();
 
     mockUseApiSWR.mockImplementation((key: string) => {
       if (key === "benchmarks-proj-1") {
@@ -41,6 +42,37 @@ describe("useCompetitorsTabData", () => {
           },
           isLoading: false,
           mutate: mutateBenchmarks,
+        };
+      }
+
+      if (key === "competitor-insights-proj-1") {
+        return {
+          data: [
+            {
+              competitorDomain: "example.com",
+              winningQueries: [
+                {
+                  query: "ai seo software",
+                  providers: ["chatgpt"],
+                  wins: 2,
+                  bestPosition: 1,
+                  avgPosition: 1.5,
+                  lastSeenAt: "2024-01-03T00:00:00.000Z",
+                  yourMentioned: false,
+                  yourCited: false,
+                },
+              ],
+              inferredThemes: [
+                {
+                  label: "AI SEO",
+                  source: "mixed",
+                  evidence: ["AI SEO platform"],
+                },
+              ],
+              homepageSignals: null,
+            },
+          ],
+          mutate: mutateInsights,
         };
       }
 
@@ -72,8 +104,10 @@ describe("useCompetitorsTabData", () => {
     expect(result.current.trendCompetitors).toEqual([
       { domain: "example.com", id: "comp-1" },
     ]);
+    expect(result.current.competitorInsights).toHaveLength(1);
     expect(result.current.mutateBenchmarks).toBe(mutateBenchmarks);
     expect(result.current.mutateStrategy).toBe(mutateStrategy);
+    expect(result.current.mutateInsights).toBe(mutateInsights);
   });
 
   it("falls back to empty collections when data has not loaded", () => {

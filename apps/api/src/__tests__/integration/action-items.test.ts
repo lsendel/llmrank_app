@@ -109,7 +109,7 @@ describe("Action Item Routes", () => {
         issueCode: "MISSING_META_DESC",
         pageId,
         assigneeId: "test-user-id",
-        dueAt: expect.any(Date),
+        dueAt: expect.any(String),
       }),
     );
   });
@@ -153,7 +153,7 @@ describe("Action Item Routes", () => {
       actionId,
       expect.objectContaining({
         assigneeId: "test-user-id",
-        dueAt: expect.any(Date),
+        dueAt: expect.any(String),
       }),
     );
   });
@@ -272,7 +272,7 @@ describe("Action Item Routes", () => {
       "existing-1",
       expect.objectContaining({
         assigneeId: "test-user-id",
-        dueAt: expect.any(Date),
+        dueAt: expect.any(String),
       }),
     );
 
@@ -324,7 +324,7 @@ describe("Action Item Routes", () => {
       expect.objectContaining({
         status: "in_progress",
         assigneeId: "test-user-id",
-        dueAt: expect.any(Date),
+        dueAt: expect.any(String),
       }),
     );
   });

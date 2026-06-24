@@ -53,6 +53,8 @@ export function GenerateReportModal({
   onCreateSchedule,
   scheduleSaving,
 }: Props) {
+  const [generateAudience, setGenerateAudience] =
+    useState<ReportAudience>("executive");
   const [type, setType] = useState<"summary" | "detailed">("summary");
   const [format, setFormat] = useState<"pdf" | "docx">("pdf");
   const [preparedFor, setPreparedFor] = useState("");
@@ -69,6 +71,10 @@ export function GenerateReportModal({
   // Reset schedule state when modal closes
   useEffect(() => {
     if (!open) {
+      setGenerateAudience("executive");
+      setType("summary");
+      setFormat("pdf");
+      setPreparedFor("");
       setSchedAudience("executive");
       setSchedRecipient("");
       setSchedFormat("pdf");
@@ -81,6 +87,13 @@ export function GenerateReportModal({
     const preset = REPORT_AUDIENCE_PRESETS[audience];
     setSchedFormat(preset.format);
     setSchedType(preset.type);
+  }
+
+  function handleGenerateAudienceSelect(audience: ReportAudience) {
+    setGenerateAudience(audience);
+    const preset = REPORT_AUDIENCE_PRESETS[audience];
+    setFormat(preset.format);
+    setType(preset.type);
   }
 
   async function handleGenerate() {
@@ -135,6 +148,35 @@ export function GenerateReportModal({
           </TabsList>
 
           <TabsContent value="generate" className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Audience Preset</Label>
+              <div className="grid gap-2 grid-cols-3">
+                {REPORT_AUDIENCE_ORDER.map((presetAudience) => {
+                  const preset = REPORT_AUDIENCE_PRESETS[presetAudience];
+                  const selected = generateAudience === presetAudience;
+                  return (
+                    <button
+                      key={presetAudience}
+                      type="button"
+                      onClick={() =>
+                        handleGenerateAudienceSelect(presetAudience)
+                      }
+                      className={`rounded-md border p-3 text-left transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{preset.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {preset.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Report Type</Label>
               <Select

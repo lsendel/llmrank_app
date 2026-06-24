@@ -3,21 +3,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Bot, Search, CheckCircle2 } from "lucide-react";
 import { JsonLd, webPageSchema, faqSchema } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "ChatGPT SEO Guide - How to Rank in ChatGPT Answers",
   description:
     "Learn how to optimize your website for ChatGPT visibility. Audit your content for AI-readiness and get cited in ChatGPT's responses using LLM Rank.",
-  openGraph: {
-    title: "ChatGPT SEO - Rank in AI Answers",
-    description:
-      "The ultimate guide and audit tool for ranking in ChatGPT. Ensure your brand is cited when users ask about your industry.",
-    url: "https://llmrank.app/chatgpt-seo",
-  },
-  alternates: {
-    canonical: "/chatgpt-seo",
-  },
-};
+  path: "/chatgpt-seo",
+  openGraphTitle: "ChatGPT SEO - Rank in AI Answers",
+  openGraphDescription:
+    "The ultimate guide and audit tool for ranking in ChatGPT. Ensure your brand is cited when users ask about your industry.",
+});
 
 const STEPS = [
   {

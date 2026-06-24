@@ -80,8 +80,9 @@ describe("crawlQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       projectId: "p1",
-      config: { maxPages: 10 },
+      config: JSON.stringify({ maxPages: 10 }),
       status: "pending",
     });
     expect(result).toEqual(newJob);
@@ -179,7 +180,7 @@ describe("crawlQueries", () => {
       expect.objectContaining({
         shareToken: expect.any(String),
         shareEnabled: true,
-        sharedAt: expect.any(Date),
+        sharedAt: expect.any(String),
       }),
     );
     expect(result).toEqual(updated);

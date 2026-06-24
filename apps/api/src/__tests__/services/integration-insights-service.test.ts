@@ -72,8 +72,13 @@ describe("IntegrationInsightsService", () => {
         pageId: "page-1",
         jobId: "crawl-1",
         provider: "gsc",
-        data: { query: "ai seo", impressions: 120, clicks: 12, position: 2 },
-        fetchedAt: new Date(),
+        data: JSON.stringify({
+          query: "ai seo",
+          impressions: 120,
+          clicks: 12,
+          position: 2,
+        }),
+        fetchedAt: new Date().toISOString(),
       },
     ]);
     const service = createIntegrationInsightsService({

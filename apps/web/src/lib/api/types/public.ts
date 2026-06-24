@@ -51,7 +51,7 @@ export interface PublicScanResult {
 
 export interface IntegrationCatalogItem {
   id: string;
-  provider: "gsc" | "ga4" | null;
+  provider: "gsc" | "ga4" | "meta" | null;
   name: string;
   description: string;
   features: string[];

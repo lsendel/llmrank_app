@@ -2,18 +2,19 @@ import { apiClient } from "../core/client";
 import type { ApiEnvelope } from "../core/types";
 
 type AnalyticsSummary = {
-  period: string;
-  totalVisits: number;
+  totalPageviews: number;
   aiTraffic: {
+    referral: number;
+    bot: number;
     total: number;
-    byProvider: Array<{ provider: string; visits: number; type: string }>;
-    trend: string | null;
   };
-  topPages: Array<{ path: string; aiVisits: number; totalVisits: number }>;
+  retentionDays: number;
   trend: {
     pageviewsTrend: number | null;
     aiTrafficTrend: number | null;
   };
+  byProvider?: Record<string, number>;
+  topPages?: Array<{ path: string; aiVisits: number; totalVisits: number }>;
 };
 
 type AiTrafficData = {

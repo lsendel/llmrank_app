@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,14 @@ export function PromptEditor({
   const [description, setDescription] = useState(prompt.description ?? "");
   const [saving, setSaving] = useState(false);
   const [showTest, setShowTest] = useState(false);
+
+  useEffect(() => {
+    setSystemPrompt(prompt.systemPrompt);
+    setUserPromptTemplate(prompt.userPromptTemplate);
+    setModel(prompt.model);
+    setDescription(prompt.description ?? "");
+    setShowTest(false);
+  }, [prompt]);
 
   const hasChanges =
     systemPrompt !== prompt.systemPrompt ||

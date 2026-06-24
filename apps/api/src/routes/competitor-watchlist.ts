@@ -18,6 +18,7 @@ const UUID_RE =
 // POST /api/competitors/watchlist — Create a watchlist query
 competitorWatchlistRoutes.post("/", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
 
   const body = await c.req.json<{
@@ -50,7 +51,7 @@ competitorWatchlistRoutes.post("/", async (c) => {
 
     const user = await userQueries(db).getById(userId);
     const effectivePlan = resolveEffectivePlan({
-      plan: user?.plan ?? "free",
+      plan: (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier,
       trialEndsAt: user?.trialEndsAt ?? null,
     });
     const limits = PLAN_LIMITS[effectivePlan];
@@ -68,7 +69,7 @@ competitorWatchlistRoutes.post("/", async (c) => {
       );
     }
 
-    const scheduleQueries = competitorMonitoringScheduleQueries(db);
+    const scheduleQueries = competitorMonitoringScheduleQueries(agencyDb);
     const existingCount = await scheduleQueries.countByProject(body.projectId);
     if (existingCount >= limits.watchlistQueriesPerProject) {
       return c.json(
@@ -98,6 +99,7 @@ competitorWatchlistRoutes.post("/", async (c) => {
 // GET /api/competitors/watchlist — List watchlist queries by project
 competitorWatchlistRoutes.get("/", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.query("projectId");
 
@@ -122,7 +124,9 @@ competitorWatchlistRoutes.get("/", async (c) => {
   }
 
   const schedules =
-    await competitorMonitoringScheduleQueries(db).listByProject(projectId);
+    await competitorMonitoringScheduleQueries(agencyDb).listByProject(
+      projectId,
+    );
 
   return c.json({ data: schedules });
 });
@@ -130,6 +134,7 @@ competitorWatchlistRoutes.get("/", async (c) => {
 // PATCH /api/competitors/watchlist/:id — Update a watchlist query
 competitorWatchlistRoutes.patch("/:id", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const scheduleId = c.req.param("id");
 
@@ -153,7 +158,7 @@ competitorWatchlistRoutes.patch("/:id", async (c) => {
   }>();
 
   try {
-    const scheduleQueries = competitorMonitoringScheduleQueries(db);
+    const scheduleQueries = competitorMonitoringScheduleQueries(agencyDb);
     const schedule = await scheduleQueries.getById(scheduleId);
     if (!schedule) {
       return c.json(
@@ -194,6 +199,7 @@ competitorWatchlistRoutes.patch("/:id", async (c) => {
 // DELETE /api/competitors/watchlist/:id — Delete a watchlist query
 competitorWatchlistRoutes.delete("/:id", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const scheduleId = c.req.param("id");
 
@@ -210,7 +216,7 @@ competitorWatchlistRoutes.delete("/:id", async (c) => {
   }
 
   try {
-    const scheduleQueries = competitorMonitoringScheduleQueries(db);
+    const scheduleQueries = competitorMonitoringScheduleQueries(agencyDb);
     const schedule = await scheduleQueries.getById(scheduleId);
     if (!schedule) {
       return c.json(

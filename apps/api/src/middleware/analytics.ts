@@ -25,8 +25,8 @@ export function analyticsMiddleware(): MiddlewareHandler<AppEnv> {
     const country = cf?.country ?? null;
     const botScore = cf?.botManagement?.score ?? null;
 
-    const db = c.get("db");
-    const queries = analyticsQueries(db);
+    const agencyDb = c.get("agencyDb");
+    const queries = analyticsQueries(agencyDb);
 
     const event =
       classification.sourceType === "ai_bot"

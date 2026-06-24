@@ -1,8 +1,8 @@
 import { eq, sql } from "drizzle-orm";
-import type { Database } from "../client";
-import { outboxEvents, eventStatusEnum } from "../schema";
-
-export type EventStatus = (typeof eventStatusEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { outboxEvents } from "../schema";
+import type { EventStatus } from "../schema/enums";
+export type { EventStatus };
 
 export interface OutboxEventData {
   type: string;
@@ -16,9 +16,10 @@ export function outboxQueries(db: Database) {
       const [row] = await db
         .insert(outboxEvents)
         .values({
+          id: crypto.randomUUID(),
           type: event.type,
-          payload: event.payload,
-          availableAt: event.availableAt ?? new Date(),
+          payload: JSON.stringify(event.payload),
+          availableAt: (event.availableAt ?? new Date()).toISOString(),
         })
         .returning();
       return row;
@@ -32,9 +33,8 @@ export function outboxQueries(db: Database) {
           sql`${outboxEvents.id} IN (
             SELECT id FROM ${outboxEvents}
             WHERE ${outboxEvents.status} = 'pending'
-              AND ${outboxEvents.availableAt} <= NOW()
+              AND ${outboxEvents.availableAt} <= datetime('now')
             ORDER BY ${outboxEvents.availableAt}
-            FOR UPDATE SKIP LOCKED
             LIMIT ${limit}
           )`,
         )
@@ -45,7 +45,7 @@ export function outboxQueries(db: Database) {
     async markCompleted(id: string) {
       await db
         .update(outboxEvents)
-        .set({ status: "completed", processedAt: new Date() })
+        .set({ status: "completed", processedAt: new Date().toISOString() })
         .where(eq(outboxEvents.id, id));
     },
 
@@ -55,7 +55,7 @@ export function outboxQueries(db: Database) {
         .set({
           status: "pending",
           attempts: sql`${outboxEvents.attempts} + 1`,
-          availableAt: sql`NOW() + interval '${retryDelaySeconds} seconds'`,
+          availableAt: sql`datetime('now', '+' || ${retryDelaySeconds} || ' seconds')`,
         })
         .where(eq(outboxEvents.id, id));
     },

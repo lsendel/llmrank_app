@@ -35,7 +35,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       update: mockExtractorUpdate,
       remove: mockExtractorRemove,
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 

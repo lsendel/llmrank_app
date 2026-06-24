@@ -1,5 +1,5 @@
 import { eq, lt } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { scanResults } from "../schema";
 
 export function scanResultQueries(db: Database) {
@@ -17,7 +17,22 @@ export function scanResultQueries(db: Database) {
       expiresAt.setDate(expiresAt.getDate() + 30);
       const [row] = await db
         .insert(scanResults)
-        .values({ ...data, expiresAt })
+        .values({
+          id: crypto.randomUUID(),
+          domain: data.domain,
+          url: data.url,
+          scores: JSON.stringify(data.scores),
+          issues: JSON.stringify(data.issues),
+          quickWins: JSON.stringify(data.quickWins),
+          siteContext:
+            data.siteContext != null
+              ? typeof data.siteContext === "string"
+                ? data.siteContext
+                : JSON.stringify(data.siteContext)
+              : null,
+          ipHash: data.ipHash,
+          expiresAt: expiresAt.toISOString(),
+        })
         .returning();
       return row;
     },
@@ -33,7 +48,7 @@ export function scanResultQueries(db: Database) {
     async deleteExpired() {
       const result = await db
         .delete(scanResults)
-        .where(lt(scanResults.expiresAt, new Date()))
+        .where(lt(scanResults.expiresAt, new Date().toISOString()))
         .returning({ id: scanResults.id });
       return result.length;
     },

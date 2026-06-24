@@ -16,7 +16,7 @@ healthRoutes.get("/auth-check", authMiddleware, async (c) => {
   let dbStatus: string;
   try {
     const db = c.get("db");
-    await db.execute(sql`SELECT 1` as any);
+    await db.run(sql`SELECT 1`);
     dbStatus = "connected";
   } catch (e) {
     dbStatus = `error: ${e instanceof Error ? e.message : String(e)}`;
@@ -55,7 +55,7 @@ healthRoutes.get("/deep", async (c) => {
   const dbStart = Date.now();
   try {
     const db = c.get("db");
-    await db.execute(sql`SELECT 1` as any);
+    await db.run(sql`SELECT 1`);
     checks.database = { status: "healthy", latency: Date.now() - dbStart };
   } catch (error) {
     checks.database = {

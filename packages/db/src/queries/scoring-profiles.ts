@@ -1,5 +1,5 @@
 import { eq, desc } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { scoringProfiles } from "../schema";
 
 export function scoringProfileQueries(db: Database) {

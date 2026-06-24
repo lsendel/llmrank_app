@@ -44,6 +44,7 @@ analyticsRoutes.post("/analytics/collect", cors({ origin: "*" }), async (c) => {
 
   const data = parsed.data;
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
 
   // Check project exists and has analytics snippet enabled
   const project = await projectQueries(db).getById(data.pid);
@@ -70,7 +71,7 @@ analyticsRoutes.post("/analytics/collect", cors({ origin: "*" }), async (c) => {
 
   // Non-blocking insert
   c.executionCtx.waitUntil(
-    analyticsQueries(db).insertEvent({
+    analyticsQueries(agencyDb).insertEvent({
       projectId: data.pid,
       event: "pageview",
       domain,
@@ -95,6 +96,7 @@ analyticsRoutes.get(
   authMiddleware,
   async (c) => {
     const db = c.get("db");
+    const agencyDb = c.get("agencyDb");
     const userId = c.get("userId");
     const projectId = c.req.param("projectId");
 
@@ -113,7 +115,7 @@ analyticsRoutes.get(
     // Use 7 days for free, 30 days for starter, 90 days for pro+
     const retentionDays = plan === "free" ? 7 : plan === "starter" ? 30 : 90;
 
-    const queries = analyticsQueries(db);
+    const queries = analyticsQueries(agencyDb);
     const summary = await queries.getSummary(projectId, retentionDays);
 
     // Aggregate totals
@@ -209,6 +211,7 @@ analyticsRoutes.get(
   authMiddleware,
   async (c) => {
     const db = c.get("db");
+    const agencyDb = c.get("agencyDb");
     const userId = c.get("userId");
     const projectId = c.req.param("projectId");
 
@@ -237,7 +240,7 @@ analyticsRoutes.get(
     }
 
     const retentionDays = plan === "starter" ? 30 : 90;
-    const rows = await analyticsQueries(db).getAiTrafficByDay(
+    const rows = await analyticsQueries(agencyDb).getAiTrafficByDay(
       projectId,
       retentionDays,
     );
@@ -320,8 +323,8 @@ analyticsRoutes.get(
   authMiddleware,
   adminMiddleware,
   async (c) => {
-    const db = c.get("db");
-    const rows = await analyticsQueries(db).getSummary(
+    const agencyDb = c.get("agencyDb");
+    const rows = await analyticsQueries(agencyDb).getSummary(
       FIRST_PARTY_PROJECT_ID,
       30,
     );

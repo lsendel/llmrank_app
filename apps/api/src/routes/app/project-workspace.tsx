@@ -12,8 +12,17 @@ import {
   projectQueries,
   competitorBenchmarkQueries,
 } from "@llm-boost/db";
-import { Breadcrumb, SkeletonTable, SkeletonText } from "../../views/htmx-helpers";
-import { gradeBadgeColor, gradeColor, gradeLabel, SEVERITY_COLORS } from "./workspace-shared";
+import {
+  Breadcrumb,
+  SkeletonTable,
+  SkeletonText,
+} from "../../views/htmx-helpers";
+import {
+  gradeBadgeColor,
+  gradeColor,
+  gradeLabel,
+  SEVERITY_COLORS,
+} from "./workspace-shared";
 
 export const projectWorkspaceAppRoutes = new Hono<AppEnv>();
 projectWorkspaceAppRoutes.route("/", crawlDetailAppRoutes);
@@ -554,8 +563,9 @@ projectWorkspaceAppRoutes.get("/projects/:id/tab/competitors", async (c) => {
   const project = await projectQueries(db).getById(projectId);
   if (!project) return c.text("Not found", 404);
 
-  const benchmarks =
-    await competitorBenchmarkQueries(db).listByProject(projectId);
+  const benchmarks = await competitorBenchmarkQueries(
+    c.get("agencyDb"),
+  ).listByProject(projectId);
 
   const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
   let projScores = {
@@ -693,8 +703,3 @@ projectWorkspaceAppRoutes.get("/projects/:id/tab/competitors", async (c) => {
 });
 
 // Legacy crawl detail routes extracted into ./crawl-detail
-
-
-
-
-

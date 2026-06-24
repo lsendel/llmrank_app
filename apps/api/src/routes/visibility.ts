@@ -10,14 +10,6 @@ import {
 import { createVisibilityService } from "@llm-boost/pipeline";
 import { handleServiceError } from "../lib/error-handler";
 import { rateLimit } from "../middleware/rate-limit";
-import { suggestKeywords } from "@llm-boost/llm";
-import {
-  enrichmentQueries,
-  crawlQueries,
-  scoreQueries,
-  scheduledVisibilityQueryQueries,
-} from "@llm-boost/db";
-import { PLATFORM_REQUIREMENTS, validateKeyword } from "@llm-boost/shared";
 import { resolveLocaleForPlan } from "../lib/visibility-locale";
 import { visibilityKeywordRoutes } from "./visibility/keywords";
 import { visibilityRecommendationRoutes } from "./visibility/recommendations";
@@ -244,8 +236,9 @@ visibilityRoutes.get("/:projectId/cited-pages", async (c) => {
     );
   }
 
+  const agencyDb = c.get("agencyDb");
   const { visibilityQueries } = await import("@llm-boost/db");
-  const rows = await visibilityQueries(db).getCitedPages(
+  const rows = await visibilityQueries(agencyDb).getCitedPages(
     projectId,
     localeResolution.locale,
   );
@@ -453,6 +446,7 @@ visibilityRoutes.get("/:projectId/brand-performance", async (c) => {
 
 visibilityRoutes.get("/:projectId/source-opportunities", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
@@ -496,7 +490,7 @@ visibilityRoutes.get("/:projectId/source-opportunities", async (c) => {
   }
 
   const { visibilityQueries } = await import("@llm-boost/db");
-  const rows = await visibilityQueries(db).getSourceOpportunities(
+  const rows = await visibilityQueries(agencyDb).getSourceOpportunities(
     projectId,
     localeResolution.locale,
   );
@@ -663,4 +657,3 @@ visibilityRoutes.get("/:projectId/trends", async (c) => {
 });
 
 // AI score routes extracted into ./visibility/score
-

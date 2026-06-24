@@ -21,9 +21,8 @@ import { persistCrawlSummaryData } from "../services/summary";
 
 export const adminRoutes = new Hono<AppEnv>();
 
-adminRoutes.route("/prompts", adminPromptRoutes);
-
 adminRoutes.use("*", authMiddleware, adminMiddleware);
+adminRoutes.route("/prompts", adminPromptRoutes);
 
 function buildAdminService(c: Context<AppEnv>) {
   return createAdminService({ admin: createAdminRepository(c.get("db")) });
@@ -571,7 +570,7 @@ adminRoutes.get("/settings", async (c) => {
   const httpFallback = await queries.getSetting("http_fallback_enabled");
   return c.json({
     data: {
-      http_fallback_enabled: httpFallback?.value === true,
+      http_fallback_enabled: httpFallback?.value === "true",
     },
   });
 });
@@ -606,8 +605,6 @@ adminRoutes.put("/settings/:key", async (c) => {
 
 adminRoutes.post("/backfill-summaries", async (c) => {
   const db = c.get("db");
-  const databaseUrl = c.env.DATABASE_URL;
-
   try {
     // Get all completed crawls that have NULL summary_data
     const allJobs = await db.query.crawlJobs.findMany({
@@ -620,7 +617,7 @@ adminRoutes.post("/backfill-summaries", async (c) => {
     for (const job of nullJobs) {
       try {
         await persistCrawlSummaryData({
-          databaseUrl,
+          d1: c.env.D1_APP,
           projectId: job.projectId,
           jobId: job.id,
         });

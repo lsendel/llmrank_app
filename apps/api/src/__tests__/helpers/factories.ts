@@ -40,6 +40,7 @@ export type ReportEntity = NonNullable<
 >;
 
 const STATIC_DATE = new Date("2024-01-01T00:00:00.000Z");
+const STATIC_DATE_ISO = STATIC_DATE.toISOString();
 
 export function buildProject(
   overrides: Partial<ProjectEntity> = {},
@@ -49,8 +50,8 @@ export function buildProject(
     userId: "user-1",
     name: "My Site",
     domain: "https://example.com",
-    settings: {},
-    branding: {},
+    settings: "{}",
+    branding: "{}",
     crawlSchedule: "manual",
     nextCrawlAt: null,
     deletedAt: null,
@@ -59,14 +60,14 @@ export function buildProject(
     teamId: null,
     siteDescription: null,
     industry: null,
-    pipelineSettings: {},
+    pipelineSettings: "{}",
     siteDescriptionSource: "auto",
     industrySource: "auto",
     businessGoal: null,
     faviconUrl: null,
     analyticsSnippetEnabled: false,
-    createdAt: STATIC_DATE,
-    updatedAt: STATIC_DATE,
+    createdAt: STATIC_DATE_ISO,
+    updatedAt: STATIC_DATE_ISO,
     ...overrides,
   };
 }
@@ -100,8 +101,8 @@ export function buildUser(overrides: Partial<UserEntity> = {}): UserEntity {
     digestFrequency: "off",
     digestDay: 1,
     lastDigestSentAt: null,
-    createdAt: STATIC_DATE,
-    updatedAt: STATIC_DATE,
+    createdAt: STATIC_DATE_ISO,
+    updatedAt: STATIC_DATE_ISO,
   };
 
   return { ...base, ...overrides };
@@ -114,7 +115,7 @@ export function buildCrawlJob(
     id: "crawl-1",
     projectId: "proj-1",
     status: "pending",
-    config: { seed_urls: ["https://example.com"] },
+    config: JSON.stringify({ seed_urls: ["https://example.com"] }),
     pagesFound: 0,
     pagesCrawled: 0,
     pagesScored: 0,
@@ -133,7 +134,7 @@ export function buildCrawlJob(
     cancelledAt: null,
     cancelledBy: null,
     cancelReason: null,
-    createdAt: STATIC_DATE,
+    createdAt: STATIC_DATE_ISO,
     ...overrides,
   };
 }
@@ -156,11 +157,11 @@ export function buildScore(overrides: Partial<ScoreEntity> = {}): ScoreEntity {
     contentCiteabilityScore: null,
     lighthousePerf: null,
     lighthouseSeo: null,
-    detail: {},
+    detail: "{}",
     platformScores: null,
     recommendations: null,
-    createdAt: STATIC_DATE,
-  } as ScoreEntity;
+    createdAt: STATIC_DATE_ISO,
+  } as unknown as ScoreEntity;
 
   return { ...base, ...overrides };
 }
@@ -178,7 +179,7 @@ export function buildVisibilityCheck(
     urlCited: false,
     citedUrl: null,
     citationPosition: null,
-    competitorMentions: {},
+    competitorMentions: "{}",
     sentiment: null,
     brandDescription: null,
     region: "us",
@@ -221,11 +222,11 @@ export function buildPage(overrides: Partial<PageEntity> = {}): PageEntity {
     htmlLength: 12000,
     r2RawKey: null,
     r2LhKey: null,
-    crawledAt: STATIC_DATE,
-    createdAt: STATIC_DATE,
-    updatedAt: STATIC_DATE,
+    crawledAt: STATIC_DATE_ISO,
+    createdAt: STATIC_DATE_ISO,
+    updatedAt: STATIC_DATE_ISO,
     ...overrides,
-  } as PageEntity;
+  } as unknown as PageEntity;
 }
 
 export function buildReport(
@@ -241,13 +242,13 @@ export function buildReport(
     status: "queued",
     r2Key: null,
     fileSize: null,
-    config: {},
+    config: "{}",
     error: null,
     generatedAt: null,
     expiresAt: null,
-    createdAt: STATIC_DATE,
+    createdAt: STATIC_DATE_ISO,
     ...overrides,
-  } as ReportEntity;
+  } as unknown as ReportEntity;
 }
 
 // ---------------------------------------------------------------------------

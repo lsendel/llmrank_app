@@ -80,20 +80,27 @@ describe("applyProjectWorkspaceDefaults", () => {
       projectId: "proj-2",
       domainOrUrl: "https://example.com",
       defaults: {
-        schedule: "manual",
+        schedule: "daily",
+        maxPages: 25,
+        maxDepth: 4,
         autoRunOnCrawl: false,
-        enableVisibilitySchedule: false,
+        enableVisibilitySchedule: true,
         enableWeeklyDigest: false,
       },
     });
 
     expect(mockProjectUpdate).toHaveBeenCalledWith("proj-2", {
-      settings: { schedule: "manual" },
+      settings: { schedule: "daily", maxPages: 25, maxDepth: 4 },
     });
     expect(mockPipelineUpdate).toHaveBeenCalledWith("proj-2", {
       autoRunOnCrawl: false,
     });
-    expect(mockVisibilityScheduleCreate).not.toHaveBeenCalled();
+    expect(mockVisibilityScheduleCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "proj-2",
+        frequency: "daily",
+      }),
+    );
     expect(mockGetDigestPreferences).not.toHaveBeenCalled();
     expect(mockUpdateDigestPreferences).not.toHaveBeenCalled();
   });

@@ -178,7 +178,7 @@ export function createOrganizationService(db: Database) {
         );
       }
 
-      if (invite.expiresAt < new Date()) {
+      if (new Date(invite.expiresAt) < new Date()) {
         throw new ServiceError(
           "INVITE_EXPIRED",
           410,
@@ -221,7 +221,7 @@ export function createOrganizationService(db: Database) {
         let status: "accepted" | "expired" | "pending";
         if (invite.acceptedAt) {
           status = "accepted";
-        } else if (invite.expiresAt < now) {
+        } else if (new Date(invite.expiresAt) < now) {
           status = "expired";
         } else {
           status = "pending";

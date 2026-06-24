@@ -1,5 +1,5 @@
 import { eq, desc, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { discoveredLinks } from "../schema";
 
 export interface BacklinkSummary {
@@ -42,10 +42,10 @@ export function discoveredLinkQueries(db: Database) {
         chunks.map((chunk) =>
           db
             .insert(discoveredLinks)
-            .values(chunk)
+            .values(chunk.map((c) => ({ ...c, id: crypto.randomUUID() })))
             .onConflictDoUpdate({
               target: [discoveredLinks.sourceUrl, discoveredLinks.targetUrl],
-              set: { lastSeenAt: new Date() },
+              set: { lastSeenAt: new Date().toISOString() },
             }),
         ),
       );
@@ -55,9 +55,9 @@ export function discoveredLinkQueries(db: Database) {
     async getSummary(targetDomain: string): Promise<BacklinkSummary> {
       const [row] = await db
         .select({
-          totalBacklinks: sql<number>`count(*)::int`,
-          referringDomains: sql<number>`count(distinct ${discoveredLinks.sourceDomain})::int`,
-          dofollowRatio: sql<number>`round(avg(case when ${discoveredLinks.rel} = 'dofollow' then 1 else 0 end)::numeric, 2)`,
+          totalBacklinks: sql<number>`count(*)`,
+          referringDomains: sql<number>`count(distinct ${discoveredLinks.sourceDomain})`,
+          dofollowRatio: sql<number>`round(avg(case when ${discoveredLinks.rel} = 'dofollow' then 1.0 else 0.0 end), 2)`,
         })
         .from(discoveredLinks)
         .where(eq(discoveredLinks.targetDomain, targetDomain));
@@ -88,11 +88,11 @@ export function discoveredLinkQueries(db: Database) {
       const rows = await db
         .select({
           domain: discoveredLinks.sourceDomain,
-          linkCount: sql<number>`count(*)::int`,
+          linkCount: sql<number>`count(*)`,
           latestAnchor: sql<
             string | null
-          >`(array_agg(${discoveredLinks.anchorText} order by ${discoveredLinks.lastSeenAt} desc))[1]`,
-          firstSeen: sql<string>`min(${discoveredLinks.discoveredAt})::date::text`,
+          >`(SELECT ${discoveredLinks.anchorText} FROM ${discoveredLinks} dl2 WHERE dl2.source_domain = ${discoveredLinks.sourceDomain} AND dl2.target_domain = ${discoveredLinks.targetDomain} ORDER BY dl2.last_seen_at DESC LIMIT 1)`,
+          firstSeen: sql<string>`CAST(min(${discoveredLinks.discoveredAt}) AS TEXT)`,
         })
         .from(discoveredLinks)
         .where(eq(discoveredLinks.targetDomain, targetDomain))
@@ -111,7 +111,7 @@ export function discoveredLinkQueries(db: Database) {
     /** Total count of links pointing to a target domain. */
     async countForDomain(targetDomain: string): Promise<number> {
       const [row] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(discoveredLinks)
         .where(eq(discoveredLinks.targetDomain, targetDomain));
       return row?.count ?? 0;

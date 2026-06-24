@@ -103,7 +103,7 @@ describe("digestPreferenceQueries", () => {
       expect.objectContaining({
         digestFrequency: "monthly",
         digestDay: 15,
-        updatedAt: expect.any(Date),
+        updatedAt: expect.any(String),
       }),
     );
     expect(mock.chain.where).toHaveBeenCalled();
@@ -147,8 +147,8 @@ describe("digestPreferenceQueries", () => {
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        lastDigestSentAt: expect.any(Date),
-        updatedAt: expect.any(Date),
+        lastDigestSentAt: expect.any(String),
+        updatedAt: expect.any(String),
       }),
     );
     expect(mock.chain.where).toHaveBeenCalled();

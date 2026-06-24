@@ -1,5 +1,5 @@
 import { eq, and, or, isNull, lt } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { users } from "../schema";
 
 export function digestPreferenceQueries(db: Database) {
@@ -22,7 +22,7 @@ export function digestPreferenceQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(users)
-        .set({ ...prefs, updatedAt: new Date() })
+        .set({ ...prefs, updatedAt: new Date().toISOString() })
         .where(eq(users.id, userId))
         .returning({
           digestFrequency: users.digestFrequency,
@@ -50,7 +50,7 @@ export function digestPreferenceQueries(db: Database) {
             eq(users.digestFrequency, frequency),
             or(
               isNull(users.lastDigestSentAt),
-              lt(users.lastDigestSentAt, cutoffDate),
+              lt(users.lastDigestSentAt, cutoffDate.toISOString()),
             ),
           ),
         );
@@ -59,7 +59,10 @@ export function digestPreferenceQueries(db: Database) {
     async markDigestSent(userId: string) {
       await db
         .update(users)
-        .set({ lastDigestSentAt: new Date(), updatedAt: new Date() })
+        .set({
+          lastDigestSentAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(users.id, userId));
     },
   };

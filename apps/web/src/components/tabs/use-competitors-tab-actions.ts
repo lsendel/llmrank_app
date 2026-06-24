@@ -9,12 +9,14 @@ type UseCompetitorsTabActionsArgs = {
   projectId: string;
   mutateBenchmarks: AsyncMutator;
   mutateStrategy: AsyncMutator;
+  mutateInsights: AsyncMutator;
 };
 
 export function useCompetitorsTabActions({
   projectId,
   mutateBenchmarks,
   mutateStrategy,
+  mutateInsights,
 }: UseCompetitorsTabActionsArgs) {
   const { withAuth } = useApi();
   const [activeTab, setActiveTab] = useState<SubTab>("benchmark");
@@ -28,8 +30,8 @@ export function useCompetitorsTabActions({
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([mutateBenchmarks(), mutateStrategy()]);
-  }, [mutateBenchmarks, mutateStrategy]);
+    await Promise.all([mutateBenchmarks(), mutateStrategy(), mutateInsights()]);
+  }, [mutateBenchmarks, mutateInsights, mutateStrategy]);
 
   const runBenchmark = useCallback(
     async (domain: string) => {
@@ -77,7 +79,7 @@ export function useCompetitorsTabActions({
         await withAuth(() =>
           api.competitorMonitoring.rebenchmark(competitorId),
         );
-        await mutateBenchmarks();
+        await Promise.all([mutateBenchmarks(), mutateInsights()]);
       } catch (err: unknown) {
         setLastFailedAction(() => async () => {
           await runRebenchmark(competitorId);
@@ -87,7 +89,7 @@ export function useCompetitorsTabActions({
         setRebenchmarkingId(null);
       }
     },
-    [mutateBenchmarks, withAuth],
+    [mutateBenchmarks, mutateInsights, withAuth],
   );
 
   const handleRebenchmark = useCallback(

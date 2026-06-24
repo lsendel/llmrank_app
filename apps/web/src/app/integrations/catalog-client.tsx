@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { canAccessIntegration, type PlanTier } from "@llm-boost/shared";
+import { IntegrationResourceLinks } from "@/components/integrations/integration-resource-links";
 import { useUser } from "@/lib/auth-hooks";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type BillingInfo, type IntegrationCatalogItem } from "@/lib/api";
@@ -58,7 +59,7 @@ export function IntegrationCatalogClient() {
   const currentPlan = (billing?.plan ?? "free") as PlanTier;
 
   function trackConnectClick(
-    provider: "gsc" | "ga4" | "mcp" | "wordpress" | "slack",
+    provider: "gsc" | "ga4" | "meta" | "mcp" | "wordpress" | "slack",
     destination: string,
     state: "signed_out" | "needs_project" | "upgrade_required" | "ready",
   ) {
@@ -104,6 +105,7 @@ export function IntegrationCatalogClient() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {catalog.map((integration) => {
+          const resourceKey = integration.provider ?? integration.id;
           const isComingSoon = integration.availability === "coming_soon";
           const requiresAuth = integration.access === "requires_auth";
           const isConnected =
@@ -204,6 +206,11 @@ export function IntegrationCatalogClient() {
                   ))}
                 </ul>
 
+                <IntegrationResourceLinks
+                  resourceKey={resourceKey}
+                  className="mb-4"
+                />
+
                 {buttonDisabled ? (
                   <Button variant={buttonVariant} disabled className="w-full">
                     {buttonLabel}
@@ -214,9 +221,10 @@ export function IntegrationCatalogClient() {
                       href={buttonHref}
                       onClick={() =>
                         trackConnectClick(
-                          (integration.provider ?? integration.id) as
+                          resourceKey as
                             | "gsc"
                             | "ga4"
+                            | "meta"
                             | "mcp"
                             | "wordpress"
                             | "slack",

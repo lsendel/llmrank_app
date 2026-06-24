@@ -88,6 +88,15 @@ vi.mock("@llm-boost/scoring", () => ({
   scorePage: mockScorePage,
   detectContentType: mockDetectContentType,
   generateRecommendations: mockGenerateRecommendations,
+  scoringResultToDimensions: vi.fn().mockReturnValue({
+    llms_txt: 100,
+    robots_txt: 100,
+    sitemap: 100,
+    schema_markup: 100,
+    meta_tags: 100,
+    bot_access: 100,
+    content_citeability: 100,
+  }),
 }));
 
 vi.mock("../../services/llm-scoring", () => ({
@@ -122,7 +131,7 @@ vi.mock("../../services/frontier-service", () => ({
 }));
 
 vi.mock("@llm-boost/db", () => ({
-  createDb: vi.fn().mockReturnValue({}),
+  createAppDb: vi.fn().mockReturnValue({}),
   projectQueries: vi.fn().mockReturnValue({
     getById: vi.fn().mockResolvedValue({
       id: "proj-1",

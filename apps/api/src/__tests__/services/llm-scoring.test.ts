@@ -13,7 +13,8 @@ const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
 
 vi.mock("@llm-boost/db", () => ({
-  createDb: vi.fn().mockReturnValue({}),
+  createAppDb: vi.fn().mockReturnValue({}),
+  createAgencyDb: vi.fn().mockReturnValue({}),
   scoreQueries: vi.fn(() => ({
     update: mockUpdate,
     updateDetail: mockUpdateDetail,
@@ -29,6 +30,10 @@ vi.mock("@llm-boost/db", () => ({
 vi.mock("@llm-boost/llm", () => ({
   LLMScorer: vi.fn().mockImplementation(() => ({
     scoreContent: mockScoreContent,
+    buildBatchRequests: vi.fn().mockImplementation(async (pages: any[]) => ({
+      cached: [],
+      requests: pages.map((p: any) => ({ custom_id: p.pageId })),
+    })),
   })),
 }));
 

@@ -9,6 +9,7 @@ function makeIssue(
     severity: string;
     message: string;
     recommendation: string | null;
+    pageUrl: string | null;
   }>,
 ) {
   return {
@@ -17,6 +18,7 @@ function makeIssue(
     severity: overrides?.severity ?? "warning",
     message: overrides?.message ?? `Issue: ${code}`,
     recommendation: overrides?.recommendation ?? null,
+    pageUrl: overrides?.pageUrl ?? null,
   };
 }
 
@@ -73,5 +75,33 @@ describe("getQuickWins", () => {
 
     const wins = getQuickWins(issues);
     expect(wins.every((w) => w.code !== "TOTALLY_FAKE_CODE")).toBe(true);
+  });
+
+  it("collects sample page URLs (up to 3, deduplicated)", () => {
+    const issues = [
+      makeIssue("MISSING_TITLE", { pageUrl: "https://example.com/" }),
+      makeIssue("MISSING_TITLE", { pageUrl: "https://example.com/about" }),
+      makeIssue("MISSING_TITLE", { pageUrl: "https://example.com/contact" }),
+      makeIssue("MISSING_TITLE", { pageUrl: "https://example.com/blog" }),
+      makeIssue("MISSING_TITLE", { pageUrl: "https://example.com/" }), // duplicate
+    ];
+
+    const wins = getQuickWins(issues);
+    const titleWin = wins.find((w) => w.code === "MISSING_TITLE");
+    expect(titleWin).toBeDefined();
+    expect(titleWin!.affectedPages).toBe(5);
+    expect(titleWin!.samplePageUrls).toHaveLength(3);
+    expect(titleWin!.samplePageUrls).toEqual([
+      "https://example.com/",
+      "https://example.com/about",
+      "https://example.com/contact",
+    ]);
+  });
+
+  it("returns empty samplePageUrls when no pageUrl is provided", () => {
+    const issues = [makeIssue("MISSING_TITLE")];
+    const wins = getQuickWins(issues);
+    const titleWin = wins.find((w) => w.code === "MISSING_TITLE");
+    expect(titleWin!.samplePageUrls).toEqual([]);
   });
 });

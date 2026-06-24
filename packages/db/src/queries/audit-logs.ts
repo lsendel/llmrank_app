@@ -1,5 +1,5 @@
 import { eq, desc, and, gte, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AdminDatabase as Database } from "../d1-client";
 import { auditLogs } from "../schema";
 
 export function auditLogWriteQueries(db: Database) {
@@ -14,7 +14,15 @@ export function auditLogWriteQueries(db: Database) {
       ipAddress?: string;
       userAgent?: string;
     }) {
-      const [log] = await db.insert(auditLogs).values(data).returning();
+      const [log] = await db
+        .insert(auditLogs)
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          metadata:
+            data.metadata != null ? JSON.stringify(data.metadata) : undefined,
+        })
+        .returning();
       return log;
     },
 
@@ -39,10 +47,13 @@ export function auditLogWriteQueries(db: Database) {
 
     async countByActionSince(action: string, since: Date) {
       const rows = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(auditLogs)
         .where(
-          and(eq(auditLogs.action, action), gte(auditLogs.createdAt, since)),
+          and(
+            eq(auditLogs.action, action),
+            gte(auditLogs.createdAt, since.toISOString()),
+          ),
         );
       return rows[0]?.count ?? 0;
     },

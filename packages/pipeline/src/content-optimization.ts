@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { createDb, pageQueries, scoreQueries } from "@llm-boost/db";
+import { createAgencyDb, pageQueries, scoreQueries } from "@llm-boost/db";
 
 export interface ContentOptimizationInput {
   databaseUrl: string;
@@ -30,7 +30,8 @@ export interface ContentOptimizationResult {
 export async function runContentOptimization(
   input: ContentOptimizationInput,
 ): Promise<ContentOptimizationResult> {
-  const db = createDb(input.databaseUrl);
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
   const pages = await pageQueries(db).listByJob(input.crawlJobId);
   const scores = await scoreQueries(db).listByJob(input.crawlJobId);
   const issues = await scoreQueries(db).getIssuesByJob(input.crawlJobId);

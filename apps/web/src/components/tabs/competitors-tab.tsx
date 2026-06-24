@@ -23,8 +23,10 @@ export function CompetitorsTab({ projectId }: Props) {
     competitorDomains,
     strategyByDomain,
     trendCompetitors,
+    competitorInsights,
     mutateBenchmarks,
     mutateStrategy,
+    mutateInsights,
   } = useCompetitorsTabData({ projectId });
   const {
     activeTab,
@@ -44,6 +46,7 @@ export function CompetitorsTab({ projectId }: Props) {
     projectId,
     mutateBenchmarks,
     mutateStrategy,
+    mutateInsights,
   });
 
   return (
@@ -65,6 +68,7 @@ export function CompetitorsTab({ projectId }: Props) {
           rebenchmarkingId={rebenchmarkingId}
           togglingId={togglingId}
           competitors={competitors}
+          competitorInsights={competitorInsights}
           projectScores={projectScores}
           strategyByDomain={strategyByDomain}
           onDomainChange={setNewDomain}

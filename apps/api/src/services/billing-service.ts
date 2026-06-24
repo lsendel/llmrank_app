@@ -2,8 +2,12 @@ import {
   PLAN_LIMITS,
   ERROR_CODES,
   resolveEffectivePlan,
+  type PlanTier,
 } from "@llm-boost/shared";
-import type { BillingRepository, UserRepository } from "@llm-boost/repositories";
+import type {
+  BillingRepository,
+  UserRepository,
+} from "@llm-boost/repositories";
 import { StripeGateway, priceIdFromPlanCode } from "@llm-boost/billing";
 import { promoQueries } from "@llm-boost/db";
 import type { Database } from "@llm-boost/db";
@@ -70,7 +74,10 @@ export function createBillingService(deps: BillingServiceDeps) {
         const err = ERROR_CODES.NOT_FOUND;
         throw new ServiceError("NOT_FOUND", err.status, "User not found");
       }
-      const effectivePlan = resolveEffectivePlan(user);
+      const effectivePlan = resolveEffectivePlan({
+        ...user,
+        plan: user.plan as PlanTier,
+      });
       const limits = PLAN_LIMITS[effectivePlan];
       return {
         plan: user.plan,
@@ -254,7 +261,7 @@ export function createBillingService(deps: BillingServiceDeps) {
       if (!promo) {
         throw new ServiceError("NOT_FOUND", 404, "Promo code not found");
       }
-      if (promo.expiresAt && promo.expiresAt < new Date()) {
+      if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
         throw new ServiceError(
           "VALIDATION_ERROR",
           422,

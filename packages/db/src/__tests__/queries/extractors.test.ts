@@ -108,6 +108,7 @@ describe("extractorQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       projectId: "p1",
       name: "Email",
       type: "regex",
@@ -172,7 +173,7 @@ describe("extractorQueries", () => {
     await queries.update("ex1", "p1", { name: "New Name" });
 
     const setArg = mock.chain.set.mock.calls[0][0];
-    expect(setArg.updatedAt).toBeInstanceOf(Date);
+    expect(typeof setArg.updatedAt).toBe("string");
   });
 
   // --- remove ---

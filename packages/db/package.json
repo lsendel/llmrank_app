@@ -9,9 +9,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push",
+    "generate:d1": "drizzle-kit generate --config=drizzle-d1.config.ts",
+    "generate:supabase": "drizzle-kit generate --config=drizzle-supabase.config.ts",
+    "push:supabase": "drizzle-kit push --config=drizzle-supabase.config.ts",
     "studio": "drizzle-kit studio",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@llm-boost/shared": "workspace:*",
-    "@neondatabase/serverless": "^0.10",
+    "postgres": "^3.4",
     "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {

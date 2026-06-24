@@ -14,11 +14,7 @@ import {
   crawlQueries,
   projectQueries,
 } from "@llm-boost/db";
-import {
-  SkeletonCard,
-  SkeletonTable,
-  Breadcrumb,
-} from "../views/htmx-helpers";
+import { SkeletonCard, SkeletonTable, Breadcrumb } from "../views/htmx-helpers";
 
 export const appRoutes = new Hono<AppEnv>();
 
@@ -214,7 +210,7 @@ appRoutes.get("/projects/cards", async (c) => {
       letterGrade: string | null;
       pagesCrawled: number | null;
       pagesScored: number | null;
-      completedAt: Date | null;
+      completedAt: string | null;
     }
   >();
   for (const crawl of recentCrawls) {
@@ -531,4 +527,3 @@ appRoutes.get("/projects/:id/issues/list", async (c) => {
 
 // Legacy project workspace routes extracted into ./app/project-workspace
 // Legacy page detail routes extracted into ./app/page-detail
-

@@ -83,7 +83,11 @@ badgeRoutes.get("/:token.svg", async (c) => {
     );
   }
 
-  const sd = (crawlJob.summaryData as Record<string, unknown>) ?? {};
+  const sd = (
+    typeof crawlJob.summaryData === "string"
+      ? JSON.parse(crawlJob.summaryData)
+      : (crawlJob.summaryData ?? {})
+  ) as Record<string, unknown>;
   const cats = (sd.categoryScores as Record<string, number>) ?? {};
 
   const badge = renderBadgeSvg({
@@ -95,8 +99,7 @@ badgeRoutes.get("/:token.svg", async (c) => {
     aiReadiness: Math.round(cats.aiReadiness ?? 0),
     performance: Math.round(cats.performance ?? 0),
     domain: project.domain,
-    scannedAt:
-      crawlJob.completedAt?.toISOString() ?? crawlJob.createdAt.toISOString(),
+    scannedAt: crawlJob.completedAt ?? crawlJob.createdAt,
   });
 
   c.header("Content-Type", "image/svg+xml");

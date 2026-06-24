@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { customExtractors } from "../schema";
 
 export function extractorQueries(db: Database) {
@@ -19,7 +19,7 @@ export function extractorQueries(db: Database) {
     }) {
       const [extractor] = await db
         .insert(customExtractors)
-        .values(data)
+        .values({ ...data, id: crypto.randomUUID() })
         .returning();
       return extractor;
     },
@@ -31,7 +31,7 @@ export function extractorQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(customExtractors)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...data, updatedAt: new Date().toISOString() })
         .where(
           and(
             eq(customExtractors.id, id),

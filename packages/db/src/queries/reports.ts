@@ -1,8 +1,7 @@
 import { eq, and, desc, gte, sql } from "drizzle-orm";
-import type { Database } from "../client";
-import { reports, reportStatusEnum } from "../schema";
-
-type ReportStatus = (typeof reportStatusEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { reports } from "../schema";
+import type { ReportStatus } from "../schema/enums";
 
 export function reportQueries(db: Database) {
   return {
@@ -34,7 +33,10 @@ export function reportQueries(db: Database) {
         .select({ count: sql<number>`count(*)` })
         .from(reports)
         .where(
-          and(eq(reports.userId, userId), gte(reports.createdAt, startOfMonth)),
+          and(
+            eq(reports.userId, userId),
+            gte(reports.createdAt, startOfMonth.toISOString()),
+          ),
         );
       return Number(rows[0]?.count ?? 0);
     },

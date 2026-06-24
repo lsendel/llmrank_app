@@ -30,6 +30,22 @@ interface AiTrafficSummary {
   topPages?: Array<{ path: string; aiVisits: number; totalVisits: number }>;
 }
 
+interface AnalyticsSummaryResponse {
+  totalPageviews: number;
+  aiTraffic: {
+    referral: number;
+    bot: number;
+    total: number;
+  };
+  retentionDays: number;
+  trend: {
+    pageviewsTrend: number | null;
+    aiTrafficTrend: number | null;
+  };
+  byProvider?: Record<string, number>;
+  topPages?: Array<{ path: string; aiVisits: number; totalVisits: number }>;
+}
+
 interface AiTrafficTabProps {
   projectId: string;
   snippetEnabled: boolean;
@@ -71,25 +87,8 @@ export function AiTrafficTab({ projectId, snippetEnabled }: AiTrafficTabProps) {
   useEffect(() => {
     api.analytics
       .getSummary(projectId)
-      .then((data) => {
-        setSummary({
-          totalPageviews: data.totalVisits,
-          aiTraffic: {
-            referral: data.aiTraffic.byProvider
-              .filter((p) => p.type === "referral")
-              .reduce((sum, p) => sum + p.visits, 0),
-            bot: data.aiTraffic.byProvider
-              .filter((p) => p.type === "bot")
-              .reduce((sum, p) => sum + p.visits, 0),
-            total: data.aiTraffic.total,
-          },
-          retentionDays: 30,
-          trend: data.trend,
-          byProvider: Object.fromEntries(
-            data.aiTraffic.byProvider.map((p) => [p.provider, p.visits]),
-          ),
-          topPages: data.topPages,
-        });
+      .then((data: AnalyticsSummaryResponse) => {
+        setSummary(data);
       })
       .catch((err: unknown) =>
         setError(

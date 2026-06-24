@@ -1,5 +1,5 @@
 import { eq, and, desc, sql } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AgencyDatabase as Database } from "../supabase-client";
 import { narrativeReports } from "../schema";
 
 export function narrativeQueries(db: Database) {

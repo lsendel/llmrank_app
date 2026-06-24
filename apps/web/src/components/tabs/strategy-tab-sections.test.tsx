@@ -80,7 +80,7 @@ describe("strategy-tab-sections", () => {
       />,
     );
 
-    expect(screen.getByText("No competitors added yet")).toBeInTheDocument();
+    expect(screen.getByText("No competitors tracked")).toBeInTheDocument();
 
     rerender(
       <CompetitorTrackingSection
@@ -127,8 +127,7 @@ describe("strategy-tab-sections", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Discover Personas"));
-    expect(onGeneratePersonas).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("No personas yet")).toBeInTheDocument();
 
     rerender(
       <PersonaDiscoverySection
@@ -143,5 +142,8 @@ describe("strategy-tab-sections", () => {
     expect(screen.getByText("Improve AI visibility")).toBeInTheDocument();
     expect(screen.getByText("best ai seo tools")).toBeInTheDocument();
     expect(screen.getByText("Regenerate")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Regenerate"));
+    expect(onGeneratePersonas).toHaveBeenCalledTimes(1);
   });
 });

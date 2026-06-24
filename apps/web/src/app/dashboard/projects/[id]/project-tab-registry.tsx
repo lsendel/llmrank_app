@@ -6,7 +6,7 @@ import { StateMessage } from "@/components/ui/state";
 
 type ReportsTabProps = { projectId: string; crawlJobId: string | undefined };
 type CompetitorsTabProps = { projectId: string };
-type AiAnalysisTabProps = { crawlJobId?: string };
+type AiAnalysisTabProps = { projectId: string; crawlJobId?: string };
 type AiTrafficTabProps = { projectId: string; snippetEnabled: boolean };
 
 function TabLoadingSkeleton() {

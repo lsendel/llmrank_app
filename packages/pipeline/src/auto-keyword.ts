@@ -1,11 +1,11 @@
 import {
-  createDb,
+  createAgencyDb,
   savedKeywordQueries,
   projectQueries,
   userQueries,
   pageQueries,
 } from "@llm-boost/db";
-import { PLAN_LIMITS, validateKeyword } from "@llm-boost/shared";
+import { PLAN_LIMITS, validateKeyword, type PlanTier } from "@llm-boost/shared";
 import { createLogger } from "@llm-boost/shared";
 
 export interface AutoKeywordInput {
@@ -19,7 +19,8 @@ export async function runAutoKeywordGeneration(
   input: AutoKeywordInput,
 ): Promise<void> {
   const log = createLogger({ context: "auto-keyword" });
-  const db = createDb(input.databaseUrl);
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
 
   const existing = await savedKeywordQueries(db).countByProject(
     input.projectId,
@@ -37,7 +38,7 @@ export async function runAutoKeywordGeneration(
   const user = await userQueries(db).getById(project.userId);
   if (!user) return;
 
-  const limits = PLAN_LIMITS[user.plan];
+  const limits = PLAN_LIMITS[user.plan as PlanTier];
 
   // Gather context from crawled pages
   const pages = await pageQueries(db).listByJob(input.crawlJobId);

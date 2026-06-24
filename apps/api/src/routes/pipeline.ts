@@ -3,7 +3,10 @@ import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { withOwnership } from "../middleware/ownership";
 import { pipelineRunQueries, projectQueries } from "@llm-boost/db";
-import { runHealthCheck, createRecommendationsService } from "@llm-boost/pipeline";
+import {
+  runHealthCheck,
+  createRecommendationsService,
+} from "@llm-boost/pipeline";
 
 export const pipelineRoutes = new Hono<AppEnv>();
 
@@ -23,9 +26,9 @@ pipelineRoutes.get(
         status: r.status,
         currentStep: r.currentStep,
         stepResults: r.stepResults,
-        startedAt: r.startedAt?.toISOString() ?? null,
-        completedAt: r.completedAt?.toISOString() ?? null,
-        createdAt: r.createdAt.toISOString(),
+        startedAt: r.startedAt ?? null,
+        completedAt: r.completedAt ?? null,
+        createdAt: r.createdAt,
       })),
     });
   },
@@ -49,9 +52,9 @@ pipelineRoutes.get(
         status: run.status,
         currentStep: run.currentStep,
         stepResults: run.stepResults,
-        startedAt: run.startedAt?.toISOString() ?? null,
-        completedAt: run.completedAt?.toISOString() ?? null,
-        createdAt: run.createdAt.toISOString(),
+        startedAt: run.startedAt ?? null,
+        completedAt: run.completedAt ?? null,
+        createdAt: run.createdAt,
       },
     });
   },
@@ -100,7 +103,7 @@ pipelineRoutes.get(
     }
 
     const result = await runHealthCheck({
-      databaseUrl: c.env.DATABASE_URL,
+      databaseUrl: c.env.SUPABASE.connectionString,
       projectId,
       crawlJobId: latestCrawl.id,
     });

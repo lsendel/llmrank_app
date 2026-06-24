@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
-import { createProjectRepository, createUserRepository } from "@llm-boost/repositories";
+import {
+  createProjectRepository,
+  createUserRepository,
+} from "@llm-boost/repositories";
 import { visibilityQueries, brandSentimentQueries } from "@llm-boost/db";
 import { resolveLocaleForPlan } from "../lib/visibility-locale";
 
@@ -15,6 +18,7 @@ brandPerformanceRoutes.use("*", authMiddleware);
 
 brandPerformanceRoutes.get("/:projectId/sentiment", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
@@ -51,14 +55,17 @@ brandPerformanceRoutes.get("/:projectId/sentiment", async (c) => {
     );
   }
 
-  const checks = await visibilityQueries(db).getSentimentSummary(projectId, {
-    ...(localeResolution.locale.region
-      ? { region: localeResolution.locale.region }
-      : {}),
-    ...(localeResolution.locale.language
-      ? { language: localeResolution.locale.language }
-      : {}),
-  });
+  const checks = await visibilityQueries(agencyDb).getSentimentSummary(
+    projectId,
+    {
+      ...(localeResolution.locale.region
+        ? { region: localeResolution.locale.region }
+        : {}),
+      ...(localeResolution.locale.language
+        ? { language: localeResolution.locale.language }
+        : {}),
+    },
+  );
 
   if (checks.length === 0) {
     return c.json({
@@ -142,6 +149,7 @@ brandPerformanceRoutes.get("/:projectId/sentiment", async (c) => {
 
 brandPerformanceRoutes.get("/:projectId/sentiment/history", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
@@ -153,7 +161,10 @@ brandPerformanceRoutes.get("/:projectId/sentiment/history", async (c) => {
     );
   }
 
-  const snapshots = await brandSentimentQueries(db).getHistory(projectId, 12);
+  const snapshots = await brandSentimentQueries(agencyDb).getHistory(
+    projectId,
+    12,
+  );
   return c.json({ data: snapshots });
 });
 
@@ -163,6 +174,7 @@ brandPerformanceRoutes.get("/:projectId/sentiment/history", async (c) => {
 
 brandPerformanceRoutes.get("/:projectId/perception", async (c) => {
   const db = c.get("db");
+  const agencyDb = c.get("agencyDb");
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
@@ -198,14 +210,17 @@ brandPerformanceRoutes.get("/:projectId/perception", async (c) => {
       422,
     );
   }
-  const checks = await visibilityQueries(db).getSentimentSummary(projectId, {
-    ...(localeResolution.locale.region
-      ? { region: localeResolution.locale.region }
-      : {}),
-    ...(localeResolution.locale.language
-      ? { language: localeResolution.locale.language }
-      : {}),
-  });
+  const checks = await visibilityQueries(agencyDb).getSentimentSummary(
+    projectId,
+    {
+      ...(localeResolution.locale.region
+        ? { region: localeResolution.locale.region }
+        : {}),
+      ...(localeResolution.locale.language
+        ? { language: localeResolution.locale.language }
+        : {}),
+    },
+  );
 
   if (checks.length === 0) {
     return c.json({ data: [] });

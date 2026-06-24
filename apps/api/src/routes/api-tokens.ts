@@ -22,7 +22,7 @@ tokenRoutes.use("*", authMiddleware);
 // ---------------------------------------------------------------------------
 
 function buildService(c: {
-  get(key: "db"): ReturnType<typeof import("@llm-boost/db").createDb>;
+  get(key: "db"): import("@llm-boost/db").AppDatabase;
 }) {
   const db = c.get("db");
   return createApiTokenService({

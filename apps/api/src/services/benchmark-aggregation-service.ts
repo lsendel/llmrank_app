@@ -13,7 +13,7 @@ export async function aggregateBenchmarks(db: Database, kv: KVNamespace) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const result = await db.execute(
+  const result = await db.all(
     sql`SELECT ps.overall_score
         FROM page_scores ps
         JOIN crawl_jobs cj ON ps.job_id = cj.id
@@ -22,7 +22,7 @@ export async function aggregateBenchmarks(db: Database, kv: KVNamespace) {
         ORDER BY ps.overall_score ASC`,
   );
 
-  const scores = result.rows
+  const scores = result
     .map((r: any) => Number(r.overall_score))
     .filter((s: number) => !isNaN(s));
 

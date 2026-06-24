@@ -290,10 +290,11 @@ projectRoutes.get(
   async (c) => {
     const projectId = c.req.param("id");
     const db = c.get("db");
+    const agencyDb = c.get("agencyDb");
 
     const [visChecks, personaCount, reports, scheduleCount, actionItems] =
       await Promise.all([
-        visibilityQueries(db).listByProject(projectId),
+        visibilityQueries(agencyDb).listByProject(projectId),
         personaQueries(db).countByProject(projectId),
         reportQueries(db).listByProject(projectId),
         scheduledVisibilityQueryQueries(db).countByProject(projectId),
@@ -458,11 +459,10 @@ projectRoutes.post(
       await competitorQueries(db).removeMany(autoDiscoveredIds);
     }
 
-    const { runAutoCompetitorDiscovery } =
-      await import("@llm-boost/pipeline");
+    const { runAutoCompetitorDiscovery } = await import("@llm-boost/pipeline");
 
     const promise = runAutoCompetitorDiscovery({
-      databaseUrl: c.env.DATABASE_URL,
+      databaseUrl: c.env.SUPABASE.connectionString,
       projectId,
       anthropicApiKey: c.env.ANTHROPIC_API_KEY,
       perplexityApiKey: c.env.PERPLEXITY_API_KEY,

@@ -1,4 +1,4 @@
-import { createDb, outboxEvents, eq, and, lte, sql } from "@llm-boost/db";
+import { createAppDb, outboxEvents, eq, and, lte, sql } from "@llm-boost/db";
 import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import { generateCrawlSummary, type SummaryInput } from "./summary";
@@ -28,14 +28,13 @@ interface OutboxEnv {
 async function processEvent(
   type: ProcessableType,
   payload: Record<string, unknown>,
-  databaseUrl: string,
+  _d1: D1Database,
   env?: OutboxEnv,
 ): Promise<void> {
   switch (type) {
     case "llm_scoring": {
       const enriched = {
         ...payload,
-        databaseUrl: payload.databaseUrl ?? databaseUrl,
         anthropicApiKey: env?.ANTHROPIC_API_KEY ?? payload.anthropicApiKey,
         kvNamespace: env?.KV ?? payload.kvNamespace,
         r2Bucket: env?.R2 ?? payload.r2Bucket,
@@ -49,7 +48,7 @@ async function processEvent(
     case "integration_enrichment": {
       const enriched = {
         ...payload,
-        databaseUrl: payload.databaseUrl ?? databaseUrl,
+        d1: _d1,
         encryptionKey: env?.INTEGRATION_ENCRYPTION_KEY ?? payload.encryptionKey,
         googleClientId: env?.GOOGLE_OAUTH_CLIENT_ID ?? payload.googleClientId,
         googleClientSecret:
@@ -63,6 +62,7 @@ async function processEvent(
     case "crawl_summary": {
       const enriched = {
         ...payload,
+        d1: _d1,
         anthropicApiKey: env?.ANTHROPIC_API_KEY ?? payload.anthropicApiKey,
       };
       await generateCrawlSummary(enriched as unknown as SummaryInput);
@@ -79,11 +79,11 @@ async function processEvent(
  * events (email:*, webhook:*) untouched for the notification service.
  */
 export async function processOutboxEvents(
-  databaseUrl: string,
+  d1: D1Database,
   env?: OutboxEnv,
 ): Promise<{ processed: number; failed: number }> {
   const log = createLogger({ context: "outbox-processor" });
-  const db = createDb(databaseUrl);
+  const db = createAppDb(d1);
 
   const events = await db
     .select()
@@ -91,7 +91,7 @@ export async function processOutboxEvents(
     .where(
       and(
         eq(outboxEvents.status, "pending"),
-        lte(outboxEvents.availableAt, new Date()),
+        lte(outboxEvents.availableAt, new Date().toISOString()),
         sql`${outboxEvents.type} IN ('integration_enrichment', 'llm_scoring', 'crawl_summary')`,
         sql`${outboxEvents.attempts} <= ${MAX_ATTEMPTS}`,
       ) as any,
@@ -113,14 +113,19 @@ export async function processOutboxEvents(
     try {
       await processEvent(
         event.type as ProcessableType,
-        event.payload as Record<string, unknown>,
-        databaseUrl,
+        (typeof event.payload === "string"
+          ? JSON.parse(event.payload)
+          : event.payload) as Record<string, unknown>,
+        d1,
         env,
       );
 
       await db
         .update(outboxEvents)
-        .set({ status: "completed", processedAt: new Date() } as any)
+        .set({
+          status: "completed",
+          processedAt: new Date().toISOString(),
+        } as any)
         .where(eq(outboxEvents.id, event.id) as any);
 
       processed++;
@@ -140,7 +145,7 @@ export async function processOutboxEvents(
         .update(outboxEvents)
         .set({
           attempts: event.attempts + 1,
-          availableAt: new Date(Date.now() + 120_000),
+          availableAt: new Date(Date.now() + 120_000).toISOString(),
         } as any)
         .where(eq(outboxEvents.id, event.id) as any);
     }
@@ -162,7 +167,7 @@ export async function processOutboxEvents(
     for (const event of staleEvents) {
       await db
         .update(outboxEvents)
-        .set({ status: "failed" as any, processedAt: new Date() })
+        .set({ status: "failed" as any, processedAt: new Date().toISOString() })
         .where(eq(outboxEvents.id, event.id) as any);
     }
     log.warn(

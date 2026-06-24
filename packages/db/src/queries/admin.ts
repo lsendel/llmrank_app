@@ -3,14 +3,14 @@ import {
   sql,
   and,
   or,
-  ilike,
+  like,
   desc,
   count,
   countDistinct,
   inArray,
   gt,
 } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import {
   users,
   subscriptions,
@@ -85,7 +85,9 @@ export function adminQueries(db: Database) {
         .from(payments)
         .where(eq(payments.status, "failed"));
 
-      const recentWindow = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentWindow = new Date(
+        Date.now() - 24 * 60 * 60 * 1000,
+      ).toISOString();
 
       const [pendingJobsResult] = await db
         .select({ value: count() })
@@ -109,7 +111,7 @@ export function adminQueries(db: Database) {
 
       const [avgDurationResult] = await db
         .select({
-          value: sql<number>`coalesce(avg(extract(epoch from ${crawlJobs.completedAt} - ${crawlJobs.startedAt})), 0)`,
+          value: sql<number>`coalesce(avg(unixepoch(${crawlJobs.completedAt}) - unixepoch(${crawlJobs.startedAt})), 0)`,
         })
         .from(crawlJobs)
         .where(
@@ -156,8 +158,8 @@ export function adminQueries(db: Database) {
 
       const where = opts.search
         ? or(
-            ilike(users.email, `%${opts.search}%`),
-            ilike(users.name, `%${opts.search}%`),
+            like(users.email, `%${opts.search}%`),
+            like(users.name, `%${opts.search}%`),
           )
         : undefined;
 
@@ -317,7 +319,7 @@ export function adminQueries(db: Database) {
     async replayOutboxEvent(eventId: string) {
       const [row] = await db
         .update(outboxEvents)
-        .set({ status: "pending", availableAt: sql`NOW()` })
+        .set({ status: "pending", availableAt: sql`datetime('now')` })
         .where(eq(outboxEvents.id, eventId))
         .returning({ id: outboxEvents.id, status: outboxEvents.status });
       return row ?? null;
@@ -328,9 +330,9 @@ export function adminQueries(db: Database) {
         .update(crawlJobs)
         .set({
           status: "failed",
-          completedAt: new Date(),
+          completedAt: new Date().toISOString(),
           errorMessage: reason,
-          cancelledAt: new Date(),
+          cancelledAt: new Date().toISOString(),
           cancelledBy: adminId,
           cancelReason: reason,
         })
@@ -347,6 +349,7 @@ export function adminQueries(db: Database) {
       reason?: string;
     }) {
       await db.insert(adminAuditLogs).values({
+        id: crypto.randomUUID(),
         actorId: args.actorId,
         action: args.action,
         targetType: args.targetType,
@@ -377,7 +380,12 @@ export function adminQueries(db: Database) {
     ) {
       const [row] = await db
         .insert(blockedDomains)
-        .values({ domain: domain.toLowerCase(), reason, blockedBy })
+        .values({
+          id: crypto.randomUUID(),
+          domain: domain.toLowerCase(),
+          reason,
+          blockedBy,
+        })
         .returning();
       return row;
     },
@@ -402,12 +410,23 @@ export function adminQueries(db: Database) {
     },
 
     async setSetting(key: string, value: unknown, updatedBy: string) {
+      const serialized =
+        typeof value === "string" ? value : JSON.stringify(value);
       const [row] = await db
         .insert(adminSettings)
-        .values({ key, value, updatedBy, updatedAt: new Date() })
+        .values({
+          key,
+          value: serialized,
+          updatedBy,
+          updatedAt: new Date().toISOString(),
+        })
         .onConflictDoUpdate({
           target: adminSettings.key,
-          set: { value, updatedBy, updatedAt: new Date() },
+          set: {
+            value: serialized,
+            updatedBy,
+            updatedAt: new Date().toISOString(),
+          },
         })
         .returning();
       return row;
@@ -420,7 +439,7 @@ export function adminQueries(db: Database) {
         .where(eq(adminSettings.key, "http_fallback_enabled"))
         .limit(1);
       const setting = rows[0] ?? null;
-      return setting?.value === true;
+      return setting?.value === "true";
     },
   };
 }

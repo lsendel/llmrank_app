@@ -1,10 +1,8 @@
 import { eq, and, sql } from "drizzle-orm";
 import { PLAN_LIMITS } from "@llm-boost/shared";
-import type { Database } from "../client";
-import { users, planEnum, personaEnum } from "../schema";
-
-type Plan = (typeof planEnum.enumValues)[number];
-type Persona = (typeof personaEnum.enumValues)[number];
+import type { AppDatabase as Database } from "../d1-client";
+import { users } from "../schema";
+import type { Plan, Persona } from "../schema/enums";
 
 export function userQueries(db: Database) {
   return {
@@ -57,7 +55,7 @@ export function userQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(users)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...data, updatedAt: new Date().toISOString() })
         .where(eq(users.id, id))
         .returning();
       return updated;
@@ -70,7 +68,12 @@ export function userQueries(db: Database) {
         : 999999;
       await db
         .update(users)
-        .set({ plan, stripeSubId, crawlCreditsRemaining, updatedAt: new Date() })
+        .set({
+          plan,
+          stripeSubId,
+          crawlCreditsRemaining,
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(users.id, id));
     },
 
@@ -79,7 +82,7 @@ export function userQueries(db: Database) {
         .update(users)
         .set({
           crawlCreditsRemaining: sql`${users.crawlCreditsRemaining} - 1`,
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         })
         .where(and(eq(users.id, id), sql`${users.crawlCreditsRemaining} > 0`))
         .returning({ remaining: users.crawlCreditsRemaining });
@@ -96,7 +99,7 @@ export function userQueries(db: Database) {
     ) {
       const [updated] = await db
         .update(users)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...data, updatedAt: new Date().toISOString() })
         .where(eq(users.id, id))
         .returning({
           notifyOnCrawlComplete: users.notifyOnCrawlComplete,
@@ -109,14 +112,21 @@ export function userQueries(db: Database) {
     async resetCrawlCreditsForPlan(plan: Plan, credits: number) {
       await db
         .update(users)
-        .set({ crawlCreditsRemaining: credits, updatedAt: new Date() })
+        .set({
+          crawlCreditsRemaining: credits,
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(users.plan, plan));
     },
 
     async startTrial(id: string, trialStartedAt: Date, trialEndsAt: Date) {
       const [updated] = await db
         .update(users)
-        .set({ trialStartedAt, trialEndsAt, updatedAt: new Date() })
+        .set({
+          trialStartedAt: trialStartedAt.toISOString(),
+          trialEndsAt: trialEndsAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(users.id, id))
         .returning();
       return updated;
@@ -131,9 +141,9 @@ export function userQueries(db: Database) {
         .update(users)
         .set({
           status,
-          suspendedAt: status !== "active" ? new Date() : null,
+          suspendedAt: status !== "active" ? new Date().toISOString() : null,
           suspendedReason: reason ?? null,
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, id))
         .returning();

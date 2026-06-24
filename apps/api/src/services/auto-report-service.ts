@@ -1,4 +1,4 @@
-import { createDb, projectQueries, userQueries } from "@llm-boost/db";
+import { createAppDb, projectQueries, userQueries } from "@llm-boost/db";
 import { createReportService } from "./report-service";
 import {
   createReportRepository,
@@ -10,7 +10,7 @@ import { canGenerateReport } from "@llm-boost/shared";
 import { createLogger } from "@llm-boost/shared";
 
 export interface AutoReportInput {
-  databaseUrl: string;
+  d1: D1Database;
   projectId: string;
   crawlJobId: string;
   reportServiceUrl: string;
@@ -21,7 +21,7 @@ export async function runAutoReportGeneration(
   input: AutoReportInput,
 ): Promise<void> {
   const log = createLogger({ context: "auto-report" });
-  const db = createDb(input.databaseUrl);
+  const db = createAppDb(input.d1);
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) return;

@@ -33,7 +33,7 @@ import { sitesRoutes } from "../../routes/sites";
 function createApp(tokenCtx: TokenContext) {
   const app = new Hono<AppEnv>();
   app.use("*", async (c, next) => {
-    c.set("db", {} as never);
+    c.set("agencyDb", {} as never);
     c.set("tokenCtx", tokenCtx);
     await next();
   });

@@ -1,5 +1,5 @@
 import { eq, desc } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { logUploads } from "../schema";
 
 export function logQueries(db: Database) {
@@ -13,7 +13,19 @@ export function logQueries(db: Database) {
       uniqueIPs: number;
       summary: unknown;
     }) {
-      const [upload] = await db.insert(logUploads).values(data).returning();
+      const [upload] = await db
+        .insert(logUploads)
+        .values({
+          ...data,
+          id: crypto.randomUUID(),
+          summary:
+            data.summary != null
+              ? typeof data.summary === "string"
+                ? data.summary
+                : JSON.stringify(data.summary)
+              : null,
+        })
+        .returning();
       return upload;
     },
 

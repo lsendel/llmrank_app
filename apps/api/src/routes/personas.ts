@@ -42,7 +42,10 @@ personaRoutes.post("/:projectId", async (c) => {
     }
 
     const user = await userQueries(db).getById(userId);
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     const count = await personaQueries(db).countByProject(projectId);
 
     if (count >= limits.personasPerProject) {
@@ -148,7 +151,10 @@ personaRoutes.post("/:projectId/generate", async (c) => {
 
   try {
     const user = await userQueries(db).getById(userId);
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     if (!limits.personaRefinement) {
       return c.json(
         {
@@ -217,7 +223,10 @@ personaRoutes.post("/:id/refine", async (c) => {
 
   try {
     const user = await userQueries(db).getById(userId);
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     if (!limits.personaRefinement) {
       return c.json(
         {

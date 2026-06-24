@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Frontend:** Next.js on Cloudflare Pages (App Router)
 - **API:** Cloudflare Workers with Hono framework
-- **Database:** Neon PostgreSQL with Drizzle ORM
+- **Database:** Cloudflare D1 (app + admin) + Supabase PostgreSQL (agency analytics) with Drizzle ORM
 - **Object Storage:** Cloudflare R2
 - **Cache:** Cloudflare KV
 - **Crawler:** Rust (Axum + Tokio) on Fly.io, with Lighthouse (Node.js + Chromium)
@@ -26,12 +26,11 @@ Cloudflare Edge                         Fly.io (iad)
 ┌─────────────────────────┐             ┌──────────────────────┐
 │ Next.js (Pages)         │             │ Axum HTTP Server     │
 │ Hono Workers (API)      │◄──HMAC──►  │ Rust Crawler (Tokio) │
-│ Neon (PG) / R2 / KV    │             │ Lighthouse (Chromium)│
-│ LLM orchestration       │             └──────────────────────┘
+│ D1 / Supabase / R2 / KV│             │ Lighthouse (Chromium)│
 └─────────────────────────┘
 ```
 
-- Workers API receives crawl requests, stores metadata in Neon PostgreSQL, dispatches jobs via Redis queue
+- Workers API receives crawl requests, stores metadata in D1 (app/admin) and Supabase (agency analytics), dispatches jobs via Redis queue
 - Queue abstraction supports Redis (production) and in-memory (dev) adapters
 - Rust crawler posts results back via HMAC-authenticated callbacks
 - Scoring engine (packages/scoring) runs in Workers after crawl data ingestion
@@ -53,7 +52,7 @@ apps/
 packages/
   api/           → Cloudflare Workers (Hono) REST API
   shared/        → TypeScript interfaces, Zod schemas, error codes
-  db/            → Neon PostgreSQL schema, Drizzle ORM, migrations, query helpers
+  db/            → D1 + Supabase schemas, Drizzle ORM, migrations, query helpers
   scoring/       → 37-factor scoring engine (Technical 25%, Content 30%, AI Readiness 30%, Performance 15%)
   llm/           → LLM prompt templates, batching, caching, cost tracking
 infra/
@@ -77,9 +76,11 @@ pnpm test
 # Typecheck all packages
 pnpm typecheck
 
-# Database migrations (requires DATABASE_URL env var)
-cd packages/db && npx drizzle-kit push    # Push schema to Neon
-cd packages/db && npx drizzle-kit generate # Generate migration files
+# D1 migrations
+cd packages/db && npx drizzle-kit generate --config=drizzle-d1.config.ts
+
+# Supabase schema push (requires SUPABASE_DATABASE_URL env var)
+export SUPABASE_DATABASE_URL="..." && cd packages/db && npx drizzle-kit push --config=drizzle-supabase.config.ts
 
 # Rust crawler (from apps/crawler/)
 cargo build --release
@@ -92,11 +93,11 @@ cargo test
 
 CI auto-deploys on push to `main` when relevant paths change.
 
-| Workflow                | Services                                           | Trigger Paths                                                                               |
-| ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `deploy-cloudflare.yml` | DB migrations → API + Report Worker + MCP GW → Web | `packages/**`, `apps/web/**`, `apps/api/**`, `apps/report-worker/**`, `apps/mcp-gateway/**` |
-| `deploy-fly.yml`        | Crawler, Report Service                            | `apps/crawler/**`, `apps/report-service/**`                                                 |
-| `ci.yml`                | Typecheck, tests, coverage (on PRs)                | All files (pull_request to main)                                                            |
+| Workflow                | Services                            | Trigger Paths                                                      |
+| ----------------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| `deploy-cloudflare.yml` | DB migrations → API + MCP GW → Web  | `packages/**`, `apps/web/**`, `apps/api/**`, `apps/mcp-gateway/**` |
+| `deploy-fly.yml`        | Crawler, Report Service             | `apps/crawler/**`, `apps/report-service/**`                        |
+| `ci.yml`                | Typecheck, tests, coverage (on PRs) | All files (pull_request to main)                                   |
 
 **CI Pipeline (`ci.yml`) — runs on PRs to `main`:**
 
@@ -109,11 +110,10 @@ CI auto-deploys on push to `main` when relevant paths change.
 
 **Cloudflare Deploy (`deploy-cloudflare.yml`) — dependency order:**
 
-1. `migrations` — `drizzle-kit push` against Neon (needs `DATABASE_URL` secret)
+1. `migrations` — D1 migrations via `drizzle-kit generate` + Supabase schema push (needs `SUPABASE_DATABASE_URL` secret)
 2. `deploy-api` — Wrangler deploy `apps/api` (after migrations)
-3. `deploy-report-worker` — Wrangler deploy `apps/report-worker` (after migrations)
-4. `deploy-mcp-gateway` — Build MCP package, then Wrangler deploy `apps/mcp-gateway` (after migrations)
-5. `deploy-web` — OpenNext build + Wrangler deploy `apps/web` (after API + Report Worker)
+3. `deploy-mcp-gateway` — Build MCP package, then Wrangler deploy `apps/mcp-gateway` (after migrations)
+4. `deploy-web` — OpenNext build + Wrangler deploy `apps/web` (after API)
 
 **Fly.io Deploy (`deploy-fly.yml`) — parallel jobs:**
 
@@ -126,12 +126,14 @@ CI auto-deploys on push to `main` when relevant paths change.
 # Deploy all services (when CI is broken)
 bash infra/scripts/deploy-all.sh
 
-# DB schema push (must export DATABASE_URL first)
-export $(grep -v '^#' .env | xargs) && cd packages/db && npx drizzle-kit push
+# D1 migrations (generate SQL, apply via wrangler)
+cd packages/db && npx drizzle-kit generate --config=drizzle-d1.config.ts
+
+# Supabase schema push (must export SUPABASE_DATABASE_URL first)
+export $(grep -v '^#' .env | xargs) && cd packages/db && npx drizzle-kit push --config=drizzle-supabase.config.ts
 
 # Individual Cloudflare services
 cd apps/api && npx wrangler deploy
-cd apps/report-worker && npx wrangler deploy
 cd apps/web && npx opennextjs-cloudflare build && npx wrangler deploy --config wrangler.jsonc
 
 # Individual Fly.io services
@@ -151,12 +153,12 @@ flyctl deploy -a llm-boost-reports --dockerfile apps/report-service/Dockerfile -
 
 ### Required GitHub Secrets
 
-`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `DATABASE_URL`, `FLY_API_TOKEN`
+`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `SUPABASE_DATABASE_URL`, `FLY_API_TOKEN`
 
 ## Key Design Decisions
 
 - **Hono over itty-router:** Chosen for Express-like DX, minimal bundle size, Workers-native
-- **Drizzle ORM:** Type-safe, lightweight, Neon-native with excellent migration support
+- **Drizzle ORM:** Type-safe, lightweight, supports both D1 (via `drizzle-orm/d1`) and Supabase (via `drizzle-orm/postgres-js`) with excellent migration support
 - **Rust crawler (not Node.js):** Memory safety and async performance for long-running crawl processes
 - **Tokio mpsc for job queue (MVP):** Simplest deployment; migration path to Redis then NATS JetStream at scale
 - **Content-hash caching for LLM scores:** Avoids re-scoring unchanged content (50-70% cost savings)
@@ -198,7 +200,13 @@ Standard error envelope: `{ "error": { "code", "message", "details" } }`. Key co
 
 ## Database
 
-Neon PostgreSQL tables: `users`, `projects`, `crawl_jobs`, `pages`, `page_scores`, `issues`, `visibility_checks`. All IDs are UUIDs (`uuid` type with `defaultRandom()`). Timestamps are native `timestamp` columns with `defaultNow()`. Enums use `pgEnum` for type safety (plan, crawl_status, issue_category, issue_severity, llm_provider). Connection via `@neondatabase/serverless` driver with `drizzle-orm/neon-http`.
+Three database targets with separate Drizzle configs:
+
+- **D1_APP** — Cloudflare D1 (SQLite-compatible): core tables for identity, projects, crawling, billing, and feature flags (`users`, `projects`, `crawl_jobs`, `pages`, `page_scores`, `issues`). Accessed via D1 binding in Workers.
+- **D1_ADMIN** — Cloudflare D1: admin-only tables for blocked domains, settings, prompts, and audit logs. Accessed via D1 binding in Workers.
+- **SUPABASE** — Supabase PostgreSQL: agency-tier analytics tables (`visibility_checks`, `competitors`, `analytics`, `brand_sentiment`, `narratives`, `batch_jobs`). Accessed via Hyperdrive connection pooler with `drizzle-orm/postgres-js`.
+
+D1 uses integer primary keys with `autoincrement()` and `integer("created_at", { mode: "timestamp" })`. Supabase uses `uuid().defaultRandom()` and `timestamp().defaultNow()` with `pgEnum` for type safety. Connection to Supabase is via `SUPABASE_DATABASE_URL` (Hyperdrive binding in production).
 
 ## Plan Limits
 

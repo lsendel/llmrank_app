@@ -15,7 +15,8 @@ describe("Public Scan API", () => {
           get: vi.fn(),
           put: vi.fn(),
         },
-        DATABASE_URL: "postgres://mock",
+        D1_APP: {} as D1Database,
+        D1_ADMIN: {} as D1Database,
       };
       const noopLogger = {
         info: vi.fn(),

@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import type { AppEnv, Bindings } from "../../index";
 import { createKVStub } from "./kv-stub";
 import { createR2Stub } from "./r2-stub";
-import { createDb, type Database } from "@llm-boost/db";
+import { createAppDb, type AppDatabase } from "@llm-boost/db";
 import { createContainer } from "../../container";
 import { ServiceError } from "@llm-boost/shared";
 
@@ -32,7 +32,7 @@ import { promptResearchRoutes } from "../../routes/prompt-research";
 import { brandPerformanceRoutes } from "../../routes/brand-performance";
 
 interface TestAppOptions {
-  db?: Database;
+  db?: AppDatabase;
   userId?: string;
   envOverrides?: Partial<Bindings>;
 }
@@ -41,13 +41,10 @@ export function createTestApp(options: TestAppOptions = {}) {
   const userId = options.userId ?? "test-user-id";
   const kv = createKVStub();
   const r2 = createR2Stub();
-  // Use a dummy connection string when no real DB is configured.
+  // Use a stub D1 binding when no real DB is configured.
   // Integration tests mock at the repository layer so the DB is never queried.
-  const dbUrl =
-    process.env.TEST_DATABASE_URL ??
-    process.env.DATABASE_URL ??
-    "postgresql://test:test@localhost:5432/test";
-  const db = options.db ?? createDb(dbUrl);
+  const mockD1 = {} as D1Database;
+  const db = options.db ?? createAppDb(mockD1);
 
   const app = new Hono<AppEnv>();
 
@@ -59,6 +56,7 @@ export function createTestApp(options: TestAppOptions = {}) {
   // Inject DB, DI container + fake auth (bypasses Clerk JWT verification)
   app.use("*", async (c, next) => {
     c.set("db", db);
+    c.set("agencyDb", db as any);
     c.set("container", container);
     c.set("userId", userId);
     c.set("requestId", "test-req-id");
@@ -133,10 +131,11 @@ export function createTestApp(options: TestAppOptions = {}) {
     CRAWL_QUEUE: { send: async () => {} } as any,
     REPORT_SERVICE_URL: "http://localhost:9999",
     BROWSER: null as any,
+    D1_APP: {} as D1Database,
+    D1_ADMIN: {} as D1Database,
+    SUPABASE: {} as any,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "mock-secret",
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "http://localhost:8787",
-    DATABASE_URL:
-      process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
     SHARED_SECRET: "test-secret",
     ANTHROPIC_API_KEY: "test-key",
     OPENAI_API_KEY: "test-key",

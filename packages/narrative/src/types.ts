@@ -62,6 +62,21 @@ export interface PageScoreSummary {
   issueCount: number;
 }
 
+export interface PersonaContext {
+  name: string;
+  role: string;
+  jobToBeDone?: string | null;
+  sampleQueries?: string[];
+}
+
+export interface ProjectContext {
+  name: string;
+  siteDescription?: string | null;
+  industry?: string | null;
+  businessGoal?: string | null;
+  siteContext?: unknown;
+}
+
 export interface NarrativeInput {
   tone: NarrativeTone;
   crawlJob: CrawlJobSummary;
@@ -69,6 +84,10 @@ export interface NarrativeInput {
   issues: IssueSummary[];
   quickWins: QuickWin[];
   contentHealth: ContentHealthMetrics;
+  projectContext?: ProjectContext;
+  trackedKeywords?: string[];
+  trackedCompetitors?: string[];
+  personas?: PersonaContext[];
   previousCrawl?: CrawlJobSummary;
   competitors?: CompetitorData[];
   pages: PageScoreSummary[];

@@ -156,6 +156,14 @@ describe("NarrativeEngine", () => {
     expect(result.sections).toHaveLength(5); // 6 - 1 failed
   });
 
+  it("throws when every section generation fails", async () => {
+    mockCreate.mockRejectedValue(new Error("LLM unavailable"));
+
+    await expect(engine.generate(makeInput())).rejects.toThrow(
+      "No narrative sections could be generated",
+    );
+  });
+
   it("regenerates a single section with custom instructions", async () => {
     const section = await engine.regenerateSection(
       "executive_summary",

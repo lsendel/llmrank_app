@@ -1,5 +1,5 @@
 import {
-  createDb,
+  createAppDb,
   projectQueries,
   scoreQueries,
   crawlQueries,
@@ -17,7 +17,7 @@ import { createNotificationService } from "./notification-service";
 import { createProgressService } from "./progress-service";
 
 export interface SummaryDataInput {
-  databaseUrl: string;
+  d1: D1Database;
   projectId: string;
   jobId: string;
   resendApiKey?: string;
@@ -52,7 +52,7 @@ export interface CrawlSummaryData {
 export async function persistCrawlSummaryData(
   input: SummaryDataInput,
 ): Promise<CrawlSummaryData | null> {
-  const db = createDb(input.databaseUrl);
+  const db = createAppDb(input.d1);
   const summaryData = await persistSummaryWithDb(db, input);
   if (summaryData) {
     await detectAnomaliesAndNotify(db, {
@@ -71,7 +71,7 @@ export async function persistCrawlSummaryData(
  * the crawl record. Also ensures the aggregate summary cache is up to date.
  */
 export async function generateCrawlSummary(input: SummaryInput): Promise<void> {
-  const db = createDb(input.databaseUrl);
+  const db = createAppDb(input.d1);
   const summaryGenerator = new SummaryGenerator({
     anthropicApiKey: input.anthropicApiKey,
   });

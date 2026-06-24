@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PLAN_LIMITS, type PlanTier } from "@llm-boost/shared";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
 type PricingLimits = (typeof PLAN_LIMITS)[PlanTier];
 
@@ -33,18 +34,15 @@ export type PricingFaqItem = {
   answer: string;
 };
 
-export const PRICING_PAGE_METADATA: Metadata = {
+export const PRICING_PAGE_METADATA: Metadata = buildPublicMetadata({
   title: "AI-Readiness SEO Pricing Plans",
   description:
     "LLM Rank pricing plans from Free to Agency ($299/mo). All plans include 37-factor AI-readiness scoring, automated crawling, and Lighthouse audits.",
-  alternates: { canonical: "/pricing" },
-  openGraph: {
-    title: "Pricing | LLM Rank",
-    description:
-      "Start free, upgrade when you need more pages, crawls, or integrations. Plans from $0 to $299/month.",
-    url: "https://llmrank.app/pricing",
-  },
-};
+  path: "/pricing",
+  openGraphTitle: "Pricing | LLM Rank",
+  openGraphDescription:
+    "Start free, upgrade when you need more pages, crawls, or integrations. Plans from $0 to $299/month.",
+});
 
 export const PRICING_PLANS: PricingPlanCard[] = [
   { tier: "free", name: "Free", price: 0, tagline: "Try a quick site audit" },

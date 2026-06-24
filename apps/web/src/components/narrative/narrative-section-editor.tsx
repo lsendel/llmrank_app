@@ -13,6 +13,7 @@ import type { NarrativeSection } from "@llm-boost/shared";
 interface Props {
   section: NarrativeSection;
   crawlJobId: string;
+  tone: "technical" | "business";
   editable: boolean;
   onSectionUpdate: (section: NarrativeSection) => void;
 }
@@ -20,6 +21,7 @@ interface Props {
 export function NarrativeSectionEditor({
   section,
   crawlJobId,
+  tone,
   editable,
   onSectionUpdate,
 }: Props) {
@@ -48,6 +50,7 @@ export function NarrativeSectionEditor({
       const result = await api.narratives.regenerateSection(
         crawlJobId,
         section.type,
+        tone,
         instructions || undefined,
       );
       if (result && editor) {
@@ -63,7 +66,7 @@ export function NarrativeSectionEditor({
       setShowInstructions(false);
       setInstructions("");
     }
-  }, [crawlJobId, section, instructions, editor, onSectionUpdate]);
+  }, [crawlJobId, tone, section, instructions, editor, onSectionUpdate]);
 
   const handleReset = useCallback(async () => {
     await api.narratives.editSection(crawlJobId, section.id, null);

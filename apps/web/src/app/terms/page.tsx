@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema } from "@/components/seo/json-ld";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPublicMetadata({
   title: "Terms of Service — AI-Readiness",
   description:
     "LLM Rank terms of service covering account usage, billing, data handling, and acceptable use of the AI-readiness platform.",
-  alternates: { canonical: "/terms" },
-  openGraph: {
-    title: "Terms of Service | LLM Rank",
-    description:
-      "Terms of service for LLM Rank, the AI-readiness SEO platform covering account usage, billing, and data handling.",
-    url: "https://llmrank.app/terms",
-  },
-};
+  path: "/terms",
+  openGraphTitle: "Terms of Service | LLM Rank",
+  openGraphDescription:
+    "Terms of service for LLM Rank, the AI-readiness SEO platform covering account usage, billing, and data handling.",
+});
 
 export default function TermsPage() {
   return (

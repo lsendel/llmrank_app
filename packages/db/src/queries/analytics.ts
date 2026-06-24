@@ -1,6 +1,6 @@
 import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
-import type { Database } from "../client";
-import { analyticsEvents, analyticsDailyRollups } from "../schema/analytics";
+import type { AgencyDatabase as Database } from "../supabase-client";
+import { analyticsEvents, analyticsDailyRollups } from "../schema";
 
 const FIRST_PARTY_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -192,7 +192,7 @@ export function analyticsQueries(db: Database) {
             LIMIT ${batchSize}
           )
         `);
-        deleted = result.rowCount ?? 0;
+        deleted = (result as unknown as { changes?: number })?.changes ?? 0;
       }
     },
   };

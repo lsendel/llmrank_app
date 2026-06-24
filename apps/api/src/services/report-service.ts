@@ -60,7 +60,13 @@ export function createReportService(deps: Deps) {
       }
 
       const usedThisMonth = await deps.reports.countThisMonth(userId);
-      if (!canGenerateReport(user.plan, usedThisMonth, input.type)) {
+      if (
+        !canGenerateReport(
+          user.plan as import("@llm-boost/shared").PlanTier,
+          usedThisMonth,
+          input.type,
+        )
+      ) {
         throw new ServiceError(
           "PLAN_LIMIT_REACHED",
           403,
@@ -69,7 +75,11 @@ export function createReportService(deps: Deps) {
       }
 
       // 4. Auto-inherit project branding into report config
-      const branding = (project.branding ?? {}) as {
+      const branding = (
+        typeof project.branding === "string"
+          ? JSON.parse(project.branding)
+          : (project.branding ?? {})
+      ) as {
         logoUrl?: string;
         companyName?: string;
         primaryColor?: string;
@@ -89,8 +99,8 @@ export function createReportService(deps: Deps) {
         type: input.type,
         format: input.format,
         status: "queued",
-        config: mergedConfig,
-      });
+        config: JSON.stringify(mergedConfig),
+      } as any);
 
       // 6. Dispatch to report service via HTTP (HMAC-authenticated, with retry)
       const job: GenerateReportJob = {

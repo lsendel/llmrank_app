@@ -1,9 +1,7 @@
 import { eq, and } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { pageEnrichments } from "../schema";
-import { integrationProviderEnum } from "../schema/enums";
-
-type IntegrationProvider = (typeof integrationProviderEnum.enumValues)[number];
+import type { IntegrationProvider } from "../schema/enums";
 
 export function enrichmentQueries(db: Database) {
   return {
@@ -16,7 +14,16 @@ export function enrichmentQueries(db: Database) {
       }[],
     ) {
       if (rows.length === 0) return [];
-      return db.insert(pageEnrichments).values(rows).returning();
+      return db
+        .insert(pageEnrichments)
+        .values(
+          rows.map((r) => ({
+            ...r,
+            id: crypto.randomUUID(),
+            data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
+          })),
+        )
+        .returning();
     },
 
     async listByPage(pageId: string) {

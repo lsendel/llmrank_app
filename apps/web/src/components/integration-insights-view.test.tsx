@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { IntegrationInsightsView } from "./integration-insights-view";
 
@@ -63,6 +63,10 @@ describe("IntegrationInsightsView", () => {
     expect(
       screen.getByText("Top Search Queries (Impressions)"),
     ).toBeInTheDocument();
+
+    // GA4 renders inside a collapsible section that is closed by default
+    // (GSC is the first provider with data), so expand it before asserting.
+    fireEvent.click(screen.getByText("Google Analytics 4"));
     expect(screen.getByText("Engagement Summary")).toBeInTheDocument();
     expect(
       screen.getByText("Microsoft Clarity — No data yet"),

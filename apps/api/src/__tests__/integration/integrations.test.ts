@@ -59,7 +59,7 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
       listByJob: mockEnrichmentListByJob,
       listByPage: vi.fn().mockResolvedValue([]),
     }),
-    createDb: orig.createDb,
+    createAppDb: orig.createAppDb,
   };
 });
 

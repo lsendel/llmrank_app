@@ -142,10 +142,11 @@ describe("projectQueries", () => {
 
     expect(mock.chain.insert).toHaveBeenCalled();
     expect(mock.chain.values).toHaveBeenCalledWith({
+      id: expect.any(String),
       userId: "u1",
       name: "New",
       domain: "new.com",
-      settings: {},
+      settings: JSON.stringify({}),
     });
     expect(result).toEqual(newProject);
   });
@@ -162,7 +163,7 @@ describe("projectQueries", () => {
     });
 
     expect(mock.chain.values).toHaveBeenCalledWith(
-      expect.objectContaining({ settings }),
+      expect.objectContaining({ settings: JSON.stringify(settings) }),
     );
   });
 
@@ -186,8 +187,8 @@ describe("projectQueries", () => {
     expect(mock.chain.update).toHaveBeenCalled();
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        deletedAt: expect.any(Date),
-        updatedAt: expect.any(Date),
+        deletedAt: expect.any(String),
+        updatedAt: expect.any(String),
       }),
     );
     expect(mock.chain.where).toHaveBeenCalled();
@@ -223,7 +224,9 @@ describe("projectQueries", () => {
     await queries.updateNextCrawl("p1", nextAt);
 
     expect(mock.chain.update).toHaveBeenCalled();
-    expect(mock.chain.set).toHaveBeenCalledWith({ nextCrawlAt: nextAt });
+    expect(mock.chain.set).toHaveBeenCalledWith({
+      nextCrawlAt: nextAt.toISOString(),
+    });
     expect(mock.chain.where).toHaveBeenCalled();
   });
 });

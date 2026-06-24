@@ -88,7 +88,10 @@ fixRoutes.post("/generate", async (c) => {
       contentFixes: contentFixQueries(db),
     });
 
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     const fix = await service.generateFix({
       userId,
       projectId: body.projectId,
@@ -181,7 +184,10 @@ fixRoutes.post("/generate-batch", async (c) => {
       return true;
     });
 
-    const limits = PLAN_LIMITS[user?.plan ?? "free"];
+    const limits =
+      PLAN_LIMITS[
+        (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
+      ];
     const results: any[] = [];
 
     for (const win of toGenerate) {

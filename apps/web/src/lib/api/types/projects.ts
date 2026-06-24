@@ -8,6 +8,12 @@ export interface Project {
   updatedAt: string;
   siteDescription?: string | null;
   industry?: string | null;
+  businessGoal?:
+    | "ai_mentions"
+    | "lead_gen"
+    | "outrank"
+    | "brand_understanding"
+    | null;
   faviconUrl?: string | null;
   analyticsSnippetEnabled?: boolean | null;
   settings: {

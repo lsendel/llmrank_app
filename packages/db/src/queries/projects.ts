@@ -5,11 +5,11 @@ import {
   desc,
   asc,
   sql,
-  ilike,
+  like,
   or,
   inArray,
 } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { projects } from "../schema";
 
 export interface ProjectListQuery {
@@ -47,7 +47,7 @@ export function projectQueries(db: Database) {
     const pattern = `%${q}%`;
     return and(
       ...base,
-      or(ilike(projects.name, pattern), ilike(projects.domain, pattern)),
+      or(like(projects.name, pattern), like(projects.domain, pattern)),
     );
   }
 
@@ -159,7 +159,7 @@ export function projectQueries(db: Database) {
       const q = query?.q?.trim();
       const pattern = q ? `%${q}%` : null;
       const qFilter = pattern
-        ? sql`AND (p.name ILIKE ${pattern} OR p.domain ILIKE ${pattern})`
+        ? sql`AND (p.name LIKE ${pattern} OR p.domain LIKE ${pattern})`
         : sql``;
       const healthFilter = portfolioHealthWhere(query?.health);
       const orderBy = portfolioOrderBy(query?.sort);
@@ -168,7 +168,7 @@ export function projectQueries(db: Database) {
       const offsetSql =
         query?.offset !== undefined ? sql`OFFSET ${query.offset}` : sql``;
 
-      const summaryResult = await db.execute(
+      const summaryResult = await db.all(
         sql`
           SELECT
             p.id AS project_id,
@@ -187,23 +187,23 @@ export function projectQueries(db: Database) {
             score_summary.performance_score AS latest_crawl_performance_score,
             COALESCE(lc.completed_at, lc.started_at, p.created_at) AS latest_activity_at
           FROM projects p
-          LEFT JOIN LATERAL (
-            SELECT cj.*
-            FROM crawl_jobs cj
+          LEFT JOIN crawl_jobs lc ON lc.id = (
+            SELECT cj.id FROM crawl_jobs cj
             WHERE cj.project_id = p.id
             ORDER BY CASE WHEN cj.status = 'complete' THEN 0 ELSE 1 END, cj.created_at DESC
             LIMIT 1
-          ) lc ON TRUE
-          LEFT JOIN LATERAL (
+          )
+          LEFT JOIN (
             SELECT
-              ROUND(AVG(ps.overall_score))::int AS overall_score,
-              COALESCE(ROUND(AVG(ps.technical_score))::int, 0) AS technical_score,
-              COALESCE(ROUND(AVG(ps.content_score))::int, 0) AS content_score,
-              COALESCE(ROUND(AVG(ps.ai_readiness_score))::int, 0) AS ai_readiness_score,
-              ROUND(AVG(NULLIF(ps.detail->>'performanceScore', '')::double precision))::int AS performance_score
+              ps.job_id,
+              CAST(ROUND(AVG(ps.overall_score)) AS INTEGER) AS overall_score,
+              COALESCE(CAST(ROUND(AVG(ps.technical_score)) AS INTEGER), 0) AS technical_score,
+              COALESCE(CAST(ROUND(AVG(ps.content_score)) AS INTEGER), 0) AS content_score,
+              COALESCE(CAST(ROUND(AVG(ps.ai_readiness_score)) AS INTEGER), 0) AS ai_readiness_score,
+              CAST(ROUND(AVG(NULLIF(CAST(json_extract(ps.detail, '$.performanceScore') AS REAL), 0))) AS INTEGER) AS performance_score
             FROM page_scores ps
-            WHERE ps.job_id = lc.id
-          ) score_summary ON lc.status = 'complete'
+            GROUP BY ps.job_id
+          ) score_summary ON score_summary.job_id = lc.id AND lc.status = 'complete'
           WHERE p.user_id = ${userId}
             AND p.deleted_at IS NULL
             ${qFilter}
@@ -214,9 +214,8 @@ export function projectQueries(db: Database) {
         `,
       );
 
-      const summaryRows = (summaryResult.rows ?? []) as Array<
-        Record<string, unknown>
-      >;
+      const summaryRows =
+        (summaryResult as unknown as Array<Record<string, unknown>>) ?? [];
       if (summaryRows.length === 0) return [];
 
       const projectIds = summaryRows
@@ -285,26 +284,25 @@ export function projectQueries(db: Database) {
       const q = query?.q?.trim();
       const pattern = q ? `%${q}%` : null;
       const qFilter = pattern
-        ? sql`AND (p.name ILIKE ${pattern} OR p.domain ILIKE ${pattern})`
+        ? sql`AND (p.name LIKE ${pattern} OR p.domain LIKE ${pattern})`
         : sql``;
       const healthFilter = portfolioHealthWhere(query?.health);
 
-      const result = await db.execute(
+      const result = await db.all(
         sql`
-          SELECT COUNT(*)::int AS total
+          SELECT COUNT(*) AS total
           FROM projects p
-          LEFT JOIN LATERAL (
-            SELECT cj.*
-            FROM crawl_jobs cj
+          LEFT JOIN crawl_jobs lc ON lc.id = (
+            SELECT cj.id FROM crawl_jobs cj
             WHERE cj.project_id = p.id
             ORDER BY CASE WHEN cj.status = 'complete' THEN 0 ELSE 1 END, cj.created_at DESC
             LIMIT 1
-          ) lc ON TRUE
-          LEFT JOIN LATERAL (
-            SELECT ROUND(AVG(ps.overall_score))::int AS overall_score
+          )
+          LEFT JOIN (
+            SELECT ps.job_id, CAST(ROUND(AVG(ps.overall_score)) AS INTEGER) AS overall_score
             FROM page_scores ps
-            WHERE ps.job_id = lc.id
-          ) score_summary ON lc.status = 'complete'
+            GROUP BY ps.job_id
+          ) score_summary ON score_summary.job_id = lc.id AND lc.status = 'complete'
           WHERE p.user_id = ${userId}
             AND p.deleted_at IS NULL
             ${qFilter}
@@ -312,7 +310,8 @@ export function projectQueries(db: Database) {
         `,
       );
 
-      const [row] = (result.rows ?? []) as Array<Record<string, unknown>>;
+      const rows = (result as unknown as Array<Record<string, unknown>>) ?? [];
+      const [row] = rows;
       return Number(row?.total ?? 0);
     },
 
@@ -331,10 +330,16 @@ export function projectQueries(db: Database) {
       const [project] = await db
         .insert(projects)
         .values({
+          id: crypto.randomUUID(),
           userId: data.userId,
           name: data.name,
           domain: data.domain,
-          settings: data.settings ?? {},
+          settings:
+            data.settings != null
+              ? typeof data.settings === "string"
+                ? data.settings
+                : JSON.stringify(data.settings)
+              : "{}",
         })
         .returning();
       return project;
@@ -356,9 +361,28 @@ export function projectQueries(db: Database) {
         analyticsSnippetEnabled?: boolean;
       },
     ) {
+      const setData: Record<string, unknown> = {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      if (data.settings !== undefined)
+        setData.settings =
+          typeof data.settings === "string"
+            ? data.settings
+            : JSON.stringify(data.settings);
+      if (data.branding !== undefined)
+        setData.branding =
+          typeof data.branding === "string"
+            ? data.branding
+            : JSON.stringify(data.branding);
+      if (data.pipelineSettings !== undefined)
+        setData.pipelineSettings =
+          typeof data.pipelineSettings === "string"
+            ? data.pipelineSettings
+            : JSON.stringify(data.pipelineSettings);
       const [updated] = await db
         .update(projects)
-        .set({ ...data, updatedAt: new Date() })
+        .set(setData)
         .where(and(eq(projects.id, id), isNull(projects.deletedAt)))
         .returning();
       return updated;
@@ -368,7 +392,10 @@ export function projectQueries(db: Database) {
     async delete(id: string) {
       await db
         .update(projects)
-        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .set({
+          deletedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(projects.id, id));
     },
 
@@ -376,7 +403,7 @@ export function projectQueries(db: Database) {
       return db.query.projects.findMany({
         where: and(
           isNull(projects.deletedAt),
-          sql`${projects.nextCrawlAt} <= now()`,
+          sql`${projects.nextCrawlAt} <= datetime('now')`,
           sql`${projects.crawlSchedule} != 'manual'`,
         ),
         limit,
@@ -389,7 +416,7 @@ export function projectQueries(db: Database) {
     async updateNextCrawl(id: string, nextAt: Date) {
       await db
         .update(projects)
-        .set({ nextCrawlAt: nextAt })
+        .set({ nextCrawlAt: nextAt.toISOString() })
         .where(eq(projects.id, id));
     },
   };

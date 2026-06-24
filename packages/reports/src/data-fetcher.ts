@@ -1,5 +1,6 @@
 import {
-  type Database,
+  type AppDatabase,
+  type AgencyDatabase,
   projects,
   crawlJobs,
   pages,
@@ -15,8 +16,9 @@ import type { RawDbResults } from "./data-aggregator";
 import type { GenerateReportJob } from "./types";
 
 export async function fetchReportData(
-  db: Database,
+  db: AppDatabase,
   job: GenerateReportJob,
+  agencyDb?: AgencyDatabase,
 ): Promise<RawDbResults> {
   const [project] = await db
     .select({
@@ -118,7 +120,8 @@ export async function fetchReportData(
     }),
   );
 
-  const visChecks = await db
+  const visDb = agencyDb ?? (db as unknown as AgencyDatabase);
+  const visChecks = await visDb
     .select({
       llmProvider: visibilityChecks.llmProvider,
       brandMentioned: visibilityChecks.brandMentioned,
@@ -146,7 +149,7 @@ export async function fetchReportData(
     },
     crawl: {
       id: crawl.id,
-      completedAt: crawl.completedAt?.toISOString() ?? null,
+      completedAt: crawl.completedAt ?? null,
       pagesFound: crawl.pagesFound,
       pagesCrawled: crawl.pagesCrawled,
       pagesScored: crawl.pagesScored,
@@ -170,7 +173,9 @@ export async function fetchReportData(
     })),
     enrichments: enrichmentRows.map((e) => ({
       provider: e.provider,
-      data: e.data as Record<string, unknown>,
+      data: (typeof e.data === "string"
+        ? JSON.parse(e.data)
+        : e.data) as Record<string, unknown>,
     })),
   };
 }

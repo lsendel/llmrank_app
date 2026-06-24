@@ -54,12 +54,12 @@ type ActionItemUpsertBody = {
   dueAt?: string | null;
 };
 
-function parseDueAt(raw: unknown): Date | null | "invalid" {
+function parseDueAt(raw: unknown): string | null | "invalid" {
   if (raw === undefined) return null;
   if (raw === null) return null;
   if (typeof raw !== "string") return "invalid";
   const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? "invalid" : parsed;
+  return Number.isNaN(parsed.getTime()) ? "invalid" : parsed.toISOString();
 }
 
 function parseOptionalPageId(raw: unknown): string | null | "invalid" {
@@ -140,8 +140,8 @@ async function upsertActionItem(
       dueAt:
         body.dueAt !== undefined
           ? dueAt
-          : ((existing as { dueAt?: Date | null }).dueAt ?? null),
-    });
+          : ((existing as { dueAt?: string | null }).dueAt ?? null),
+    } as any);
     return { data: updated, operation: "updated" as const };
   }
 
@@ -158,7 +158,7 @@ async function upsertActionItem(
       typeof body.description === "string" ? body.description.trim() : null,
     assigneeId: normalizeOptionalAssignee(body.assigneeId),
     dueAt,
-  });
+  } as any);
   return { data: created, operation: "created" as const };
 }
 
@@ -578,7 +578,7 @@ actionItemRoutes.patch("/:id", async (c) => {
               : null,
         }
       : {}),
-  });
+  } as any);
 
   return c.json({ data: updated });
 });

@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Wrench,
 } from "lucide-react";
+import { buildPublicMetadata } from "@/lib/seo-metadata";
 
 export type McpToolCategory = {
   name: string;
@@ -27,10 +28,14 @@ export type McpIdeConfig =
 
 export const MCP_PACKAGE_URL = "https://www.npmjs.com/package/@llmrank.app/mcp";
 
-export const MCP_PAGE_METADATA: Metadata = {
+export const MCP_PAGE_METADATA: Metadata = buildPublicMetadata({
   title: "MCP Server for AI Coding Agents | Claude, Cursor, VS Code, ChatGPT",
   description:
     "Connect your AI coding agent to LLM Rank via Model Context Protocol (MCP). 27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT. Crawl sites, score pages, and fix AI-readiness issues from your IDE.",
+  path: "/mcp",
+  openGraphTitle: "MCP Server for AI Coding Agents | LLM Rank",
+  openGraphDescription:
+    "27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT via Model Context Protocol. Crawl, score, and fix your site from your IDE.",
   keywords: [
     "MCP server",
     "Model Context Protocol",
@@ -43,22 +48,7 @@ export const MCP_PAGE_METADATA: Metadata = {
     "AI-readiness",
     "LLM Rank",
   ],
-  alternates: { canonical: "/mcp" },
-  openGraph: {
-    title: "MCP Server for AI Coding Agents | LLM Rank",
-    description:
-      "27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT via Model Context Protocol. Crawl, score, and fix your site from your IDE.",
-    url: "https://llmrank.app/mcp",
-    siteName: "LLM Rank",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "MCP Server for AI Coding Agents | LLM Rank",
-    description:
-      "27 SEO tools for Claude Code, Cursor, VS Code, Windsurf, and ChatGPT via Model Context Protocol.",
-  },
-};
+});
 
 const buildMcpJsonConfig = (config: unknown) => JSON.stringify(config, null, 2);
 

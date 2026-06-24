@@ -1,5 +1,5 @@
 import { eq, desc, sql, inArray } from "drizzle-orm";
-import type { Database } from "../client";
+import type { AppDatabase as Database } from "../d1-client";
 import { savedKeywords } from "../schema";
 
 export function savedKeywordQueries(db: Database) {
@@ -19,7 +19,10 @@ export function savedKeywordQueries(db: Database) {
       funnelStage?: "education" | "comparison" | "purchase";
       personaId?: string;
     }) {
-      const [kw] = await db.insert(savedKeywords).values(data).returning();
+      const [kw] = await db
+        .insert(savedKeywords)
+        .values({ ...data, id: crypto.randomUUID() })
+        .returning();
       return kw;
     },
 
@@ -34,7 +37,10 @@ export function savedKeywordQueries(db: Database) {
       }>,
     ) {
       if (rows.length === 0) return [];
-      return db.insert(savedKeywords).values(rows).returning();
+      return db
+        .insert(savedKeywords)
+        .values(rows.map((r) => ({ ...r, id: crypto.randomUUID() })))
+        .returning();
     },
 
     async remove(id: string) {
@@ -47,7 +53,7 @@ export function savedKeywordQueries(db: Database) {
 
     async countByProject(projectId: string) {
       const [row] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)` })
         .from(savedKeywords)
         .where(eq(savedKeywords.projectId, projectId));
       return row?.count ?? 0;
@@ -58,7 +64,7 @@ export function savedKeywordQueries(db: Database) {
       const rows = await db
         .select({
           projectId: savedKeywords.projectId,
-          count: sql<number>`count(*)::int`,
+          count: sql<number>`count(*)`,
         })
         .from(savedKeywords)
         .where(inArray(savedKeywords.projectId, projectIds))
