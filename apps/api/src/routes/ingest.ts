@@ -9,6 +9,7 @@ import {
 } from "@llm-boost/repositories";
 import { createIngestService } from "../services/ingest-service";
 import { handleServiceError } from "../lib/error-handler";
+import { ServiceError, CrawlStatus } from "@llm-boost/shared";
 
 export const ingestRoutes = new Hono<AppEnv>();
 
@@ -63,6 +64,30 @@ ingestRoutes.post("/batch", async (c) => {
     });
     return c.json({ data });
   } catch (error) {
+    // Resilience: on an unexpected (5xx) ingest failure, record it on the crawl
+    // job so the UI shows a terminal "failed" state with the reason instead of
+    // an indefinite "scoring"/"crawling" spinner. A later retry that succeeds
+    // overwrites this, so transient failures still self-heal.
+    const status = error instanceof ServiceError ? error.status : 500;
+    if (status >= 500) {
+      try {
+        const jobId = (JSON.parse(rawBody) as { job_id?: string } | null)
+          ?.job_id;
+        if (jobId) {
+          const crawls = createCrawlRepository(db);
+          const job = await crawls.getById(jobId);
+          if (job && !CrawlStatus.from(job.status).isTerminal) {
+            await crawls.updateStatus(jobId, {
+              status: "failed",
+              errorMessage:
+                error instanceof Error ? error.message : "Ingest failed",
+            });
+          }
+        }
+      } catch {
+        // best-effort; never mask the original error
+      }
+    }
     return handleServiceError(c, error);
   }
 });

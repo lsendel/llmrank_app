@@ -39,16 +39,26 @@ export function createMonitoringService(
       log.info("Running system health check...");
 
       // 1. Detect Stalled Crawls
-      // Jobs in 'crawling' or 'scoring' for > 1 hour are likely stuck
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      // Backstop only: real ingest failures are now surfaced immediately by the
+      // /ingest/batch route, so this just reaps crawls whose crawler died without
+      // ever calling back. crawl_jobs has no activity timestamp, so detection is
+      // age-based off createdAt; the window is deliberately generous (6h) so a
+      // large but healthy crawl — Agency tier allows 2,000 pages and Lighthouse
+      // can push a run to hours — is never failed while still progressing.
+      const stallThreshold = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
       const stalledJobs = await db
         .select()
         .from(crawlJobs)
         .where(
           and(
-            inArray(crawlJobs.status, ["crawling", "scoring"]),
-            lt(crawlJobs.createdAt, oneHourAgo.toISOString()),
+            inArray(crawlJobs.status, [
+              "pending",
+              "queued",
+              "crawling",
+              "scoring",
+            ]),
+            lt(crawlJobs.createdAt, stallThreshold.toISOString()),
           ),
         );
 
@@ -61,7 +71,8 @@ export function createMonitoringService(
             .update(crawlJobs)
             .set({
               status: "failed",
-              errorMessage: "Crawl stalled: No activity for > 1 hour",
+              errorMessage:
+                "Crawl stalled: no terminal state after 6 hours (likely crawler died without calling back)",
             })
             .where(eq(crawlJobs.id, job.id));
 
@@ -175,7 +186,8 @@ export function createMonitoringService(
         .where(
           and(
             eq(crawlJobs.status, "failed"),
-            sql`${crawlJobs.createdAt} >= now() - interval '24 hours'`,
+            // D1/SQLite: now()/interval are Postgres-only and throw here.
+            sql`${crawlJobs.createdAt} >= datetime('now', '-24 hours')`,
           ),
         );
 
