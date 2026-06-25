@@ -141,6 +141,48 @@ describe("scanResultQueries", () => {
     expect(result).toBeNull();
   });
 
+  // Regression: D1 stores scores/issues/quickWins/siteContext as JSON TEXT.
+  // getById must parse them, or the public scan-results page indexes into a raw
+  // string (scores.technical → undefined) and shows blank category scores + a
+  // wrong "F" grade. Found by /qa on https://llmrank.app/scan.
+  it("getById parses JSON-TEXT fields back into objects", async () => {
+    const storedRow = {
+      id: "sr-json",
+      domain: "example.com",
+      url: "https://example.com/",
+      scores: JSON.stringify({
+        overall: 72,
+        technical: 57,
+        content: 77,
+        aiReadiness: 65,
+        performance: 100,
+        letterGrade: "C",
+      }),
+      issues: JSON.stringify([{ code: "MISSING_TITLE" }]),
+      quickWins: JSON.stringify([{ code: "ADD_LLMS_TXT" }]),
+      siteContext: JSON.stringify({ industry: "tech" }),
+    };
+    mock.chain.then.mockImplementationOnce((resolve: any) =>
+      resolve([storedRow]),
+    );
+
+    const result = await queries.getById("sr-json");
+
+    expect(result).not.toBeNull();
+    expect(result!.scores).toEqual({
+      overall: 72,
+      technical: 57,
+      content: 77,
+      aiReadiness: 65,
+      performance: 100,
+      letterGrade: "C",
+    });
+    expect((result!.scores as Record<string, unknown>).technical).toBe(57);
+    expect(result!.issues).toEqual([{ code: "MISSING_TITLE" }]);
+    expect(result!.quickWins).toEqual([{ code: "ADD_LLMS_TXT" }]);
+    expect(result!.siteContext).toEqual({ industry: "tech" });
+  });
+
   // --- deleteExpired ---
   it("deleteExpired returns count of deleted rows", async () => {
     const deletedRows = [{ id: "sr1" }, { id: "sr2" }, { id: "sr3" }];
