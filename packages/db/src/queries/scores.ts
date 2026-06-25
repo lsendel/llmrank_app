@@ -2,6 +2,7 @@ import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { pageScores, pages, issues } from "../schema";
 import type { IssueCategory, IssueSeverity } from "../schema/enums";
+import { chunkForD1Insert } from "./d1-batch";
 
 interface ScoreCreateData {
   pageId: string;
@@ -68,10 +69,14 @@ export function scoreQueries(db: Database) {
       return score;
     },
 
-    /** Batch insert scores — single INSERT for N pages instead of N round-trips. */
+    /** Batch insert scores — chunked to stay under D1's 100 bound-param limit. */
     async createBatch(rows: ScoreCreateData[]) {
       if (rows.length === 0) return [];
-      return db.insert(pageScores).values(rows.map(serializeScore)).returning();
+      const chunks = chunkForD1Insert(rows.map(serializeScore));
+      const results = await Promise.all(
+        chunks.map((chunk) => db.insert(pageScores).values(chunk).returning()),
+      );
+      return results.flat();
     },
 
     async getByPage(pageId: string) {
@@ -128,7 +133,11 @@ export function scoreQueries(db: Database) {
 
     async createIssues(rows: IssueCreateData[]) {
       if (rows.length === 0) return [];
-      return db.insert(issues).values(rows.map(serializeIssue)).returning();
+      const chunks = chunkForD1Insert(rows.map(serializeIssue));
+      const results = await Promise.all(
+        chunks.map((chunk) => db.insert(issues).values(chunk).returning()),
+      );
+      return results.flat();
     },
 
     async getIssuesByPage(pageId: string) {

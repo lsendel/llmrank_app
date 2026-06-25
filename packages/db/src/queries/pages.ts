@@ -1,6 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { pages } from "../schema";
+import { chunkForD1Insert } from "./d1-batch";
 
 export function pageQueries(db: Database) {
   return {
@@ -24,19 +25,20 @@ export function pageQueries(db: Database) {
       }>,
     ) {
       if (rows.length === 0) return [];
-      return db
-        .insert(pages)
-        .values(
-          rows.map((r) => ({
-            ...r,
-            id: crypto.randomUUID(),
-            crawledAt:
-              r.crawledAt instanceof Date
-                ? r.crawledAt.toISOString()
-                : (r.crawledAt ?? null),
-          })),
-        )
-        .returning();
+      const serialized = rows.map((r) => ({
+        ...r,
+        id: crypto.randomUUID(),
+        crawledAt:
+          r.crawledAt instanceof Date
+            ? r.crawledAt.toISOString()
+            : (r.crawledAt ?? null),
+      }));
+      const results = await Promise.all(
+        chunkForD1Insert(serialized).map((chunk) =>
+          db.insert(pages).values(chunk).returning(),
+        ),
+      );
+      return results.flat();
     },
 
     async getById(id: string) {
