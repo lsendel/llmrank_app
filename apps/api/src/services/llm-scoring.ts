@@ -12,6 +12,63 @@ import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ service: "llm-scoring" });
 
+type LLMUnavailableCause = "usage_limit" | "auth" | "rate_limit" | "other";
+
+/** Classify an LLM provider error so a hard outage (cap/auth) reads clearly. */
+function classifyLLMError(message: string): LLMUnavailableCause {
+  const m = message.toLowerCase();
+  if (
+    m.includes("usage limit") ||
+    m.includes("credit balance") ||
+    m.includes("quota") ||
+    m.includes("billing")
+  )
+    return "usage_limit";
+  if (
+    m.includes("authentication") ||
+    m.includes("invalid x-api-key") ||
+    m.includes("invalid api key") ||
+    m.includes("401") ||
+    m.includes("permission")
+  )
+    return "auth";
+  if (m.includes("rate limit") || m.includes("429") || m.includes("overloaded"))
+    return "rate_limit";
+  return "other";
+}
+
+/**
+ * Persist a per-job LLM-scoring status so a silent failure becomes visible
+ * (read by monitoring/UI). Best-effort; never throws.
+ */
+async function markLLMStatus(
+  kv:
+    | {
+        put(
+          k: string,
+          v: string,
+          o?: { expirationTtl?: number },
+        ): Promise<void>;
+      }
+    | undefined,
+  jobId: string,
+  data: {
+    status: "ok" | "partial" | "unavailable";
+    cause?: LLMUnavailableCause;
+    scored: number;
+    failed: number;
+  },
+): Promise<void> {
+  if (!kv) return;
+  await kv
+    .put(
+      `llm:status:${jobId}`,
+      JSON.stringify({ ...data, at: new Date().toISOString() }),
+      { expirationTtl: 7 * 24 * 60 * 60 },
+    )
+    .catch(() => {});
+}
+
 /** Minimum uncached pages before we use the batch API (otherwise sync is fine). */
 const BATCH_THRESHOLD = 5;
 
@@ -237,6 +294,8 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
       jobId: input.jobId,
       count: requests.length,
     });
+    let syncFailed = 0;
+    let syncLastError = "";
     await pMap(
       requests,
       async (req) => {
@@ -257,14 +316,35 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
             llmScores,
           );
         } catch (err) {
-          log.error("Sync LLM scoring failed for page", {
-            pageId: entry.pageId,
-            error: err instanceof Error ? err.message : String(err),
-          });
+          syncFailed++;
+          syncLastError = err instanceof Error ? err.message : String(err);
         }
       },
       { concurrency: 5, settle: true },
     );
+    if (syncFailed > 0) {
+      log.error(
+        "LLM content scoring degraded — pages keep deterministic scores",
+        {
+          jobId: input.jobId,
+          failed: syncFailed,
+          total: requests.length,
+          cause: classifyLLMError(syncLastError),
+          error: syncLastError.slice(0, 300),
+        },
+      );
+    }
+    await markLLMStatus(input.kvNamespace, input.jobId, {
+      status:
+        syncFailed === 0
+          ? "ok"
+          : syncFailed >= requests.length
+            ? "unavailable"
+            : "partial",
+      cause: syncFailed > 0 ? classifyLLMError(syncLastError) : undefined,
+      scored: cached.length + (requests.length - syncFailed),
+      failed: syncFailed,
+    });
     return;
   }
 
@@ -293,12 +373,40 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
       totalRequests: requests.length,
     });
   } catch (err) {
-    // --- Step 7: On batch failure, fall back to sync scoring ---
+    // --- Step 7: classify the batch failure ---
+    const batchMsg = err instanceof Error ? err.message : String(err);
+    const cause = classifyLLMError(batchMsg);
+    if (cause !== "other") {
+      // Hard provider unavailability (usage cap / auth / rate limit). A per-page
+      // sync retry just fails the same way, so don't storm the logs — surface it
+      // once, clearly, and stop. These pages keep their deterministic-only scores
+      // until scoring is re-run after the provider issue is fixed.
+      log.error(
+        "LLM content scoring UNAVAILABLE — pages keep deterministic-only scores; " +
+          "fix the provider issue and re-run scoring",
+        {
+          jobId: input.jobId,
+          cause,
+          pages: requests.length,
+          error: batchMsg.slice(0, 300),
+        },
+      );
+      await markLLMStatus(input.kvNamespace, input.jobId, {
+        status: "unavailable",
+        cause,
+        scored: cached.length,
+        failed: requests.length,
+      });
+      return;
+    }
+
+    // Transient/unknown batch error: fall back to per-page sync scoring.
     log.error("Batch submission failed, falling back to sync", {
       jobId: input.jobId,
-      error: err instanceof Error ? err.message : String(err),
+      error: batchMsg,
     });
-
+    let failed = 0;
+    let lastError = "";
     await pMap(
       requests,
       async (req) => {
@@ -319,14 +427,33 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
             llmScores,
           );
         } catch (syncErr) {
-          log.error("Sync fallback LLM scoring failed for page", {
-            pageId: entry.pageId,
-            error: syncErr instanceof Error ? syncErr.message : String(syncErr),
-          });
+          failed++;
+          lastError =
+            syncErr instanceof Error ? syncErr.message : String(syncErr);
         }
       },
       { concurrency: 5, settle: true },
     );
+    if (failed > 0) {
+      log.error("LLM content scoring degraded after sync fallback", {
+        jobId: input.jobId,
+        failed,
+        total: requests.length,
+        cause: classifyLLMError(lastError),
+        error: lastError.slice(0, 300),
+      });
+    }
+    await markLLMStatus(input.kvNamespace, input.jobId, {
+      status:
+        failed === 0
+          ? "ok"
+          : failed >= requests.length
+            ? "unavailable"
+            : "partial",
+      cause: failed > 0 ? classifyLLMError(lastError) : undefined,
+      scored: cached.length + (requests.length - failed),
+      failed,
+    });
   }
 }
 
