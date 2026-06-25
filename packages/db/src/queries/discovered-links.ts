@@ -1,6 +1,7 @@
 import { eq, desc, sql } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { discoveredLinks } from "../schema";
+import { chunkForD1Insert } from "./d1-batch";
 
 export interface BacklinkSummary {
   totalBacklinks: number;
@@ -33,16 +34,13 @@ export function discoveredLinkQueries(db: Database) {
     ) {
       if (links.length === 0) return;
 
-      const chunks = [];
-      for (let i = 0; i < links.length; i += 500) {
-        chunks.push(links.slice(i, i + 500));
-      }
-
+      const rows = links.map((c) => ({ ...c, id: crypto.randomUUID() }));
+      // 90 (not 100) leaves room for the onConflictDoUpdate set-clause param.
       await Promise.all(
-        chunks.map((chunk) =>
+        chunkForD1Insert(rows, 90).map((chunk) =>
           db
             .insert(discoveredLinks)
-            .values(chunk.map((c) => ({ ...c, id: crypto.randomUUID() })))
+            .values(chunk)
             .onConflictDoUpdate({
               target: [discoveredLinks.sourceUrl, discoveredLinks.targetUrl],
               set: { lastSeenAt: new Date().toISOString() },

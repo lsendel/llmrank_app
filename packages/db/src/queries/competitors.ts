@@ -1,6 +1,7 @@
 import { eq, desc, lte, and, inArray } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { competitors } from "../schema";
+import { chunkForD1Insert } from "./d1-batch";
 
 export function competitorQueries(db: Database) {
   return {
@@ -52,11 +53,16 @@ export function competitorQueries(db: Database) {
         domain,
         source,
       }));
-      return db
-        .insert(competitors)
-        .values(rows)
-        .onConflictDoNothing()
-        .returning();
+      const results = await Promise.all(
+        chunkForD1Insert(rows, 90).map((chunk) =>
+          db
+            .insert(competitors)
+            .values(chunk)
+            .onConflictDoNothing()
+            .returning(),
+        ),
+      );
+      return results.flat();
     },
 
     async remove(id: string) {

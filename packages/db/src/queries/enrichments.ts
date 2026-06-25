@@ -2,6 +2,7 @@ import { eq, and } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { pageEnrichments } from "../schema";
 import type { IntegrationProvider } from "../schema/enums";
+import { chunkForD1Insert } from "./d1-batch";
 
 export function enrichmentQueries(db: Database) {
   return {
@@ -14,16 +15,17 @@ export function enrichmentQueries(db: Database) {
       }[],
     ) {
       if (rows.length === 0) return [];
-      return db
-        .insert(pageEnrichments)
-        .values(
-          rows.map((r) => ({
-            ...r,
-            id: crypto.randomUUID(),
-            data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
-          })),
-        )
-        .returning();
+      const serialized = rows.map((r) => ({
+        ...r,
+        id: crypto.randomUUID(),
+        data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
+      }));
+      const results = await Promise.all(
+        chunkForD1Insert(serialized).map((chunk) =>
+          db.insert(pageEnrichments).values(chunk).returning(),
+        ),
+      );
+      return results.flat();
     },
 
     async listByPage(pageId: string) {

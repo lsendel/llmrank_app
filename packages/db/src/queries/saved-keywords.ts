@@ -1,6 +1,7 @@
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { savedKeywords } from "../schema";
+import { chunkForD1Insert } from "./d1-batch";
 
 export function savedKeywordQueries(db: Database) {
   return {
@@ -37,10 +38,13 @@ export function savedKeywordQueries(db: Database) {
       }>,
     ) {
       if (rows.length === 0) return [];
-      return db
-        .insert(savedKeywords)
-        .values(rows.map((r) => ({ ...r, id: crypto.randomUUID() })))
-        .returning();
+      const serialized = rows.map((r) => ({ ...r, id: crypto.randomUUID() }));
+      const results = await Promise.all(
+        chunkForD1Insert(serialized).map((chunk) =>
+          db.insert(savedKeywords).values(chunk).returning(),
+        ),
+      );
+      return results.flat();
     },
 
     async remove(id: string) {

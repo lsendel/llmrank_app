@@ -1,6 +1,7 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { aiPrompts } from "../schema";
+import { chunkForD1Insert } from "./d1-batch";
 
 export function aiPromptQueries(db: Database) {
   return {
@@ -28,7 +29,12 @@ export function aiPromptQueries(db: Database) {
               : JSON.stringify(d.competitorsMentioned)
             : undefined,
       }));
-      return db.insert(aiPrompts).values(rows).returning();
+      const results = await Promise.all(
+        chunkForD1Insert(rows).map((chunk) =>
+          db.insert(aiPrompts).values(chunk).returning(),
+        ),
+      );
+      return results.flat();
     },
 
     async listByProject(
