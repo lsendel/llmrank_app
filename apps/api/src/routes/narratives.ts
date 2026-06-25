@@ -43,7 +43,7 @@ narrativeRoutes.post("/generate", async (c) => {
   const service = createNarrativeService({
     db,
     adminDb,
-    narratives: createNarrativeRepository(db),
+    narratives: createNarrativeRepository(c.get("agencyDb")),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
     crawls: createCrawlRepository(db),
@@ -73,7 +73,7 @@ narrativeRoutes.get("/:crawlJobId", async (c) => {
   const service = createNarrativeService({
     db,
     adminDb,
-    narratives: createNarrativeRepository(db),
+    narratives: createNarrativeRepository(c.get("agencyDb")),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
     crawls: createCrawlRepository(db),
@@ -113,7 +113,7 @@ narrativeRoutes.patch("/:crawlJobId/sections/:sectionId", async (c) => {
   const service = createNarrativeService({
     db,
     adminDb,
-    narratives: createNarrativeRepository(db),
+    narratives: createNarrativeRepository(c.get("agencyDb")),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
     crawls: createCrawlRepository(db),
@@ -148,7 +148,7 @@ narrativeRoutes.post(
     const service = createNarrativeService({
       db,
       adminDb,
-      narratives: createNarrativeRepository(db),
+      narratives: createNarrativeRepository(c.get("agencyDb")),
       projects: createProjectRepository(db),
       users: createUserRepository(db),
       crawls: createCrawlRepository(db),
@@ -180,7 +180,7 @@ narrativeRoutes.delete("/:crawlJobId", async (c) => {
   const service = createNarrativeService({
     db,
     adminDb,
-    narratives: createNarrativeRepository(db),
+    narratives: createNarrativeRepository(c.get("agencyDb")),
     projects: createProjectRepository(db),
     users: createUserRepository(db),
     crawls: createCrawlRepository(db),

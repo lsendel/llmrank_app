@@ -27,6 +27,7 @@ import {
   actionItemQueries,
   createAppDb,
   createAdminDb,
+  createAgencyDb,
   outboxEvents,
   projectQueries,
   reportScheduleQueries,
@@ -185,12 +186,16 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
           (async () => {
             try {
               const db = createAppDb(env.d1);
+              // narratives live in the Supabase agency DB, not D1.
+              const agencyDb = createAgencyDb(
+                env.supabaseConnectionString ?? "",
+              );
               const project = await projectQueries(db).getById(projectId);
               if (!project) return;
               const narrativeSvc = createNarrativeService({
                 db,
                 adminDb: env.d1Admin ? createAdminDb(env.d1Admin) : (db as any),
-                narratives: createNarrativeRepository(db),
+                narratives: createNarrativeRepository(agencyDb),
                 projects: createProjectRepository(db),
                 users: createUserRepository(db),
                 crawls: createCrawlRepository(db),
