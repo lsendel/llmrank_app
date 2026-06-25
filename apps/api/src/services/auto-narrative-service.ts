@@ -1,6 +1,7 @@
 import {
   createAppDb,
   createAdminDb,
+  createAgencyDb,
   projectQueries,
   userQueries,
 } from "@llm-boost/db";
@@ -16,6 +17,8 @@ import { createLogger } from "@llm-boost/shared";
 export interface AutoNarrativeInput {
   d1: D1Database;
   d1Admin: D1Database;
+  // narratives live in the Supabase agency DB, not D1.
+  supabaseConnectionString: string;
   projectId: string;
   crawlJobId: string;
   anthropicApiKey: string;
@@ -26,6 +29,7 @@ export async function runAutoNarrativeRegeneration(
 ): Promise<void> {
   const log = createLogger({ context: "auto-narrative" });
   const db = createAppDb(input.d1);
+  const agencyDb = createAgencyDb(input.supabaseConnectionString);
 
   const project = await projectQueries(db).getById(input.projectId);
   if (!project) return;
@@ -36,7 +40,7 @@ export async function runAutoNarrativeRegeneration(
   // Only Pro and Agency get narratives
   if (user.plan !== "pro" && user.plan !== "agency") return;
 
-  const narrativeRepo = createNarrativeRepository(db);
+  const narrativeRepo = createNarrativeRepository(agencyDb);
 
   // Check if a narrative exists for this project (any crawl)
   const existingNarratives = await narrativeRepo.listByProject(
