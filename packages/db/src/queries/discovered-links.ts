@@ -35,9 +35,9 @@ export function discoveredLinkQueries(db: Database) {
       if (links.length === 0) return;
 
       const rows = links.map((c) => ({ ...c, id: crypto.randomUUID() }));
-      // 90 (not 100) leaves room for the onConflictDoUpdate set-clause param.
+      // reserve 2 params for the onConflictDoUpdate set-clause.
       await Promise.all(
-        chunkForD1Insert(rows, 90).map((chunk) =>
+        chunkForD1Insert(rows, discoveredLinks, 2).map((chunk) =>
           db
             .insert(discoveredLinks)
             .values(chunk)

@@ -54,7 +54,7 @@ export function competitorQueries(db: Database) {
         source,
       }));
       const results = await Promise.all(
-        chunkForD1Insert(rows, 90).map((chunk) =>
+        chunkForD1Insert(rows, competitors, 2).map((chunk) =>
           db
             .insert(competitors)
             .values(chunk)

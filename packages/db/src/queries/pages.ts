@@ -34,7 +34,7 @@ export function pageQueries(db: Database) {
             : (r.crawledAt ?? null),
       }));
       const results = await Promise.all(
-        chunkForD1Insert(serialized).map((chunk) =>
+        chunkForD1Insert(serialized, pages).map((chunk) =>
           db.insert(pages).values(chunk).returning(),
         ),
       );

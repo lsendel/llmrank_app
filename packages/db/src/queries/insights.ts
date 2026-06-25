@@ -13,7 +13,7 @@ export function crawlInsightQueries(db: Database) {
         await tx
           .delete(crawlInsights)
           .where(eq(crawlInsights.crawlId, crawlId));
-        for (const chunk of chunkForD1Insert(rows)) {
+        for (const chunk of chunkForD1Insert(rows, crawlInsights)) {
           await tx.insert(crawlInsights).values(chunk);
         }
       });
@@ -33,7 +33,7 @@ export function pageInsightQueries(db: Database) {
     async replaceForCrawl(crawlId: string, rows: PageInsightInsert[]) {
       await db.transaction(async (tx) => {
         await tx.delete(pageInsights).where(eq(pageInsights.crawlId, crawlId));
-        for (const chunk of chunkForD1Insert(rows)) {
+        for (const chunk of chunkForD1Insert(rows, pageInsights)) {
           await tx.insert(pageInsights).values(chunk);
         }
       });

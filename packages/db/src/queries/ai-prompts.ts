@@ -30,7 +30,7 @@ export function aiPromptQueries(db: Database) {
             : undefined,
       }));
       const results = await Promise.all(
-        chunkForD1Insert(rows).map((chunk) =>
+        chunkForD1Insert(rows, aiPrompts).map((chunk) =>
           db.insert(aiPrompts).values(chunk).returning(),
         ),
       );

@@ -72,7 +72,7 @@ export function scoreQueries(db: Database) {
     /** Batch insert scores — chunked to stay under D1's 100 bound-param limit. */
     async createBatch(rows: ScoreCreateData[]) {
       if (rows.length === 0) return [];
-      const chunks = chunkForD1Insert(rows.map(serializeScore));
+      const chunks = chunkForD1Insert(rows.map(serializeScore), pageScores);
       const results = await Promise.all(
         chunks.map((chunk) => db.insert(pageScores).values(chunk).returning()),
       );
@@ -133,7 +133,7 @@ export function scoreQueries(db: Database) {
 
     async createIssues(rows: IssueCreateData[]) {
       if (rows.length === 0) return [];
-      const chunks = chunkForD1Insert(rows.map(serializeIssue));
+      const chunks = chunkForD1Insert(rows.map(serializeIssue), issues);
       const results = await Promise.all(
         chunks.map((chunk) => db.insert(issues).values(chunk).returning()),
       );

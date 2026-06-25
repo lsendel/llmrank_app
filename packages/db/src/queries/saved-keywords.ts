@@ -40,7 +40,7 @@ export function savedKeywordQueries(db: Database) {
       if (rows.length === 0) return [];
       const serialized = rows.map((r) => ({ ...r, id: crypto.randomUUID() }));
       const results = await Promise.all(
-        chunkForD1Insert(serialized).map((chunk) =>
+        chunkForD1Insert(serialized, savedKeywords).map((chunk) =>
           db.insert(savedKeywords).values(chunk).returning(),
         ),
       );

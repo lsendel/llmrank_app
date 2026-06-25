@@ -21,7 +21,7 @@ export function enrichmentQueries(db: Database) {
         data: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
       }));
       const results = await Promise.all(
-        chunkForD1Insert(serialized).map((chunk) =>
+        chunkForD1Insert(serialized, pageEnrichments).map((chunk) =>
           db.insert(pageEnrichments).values(chunk).returning(),
         ),
       );
