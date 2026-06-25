@@ -629,7 +629,11 @@ export interface NarrativeRepository {
   delete: ReturnType<typeof narrativeQueries>["delete"];
 }
 
-export function createNarrativeRepository(db: Database): NarrativeRepository {
-  // TODO: narrativeQueries expects AgencyDatabase (Supabase); repositories need unified DB type
-  return narrativeQueries(db as any);
+// narratives live in the Supabase agency DB (not D1), so this repository must
+// be constructed with the agency database. Passing the D1 app DB here is a bug —
+// the table does not exist there. Mirrors createVisibilityRepository.
+export function createNarrativeRepository(
+  db: AgencyDatabase,
+): NarrativeRepository {
+  return narrativeQueries(db);
 }
