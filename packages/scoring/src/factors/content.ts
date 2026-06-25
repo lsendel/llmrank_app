@@ -5,17 +5,20 @@ import { THRESHOLDS } from "../thresholds";
 export function scoreContentFactors(page: PageData): FactorResult {
   const s: ScoreState = { score: 100, issues: [] };
 
-  // THIN_CONTENT: -15 if <200 words, -8 if 200-499
-  if (page.wordCount < THRESHOLDS.thinContentWords) {
-    deduct(
-      s,
-      "THIN_CONTENT",
-      { wordCount: page.wordCount },
-      undefined,
-      `This page has only ${page.wordCount} words and isn't optimized for LLM citations. Try analyzing a full article or blog post instead (500+ words recommended).`,
-    );
-  } else if (page.wordCount < THRESHOLDS.moderateContentWords) {
-    deduct(s, "THIN_CONTENT", -8, { wordCount: page.wordCount });
+  // THIN_CONTENT: tiered by word count. A near-empty stub is not citable by an
+  // LLM, so it must lose far more than a borderline-thin page — the old flat -15
+  // for anything <200 words scored a 30-word stub the same as a 199-word page.
+  // <50: -40 (stub), 50-149: -22, 150-199: -15, 200-499: -8, 500+: none.
+  const wc = page.wordCount;
+  const thinMsg = `This page has only ${wc} words and isn't optimized for LLM citations. LLMs cite substantive, in-depth pages — aim for 500+ words of real content.`;
+  if (wc < THRESHOLDS.stubContentWords) {
+    deduct(s, "THIN_CONTENT", -40, { wordCount: wc }, thinMsg);
+  } else if (wc < THRESHOLDS.veryThinContentWords) {
+    deduct(s, "THIN_CONTENT", -22, { wordCount: wc }, thinMsg);
+  } else if (wc < THRESHOLDS.thinContentWords) {
+    deduct(s, "THIN_CONTENT", -15, { wordCount: wc }, thinMsg);
+  } else if (wc < THRESHOLDS.moderateContentWords) {
+    deduct(s, "THIN_CONTENT", -8, { wordCount: wc });
   }
 
   // LLM-based content scores: CONTENT_DEPTH, CONTENT_CLARITY, CONTENT_AUTHORITY

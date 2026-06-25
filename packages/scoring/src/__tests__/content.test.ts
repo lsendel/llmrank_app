@@ -62,14 +62,32 @@ describe("Content Quality Factors", () => {
     expect(result.issues).toHaveLength(0);
   });
 
-  // --- THIN_CONTENT ---
+  // --- THIN_CONTENT (tiered by word count) ---
 
-  it("THIN_CONTENT: deducts 15 for fewer than 200 words", () => {
-    const result = scoreContentFactors(makePageData({ wordCount: 100 }));
-    expect(result.score).toBe(85);
+  it("THIN_CONTENT: deducts 40 for stub pages (< 50 words)", () => {
+    const result = scoreContentFactors(makePageData({ wordCount: 30 }));
+    expect(result.score).toBe(60);
     expect(result.issues).toContainEqual(
       expect.objectContaining({ code: "THIN_CONTENT" }),
     );
+  });
+
+  it("THIN_CONTENT: deducts 40 for 0 words", () => {
+    const result = scoreContentFactors(makePageData({ wordCount: 0 }));
+    expect(result.score).toBe(60);
+  });
+
+  it("THIN_CONTENT: deducts 22 for very thin pages (50-149 words)", () => {
+    const result = scoreContentFactors(makePageData({ wordCount: 100 }));
+    expect(result.score).toBe(78);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "THIN_CONTENT" }),
+    );
+  });
+
+  it("THIN_CONTENT: deducts 15 for thin pages (150-199 words)", () => {
+    const result = scoreContentFactors(makePageData({ wordCount: 175 }));
+    expect(result.score).toBe(85);
   });
 
   it("THIN_CONTENT: deducts 8 for 200-499 words", () => {
@@ -80,17 +98,6 @@ describe("Content Quality Factors", () => {
     );
   });
 
-  it("THIN_CONTENT: no deduction for 500+ words", () => {
-    const result = scoreContentFactors(makePageData({ wordCount: 500 }));
-    const issue = result.issues.find((i) => i.code === "THIN_CONTENT");
-    expect(issue).toBeUndefined();
-  });
-
-  it("THIN_CONTENT: deducts 15 for 0 words", () => {
-    const result = scoreContentFactors(makePageData({ wordCount: 0 }));
-    expect(result.score).toBe(85);
-  });
-
   it("THIN_CONTENT: deducts 8 for exactly 200 words", () => {
     const result = scoreContentFactors(makePageData({ wordCount: 200 }));
     expect(result.score).toBe(92);
@@ -99,6 +106,12 @@ describe("Content Quality Factors", () => {
   it("THIN_CONTENT: deducts 8 for exactly 499 words", () => {
     const result = scoreContentFactors(makePageData({ wordCount: 499 }));
     expect(result.score).toBe(92);
+  });
+
+  it("THIN_CONTENT: no deduction for 500+ words", () => {
+    const result = scoreContentFactors(makePageData({ wordCount: 500 }));
+    const issue = result.issues.find((i) => i.code === "THIN_CONTENT");
+    expect(issue).toBeUndefined();
   });
 
   // --- CONTENT_DEPTH / CLARITY / AUTHORITY ---
@@ -340,9 +353,9 @@ describe("Content Quality Factors", () => {
   // --- Multiple issues ---
 
   it("accumulates multiple content deductions", () => {
-    const page = makePageData({ wordCount: 100 }); // -15
+    const page = makePageData({ wordCount: 100 }); // -22 (very thin)
     page.extracted.internal_links = []; // -8
     const result = scoreContentFactors(page);
-    expect(result.score).toBe(77); // 100 - 15 - 8
+    expect(result.score).toBe(70); // 100 - 22 - 8
   });
 });

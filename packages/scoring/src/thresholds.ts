@@ -12,6 +12,8 @@ export const THRESHOLDS = {
   redirectChainMaxHops: 3,
 
   // --- Content ---
+  stubContentWords: 50, // below this a page is essentially un-citable
+  veryThinContentWords: 150,
   thinContentWords: 200,
   moderateContentWords: 500,
   minInternalLinks: 2,
