@@ -108,6 +108,22 @@ export function createIngestService(deps: IngestServiceDeps) {
         throw new ServiceError("NOT_FOUND", 404, "Crawl job not found");
       }
 
+      // Idempotency: the crawler delivers callbacks at-least-once, so a
+      // re-delivered batch must not duplicate pages/scores/issues. Skip a batch
+      // we've already fully processed (keyed by job + batch index).
+      const idempotencyKey = `ingest:done:${batch.job_id}:${batch.batch_index}`;
+      if (args.env.kvNamespace) {
+        const alreadyProcessed = await args.env.kvNamespace.get(idempotencyKey);
+        if (alreadyProcessed) {
+          return {
+            job_id: batch.job_id,
+            batch_index: batch.batch_index,
+            pages_processed: 0,
+            is_final: batch.is_final,
+          };
+        }
+      }
+
       const crawlStatus = CrawlStatus.from(crawlJob.status);
       if (crawlStatus.canTransitionTo("crawling")) {
         await deps.crawls.updateStatus(crawlJob.id, {
@@ -217,6 +233,13 @@ export function createIngestService(deps: IngestServiceDeps) {
         env: args.env,
         executionCtx: args.executionCtx,
       });
+
+      // Mark this batch processed so an at-least-once redelivery is a no-op.
+      if (args.env.kvNamespace) {
+        await args.env.kvNamespace.put(idempotencyKey, "1", {
+          expirationTtl: 86400,
+        });
+      }
 
       // 6. Return result
       return {
