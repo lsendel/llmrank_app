@@ -98,6 +98,7 @@ describe("Fixes Routes", () => {
 
     mockPageGetById.mockResolvedValue({
       id: "00000000-0000-0000-0000-000000000002",
+      projectId: "00000000-0000-0000-0000-000000000001",
       url: "https://example.com/page1",
       title: "Test Page",
       metaDesc: "Some description",
@@ -189,6 +190,33 @@ describe("Fixes Routes", () => {
 
       const body: any = await res.json();
       expect(body.error.code).toBe("NOT_FOUND");
+    });
+
+    it("returns 404 when pageId belongs to a different project (tenant isolation)", async () => {
+      // Caller owns the project, but supplies a pageId from another tenant.
+      mockPageGetById.mockResolvedValue({
+        id: "00000000-0000-0000-0000-000000000099",
+        projectId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        url: "https://victim.com/secret",
+        title: "Another tenant's page",
+        metaDesc: "Confidential",
+        r2RawKey: "raw/victim.html",
+      });
+
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          pageId: "00000000-0000-0000-0000-000000000099",
+          issueCode: "MISSING_META_DESC",
+        },
+      });
+      expect(res.status).toBe(404);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("NOT_FOUND");
+      // The foreign page's content must never reach the LLM.
+      expect(mockMessagesCreate).not.toHaveBeenCalled();
     });
 
     it("returns 404 when project belongs to different user", async () => {
@@ -309,13 +337,15 @@ describe("Fixes Routes", () => {
 
       const body: any = await res.json();
       expect(body.data).toBeInstanceOf(Array);
-      expect(body.data).toHaveLength(13);
+      expect(body.data).toHaveLength(15);
       expect(body.data).toContain("MISSING_META_DESC");
       expect(body.data).toContain("MISSING_TITLE");
       expect(body.data).toContain("NO_STRUCTURED_DATA");
       expect(body.data).toContain("AI_CRAWLER_BLOCKED");
       expect(body.data).toContain("MISSING_SPEAKABLE");
       expect(body.data).toContain("THIN_CONTENT_FOR_AI");
+      expect(body.data).toContain("META_DESC_LENGTH");
+      expect(body.data).toContain("TITLE_LENGTH");
     });
   });
 });

@@ -70,15 +70,19 @@ describe("FixGeneratorService", () => {
 
   // ---- getSupportedIssueCodes ----
 
-  it("getSupportedIssueCodes returns 13 codes", () => {
+  it("getSupportedIssueCodes returns 15 codes", () => {
     const service = createFixGeneratorService(deps);
     const codes = service.getSupportedIssueCodes();
-    expect(codes).toHaveLength(13);
+    expect(codes).toHaveLength(15);
     expect(codes).toContain("MISSING_META_DESC");
     expect(codes).toContain("MISSING_TITLE");
     expect(codes).toContain("NO_STRUCTURED_DATA");
     expect(codes).toContain("MISSING_LLMS_TXT");
     expect(codes).toContain("AI_CRAWLER_BLOCKED");
+    // Length-tuning variants reuse the "missing" prompts so they get a working
+    // AI fix instead of UNSUPPORTED_FIX.
+    expect(codes).toContain("META_DESC_LENGTH");
+    expect(codes).toContain("TITLE_LENGTH");
   });
 
   // ---- generateFix success ----

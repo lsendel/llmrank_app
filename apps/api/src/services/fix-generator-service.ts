@@ -129,9 +129,17 @@ Return the content expansion plan in a structured format.`,
   }),
 };
 
+// A meta description / title that is the wrong length needs the same generation
+// as a missing one — the field just gets rewritten to spec. Alias so these very
+// common issues get a working "AI Fix" instead of UNSUPPORTED_FIX.
+FIX_PROMPTS.META_DESC_LENGTH = FIX_PROMPTS.MISSING_META_DESC;
+FIX_PROMPTS.TITLE_LENGTH = FIX_PROMPTS.MISSING_TITLE;
+
 const ISSUE_TO_FIX_TYPE: Record<string, string> = {
   MISSING_META_DESC: "meta_description",
+  META_DESC_LENGTH: "meta_description",
   MISSING_TITLE: "title_tag",
+  TITLE_LENGTH: "title_tag",
   NO_STRUCTURED_DATA: "json_ld",
   MISSING_LLMS_TXT: "llms_txt",
   NO_FAQ_SECTION: "faq_section",

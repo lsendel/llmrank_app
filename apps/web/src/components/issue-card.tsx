@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ActionItemStatus } from "@/lib/api";
-import { AiFixButton } from "@/components/ai-fix-button";
+import { AiFixButton, SUPPORTED_FIX_CODES } from "@/components/ai-fix-button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/auth-hooks";
 
@@ -326,7 +326,7 @@ export const IssueCard = memo(function IssueCard({
               <p className="mt-1 text-sm text-foreground">{recommendation}</p>
             </div>
             <div className="flex gap-2">
-              {projectId ? (
+              {projectId && SUPPORTED_FIX_CODES.has(code) ? (
                 <AiFixButton
                   projectId={projectId}
                   pageId={pageId}
@@ -344,7 +344,11 @@ export const IssueCard = memo(function IssueCard({
                   variant="outline"
                   className="h-7 text-[10px]"
                   disabled
-                  title="Open this issue inside a project to generate an AI fix."
+                  title={
+                    !projectId
+                      ? "Open this issue inside a project to generate an AI fix."
+                      : "An automated AI fix isn't available for this issue type yet."
+                  }
                 >
                   <Sparkles className="mr-1.5 h-3 w-3 text-primary" />
                   Optimize with AI

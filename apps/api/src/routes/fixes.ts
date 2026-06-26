@@ -67,7 +67,8 @@ async function buildFixContext(args: {
 
   if (pageId) {
     const page = await pageQueries(db).getById(pageId);
-    if (!page) return base;
+    // Never read a page that isn't part of this project (tenant isolation).
+    if (!page || page.projectId !== projectId) return base;
     const ctx: FixPageContext = {
       url: page.url,
       title: page.title ?? project.name,
@@ -163,6 +164,19 @@ fixRoutes.post("/generate", async (c) => {
         { error: { code: "NOT_FOUND", message: "Project not found" } },
         404,
       );
+    }
+
+    // Tenant isolation: a pageId must belong to the (already-owned) project, or
+    // a caller could pair their projectId with another tenant's pageId and have
+    // us read that page's raw HTML into the fix prompt.
+    if (body.pageId) {
+      const page = await pageQueries(db).getById(body.pageId);
+      if (!page || page.projectId !== body.projectId) {
+        return c.json(
+          { error: { code: "NOT_FOUND", message: "Page not found" } },
+          404,
+        );
+      }
     }
 
     // Build a content-grounded context (real headings/excerpt from R2, or the
