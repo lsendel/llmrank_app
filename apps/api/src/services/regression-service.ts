@@ -45,13 +45,42 @@ export interface Regression {
   severity: "critical" | "warning" | "info";
 }
 
-const SCORE_CATEGORIES = [
-  { key: "overallScore", label: "Overall" },
-  { key: "technicalScore", label: "Technical" },
-  { key: "contentScore", label: "Content" },
-  { key: "aiReadinessScore", label: "AI Readiness" },
-  { key: "performanceScore", label: "Performance" },
-] as const;
+type SummaryScores = {
+  overallScore?: number | null;
+  categoryScores?: {
+    technical?: number | null;
+    content?: number | null;
+    aiReadiness?: number | null;
+    performance?: number | null;
+  } | null;
+};
+
+// `overallScore` is a flat field, but the four categories live under
+// `categoryScores` (see summary.ts). The previous flat keys (`technicalScore`…)
+// matched nothing, so category regressions never fired. Read the nested paths.
+const SCORE_CATEGORIES: {
+  label: string;
+  pick: (s: SummaryScores) => number | null | undefined;
+}[] = [
+  { label: "Overall", pick: (s) => s.overallScore },
+  { label: "Technical", pick: (s) => s.categoryScores?.technical },
+  { label: "Content", pick: (s) => s.categoryScores?.content },
+  { label: "AI Readiness", pick: (s) => s.categoryScores?.aiReadiness },
+  { label: "Performance", pick: (s) => s.categoryScores?.performance },
+];
+
+// summaryData is a TEXT (JSON) column; listByProject returns it unparsed.
+function readSummary(raw: unknown): SummaryScores | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as SummaryScores;
+    } catch {
+      return null;
+    }
+  }
+  return raw as SummaryScores;
+}
 
 const REGRESSION_THRESHOLD = -5;
 const CRITICAL_DUE_DAYS = 2;
@@ -106,14 +135,17 @@ export function createRegressionService(deps: RegressionServiceDeps) {
       const latest = completedCrawls[0];
       const previous = completedCrawls[1];
 
-      const latestSummary = latest.summaryData;
-      const previousSummary = previous.summaryData;
+      const latestSummary = readSummary(latest.summaryData);
+      const previousSummary = readSummary(previous.summaryData);
+      if (!latestSummary || !previousSummary) {
+        return [];
+      }
 
       const regressions: Regression[] = [];
 
-      for (const { key, label } of SCORE_CATEGORIES) {
-        const currentScore = latestSummary[key];
-        const previousScore = previousSummary[key];
+      for (const { label, pick } of SCORE_CATEGORIES) {
+        const currentScore = pick(latestSummary);
+        const previousScore = pick(previousSummary);
 
         if (
           typeof currentScore !== "number" ||

@@ -9,10 +9,38 @@ describe("RegressionService", () => {
   const createActionItemMock = vi.fn().mockResolvedValue({});
   const getOpenActionItemMock = vi.fn().mockResolvedValue(undefined);
 
+  // Production summaryData nests the four categories under `categoryScores`
+  // (only overallScore is flat). Accept convenient flat keys in fixtures and
+  // nest them so the data matches the real shape the service reads. Strings are
+  // left untouched (summaryData is a TEXT column and can arrive unparsed).
+  function nestSummary(s: any) {
+    if (!s || typeof s !== "object" || s.categoryScores) return s;
+    const {
+      technicalScore,
+      contentScore,
+      aiReadinessScore,
+      performanceScore,
+      ...rest
+    } = s;
+    return {
+      ...rest,
+      categoryScores: {
+        technical: technicalScore,
+        content: contentScore,
+        aiReadiness: aiReadinessScore,
+        performance: performanceScore,
+      },
+    };
+  }
+
   function makeDeps(crawls: any[], options?: { withActionItems?: boolean }) {
+    const nested = crawls.map((c) => ({
+      ...c,
+      summaryData: nestSummary(c.summaryData),
+    }));
     return {
       crawls: {
-        listByProject: vi.fn().mockResolvedValue(crawls),
+        listByProject: vi.fn().mockResolvedValue(nested),
       },
       notifications: {
         create: createNotificationMock,
@@ -202,6 +230,87 @@ describe("RegressionService", () => {
 
       const ai = result.find((r: Regression) => r.category === "AI Readiness");
       expect(ai?.severity).toBe("critical"); // -15
+    });
+
+    it("detects a category drop even when Overall is steady", async () => {
+      // Regression-fix guard: categories live under categoryScores, not flat
+      // keys — previously this drop was invisible because the flat key matched
+      // nothing and only Overall was ever checked.
+      const svc = createRegressionService(
+        makeDeps([
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 80,
+              technicalScore: 85,
+              contentScore: 60, // -12 vs previous
+              aiReadinessScore: 80,
+              performanceScore: 85,
+            },
+          },
+          {
+            status: "complete",
+            summaryData: {
+              overallScore: 80,
+              technicalScore: 85,
+              contentScore: 72,
+              aiReadinessScore: 80,
+              performanceScore: 85,
+            },
+          },
+        ]),
+      );
+
+      const result = await svc.detectRegressions({ projectId: "p1" });
+
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ category: "Content", delta: -12 }),
+        ]),
+      );
+      // Overall did not move — no Overall regression.
+      expect(
+        result.find((r: Regression) => r.category === "Overall"),
+      ).toBeUndefined();
+    });
+
+    it("parses summaryData when stored as a JSON string", async () => {
+      // listByProject returns the raw TEXT column unparsed.
+      const svc = createRegressionService(
+        makeDeps([
+          {
+            status: "complete",
+            summaryData: JSON.stringify({
+              overallScore: 60,
+              categoryScores: {
+                technical: 80,
+                content: 80,
+                aiReadiness: 80,
+                performance: 80,
+              },
+            }),
+          },
+          {
+            status: "complete",
+            summaryData: JSON.stringify({
+              overallScore: 80,
+              categoryScores: {
+                technical: 80,
+                content: 80,
+                aiReadiness: 80,
+                performance: 80,
+              },
+            }),
+          },
+        ]),
+      );
+
+      const result = await svc.detectRegressions({ projectId: "p1" });
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ category: "Overall", delta: -20 }),
+        ]),
+      );
     });
   });
 

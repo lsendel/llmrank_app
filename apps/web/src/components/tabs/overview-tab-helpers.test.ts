@@ -4,6 +4,7 @@ import {
   buildOtherCategoryRows,
   buildOverviewMeta,
   buildOverviewStatusState,
+  selectTopIssues,
 } from "./overview-tab-helpers";
 
 describe("overview-tab helpers", () => {
@@ -91,5 +92,34 @@ describe("overview-tab helpers", () => {
         pass: true,
       },
     ]);
+  });
+
+  it("selectTopIssues dedupes by code and sorts most-severe first", () => {
+    const mk = (code: string, severity: "critical" | "warning" | "info") =>
+      ({ code, category: "technical", severity, message: code }) as never;
+
+    const issues = [
+      mk("A_INFO", "info"),
+      mk("B_CRIT", "critical"),
+      mk("B_CRIT", "critical"), // same code on another page — should collapse
+      mk("C_WARN", "warning"),
+    ];
+
+    const top = selectTopIssues(issues, 5);
+
+    expect(top.map((i) => i.code)).toEqual(["B_CRIT", "C_WARN", "A_INFO"]);
+  });
+
+  it("selectTopIssues caps the result at the limit", () => {
+    const mk = (code: string) =>
+      ({
+        code,
+        category: "technical",
+        severity: "critical",
+        message: code,
+      }) as never;
+    const issues = Array.from({ length: 8 }, (_, i) => mk(`CODE_${i}`));
+
+    expect(selectTopIssues(issues, 5)).toHaveLength(5);
   });
 });

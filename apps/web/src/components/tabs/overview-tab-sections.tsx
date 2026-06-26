@@ -83,6 +83,7 @@ import {
 import {
   buildAiReadinessFactors,
   buildOtherCategoryRows,
+  selectTopIssues,
   type OverviewStatusState,
 } from "./overview-tab-helpers";
 
@@ -475,6 +476,8 @@ export function OverviewTopIssuesSection({
 }) {
   if (issues.length === 0) return null;
 
+  const topIssues = selectTopIssues(issues);
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -487,7 +490,7 @@ export function OverviewTopIssuesSection({
         </Link>
       </div>
       <div className="space-y-3">
-        {issues.slice(0, 5).map((issue) => (
+        {topIssues.map((issue) => (
           <IssueCard key={issue.code} {...issue} />
         ))}
       </div>
