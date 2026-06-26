@@ -86,7 +86,16 @@ fn count_unsafe_blank_links(document: &Html) -> u32 {
 
 fn count_mixed_content(document: &Html) -> u32 {
     let mut count = 0u32;
-    for tag_attr in &[("img", "src"), ("script", "src"), ("link", "href")] {
+    // Only LOADED sub-resources count as mixed content (not <a href> links).
+    for tag_attr in &[
+        ("img", "src"),
+        ("script", "src"),
+        ("link", "href"),
+        ("iframe", "src"),
+        ("source", "src"),
+        ("audio", "src"),
+        ("video", "src"),
+    ] {
         let selector_str = format!("{}[{}]", tag_attr.0, tag_attr.1);
         let sel = match Selector::parse(&selector_str) {
             Ok(s) => s,
