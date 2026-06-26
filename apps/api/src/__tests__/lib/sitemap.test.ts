@@ -67,8 +67,8 @@ describe("parseSitemapXml", () => {
       </sitemapindex>`;
     const result = parseSitemapXml(xml);
     expect(result.exists).toBe(true);
-    // sitemapindex is not a urlset, so isValid = false
-    expect(result.isValid).toBe(false);
+    // A sitemapindex is a valid sitemap format (not just <urlset>).
+    expect(result.isValid).toBe(true);
     expect(result.urlCount).toBe(2);
   });
 
