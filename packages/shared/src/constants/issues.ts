@@ -45,9 +45,21 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "technical",
     severity: "critical",
     scoreImpact: -15,
-    message: "Page is missing a title tag or title is outside 30-60 characters",
+    message: "Page is missing a title tag",
     recommendation:
       "Add a unique, descriptive title tag between 30-60 characters that includes the page's primary topic.",
+    effortLevel: "low",
+    implementationSnippet: `<title>Your Page Topic — Brand Name</title>`,
+    dimension: "meta_tags",
+  },
+  TITLE_LENGTH: {
+    code: "TITLE_LENGTH",
+    category: "technical",
+    severity: "warning",
+    scoreImpact: -5,
+    message: "Title tag length is outside the recommended 30-60 characters",
+    recommendation:
+      "Keep the title between 30-60 characters so it isn't truncated in search and AI results. The title is present — only its length needs adjusting.",
     effortLevel: "low",
     implementationSnippet: `<title>Your Page Topic — Brand Name</title>`,
     dimension: "meta_tags",
@@ -57,10 +69,22 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "technical",
     severity: "warning",
     scoreImpact: -10,
-    message:
-      "Page is missing a meta description or it is outside 120-160 characters",
+    message: "Page is missing a meta description",
     recommendation:
       "Add a meta description of 120-160 characters that summarizes this page's key topic.",
+    effortLevel: "low",
+    implementationSnippet: `<meta name="description" content="A concise summary of this page's content in 120-160 characters." />`,
+    dimension: "meta_tags",
+  },
+  META_DESC_LENGTH: {
+    code: "META_DESC_LENGTH",
+    category: "technical",
+    severity: "info",
+    scoreImpact: -3,
+    message:
+      "Meta description length is outside the recommended 120-160 characters",
+    recommendation:
+      "Adjust the meta description to 120-160 characters for optimal display. The description is present — only its length needs tuning.",
     effortLevel: "low",
     implementationSnippet: `<meta name="description" content="A concise summary of this page's content in 120-160 characters." />`,
     dimension: "meta_tags",
@@ -575,9 +599,9 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "ai_readiness",
     severity: "warning",
     scoreImpact: -8,
-    message: "JSON-LD structured data contains parse errors",
+    message: "A JSON-LD structured data block is missing its @type property",
     recommendation:
-      "Fix JSON-LD syntax errors. Validate at schema.org or Google Rich Results Test.",
+      "Add a valid @type to every JSON-LD node (top level or inside @graph). Validate at schema.org or Google Rich Results Test.",
     effortLevel: "medium",
     dimension: "schema_markup",
   },

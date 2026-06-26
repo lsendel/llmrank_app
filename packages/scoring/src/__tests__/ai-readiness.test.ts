@@ -342,6 +342,29 @@ describe("AI Readiness Factors", () => {
     expect(issue).toBeUndefined();
   });
 
+  it("@graph: valid LocalBusiness graph fires neither INVALID_SCHEMA nor MISSING_ENTITY_MARKUP", () => {
+    const page = makePageData();
+    page.extracted.structured_data = [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "LocalBusiness",
+            name: "Age Well South Bay",
+            address: "Torrance, CA",
+          },
+          { "@type": "BreadcrumbList" },
+        ],
+      },
+    ];
+    page.extracted.schema_types = []; // older crawl data shape
+    const result = scoreAiReadinessFactors(page);
+    const codes = result.issues.map((i) => i.code);
+    expect(codes).not.toContain("INVALID_SCHEMA");
+    expect(codes).not.toContain("MISSING_ENTITY_MARKUP");
+    expect(codes).not.toContain("NO_STRUCTURED_DATA");
+  });
+
   // --- Combined issues ---
 
   it("accumulates multiple AI readiness deductions", () => {

@@ -217,6 +217,34 @@ describe("scoreSchemaMarkup", () => {
     expect(issue).toBeUndefined();
   });
 
+  // --- @graph normalization (regression: families.care false positives) ---
+
+  it("@graph: valid LocalBusiness/BreadcrumbList graph fires no false positives", () => {
+    const page = makePage();
+    // The real families.care shape: a single wrapper with @graph, no top-level @type.
+    page.extracted.structured_data = [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "LocalBusiness",
+            name: "Age Well South Bay",
+            address: "Torrance, CA",
+          },
+          { "@type": "BreadcrumbList" },
+        ],
+      },
+    ];
+    // Older crawl data stored an empty schema_types for @graph pages.
+    page.extracted.schema_types = [];
+    const result = scoreSchemaMarkup(page);
+    const codes = result.issues.map((i) => i.code);
+    expect(codes).not.toContain("INVALID_SCHEMA");
+    expect(codes).not.toContain("MISSING_ENTITY_MARKUP");
+    expect(codes).not.toContain("NO_STRUCTURED_DATA");
+    expect(result.score).toBe(100);
+  });
+
   // --- Multiple issues ---
 
   it("accumulates all schema issues for a page with no structured data", () => {

@@ -22,6 +22,39 @@ use crate::models::*;
 use crate::renderer::JsRenderer;
 use crate::storage::StorageClient;
 
+/// Flatten a parsed JSON-LD value into individual typed nodes, descending into
+/// `@graph` containers and nested arrays. A common `{ "@context", "@graph": [...] }`
+/// wrapper has no top-level `@type`, so without this its entities would be
+/// invisible to downstream scoring. Mirrors `normalizeSchemaNodes` in the
+/// TypeScript scoring engine.
+fn flatten_schema_nodes(value: serde_json::Value, out: &mut Vec<serde_json::Value>) {
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                flatten_schema_nodes(item, out);
+            }
+        }
+        serde_json::Value::Object(mut map) => {
+            if map.get("@graph").map(|g| g.is_array()).unwrap_or(false) {
+                let has_type = map.contains_key("@type");
+                let graph = map.remove("@graph");
+                // Keep the wrapper only if it carries its own @type.
+                if has_type {
+                    out.push(serde_json::Value::Object(map));
+                }
+                if let Some(serde_json::Value::Array(children)) = graph {
+                    for child in children {
+                        flatten_schema_nodes(child, out);
+                    }
+                }
+            } else {
+                out.push(serde_json::Value::Object(map));
+            }
+        }
+        _ => {}
+    }
+}
+
 /// High-level crawl engine that ties together the frontier, fetcher, parser,
 /// robots checker, lighthouse runner, JS renderer, and storage client.
 pub struct CrawlEngine {
@@ -146,17 +179,20 @@ impl CrawlEngine {
             result.lh_r2_key = Some(lh_key);
         }
 
-        // Build extracted data
+        // Build extracted data. Flatten @graph wrappers and bare arrays into
+        // their individual typed nodes so common `{ @context, @graph: [...] }`
+        // markup is read as real entities, not a typeless blob.
         let structured_data: Option<Vec<serde_json::Value>> = if self.config.extract_schema {
-            let values: Vec<serde_json::Value> = parsed
-                .schema_json_ld
-                .iter()
-                .filter_map(|s| serde_json::from_str(s).ok())
-                .collect();
-            if values.is_empty() {
+            let mut nodes: Vec<serde_json::Value> = Vec::new();
+            for s in &parsed.schema_json_ld {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(s) {
+                    flatten_schema_nodes(value, &mut nodes);
+                }
+            }
+            if nodes.is_empty() {
                 None
             } else {
-                Some(values)
+                Some(nodes)
             }
         } else {
             None
@@ -417,6 +453,54 @@ pub fn merge_links(
 mod tests {
     use super::*;
     use crate::renderer::RenderedLink;
+
+    fn node_types(nodes: &[serde_json::Value]) -> Vec<String> {
+        nodes
+            .iter()
+            .filter_map(|n| n.get("@type").and_then(|v| v.as_str()))
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn test_flatten_schema_nodes_flat() {
+        let mut out = Vec::new();
+        flatten_schema_nodes(
+            serde_json::json!({ "@type": "WebPage", "name": "Home" }),
+            &mut out,
+        );
+        assert_eq!(node_types(&out), vec!["WebPage"]);
+    }
+
+    #[test]
+    fn test_flatten_schema_nodes_graph() {
+        // The families.care shape: a wrapper with @graph and no top-level @type.
+        let mut out = Vec::new();
+        flatten_schema_nodes(
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@graph": [
+                    { "@type": "LocalBusiness", "name": "Age Well South Bay" },
+                    { "@type": "BreadcrumbList" }
+                ]
+            }),
+            &mut out,
+        );
+        assert_eq!(out.len(), 2);
+        // Every emitted node now carries a @type (no typeless wrapper).
+        assert!(out.iter().all(|n| n.get("@type").is_some()));
+        assert_eq!(node_types(&out), vec!["LocalBusiness", "BreadcrumbList"]);
+    }
+
+    #[test]
+    fn test_flatten_schema_nodes_bare_array() {
+        let mut out = Vec::new();
+        flatten_schema_nodes(
+            serde_json::json!([{ "@type": "Article" }, { "@type": "Person" }]),
+            &mut out,
+        );
+        assert_eq!(node_types(&out), vec!["Article", "Person"]);
+    }
 
     #[test]
     fn test_is_cross_domain_redirect_same_host() {
