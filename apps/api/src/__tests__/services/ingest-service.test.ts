@@ -572,6 +572,8 @@ describe("IngestService", () => {
 
   it("invalidates KV cache on final batch when kvNamespace and projects are available", async () => {
     const mockKv = {
+      get: vi.fn().mockResolvedValue(null),
+      put: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn().mockResolvedValue(undefined),
     };
     const env = {
