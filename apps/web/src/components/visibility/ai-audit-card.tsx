@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StateCard } from "@/components/ui/state";
@@ -39,7 +40,13 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export function AIAuditCard({ crawlId }: { crawlId: string }) {
+export function AIAuditCard({
+  crawlId,
+  projectId,
+}: {
+  crawlId: string;
+  projectId?: string;
+}) {
   const { data: audit, isLoading } = useApiSWR<AIAuditResult>(
     `ai-audit-${crawlId}`,
     useCallback(() => api.crawls.getAIAudit(crawlId), [crawlId]),
@@ -105,13 +112,28 @@ export function AIAuditCard({ crawlId }: { crawlId: string }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {audit.criticalCount > 0 && (
-          <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-2.5 text-sm text-destructive">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            {audit.criticalCount} critical issue
-            {audit.criticalCount !== 1 ? "s" : ""} found
-          </div>
-        )}
+        {audit.criticalCount > 0 &&
+          (projectId ? (
+            <Link
+              href={`/dashboard/projects/${projectId}?tab=issues&severity=critical`}
+              className="flex items-center justify-between gap-2 rounded-md bg-destructive/10 p-2.5 text-sm text-destructive transition-colors hover:bg-destructive/15"
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {audit.criticalCount} critical issue
+                {audit.criticalCount !== 1 ? "s" : ""} found
+              </span>
+              <span className="shrink-0 font-medium underline">
+                View details &rarr;
+              </span>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-2.5 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {audit.criticalCount} critical issue
+              {audit.criticalCount !== 1 ? "s" : ""} found
+            </div>
+          ))}
 
         {audit.checks.map((check) => {
           const config = STATUS_CONFIG[check.status] ?? STATUS_CONFIG.unknown;
