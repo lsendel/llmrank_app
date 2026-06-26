@@ -18,8 +18,15 @@ import {
   ArrowDown,
   ChevronDown,
   ChevronRight,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function narrativeSubtitle(progress: ProjectProgress): string {
   const delta = progress.scoreDelta;
@@ -145,27 +152,51 @@ export function ProjectProgressCard({ projectId }: { projectId: string }) {
           })}
         </div>
 
-        {/* Issues summary */}
-        <div className="flex gap-4 text-sm">
-          <span className="flex items-center gap-1 text-green-600">
-            <ArrowDown className="h-3 w-3" />
-            {progress.issuesFixed} fixed
-          </span>
-          <span className="flex items-center gap-1 text-red-600">
-            <ArrowUp className="h-3 w-3" />
-            {progress.issuesNew} new
-          </span>
-          <span className="text-muted-foreground">
-            {progress.issuesPersisting} persisting
-          </span>
-        </div>
+        <TooltipProvider>
+          {/* Issues summary — counted across every audited URL */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <span>Issues changed</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>
+                    Counted across every URL audited. Independent of the page
+                    grades below, which only compare URLs found in both crawls —
+                    so issues can change a lot while page grades stay at 0.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex gap-4 text-sm">
+              <span className="flex items-center gap-1 text-green-600">
+                <ArrowDown className="h-3 w-3" />
+                {progress.issuesFixed} fixed
+              </span>
+              <span className="flex items-center gap-1 text-red-600">
+                <ArrowUp className="h-3 w-3" />
+                {progress.issuesNew} new
+              </span>
+              <span className="text-muted-foreground">
+                {progress.issuesPersisting} persisting
+              </span>
+            </div>
+          </div>
 
-        {/* Grade changes */}
-        <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>{progress.gradeChanges.improved} pages improved</span>
-          <span>{progress.gradeChanges.regressed} regressed</span>
-          <span>{progress.gradeChanges.unchanged} unchanged</span>
-        </div>
+          {/* Grade changes — only URLs present in both crawls */}
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">
+              Page grades (URLs in both crawls)
+            </div>
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span>{progress.gradeChanges.improved} improved</span>
+              <span>{progress.gradeChanges.regressed} regressed</span>
+              <span>{progress.gradeChanges.unchanged} unchanged</span>
+            </div>
+          </div>
+        </TooltipProvider>
 
         {/* Top movers (collapsible) */}
         {hasMovers && (
