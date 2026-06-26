@@ -109,4 +109,29 @@ describe("analyzeSitemap", () => {
     expect(result.exists).toBe(false);
     expect(result.isValid).toBe(false);
   });
+
+  it("recurses into child sitemaps of an index to count real pages", async () => {
+    const index = `<?xml version="1.0" encoding="UTF-8"?>
+      <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <sitemap><loc>https://example.com/sitemap-a.xml</loc></sitemap>
+        <sitemap><loc>https://example.com/sitemap-b.xml</loc></sitemap>
+      </sitemapindex>`;
+    const childA = `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://example.com/1</loc></url>
+      <url><loc>https://example.com/2</loc></url>
+    </urlset>`;
+    const childB = `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url><loc>https://example.com/3</loc></url>
+    </urlset>`;
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, text: async () => index })
+      .mockResolvedValueOnce({ ok: true, text: async () => childA })
+      .mockResolvedValueOnce({ ok: true, text: async () => childB });
+
+    const result = await analyzeSitemap("example.com");
+    expect(result.isValid).toBe(true);
+    // 3 real pages across the two child sitemaps, not 2 child-sitemap entries.
+    expect(result.urlCount).toBe(3);
+    expect(result.urls).toContain("https://example.com/1");
+  });
 });

@@ -5,8 +5,10 @@ import { THRESHOLDS } from "../thresholds";
 export function scoreBotAccess(page: PageData): FactorResult {
   const s: ScoreState = { score: 100, issues: [] };
 
-  // HTTP_STATUS
-  if (page.statusCode >= THRESHOLDS.httpErrorStatus) {
+  // HTTP_STATUS (server/client error) vs HTTP_GONE (410, intentional removal)
+  if (page.statusCode === 410) {
+    deduct(s, "HTTP_GONE", { statusCode: 410 });
+  } else if (page.statusCode >= THRESHOLDS.httpErrorStatus) {
     deduct(s, "HTTP_STATUS", { statusCode: page.statusCode });
   }
 
