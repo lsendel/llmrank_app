@@ -230,6 +230,16 @@ describe("Technical SEO Factors", () => {
     expect(issue).toBeUndefined();
   });
 
+  it("HTTP_GONE (not HTTP_STATUS): 410 is a warning, not a critical error", () => {
+    const result = scoreTechnicalFactors(makePageData({ statusCode: 410 }));
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "HTTP_GONE", severity: "warning" }),
+    );
+    expect(
+      result.issues.find((i) => i.code === "HTTP_STATUS"),
+    ).toBeUndefined();
+  });
+
   // --- NOINDEX_SET ---
 
   it("NOINDEX_SET: deducts 20 for noindex directive", () => {
