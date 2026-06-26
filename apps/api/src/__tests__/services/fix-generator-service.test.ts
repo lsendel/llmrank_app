@@ -33,7 +33,7 @@ function createMockDeps() {
         fixType: "meta_description",
         generatedFix: "Generated fix content",
         tokensUsed: 150,
-        model: "claude-sonnet-4-5-20250929",
+        model: "claude-sonnet-4-6",
         createdAt: new Date(),
       }),
       countByUserThisMonth: vi.fn().mockResolvedValue(0),
@@ -108,7 +108,7 @@ describe("FixGeneratorService", () => {
         fixType: "meta_description",
         generatedFix: "Generated fix content",
         tokensUsed: 150,
-        model: "claude-sonnet-4-5-20250929",
+        model: "claude-sonnet-4-6",
       }),
     );
   });
@@ -150,8 +150,9 @@ describe("FixGeneratorService", () => {
 
     expect(mockMessagesCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "claude-sonnet-4-5-20250929",
+        model: "claude-sonnet-4-6",
         max_tokens: 1024,
+        thinking: { type: "disabled" },
         messages: expect.arrayContaining([
           expect.objectContaining({ role: "user" }),
         ]),

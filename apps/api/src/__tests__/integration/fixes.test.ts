@@ -111,7 +111,7 @@ describe("Fixes Routes", () => {
       fixType: "meta_description",
       generatedFix: "Generated meta description for the page",
       tokensUsed: 150,
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-sonnet-4-6",
       createdAt: new Date(),
     });
 
