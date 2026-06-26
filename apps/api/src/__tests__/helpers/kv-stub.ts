@@ -5,7 +5,12 @@ export function createKVStub(): KVNamespace {
   const store = new Map<string, { value: string; metadata: unknown }>();
 
   return {
-    get: async (key: string) => store.get(key)?.value ?? null,
+    get: async (key: string, type?: string) => {
+      const value = store.get(key)?.value ?? null;
+      if (value === null) return null;
+      if (type === "json") return JSON.parse(value);
+      return value;
+    },
     put: async (key: string, value: string, _options?: unknown) => {
       store.set(key, { value, metadata: null });
     },
