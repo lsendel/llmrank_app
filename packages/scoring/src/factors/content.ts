@@ -96,13 +96,21 @@ export function applyContentFactors(page: PageData, s: ScoreState): void {
   ];
   const questionPattern =
     /^(how|what|why|when|where|which|who|can|does|is|should|will)\b/i;
-  const hasQuestionHeadings = allHeadings.some(
+  // A page only "should" have FAQPage schema when it genuinely presents an
+  // FAQ — i.e. multiple question-style headings (Q&A pairs). A single
+  // rhetorical/section heading like "What is home care?" on an informational
+  // or directory page does not warrant FAQ schema, so count the question
+  // headings and require a real cluster before flagging.
+  const questionHeadingCount = allHeadings.filter(
     (h) => h.includes("?") || questionPattern.test(h),
-  );
+  ).length;
   const hasFaqSchema = page.extracted.schema_types.some(
     (t) => t.toLowerCase() === "faqpage" || t.toLowerCase() === "qapage",
   );
-  if (hasQuestionHeadings && !hasFaqSchema) {
+  if (
+    questionHeadingCount >= THRESHOLDS.faqMinQuestionHeadings &&
+    !hasFaqSchema
+  ) {
     deduct(s, "MISSING_FAQ_STRUCTURE");
   }
 

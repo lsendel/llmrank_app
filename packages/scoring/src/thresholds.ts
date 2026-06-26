@@ -25,6 +25,10 @@ export const THRESHOLDS = {
   fleschPoor: 50,
   fleschModerate: 60,
   textHtmlRatioMin: 15,
+  // A genuine FAQ section (worth FAQPage schema) has several Q&A pairs. A
+  // single question-style heading on an informational/directory page does not
+  // warrant FAQ schema, so only flag MISSING_FAQ_STRUCTURE at/above this count.
+  faqMinQuestionHeadings: 3,
 
   // --- AI Readiness ---
   directAnswerMinWords: 200,
