@@ -9,7 +9,7 @@ import {
 import { buildPublicMetadata } from "@/lib/seo-metadata";
 
 export const metadata: Metadata = buildPublicMetadata({
-  title: "Free AI SEO Scanner | LLM Rank",
+  title: "Free AI SEO Scanner",
   description:
     "Check if your website is ready for AI search engines. Get a free 37-factor audit for ChatGPT, Claude, and Perplexity visibility.",
   path: "/scan",

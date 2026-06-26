@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { buildNoIndexMetadata } from "@/lib/seo-metadata";
 
 export const metadata: Metadata = buildNoIndexMetadata({
-  title: "Sign Out | LLM Rank",
+  title: "Sign Out",
   description: "Signs the current user out of LLM Rank.",
 });
 
