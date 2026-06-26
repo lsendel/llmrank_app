@@ -220,6 +220,12 @@ export interface ReportIntegrationData {
       cls: number | null;
     }[];
   } | null;
+  cloudflare: {
+    totalAiBotHits: number;
+    byProvider: Record<string, number>;
+    pagesCrawledByBots: number;
+    windowDays: number;
+  } | null;
 }
 
 export interface PrioritizedAction {

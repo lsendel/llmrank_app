@@ -27,6 +27,23 @@ export const integrationRoutes = new Hono<AppEnv>();
 
 const INTEGRATION_CATALOG = [
   {
+    id: "cloudflare",
+    provider: "cloudflare",
+    name: "Cloudflare",
+    description:
+      "Connect your Cloudflare zone to see REAL AI-crawler traffic per page — GPTBot, ClaudeBot, PerplexityBot and more. AI crawlers don't run JavaScript, so a tracking snippet can't see them; only server-side edge logs can.",
+    features: [
+      "Per-page AI-crawler request counts by provider",
+      "See which pages GPTBot / ClaudeBot / PerplexityBot actually fetch",
+      "Validate robots.txt: allowed vs. actually crawled",
+      "Works for any domain on your Cloudflare account",
+    ],
+    availability: "available_now",
+    access: "requires_auth",
+    minPlan: "pro",
+    authType: "api_key",
+  },
+  {
     id: "gsc",
     provider: "gsc",
     name: "Google Search Console",

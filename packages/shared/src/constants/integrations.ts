@@ -6,6 +6,7 @@ export const INTEGRATION_PROVIDERS = [
   "ga4",
   "clarity",
   "meta",
+  "cloudflare",
 ] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 
@@ -42,12 +43,18 @@ export const INTEGRATION_META: Record<
     authType: "oauth2",
     description: "Social engagement, shares, reactions, ad performance",
   },
+  cloudflare: {
+    label: "Cloudflare",
+    authType: "api_key",
+    description:
+      "Real AI-crawler traffic (GPTBot, ClaudeBot, PerplexityBot…) from your zone's edge logs",
+  },
 };
 
 export const PLAN_INTEGRATION_ACCESS: Record<PlanTier, IntegrationProvider[]> =
   {
     free: ["meta"],
     starter: ["meta"],
-    pro: ["gsc", "psi", "meta"],
-    agency: ["gsc", "psi", "ga4", "clarity", "meta"],
+    pro: ["gsc", "psi", "meta", "cloudflare"],
+    agency: ["gsc", "psi", "ga4", "clarity", "meta", "cloudflare"],
   };

@@ -19,6 +19,43 @@ export function aggregateIntegrations(
   const clarityEnrichments = enrichments.filter(
     (e) => e.provider === "clarity",
   );
+  const cloudflareEnrichments = enrichments.filter(
+    (e) => e.provider === "cloudflare",
+  );
+
+  // ---------------------------------------------------------------------------
+  // Cloudflare: aggregate real AI-crawler hits across pages, by provider
+  // ---------------------------------------------------------------------------
+  let cloudflare: ReportIntegrationData["cloudflare"] = null;
+  if (cloudflareEnrichments.length > 0) {
+    const byProvider: Record<string, number> = {};
+    let totalAiBotHits = 0;
+    let pagesCrawledByBots = 0;
+    let windowDays = 7;
+    for (const e of cloudflareEnrichments) {
+      const activity = e.data.aiCrawler as
+        | {
+            byProvider?: Record<string, number>;
+            total?: number;
+            windowDays?: number;
+          }
+        | undefined;
+      if (!activity) continue;
+      const hits = activity.total ?? 0;
+      if (hits > 0) pagesCrawledByBots++;
+      totalAiBotHits += hits;
+      windowDays = activity.windowDays ?? windowDays;
+      for (const [provider, n] of Object.entries(activity.byProvider ?? {})) {
+        byProvider[provider] = (byProvider[provider] ?? 0) + n;
+      }
+    }
+    cloudflare = {
+      totalAiBotHits,
+      byProvider,
+      pagesCrawledByBots,
+      windowDays,
+    };
+  }
 
   // ---------------------------------------------------------------------------
   // GSC: Extract queries sorted by impressions, top 20
@@ -365,7 +402,7 @@ export function aggregateIntegrations(
   }
 
   // If ALL are null, return null (no usable integration data)
-  if (!gsc && !ga4 && !clarity && !meta && !psi) return null;
+  if (!gsc && !ga4 && !clarity && !meta && !psi && !cloudflare) return null;
 
-  return { gsc, ga4, clarity, meta, psi };
+  return { gsc, ga4, clarity, meta, psi, cloudflare };
 }
