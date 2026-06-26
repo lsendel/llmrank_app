@@ -108,11 +108,29 @@ describe("aggregatePageScores", () => {
     expect(result.scores.aiReadiness).toBe(70);
   });
 
-  it("returns zero scores for empty input", () => {
+  it("returns zero scores for empty input, with performance null (not measured)", () => {
     const result = aggregatePageScores([]);
     expect(result.overallScore).toBe(0);
     expect(result.letterGrade).toBe("F");
     expect(result.scores.technical).toBe(0);
-    expect(result.scores.performance).toBe(0);
+    // Performance is "not measured" (null) when there are no samples — not 0,
+    // which would render a false F in History/Overview.
+    expect(result.scores.performance).toBeNull();
+  });
+
+  it("returns null performance when no row carries a performance score", () => {
+    const rows = [
+      {
+        overallScore: 85,
+        technicalScore: 90,
+        contentScore: 80,
+        aiReadinessScore: 85,
+        // no detail.performanceScore (Lighthouse never ran)
+      },
+    ];
+    const result = aggregatePageScores(rows);
+    expect(result.scores.performance).toBeNull();
+    // Other categories remain real numbers.
+    expect(result.scores.technical).toBe(90);
   });
 });

@@ -364,7 +364,9 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         technicalScore: aggregate.scores.technical,
         contentScore: aggregate.scores.content,
         aiReadinessScore: aggregate.scores.aiReadiness,
-        performanceScore: aggregate.scores.performance,
+        // performance is null when never measured; platform readiness treats
+        // unmeasured performance as 0 (cannot claim a score without data).
+        performanceScore: aggregate.scores.performance ?? 0,
       });
 
       return Object.entries(PLATFORM_REQUIREMENTS).map(([platform, checks]) => {

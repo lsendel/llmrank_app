@@ -28,12 +28,18 @@ export function aggregatePageScores(
   const technical = averageScores(rows.map((s) => s.technicalScore));
   const content = averageScores(rows.map((s) => s.contentScore));
   const aiReadiness = averageScores(rows.map((s) => s.aiReadinessScore));
-  const performance = averageScores(
-    rows.map((s) => {
+  // Performance: null ("not measured") when no page carries a performance
+  // score, rather than 0. averageScores returns 0 for an empty set, which would
+  // render a false F in History/Overview when performance was never collected.
+  const performanceSamples = rows
+    .map((s) => {
       const d = s.detail as Record<string, unknown> | null | undefined;
       return (d?.performanceScore as number) ?? null;
-    }),
-  );
+    })
+    .filter((n): n is number => n != null);
+  const performance = performanceSamples.length
+    ? averageScores(performanceSamples)
+    : null;
 
   return {
     overallScore,

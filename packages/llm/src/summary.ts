@@ -28,7 +28,7 @@ export class SummaryGenerator {
       technical: number;
       content: number;
       aiReadiness: number;
-      performance: number;
+      performance: number | null;
     };
     quickWins: QuickWin[];
     pagesScored: number;
@@ -60,7 +60,7 @@ Pages Scored: ${pagesScored}
 - Technical SEO: ${categoryScores.technical}/100
 - Content Quality: ${categoryScores.content}/100
 - AI Readiness: ${categoryScores.aiReadiness}/100
-- Performance: ${categoryScores.performance}/100
+- Performance: ${categoryScores.performance != null ? `${categoryScores.performance}/100` : "Not measured (Lighthouse not run)"}
 
 ## Top Issues to Address
 ${quickWinsText}
