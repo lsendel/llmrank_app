@@ -133,6 +133,42 @@ describe("issues-tab helpers", () => {
     ).toEqual(["THIN_CONTENT"]);
   });
 
+  it("sorts filtered issues most-severe-first so critical issues are never buried", () => {
+    const issues = [
+      {
+        code: "META_DESC_LENGTH",
+        category: "technical",
+        severity: "info",
+        message: "Meta description length",
+        recommendation: "Tune length",
+      },
+      {
+        code: "THIN_CONTENT",
+        category: "content",
+        severity: "warning",
+        message: "Thin content",
+        recommendation: "Expand page",
+      },
+      {
+        code: "NOINDEX_SET",
+        category: "technical",
+        severity: "critical",
+        message: "Noindex set",
+        recommendation: "Remove noindex",
+      },
+    ] satisfies PageIssue[];
+
+    expect(
+      filterIssues({
+        issues,
+        severityFilter: "all",
+        categoryFilter: "all",
+        statusFilter: "all",
+        getActionItemForIssue: () => undefined,
+      }).map((issue) => issue.severity),
+    ).toEqual(["critical", "warning", "info"]);
+  });
+
   it("derives due dates and execution lane summary metrics", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { Fragment, memo, useEffect, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -108,6 +108,62 @@ function defaultDueDateInputBySeverity(
   due.setUTCDate(due.getUTCDate() + daysToAdd);
   due.setUTCHours(12, 0, 0, 0);
   return due.toISOString().slice(0, 10);
+}
+
+// Friendlier labels for the most common issue `data` keys. Anything not listed
+// is humanized generically by humanizeDetailKey().
+const DETAIL_LABELS: Record<string, string> = {
+  descLength: "Current length",
+  titleLength: "Current length",
+  length: "Current length",
+  min: "Recommended minimum",
+  max: "Recommended maximum",
+  wordCount: "Word count",
+  ratio: "Text-to-HTML ratio",
+  status: "HTTP status",
+  statusCode: "HTTP status",
+  count: "Count",
+  current: "Current value",
+  recommended: "Recommended value",
+  fleschScore: "Readability (Flesch) score",
+};
+
+function humanizeDetailKey(key: string): string {
+  return (
+    DETAIL_LABELS[key] ??
+    key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .replace(/^./, (c) => c.toUpperCase())
+      .trim()
+  );
+}
+
+function formatDetailValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Issue `data` arrives from the API as either a parsed object or a raw JSON
+ * string. Rendering it with JSON.stringify() leaked escaped blobs like
+ * `"{\"descLength\":107,\"min\":120}"` to users. Normalize to an object so we
+ * can show a readable key/value list instead.
+ */
+function normalizeDetails(data: unknown): Record<string, unknown> | null {
+  if (data === null || data === undefined || data === "") return null;
+  let obj: unknown = data;
+  if (typeof obj === "string") {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      return { value: data };
+    }
+  }
+  if (typeof obj !== "object" || obj === null) return { value: obj };
+  const record = obj as Record<string, unknown>;
+  return Object.keys(record).length > 0 ? record : null;
 }
 
 export const IssueCard = memo(function IssueCard({
@@ -283,7 +339,13 @@ export const IssueCard = memo(function IssueCard({
                   }}
                 />
               ) : (
-                <Button size="sm" variant="outline" className="h-7 text-[10px]">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px]"
+                  disabled
+                  title="Open this issue inside a project to generate an AI fix."
+                >
                   <Sparkles className="mr-1.5 h-3 w-3 text-primary" />
                   Optimize with AI
                 </Button>
@@ -326,16 +388,29 @@ export const IssueCard = memo(function IssueCard({
                 </Button>
               ) : null}
             </div>
-            {data && Object.keys(data).length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Details
-                </h4>
-                <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-3 text-xs">
-                  {JSON.stringify(data, null, 2)}
-                </pre>
-              </div>
-            )}
+            {(() => {
+              const details = normalizeDetails(data);
+              if (!details) return null;
+              return (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Details
+                  </h4>
+                  <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded-md bg-muted p-3 text-xs">
+                    {Object.entries(details).map(([key, value]) => (
+                      <Fragment key={key}>
+                        <dt className="text-muted-foreground">
+                          {humanizeDetailKey(key)}
+                        </dt>
+                        <dd className="font-mono text-foreground">
+                          {formatDetailValue(value)}
+                        </dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       )}
