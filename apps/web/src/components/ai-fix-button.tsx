@@ -145,7 +145,9 @@ export function AiFixButton({
 
 const ISSUE_TO_FIX_TYPE: Record<string, string> = {
   MISSING_META_DESC: "meta_description",
+  META_DESC_LENGTH: "meta_description",
   MISSING_TITLE: "title_tag",
+  TITLE_LENGTH: "title_tag",
   NO_STRUCTURED_DATA: "json_ld",
   MISSING_LLMS_TXT: "llms_txt",
   NO_FAQ_SECTION: "faq_section",

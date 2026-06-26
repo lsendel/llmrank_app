@@ -67,39 +67,48 @@ describe("scoreMetaTags", () => {
     );
   });
 
-  it("MISSING_TITLE: deducts 15 for title shorter than 30 chars", () => {
+  it("TITLE_LENGTH (not MISSING_TITLE): present title shorter than 30 chars is a warning", () => {
     const result = scoreMetaTags(makePage({ title: "Short" }));
-    expect(result.score).toBe(85);
+    expect(result.score).toBe(95); // -5 warning, not -15 critical
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "MISSING_TITLE" }),
+      expect.objectContaining({ code: "TITLE_LENGTH", severity: "warning" }),
     );
+    expect(
+      result.issues.find((i) => i.code === "MISSING_TITLE"),
+    ).toBeUndefined();
   });
 
-  it("MISSING_TITLE: deducts 15 for title longer than 60 chars", () => {
+  it("TITLE_LENGTH (not MISSING_TITLE): present title longer than 60 chars is a warning", () => {
     const result = scoreMetaTags(
       makePage({
         title:
           "This is a very long title that exceeds the sixty character maximum for good SEO practice",
       }),
     );
-    expect(result.score).toBe(85);
+    expect(result.score).toBe(95); // -5 warning, not -15 critical
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "MISSING_TITLE" }),
+      expect.objectContaining({ code: "TITLE_LENGTH" }),
     );
+    expect(
+      result.issues.find((i) => i.code === "MISSING_TITLE"),
+    ).toBeUndefined();
   });
 
-  it("MISSING_TITLE: includes titleLength in data", () => {
+  it("MISSING_TITLE: includes titleLength 0 in data", () => {
     const result = scoreMetaTags(makePage({ title: null }));
     const issue = result.issues.find((i) => i.code === "MISSING_TITLE");
     expect(issue?.data).toEqual({ titleLength: 0 });
   });
 
-  it("MISSING_TITLE: passes for title exactly at lower boundary (30 chars)", () => {
+  it("MISSING_TITLE / TITLE_LENGTH: passes for title within range", () => {
     const result = scoreMetaTags(
       makePage({ title: "Exactly Thirty Characters Here!" }), // 31 chars
     );
-    const issue = result.issues.find((i) => i.code === "MISSING_TITLE");
-    expect(issue).toBeUndefined();
+    expect(
+      result.issues.find(
+        (i) => i.code === "MISSING_TITLE" || i.code === "TITLE_LENGTH",
+      ),
+    ).toBeUndefined();
   });
 
   // --- MISSING_META_DESC ---
@@ -112,18 +121,27 @@ describe("scoreMetaTags", () => {
     );
   });
 
-  it("MISSING_META_DESC: deducts 10 for description shorter than 120 chars", () => {
+  it("META_DESC_LENGTH (not MISSING_META_DESC): present description shorter than 120 chars is info", () => {
     const result = scoreMetaTags(
       makePage({ metaDescription: "Too short description." }),
     );
-    expect(result.score).toBe(90);
+    expect(result.score).toBe(97); // -3 info, not -10 warning
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "META_DESC_LENGTH", severity: "info" }),
+    );
+    expect(
+      result.issues.find((i) => i.code === "MISSING_META_DESC"),
+    ).toBeUndefined();
   });
 
-  it("MISSING_META_DESC: deducts 10 for description longer than 160 chars", () => {
+  it("META_DESC_LENGTH (not MISSING_META_DESC): present description longer than 160 chars is info", () => {
     const result = scoreMetaTags(
       makePage({ metaDescription: "A".repeat(161) }),
     );
-    expect(result.score).toBe(90);
+    expect(result.score).toBe(97); // -3 info
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "META_DESC_LENGTH" }),
+    );
   });
 
   it("MISSING_META_DESC: includes descLength in data", () => {

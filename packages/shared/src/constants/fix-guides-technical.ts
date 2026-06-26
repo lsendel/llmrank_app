@@ -113,6 +113,55 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     },
   },
 
+  TITLE_LENGTH: {
+    issueCode: "TITLE_LENGTH",
+    title: "Adjust Title Tag Length",
+    estimatedMinutes: 5,
+    difficulty: "beginner",
+    aiFixAvailable: true,
+    platforms: {
+      generic: [
+        {
+          title: "Trim or expand the title to 30-60 characters",
+          description:
+            "The page already has a title — it is just outside the recommended 30-60 character window. Titles longer than ~60 characters get truncated in search and AI result snippets; shorter than ~30 wastes the slot. Keep the primary topic and brand, drop filler.",
+          codeSnippet: `<title>Primary Topic — Brand</title>`,
+          language: "html",
+          tip: "Front-load the primary keyword. A trailing ' | Brand Name' suffix counts toward the limit, so keep the brand short.",
+        },
+      ],
+      nextjs: [
+        {
+          title: "Shorten the metadata title or title template",
+          description:
+            "If titles run long because of a shared `title.template` (e.g. '%s | My Brand'), shorten the template suffix or override `title.absolute` on long pages.",
+          codeSnippet: `export const metadata = {\n  title: { absolute: "Concise Page Topic — Brand" },\n};`,
+          language: "javascript",
+        },
+      ],
+    },
+  },
+
+  META_DESC_LENGTH: {
+    issueCode: "META_DESC_LENGTH",
+    title: "Adjust Meta Description Length",
+    estimatedMinutes: 5,
+    difficulty: "beginner",
+    aiFixAvailable: true,
+    platforms: {
+      generic: [
+        {
+          title: "Tune the description to 120-160 characters",
+          description:
+            "The meta description exists but is outside the 120-160 character sweet spot. Too short under-uses the snippet; too long gets truncated. Rewrite to land in range while summarizing the page's key topic.",
+          codeSnippet: `<meta name="description" content="A concise, compelling summary of this page in 120-160 characters." />`,
+          language: "html",
+          tip: "Aim for ~150 characters and include the primary keyword naturally.",
+        },
+      ],
+    },
+  },
+
   MISSING_H1: {
     issueCode: "MISSING_H1",
     title: "Add an H1 Heading Tag",

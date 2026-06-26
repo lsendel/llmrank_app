@@ -97,24 +97,43 @@ export function parseHtml(html: string, pageUrl: string): ParsedPage {
     ogTags[m[2]] = m[1];
   }
 
-  // Structured data (JSON-LD)
+  // Structured data (JSON-LD). Flatten @graph containers and bare arrays into
+  // their individual typed nodes so a `{ @context, @graph: [...] }` wrapper
+  // (very common) is read as real entities rather than a typeless blob.
   const structuredData: unknown[] = [];
   const schemaTypes: string[] = [];
+  const collectSchemaNode = (node: Record<string, unknown>): void => {
+    structuredData.push(node);
+    const t = node["@type"];
+    if (typeof t === "string") {
+      schemaTypes.push(t);
+    } else if (Array.isArray(t)) {
+      for (const x of t) if (typeof x === "string") schemaTypes.push(x);
+    }
+  };
+  const visitSchema = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visitSchema(item);
+      return;
+    }
+    if (value && typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      const graph = obj["@graph"];
+      if (Array.isArray(graph)) {
+        if (obj["@type"]) collectSchemaNode(obj);
+        for (const child of graph) visitSchema(child);
+        return;
+      }
+      collectSchemaNode(obj);
+    }
+  };
   const jsonLdMatches = matchAll(
     html,
     /<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
   );
   for (const m of jsonLdMatches) {
     try {
-      const parsed = JSON.parse(m[1]);
-      structuredData.push(parsed);
-      if (parsed["@type"]) {
-        schemaTypes.push(
-          ...(Array.isArray(parsed["@type"])
-            ? parsed["@type"]
-            : [parsed["@type"]]),
-        );
-      }
+      visitSchema(JSON.parse(m[1]));
     } catch {
       // invalid JSON-LD
     }

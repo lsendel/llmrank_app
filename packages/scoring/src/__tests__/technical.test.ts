@@ -72,34 +72,42 @@ describe("Technical SEO Factors", () => {
     );
   });
 
-  it("MISSING_TITLE: deducts 15 for title shorter than 30 chars", () => {
+  it("TITLE_LENGTH (not MISSING_TITLE): present title shorter than 30 chars is a warning", () => {
     const result = scoreTechnicalFactors(makePageData({ title: "Short" }));
-    expect(result.score).toBe(85);
+    expect(result.score).toBe(95); // -5 warning, not -15 critical
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "MISSING_TITLE" }),
+      expect.objectContaining({ code: "TITLE_LENGTH", severity: "warning" }),
     );
+    expect(
+      result.issues.find((i) => i.code === "MISSING_TITLE"),
+    ).toBeUndefined();
   });
 
-  it("MISSING_TITLE: deducts 15 for title longer than 60 chars", () => {
-    const result = scoreTechnicalFactors(
-      makePageData({
-        title:
-          "This is a very long title that exceeds the sixty character maximum for good SEO practice",
-      }),
+  it("TITLE_LENGTH (not MISSING_TITLE): present title longer than 60 chars is a warning", () => {
+    const longTitle =
+      "This is a very long title that exceeds the sixty character maximum for good SEO practice";
+    const result = scoreTechnicalFactors(makePageData({ title: longTitle }));
+    expect(result.score).toBe(95); // -5 warning, not -15 critical
+    const issue = result.issues.find((i) => i.code === "TITLE_LENGTH");
+    expect(issue).toBeDefined();
+    expect(issue?.data).toEqual(
+      expect.objectContaining({ titleLength: longTitle.length }),
     );
-    expect(result.score).toBe(85);
-    expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "MISSING_TITLE" }),
-    );
+    expect(
+      result.issues.find((i) => i.code === "MISSING_TITLE"),
+    ).toBeUndefined();
   });
 
-  it("MISSING_TITLE: passes for title exactly 30 chars", () => {
+  it("MISSING_TITLE / TITLE_LENGTH: passes for title exactly within range", () => {
     const result = scoreTechnicalFactors(
       makePageData({ title: "Exactly Thirty Characters Here!" }), // 31 chars
     );
-    // 31 chars is within range
-    const titleIssue = result.issues.find((i) => i.code === "MISSING_TITLE");
-    expect(titleIssue).toBeUndefined();
+    // 31 chars is within range — no title issue of either kind
+    expect(
+      result.issues.find(
+        (i) => i.code === "MISSING_TITLE" || i.code === "TITLE_LENGTH",
+      ),
+    ).toBeUndefined();
   });
 
   // --- MISSING_META_DESC ---
@@ -114,20 +122,29 @@ describe("Technical SEO Factors", () => {
     );
   });
 
-  it("MISSING_META_DESC: deducts 10 for description shorter than 120 chars", () => {
+  it("META_DESC_LENGTH (not MISSING_META_DESC): present description shorter than 120 chars is info", () => {
     const result = scoreTechnicalFactors(
       makePageData({ metaDescription: "Too short description." }),
     );
-    expect(result.score).toBe(90);
+    expect(result.score).toBe(97); // -3 info, not -10 warning
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "META_DESC_LENGTH", severity: "info" }),
+    );
+    expect(
+      result.issues.find((i) => i.code === "MISSING_META_DESC"),
+    ).toBeUndefined();
   });
 
-  it("MISSING_META_DESC: deducts 10 for description longer than 160 chars", () => {
+  it("META_DESC_LENGTH (not MISSING_META_DESC): present description longer than 160 chars is info", () => {
     const result = scoreTechnicalFactors(
       makePageData({
         metaDescription: "A".repeat(161),
       }),
     );
-    expect(result.score).toBe(90);
+    expect(result.score).toBe(97); // -3 info
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "META_DESC_LENGTH" }),
+    );
   });
 
   // --- MISSING_H1 ---
