@@ -1,7 +1,7 @@
 export interface ProjectIntegration {
   id: string;
   projectId: string;
-  provider: "gsc" | "psi" | "ga4" | "clarity" | "meta";
+  provider: "gsc" | "psi" | "ga4" | "clarity" | "meta" | "cloudflare";
   enabled: boolean;
   hasCredentials: boolean;
   config: Record<string, unknown>;
@@ -57,6 +57,12 @@ export interface IntegrationInsights {
         lcp: number | null;
         cls: number | null;
       }[];
+    } | null;
+    cloudflare: {
+      totalAiBotHits: number;
+      byProvider: Record<string, number>;
+      pagesCrawledByBots: number;
+      windowDays: number;
     } | null;
   } | null;
 }

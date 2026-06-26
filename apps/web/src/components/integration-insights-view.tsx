@@ -5,6 +5,7 @@ import type { IntegrationInsights } from "@/lib/api";
 import { buildSummaryItems } from "./integration-insights-view-helpers";
 import {
   ClaritySection,
+  CloudflareSection,
   ConnectToUnlockCard,
   Ga4Section,
   GscIndexStatusSection,
@@ -15,6 +16,7 @@ import {
 } from "./integration-insights-view-sections";
 import {
   Activity,
+  Bot,
   ChevronDown,
   ChevronRight,
   Gauge,
@@ -66,25 +68,44 @@ export function IntegrationInsightsView({
 }: Props) {
   if (!insights.integrations) return null;
 
-  const { gsc, ga4, clarity, meta, psi } = insights.integrations;
+  const { gsc, ga4, clarity, meta, psi, cloudflare } = insights.integrations;
   const summaryItems = buildSummaryItems(insights.integrations);
 
   // Determine which is the first provider with data so it opens by default
-  const firstWithData = gsc
-    ? "gsc"
-    : ga4
-      ? "ga4"
-      : meta
-        ? "meta"
-        : clarity
-          ? "clarity"
-          : psi
-            ? "psi"
-            : null;
+  const firstWithData = cloudflare
+    ? "cloudflare"
+    : gsc
+      ? "gsc"
+      : ga4
+        ? "ga4"
+        : meta
+          ? "meta"
+          : clarity
+            ? "clarity"
+            : psi
+              ? "psi"
+              : null;
 
   return (
     <div className="space-y-6">
       <IntegrationInsightsSummaryBanner summaryItems={summaryItems} />
+
+      {cloudflare ? (
+        <CollapsibleSection
+          title="AI Crawler Activity"
+          icon={Bot}
+          defaultOpen={firstWithData === "cloudflare"}
+        >
+          <CloudflareSection cloudflare={cloudflare} />
+        </CollapsibleSection>
+      ) : (
+        <ConnectToUnlockCard
+          provider="Cloudflare"
+          description="See real AI-crawler traffic (GPTBot, ClaudeBot, Perplexity) per page"
+          isConnected={connectedProviders.includes("cloudflare")}
+          resourceKey="cloudflare"
+        />
+      )}
 
       {gsc ? (
         <CollapsibleSection

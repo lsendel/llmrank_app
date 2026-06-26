@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import {
   AlertCircle,
+  Bot,
   DollarSign,
   Gauge,
   MousePointer2,
@@ -50,6 +51,83 @@ type Ga4Insights = NonNullable<Integrations["ga4"]>;
 type MetaInsights = NonNullable<Integrations["meta"]>;
 type ClarityInsights = NonNullable<Integrations["clarity"]>;
 type PsiInsights = NonNullable<Integrations["psi"]>;
+type CloudflareInsights = NonNullable<Integrations["cloudflare"]>;
+
+/** Friendly labels for the AI-bot provider keys emitted by classifyTraffic. */
+const AI_PROVIDER_LABELS: Record<string, string> = {
+  chatgpt: "ChatGPT (GPTBot)",
+  claude: "Claude (ClaudeBot)",
+  perplexity: "Perplexity",
+  gemini: "Gemini (Google-Extended)",
+  apple_ai: "Apple AI",
+  cohere: "Cohere",
+  meta_ai: "Meta AI",
+};
+
+export function CloudflareSection({
+  cloudflare,
+}: {
+  cloudflare: CloudflareInsights;
+}) {
+  const providers = Object.entries(cloudflare.byProvider).sort(
+    (a, b) => b[1] - a[1],
+  );
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Bot className="h-4 w-4 text-primary" />
+          AI Crawler Activity
+        </CardTitle>
+        <CardDescription>
+          Real AI-bot requests from your Cloudflare edge logs over the last{" "}
+          {cloudflare.windowDays} days — traffic a JavaScript tag can&apos;t
+          see.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="text-sm font-medium">Total AI-crawler requests</p>
+              <p className="mt-1 text-3xl font-bold">
+                {cloudflare.totalAiBotHits.toLocaleString()}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                across {cloudflare.pagesCrawledByBots.toLocaleString()} crawled
+                page{cloudflare.pagesCrawledByBots === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="mb-3 text-sm font-medium">By AI provider</p>
+            <ul className="space-y-2">
+              {providers.map(([provider, count]) => (
+                <li
+                  key={provider}
+                  className="flex items-center justify-between gap-2 text-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    {AI_PROVIDER_LABELS[provider] ?? provider}
+                  </span>
+                  <span className="font-medium tabular-nums">
+                    {count.toLocaleString()}
+                  </span>
+                </li>
+              ))}
+              {providers.length === 0 && (
+                <li className="text-xs italic text-muted-foreground">
+                  No AI-crawler traffic detected in this period.
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function ConnectToUnlockCard({
   provider,
