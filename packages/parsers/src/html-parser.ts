@@ -22,6 +22,48 @@ export interface ParsedPage {
   robotsDirectives: string[];
   structuredData: unknown[];
   wordCount: number;
+  hreflang: Array<{ lang: string; href: string }>;
+  analyticsTools: string[];
+}
+
+/** Signatures for detecting web-analytics / tag-manager tools in page HTML. */
+const ANALYTICS_SIGNATURES: Array<{ tool: string; patterns: RegExp[] }> = [
+  {
+    tool: "gtm",
+    patterns: [/googletagmanager\.com\/gtm\.js/i, /GTM-[A-Z0-9]+/],
+  },
+  {
+    tool: "ga4",
+    patterns: [
+      /googletagmanager\.com\/gtag\/js/i,
+      /gtag\s*\(/i,
+      /\bG-[A-Z0-9]{8,}\b/,
+    ],
+  },
+  {
+    tool: "universal-analytics",
+    patterns: [/google-analytics\.com\/analytics\.js/i, /\bUA-\d{4,}-\d+\b/],
+  },
+  { tool: "plausible", patterns: [/plausible\.io\/js/i] },
+  { tool: "fathom", patterns: [/cdn\.usefathom\.com/i] },
+  { tool: "matomo", patterns: [/matomo\.js/i, /piwik\.js/i] },
+  { tool: "segment", patterns: [/cdn\.segment\.com\/analytics\.js/i] },
+  { tool: "mixpanel", patterns: [/cdn\.mxpnl\.com/i, /mixpanel/i] },
+  {
+    tool: "amplitude",
+    patterns: [/cdn\.amplitude\.com/i, /amplitude\.getInstance/i],
+  },
+  { tool: "hotjar", patterns: [/static\.hotjar\.com/i, /\bhj\s*\(/i] },
+  { tool: "clarity", patterns: [/clarity\.ms\/tag/i] },
+  { tool: "cloudflare", patterns: [/static\.cloudflareinsights\.com/i] },
+];
+
+function detectAnalyticsTools(html: string): string[] {
+  const found: string[] = [];
+  for (const { tool, patterns } of ANALYTICS_SIGNATURES) {
+    if (patterns.some((p) => p.test(html))) found.push(tool);
+  }
+  return found;
 }
 
 function matchAll(html: string, regex: RegExp): RegExpExecArray[] {
@@ -66,6 +108,21 @@ export function parseHtml(html: string, pageUrl: string): ParsedPage {
       html,
     );
   const canonicalUrl = canonicalMatch ? canonicalMatch[1] : null;
+
+  // hreflang alternates (rel=alternate with an hreflang attr, attrs in any order)
+  const hreflang: Array<{ lang: string; href: string }> = [];
+  for (const m of matchAll(
+    html,
+    /<link\b[^>]*\brel\s*=\s*["']alternate["'][^>]*>/gi,
+  )) {
+    const tag = m[0];
+    const lang = getAttr(tag, "hreflang");
+    const href = getAttr(tag, "href");
+    if (lang && href) hreflang.push({ lang: lang.trim(), href: href.trim() });
+  }
+
+  // Analytics / tag-manager detection
+  const analyticsTools = detectAnalyticsTools(html);
 
   // Headings
   function extractHeadings(level: number): string[] {
@@ -208,5 +265,7 @@ export function parseHtml(html: string, pageUrl: string): ParsedPage {
     robotsDirectives,
     structuredData,
     wordCount,
+    hreflang,
+    analyticsTools,
   };
 }

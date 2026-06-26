@@ -89,6 +89,42 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     implementationSnippet: `<meta name="description" content="A concise summary of this page's content in 120-160 characters." />`,
     dimension: "meta_tags",
   },
+  MISSING_ANALYTICS: {
+    code: "MISSING_ANALYTICS",
+    category: "technical",
+    severity: "info",
+    scoreImpact: -3,
+    message: "No web analytics or tag manager detected on the page",
+    recommendation:
+      "Install an analytics tool (e.g. Google Analytics 4 / Tag Manager, Plausible, Fathom) so you can measure organic, AI-referral, and crawler traffic. Without it you can't see whether AI search is sending visitors.",
+    effortLevel: "low",
+    implementationSnippet: `<!-- Google Analytics 4 -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>`,
+    dimension: "meta_tags",
+  },
+  HREFLANG_NO_X_DEFAULT: {
+    code: "HREFLANG_NO_X_DEFAULT",
+    category: "technical",
+    severity: "info",
+    scoreImpact: -3,
+    message: "hreflang annotations are present but missing an x-default entry",
+    recommendation:
+      'Add a `hreflang="x-default"` alternate so search and AI engines know which URL to serve for unmatched languages/regions.',
+    effortLevel: "low",
+    implementationSnippet: `<link rel="alternate" hreflang="x-default" href="https://example.com/" />`,
+    dimension: "meta_tags",
+  },
+  HREFLANG_INVALID: {
+    code: "HREFLANG_INVALID",
+    category: "technical",
+    severity: "warning",
+    scoreImpact: -5,
+    message: "One or more hreflang values are not valid language/region codes",
+    recommendation:
+      "Use valid BCP-47 codes (e.g. `en`, `en-US`, `pt-BR`, `zh-Hant`) or `x-default`. Invalid codes are ignored, breaking international targeting.",
+    effortLevel: "low",
+    implementationSnippet: `<link rel="alternate" hreflang="en-GB" href="https://example.com/gb/" />`,
+    dimension: "meta_tags",
+  },
   MISSING_H1: {
     code: "MISSING_H1",
     category: "technical",

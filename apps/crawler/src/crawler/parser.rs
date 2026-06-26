@@ -2,7 +2,48 @@ use scraper::{Html, Selector};
 use std::collections::HashMap;
 use url::Url;
 
-use crate::models::ExtractedLink;
+use crate::models::{ExtractedLink, HreflangAlternate};
+
+/// Detect web-analytics / tag-manager tools present in the page HTML.
+/// Returns short tool keys (e.g. "ga4", "gtm") used by the SEO/analytics audit.
+fn detect_analytics_tools(html: &str) -> Vec<String> {
+    let h = html.to_lowercase();
+    let mut tools: Vec<String> = Vec::new();
+    if h.contains("googletagmanager.com/gtm.js") || h.contains("gtm-") {
+        tools.push("gtm".to_string());
+    }
+    if h.contains("googletagmanager.com/gtag/js") || h.contains("gtag(") {
+        tools.push("ga4".to_string());
+    }
+    if h.contains("google-analytics.com/analytics.js") {
+        tools.push("universal-analytics".to_string());
+    }
+    if h.contains("plausible.io/js") {
+        tools.push("plausible".to_string());
+    }
+    if h.contains("cdn.usefathom.com") {
+        tools.push("fathom".to_string());
+    }
+    if h.contains("matomo.js") || h.contains("piwik.js") {
+        tools.push("matomo".to_string());
+    }
+    if h.contains("cdn.segment.com/analytics.js") {
+        tools.push("segment".to_string());
+    }
+    if h.contains("cdn.mxpnl.com") {
+        tools.push("mixpanel".to_string());
+    }
+    if h.contains("static.hotjar.com") {
+        tools.push("hotjar".to_string());
+    }
+    if h.contains("clarity.ms/tag") {
+        tools.push("clarity".to_string());
+    }
+    if h.contains("static.cloudflareinsights.com") {
+        tools.push("cloudflare".to_string());
+    }
+    tools
+}
 
 /// Complete parsed representation of an HTML page.
 #[derive(Debug, Clone)]
@@ -34,6 +75,8 @@ pub struct ParsedPage {
     pub top_transition_words: Vec<String>,
     pub feed_urls: Vec<String>,
     pub hreflang_urls: Vec<String>,
+    pub hreflang: Vec<HreflangAlternate>,
+    pub analytics_tools: Vec<String>,
     pub custom_extractions: Vec<super::extractor::ExtractorResult>,
 }
 
@@ -78,12 +121,20 @@ impl Parser {
             .filter_map(|el| el.value().attr("href").map(String::from))
             .collect();
 
-        // Hreflang alternates
+        // Hreflang alternates — capture both the language code and target URL.
         let hreflang_selector = Selector::parse("link[rel='alternate'][hreflang]").unwrap();
-        let hreflang_urls: Vec<String> = document
+        let hreflang: Vec<HreflangAlternate> = document
             .select(&hreflang_selector)
-            .filter_map(|el| el.value().attr("href").map(String::from))
+            .filter_map(|el| {
+                let lang = el.value().attr("hreflang")?.trim().to_string();
+                let href = el.value().attr("href")?.trim().to_string();
+                Some(HreflangAlternate { lang, href })
+            })
             .collect();
+        let hreflang_urls: Vec<String> = hreflang.iter().map(|h| h.href.clone()).collect();
+
+        // Analytics / tag-manager detection
+        let analytics_tools = detect_analytics_tools(html_content);
 
         // Human-Readiness metrics
         let text_content = Self::get_all_text(&document);
@@ -117,6 +168,8 @@ impl Parser {
             top_transition_words: transitions,
             feed_urls,
             hreflang_urls,
+            hreflang,
+            analytics_tools,
             custom_extractions: vec![],
         }
     }
@@ -426,6 +479,31 @@ mod tests {
             page.canonical_url.as_deref(),
             Some("https://example.com/test")
         );
+    }
+
+    #[test]
+    fn test_hreflang_and_analytics() {
+        let html = r#"<!doctype html><html><head>
+<link rel="alternate" hreflang="en-US" href="https://example.com/us/" />
+<link rel="alternate" hreflang="x-default" href="https://example.com/" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ABC12345"></script>
+<script>window.dataLayer=[];function gtag(){dataLayer.push(arguments);}gtag('config','GTM-XYZ');</script>
+</head><body><h1>Hi</h1></body></html>"#;
+        let page = Parser::parse(html, "https://example.com/us/");
+        assert_eq!(page.hreflang.len(), 2);
+        assert_eq!(page.hreflang[0].lang, "en-US");
+        assert_eq!(page.hreflang[0].href, "https://example.com/us/");
+        assert!(page.hreflang.iter().any(|h| h.lang == "x-default"));
+        assert!(page.analytics_tools.contains(&"ga4".to_string()));
+        assert!(page.analytics_tools.contains(&"gtm".to_string()));
+    }
+
+    #[test]
+    fn test_no_analytics_detected() {
+        let html = r#"<html><head><title>Plain</title></head><body><p>No tags</p></body></html>"#;
+        let page = Parser::parse(html, "https://example.com/");
+        assert!(page.analytics_tools.is_empty());
+        assert!(page.hreflang.is_empty());
     }
 
     #[test]

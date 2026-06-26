@@ -72,6 +72,15 @@ pub struct ExtractedLink {
     pub is_external: bool,
 }
 
+// --- Hreflang Alternate ---
+
+/// An hreflang alternate link: a language/region code and its target URL.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HreflangAlternate {
+    pub lang: String,
+    pub href: String,
+}
+
 // --- Extracted Data ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +129,12 @@ pub struct ExtractedData {
     pub feed_urls: Vec<String>,
     #[serde(default)]
     pub hreflang_urls: Vec<String>,
+    /// hreflang alternates with language codes (for the international SEO audit).
+    #[serde(default)]
+    pub hreflang: Vec<HreflangAlternate>,
+    /// Analytics / tag-manager tools detected in the page HTML.
+    #[serde(default)]
+    pub analytics_tools: Vec<String>,
     #[serde(default)]
     pub has_faq_schema: bool,
     #[serde(default)]

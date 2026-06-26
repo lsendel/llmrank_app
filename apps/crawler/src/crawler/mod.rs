@@ -292,6 +292,8 @@ impl CrawlEngine {
                 top_transition_words: parsed.top_transition_words,
                 feed_urls: parsed.feed_urls,
                 hreflang_urls: parsed.hreflang_urls,
+                hreflang: parsed.hreflang,
+                analytics_tools: parsed.analytics_tools,
                 has_faq_schema,
                 has_howto_schema,
                 has_breadcrumb_schema,
