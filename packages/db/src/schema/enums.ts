@@ -80,6 +80,7 @@ export const INTEGRATION_PROVIDER_VALUES = [
   "ga4",
   "clarity",
   "meta",
+  "cloudflare",
 ] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDER_VALUES)[number];
 

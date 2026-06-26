@@ -55,7 +55,7 @@ describe("integrations-tab sections", () => {
       />,
     );
 
-    expect(screen.getAllByText("Pro+")).toHaveLength(2);
+    expect(screen.getAllByText("Pro+")).toHaveLength(3);
     expect(screen.getAllByText("Agency+")).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Connect" })).toHaveLength(1);
     expect(

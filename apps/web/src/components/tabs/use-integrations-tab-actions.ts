@@ -125,6 +125,7 @@ export function useIntegrationsTabActions({
       targetMeta.authType === "oauth2" &&
       connectProvider !== "psi" &&
       connectProvider !== "clarity" &&
+      connectProvider !== "cloudflare" &&
       connectProvider !== "meta"
     ) {
       void handleOAuthConnect(connectProvider);

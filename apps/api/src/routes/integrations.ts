@@ -27,6 +27,23 @@ export const integrationRoutes = new Hono<AppEnv>();
 
 const INTEGRATION_CATALOG = [
   {
+    id: "cloudflare",
+    provider: "cloudflare",
+    name: "Cloudflare",
+    description:
+      "Connect your Cloudflare zone to see REAL AI-crawler traffic per page — GPTBot, ClaudeBot, PerplexityBot and more. AI crawlers don't run JavaScript, so a tracking snippet can't see them; only server-side edge logs can.",
+    features: [
+      "Per-page AI-crawler request counts by provider",
+      "See which pages GPTBot / ClaudeBot / PerplexityBot actually fetch",
+      "Validate robots.txt: allowed vs. actually crawled",
+      "Works for any domain on your Cloudflare account",
+    ],
+    availability: "available_now",
+    access: "requires_auth",
+    minPlan: "pro",
+    authType: "api_key",
+  },
+  {
     id: "gsc",
     provider: "gsc",
     name: "Google Search Console",
@@ -528,6 +545,20 @@ integrationRoutes.post("/:projectId/:id/test", async (c) => {
     } else if (integration.provider === "clarity") {
       ok = !!creds.apiKey;
       message = ok ? "Clarity credentials present" : "Missing API key";
+    } else if (integration.provider === "cloudflare") {
+      if (creds.apiKey) {
+        const verifyRes = await fetch(
+          "https://api.cloudflare.com/client/v4/user/tokens/verify",
+          { headers: { Authorization: `Bearer ${creds.apiKey}` } },
+        );
+        ok = verifyRes.ok;
+        message = ok
+          ? "Cloudflare API token is valid"
+          : `Cloudflare API returned ${verifyRes.status}`;
+      } else {
+        ok = false;
+        message = "Missing Cloudflare API token";
+      }
     } else if (
       integration.provider === "gsc" ||
       integration.provider === "ga4"

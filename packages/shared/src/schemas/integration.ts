@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const ConnectIntegrationSchema = z.object({
-  provider: z.enum(["gsc", "psi", "ga4", "clarity"]),
+  provider: z.enum(["gsc", "psi", "ga4", "clarity", "cloudflare"]),
   apiKey: z.string().min(1).optional(),
   clarityProjectId: z.string().optional(),
 });

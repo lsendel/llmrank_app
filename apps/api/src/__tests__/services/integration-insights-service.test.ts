@@ -62,6 +62,8 @@ describe("IntegrationInsightsService", () => {
       ga4: null,
       clarity: null,
       meta: null,
+      psi: null,
+      cloudflare: null,
     });
   });
 

@@ -1,6 +1,7 @@
 import type { CrawledPage, IntegrationInsights } from "@/lib/api";
 import {
   Activity,
+  Bot,
   Gauge,
   MousePointerClick,
   Search,
@@ -8,7 +9,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type SupportedProvider = "gsc" | "psi" | "ga4" | "clarity" | "meta";
+export type SupportedProvider =
+  | "gsc"
+  | "psi"
+  | "ga4"
+  | "clarity"
+  | "meta"
+  | "cloudflare";
 type DeltaDirection = "positive" | "negative" | "neutral";
 
 type IntegrationMeta = {
@@ -60,6 +67,29 @@ export type PageUrlLookup = {
 };
 
 export const INTEGRATIONS: IntegrationMeta[] = [
+  {
+    provider: "cloudflare",
+    label: "Cloudflare",
+    authType: "api_key",
+    description: "Real AI-crawler traffic (GPTBot, ClaudeBot, PerplexityBot…)",
+    minPlan: "pro",
+    icon: Bot,
+    docsUrl:
+      "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
+    consoleUrl: "https://dash.cloudflare.com/profile/api-tokens",
+    signupHint:
+      "Create an API token with Zone → Analytics:Read and Zone:Read, scoped to your zone",
+    dataCollected: [
+      "Per-page AI-crawler request counts by provider",
+      "Which pages GPTBot / ClaudeBot / PerplexityBot actually fetch",
+      "Server-side bot traffic a JS beacon can't see",
+    ],
+    reportEnhancements: [
+      "Real AI-crawler activity per page",
+      "robots.txt allowed-vs-actually-crawled validation",
+      "Works for any domain on your Cloudflare account",
+    ],
+  },
   {
     provider: "gsc",
     label: "Google Search Console",

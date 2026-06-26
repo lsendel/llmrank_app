@@ -9,6 +9,10 @@ export { fetchPSIData } from "./fetchers/psi";
 export { fetchGA4Data } from "./fetchers/ga4";
 export { fetchClarityData } from "./fetchers/clarity";
 export { fetchMetaData } from "./fetchers/meta";
+export {
+  fetchCloudflareData,
+  type CrawlerActivity,
+} from "./fetchers/cloudflare";
 
 import type {
   IntegrationFetcher,
@@ -20,6 +24,7 @@ import { fetchPSIData } from "./fetchers/psi";
 import { fetchGA4Data } from "./fetchers/ga4";
 import { fetchClarityData } from "./fetchers/clarity";
 import { fetchMetaData } from "./fetchers/meta";
+import { fetchCloudflareData } from "./fetchers/cloudflare";
 
 export const INTEGRATION_FETCHERS: Record<string, IntegrationFetcher> = {
   gsc: fetchGSCData,
@@ -27,6 +32,7 @@ export const INTEGRATION_FETCHERS: Record<string, IntegrationFetcher> = {
   ga4: fetchGA4Data,
   clarity: fetchClarityData,
   meta: fetchMetaData,
+  cloudflare: fetchCloudflareData,
 };
 
 export interface ProviderResult {
