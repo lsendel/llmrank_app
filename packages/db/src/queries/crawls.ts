@@ -12,6 +12,17 @@ import type { CrawlStatus } from "../schema/enums";
 
 type PageScore = InferSelectModel<typeof pageScores>;
 
+/** Map an aggregate crawl score to a letter grade. Single source of truth for
+ *  the crawl-list enrichment used by listByProject / listByUser /
+ *  getRecentForUser (crawlJobs has no stored grade column). */
+function scoreToLetterGrade(score: number): "A" | "B" | "C" | "D" | "F" {
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  if (score >= 60) return "D";
+  return "F";
+}
+
 export function crawlQueries(db: Database) {
   return {
     async create(data: { projectId: string; config: unknown }) {
@@ -124,11 +135,44 @@ export function crawlQueries(db: Database) {
     },
 
     async listByProject(projectId: string, limit = 50, offset = 0) {
-      return db.query.crawlJobs.findMany({
+      const rows = await db.query.crawlJobs.findMany({
         where: eq(crawlJobs.projectId, projectId),
         orderBy: [desc(crawlJobs.createdAt)],
         limit,
         offset,
+      });
+
+      // Enrich with aggregate score + grade the same way listByUser /
+      // getRecentForUser do. Without this the History tab and Score Trends read
+      // null overallScore/letterGrade even though page_scores exist, and render
+      // "--". Scores are derived from page_scores (crawlJobs has no score
+      // column), so this is the single source of truth.
+      if (rows.length === 0) return rows;
+      const completedIds = rows
+        .filter((r) => r.status === "complete")
+        .map((r) => r.id);
+      const scoreMap = new Map<string, number>();
+      if (completedIds.length > 0) {
+        const scoreRows = await db
+          .select({
+            jobId: pageScores.jobId,
+            avg: sql<number>`avg(${pageScores.overallScore})`,
+          })
+          .from(pageScores)
+          .where(inArray(pageScores.jobId, completedIds))
+          .groupBy(pageScores.jobId);
+        for (const sr of scoreRows) {
+          scoreMap.set(sr.jobId, Math.round(Number(sr.avg)));
+        }
+      }
+      return rows.map((r) => {
+        const overallScore = scoreMap.get(r.id) ?? null;
+        return {
+          ...r,
+          overallScore,
+          letterGrade:
+            overallScore === null ? null : scoreToLetterGrade(overallScore),
+        };
       });
     },
 
@@ -350,15 +394,12 @@ export function crawlQueries(db: Database) {
 
       return rows.map((r) => {
         const overallScore = scoreMap.get(r.id) ?? null;
-        let letterGrade: string | null = null;
-        if (overallScore !== null) {
-          if (overallScore >= 90) letterGrade = "A";
-          else if (overallScore >= 80) letterGrade = "B";
-          else if (overallScore >= 70) letterGrade = "C";
-          else if (overallScore >= 60) letterGrade = "D";
-          else letterGrade = "F";
-        }
-        return { ...r, overallScore, letterGrade };
+        return {
+          ...r,
+          overallScore,
+          letterGrade:
+            overallScore === null ? null : scoreToLetterGrade(overallScore),
+        };
       });
     },
     /** List active crawls (likely to be in queue/processing) for a user. */
@@ -463,15 +504,12 @@ export function crawlQueries(db: Database) {
 
       return rows.map((r) => {
         const overallScore = scoreMap.get(r.id) ?? null;
-        let letterGrade: string | null = null;
-        if (overallScore !== null) {
-          if (overallScore >= 90) letterGrade = "A";
-          else if (overallScore >= 80) letterGrade = "B";
-          else if (overallScore >= 70) letterGrade = "C";
-          else if (overallScore >= 60) letterGrade = "D";
-          else letterGrade = "F";
-        }
-        return { ...r, overallScore, letterGrade };
+        return {
+          ...r,
+          overallScore,
+          letterGrade:
+            overallScore === null ? null : scoreToLetterGrade(overallScore),
+        };
       });
     },
 
