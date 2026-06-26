@@ -17,8 +17,39 @@ import type { IntegrationFetcherContext, EnrichmentResult } from "../types";
 const CF_API = "https://api.cloudflare.com/client/v4";
 const CF_GRAPHQL = `${CF_API}/graphql`;
 /** httpRequestsAdaptiveGroups caps a single response at 10k rows. */
-const GROUP_LIMIT = 5000;
+const GROUP_LIMIT = 10000;
 const DEFAULT_WINDOW_DAYS = 7;
+
+/**
+ * Normalize a request path for matching crawled URLs against Cloudflare's
+ * `clientRequestPath`: percent-decode and drop a trailing slash (except root)
+ * so `/about` and `/about/` (and `/caf%C3%A9` vs `/café`) join correctly.
+ */
+function normalizePath(rawPath: string): string {
+  let path = rawPath || "/";
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // keep the raw value if it isn't valid percent-encoding
+  }
+  if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+  return path;
+}
+
+/**
+ * Zone-name candidates to try, most specific first: the domain itself, then
+ * each parent down to the registrable apex. Lets subdomain projects
+ * (blog.example.com) resolve to the apex zone (example.com) on the account.
+ */
+function candidateZoneNames(domain: string): string[] {
+  const apex = domain.replace(/^www\./, "");
+  const labels = apex.split(".");
+  const names = [domain];
+  for (let i = 0; i <= labels.length - 2; i++) {
+    names.push(labels.slice(i).join("."));
+  }
+  return Array.from(new Set(names));
+}
 
 /** Provider-agnostic per-page crawler-activity payload. */
 export interface CrawlerActivity {
@@ -57,13 +88,12 @@ function authHeaders(token: string): Record<string, string> {
   };
 }
 
-/** Resolve the zone id for a domain, trying the apex if the exact name misses. */
+/** Resolve the zone id for a domain, falling back from subdomain to apex. */
 async function resolveZoneId(
   token: string,
   domain: string,
 ): Promise<string | null> {
-  const apex = domain.replace(/^www\./, "");
-  for (const name of domain === apex ? [domain] : [domain, apex]) {
+  for (const name of candidateZoneNames(domain)) {
     const res = await fetch(
       `${CF_API}/zones?name=${encodeURIComponent(name)}`,
       {
@@ -145,7 +175,7 @@ export async function fetchCloudflareData(
     body.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups ?? [];
   const truncated = groups.length >= GROUP_LIMIT;
 
-  // Aggregate AI-bot requests by request path → provider → count.
+  // Aggregate AI-bot requests by normalized request path → provider → count.
   const byPath = new Map<string, Map<string, number>>();
   for (const g of groups) {
     const { sourceType, aiProvider } = classifyTraffic(
@@ -153,23 +183,28 @@ export async function fetchCloudflareData(
       null,
     );
     if (sourceType !== "ai_bot" || !aiProvider) continue;
-    const path = g.dimensions.clientRequestPath || "/";
+    const path = normalizePath(g.dimensions.clientRequestPath);
     const providers = byPath.get(path) ?? new Map<string, number>();
     providers.set(aiProvider, (providers.get(aiProvider) ?? 0) + g.count);
     byPath.set(path, providers);
   }
 
-  // Map aggregated paths back to the crawled page URLs.
+  // Map aggregated paths back to crawled page URLs — one enrichment per unique
+  // path so two crawled URLs that collapse to the same path (query-string /
+  // www / trailing-slash variants) don't double-count the path's bot hits.
   const results: EnrichmentResult[] = [];
+  const emittedPaths = new Set<string>();
   for (const url of ctx.pageUrls) {
     let path: string;
     try {
-      path = new URL(url).pathname || "/";
+      path = normalizePath(new URL(url).pathname);
     } catch {
       continue;
     }
+    if (emittedPaths.has(path)) continue;
     const providers = byPath.get(path);
     if (!providers) continue;
+    emittedPaths.add(path);
     const byProvider = Object.fromEntries(providers);
     const total = Object.values(byProvider).reduce((a, b) => a + b, 0);
     const activity: CrawlerActivity = {

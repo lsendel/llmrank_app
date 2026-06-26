@@ -32,6 +32,7 @@ export function aggregateIntegrations(
     let totalAiBotHits = 0;
     let pagesCrawledByBots = 0;
     let windowDays = 7;
+    let hasActivity = false;
     for (const e of cloudflareEnrichments) {
       const activity = e.data.aiCrawler as
         | {
@@ -41,6 +42,7 @@ export function aggregateIntegrations(
           }
         | undefined;
       if (!activity) continue;
+      hasActivity = true;
       const hits = activity.total ?? 0;
       if (hits > 0) pagesCrawledByBots++;
       totalAiBotHits += hits;
@@ -49,12 +51,15 @@ export function aggregateIntegrations(
         byProvider[provider] = (byProvider[provider] ?? 0) + n;
       }
     }
-    cloudflare = {
-      totalAiBotHits,
-      byProvider,
-      pagesCrawledByBots,
-      windowDays,
-    };
+    // Only emit a block when at least one enrichment carried usable data.
+    if (hasActivity) {
+      cloudflare = {
+        totalAiBotHits,
+        byProvider,
+        pagesCrawledByBots,
+        windowDays,
+      };
+    }
   }
 
   // ---------------------------------------------------------------------------

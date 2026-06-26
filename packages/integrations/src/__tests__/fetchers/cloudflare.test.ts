@@ -100,6 +100,53 @@ describe("fetchCloudflareData", () => {
     });
   });
 
+  it("matches across a trailing-slash difference (CF '/x/' vs crawled '/x')", async () => {
+    mockResponses(
+      { body: ZONE_OK },
+      {
+        body: graphqlGroups([
+          { path: "/us/providers/age-well/", ua: "GPTBot", count: 12 },
+        ]),
+      },
+    );
+    const results = await fetchCloudflareData(makeCtx());
+    expect(results).toHaveLength(1);
+    expect(
+      (results[0].data.aiCrawler as { total: number }).total,
+    ).toBe(12);
+  });
+
+  it("emits one enrichment per path when two crawled URLs collapse to the same path", async () => {
+    mockResponses(
+      { body: ZONE_OK },
+      { body: graphqlGroups([{ path: "/dup", ua: "GPTBot", count: 9 }]) },
+    );
+    const results = await fetchCloudflareData(
+      makeCtx({
+        pageUrls: ["https://families.care/dup", "https://families.care/dup/"],
+      }),
+    );
+    // Both URLs normalize to /dup — only one enrichment, not double-counted.
+    expect(results).toHaveLength(1);
+    expect((results[0].data.aiCrawler as { total: number }).total).toBe(9);
+  });
+
+  it("falls back from a subdomain to the apex zone", async () => {
+    mockResponses(
+      { body: { result: [] } }, // blog.example.com → no zone
+      { body: { result: [{ id: "apex-zone", name: "example.com" }] } }, // example.com → found
+      { body: graphqlGroups([{ path: "/post", ua: "GPTBot", count: 4 }]) },
+    );
+    const results = await fetchCloudflareData(
+      makeCtx({
+        domain: "blog.example.com",
+        pageUrls: ["https://blog.example.com/post"],
+      }),
+    );
+    expect(results).toHaveLength(1);
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(3);
+  });
+
   it("uses a configured zoneId without a zone lookup", async () => {
     mockResponses({
       body: graphqlGroups([

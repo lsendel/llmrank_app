@@ -31,7 +31,14 @@ export function createIntegrationInsightsService(
           return {
             crawlId: crawl.id,
             crawlDate,
-            integrations: { gsc: null, ga4: null, clarity: null, meta: null },
+            integrations: {
+              gsc: null,
+              ga4: null,
+              clarity: null,
+              meta: null,
+              psi: null,
+              cloudflare: null,
+            },
           };
         }
         const normalized = rows.map((row) => ({
@@ -75,7 +82,14 @@ export function createIntegrationInsightsService(
       return {
         crawlId: latestCrawl.id,
         crawlDate,
-        integrations: { gsc: null, ga4: null, clarity: null, meta: null },
+        integrations: {
+          gsc: null,
+          ga4: null,
+          clarity: null,
+          meta: null,
+          psi: null,
+          cloudflare: null,
+        },
       };
     },
   };

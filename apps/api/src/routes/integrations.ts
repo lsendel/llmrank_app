@@ -545,6 +545,20 @@ integrationRoutes.post("/:projectId/:id/test", async (c) => {
     } else if (integration.provider === "clarity") {
       ok = !!creds.apiKey;
       message = ok ? "Clarity credentials present" : "Missing API key";
+    } else if (integration.provider === "cloudflare") {
+      if (creds.apiKey) {
+        const verifyRes = await fetch(
+          "https://api.cloudflare.com/client/v4/user/tokens/verify",
+          { headers: { Authorization: `Bearer ${creds.apiKey}` } },
+        );
+        ok = verifyRes.ok;
+        message = ok
+          ? "Cloudflare API token is valid"
+          : `Cloudflare API returned ${verifyRes.status}`;
+      } else {
+        ok = false;
+        message = "Missing Cloudflare API token";
+      }
     } else if (
       integration.provider === "gsc" ||
       integration.provider === "ga4"
