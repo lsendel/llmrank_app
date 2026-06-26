@@ -7,10 +7,10 @@ export const LLM_MODELS = {
   summary: "claude-haiku-4-5-20251001",
   factExtraction: "claude-haiku-4-5-20251001",
   sentiment: "claude-haiku-4-5-20251001",
-  personas: "claude-sonnet-4-5-20250929",
-  optimizer: "claude-sonnet-4-5-20250929",
+  personas: "claude-sonnet-4-6",
+  optimizer: "claude-sonnet-4-6",
   visibility: {
-    claude: "claude-sonnet-4-5-20250929",
+    claude: "claude-sonnet-4-6",
     chatgpt: "gpt-4o-mini",
     gemini: "gemini-2.5-flash",
     gemini_ai_mode: "gemini-2.5-flash",
