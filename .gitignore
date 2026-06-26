@@ -36,3 +36,9 @@ output/playwright/
 # Screenshots (root only)
 /*.png
 .gstack/
+
+# Local audit/QA scratch output
+audit-workspace/
+
+# Root MCP config (use .claude/mcp.json for shared config)
+/.mcp.json
