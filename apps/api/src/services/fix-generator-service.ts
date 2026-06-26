@@ -185,8 +185,11 @@ export function createFixGeneratorService(deps: FixGeneratorDeps) {
 
       const client = new Anthropic({ apiKey: args.apiKey });
       const message = await client.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        model: "claude-sonnet-4-6",
         max_tokens: 1024,
+        // Fix generation is a short, well-scoped task. Sonnet 4.6 defaults to
+        // high effort; keep thinking off so it stays as fast/cheap as 4.5 was.
+        thinking: { type: "disabled" },
         system: promptObj.system,
         messages: [{ role: "user", content: promptObj.user }],
       });
@@ -207,7 +210,7 @@ export function createFixGeneratorService(deps: FixGeneratorDeps) {
         originalContent: args.context.excerpt?.slice(0, 500),
         generatedFix: generatedText,
         tokensUsed: message.usage.input_tokens + message.usage.output_tokens,
-        model: "claude-sonnet-4-5-20250929",
+        model: "claude-sonnet-4-6",
       });
 
       return fix;
