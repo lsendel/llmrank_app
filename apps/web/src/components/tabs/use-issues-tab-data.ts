@@ -18,16 +18,21 @@ import {
 type UseIssuesTabDataArgs = {
   issues: PageIssue[];
   projectId?: string;
+  initialSeverityFilter?: IssueSeverityFilter;
 };
 
-export function useIssuesTabData({ issues, projectId }: UseIssuesTabDataArgs) {
+export function useIssuesTabData({
+  issues,
+  projectId,
+  initialSeverityFilter = "all",
+}: UseIssuesTabDataArgs) {
   const [filters, setFilters] = useState<{
     severityFilter: IssueSeverityFilter;
     categoryFilter: IssueCategoryFilter;
     statusFilter: StatusFilter;
     page: number;
   }>({
-    severityFilter: "all",
+    severityFilter: initialSeverityFilter,
     categoryFilter: "all",
     statusFilter: "all",
     page: 1,
