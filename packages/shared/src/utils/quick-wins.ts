@@ -3,6 +3,7 @@ import {
   type IssueDefinition,
   type EffortLevel,
 } from "../constants/issues";
+import { severityRank } from "./severity";
 
 export interface QuickWin {
   code: string;
@@ -32,12 +33,6 @@ const EFFORT_DIVISOR: Record<EffortLevel, number> = {
   low: 1,
   medium: 2,
   high: 4,
-};
-
-const SEVERITY_MULTIPLIER: Record<string, number> = {
-  critical: 3,
-  warning: 2,
-  info: 1,
 };
 
 /**
@@ -80,7 +75,7 @@ export function getQuickWins(issues: IssueInstance[], limit = 5): QuickWin[] {
     const impact = Math.abs(def.scoreImpact);
     if (impact === 0) continue; // Skip LLM-scored dynamic issues
 
-    const severity = SEVERITY_MULTIPLIER[def.severity] ?? 1;
+    const severity = severityRank(def.severity) || 1;
     const effort = EFFORT_DIVISOR[def.effortLevel] ?? 2;
     const priority = (impact * severity) / effort;
 

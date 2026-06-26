@@ -5,6 +5,7 @@ import {
   type SiteContext,
 } from "@/lib/api";
 import { confidenceFromPageSample } from "@/lib/insight-metadata";
+import { severityRank } from "@llm-boost/shared";
 
 export const OTHER_CATEGORY_DEFINITIONS = [
   { key: "technical", label: "Technical SEO (25%)" },
@@ -31,6 +32,22 @@ export type AiReadinessFactor = {
   pass: boolean;
   details?: string;
 };
+
+/**
+ * "Top Issues" for the overview. Issues arrive as per-page instances (not
+ * deduped by code); collapse to one card per code (severity is fixed per code),
+ * then surface the most severe first. Previously the overview sliced the first
+ * N in arbitrary insertion order, so critical issues could be hidden.
+ */
+export function selectTopIssues(issues: PageIssue[], limit = 5): PageIssue[] {
+  const byCode = new Map<string, PageIssue>();
+  for (const issue of issues) {
+    if (!byCode.has(issue.code)) byCode.set(issue.code, issue);
+  }
+  return Array.from(byCode.values())
+    .sort((a, b) => severityRank(b.severity) - severityRank(a.severity))
+    .slice(0, limit);
+}
 
 export function buildOverviewStatusState(
   latestCrawl: CrawlJob | null | undefined,
