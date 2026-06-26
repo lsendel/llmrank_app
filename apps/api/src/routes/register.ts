@@ -107,7 +107,13 @@ export function registerApiRoutes(app: Hono<AppEnv>) {
   app.route("/api/trial", trialRoutes);
   app.route("/api/brand", brandPerformanceRoutes);
   app.route("/api/prompt-research", promptResearchRoutes);
-  app.route("/api/analytics", analyticsRoutes);
+  // analyticsRoutes already namespaces its own paths under /analytics/* (plus
+  // the public /s/analytics.js + /analytics/collect served at root via
+  // index.ts). Mounting at /api (not /api/analytics) makes the dashboard
+  // routes resolve to /api/analytics/:projectId/summary — what the frontend
+  // calls. Mounting at /api/analytics doubled the segment
+  // (/api/analytics/analytics/...) and 404'd the AI Traffic tab.
+  app.route("/api", analyticsRoutes);
   app.route("/api/wizard", wizardRoutes);
 }
 
