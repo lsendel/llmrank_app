@@ -106,7 +106,9 @@ export function parseSitemapXml(xml: string): SitemapAnalysis {
 
   return {
     exists: true,
-    isValid: hasUrlset,
+    // A sitemap is valid if it's either a <urlset> or a <sitemapindex>.
+    // sitemapindex is the standard way to split large sites into child sitemaps.
+    isValid: hasUrlset || hasSitemapIndex,
     urlCount: urls.length,
     staleUrlCount,
     urls,
