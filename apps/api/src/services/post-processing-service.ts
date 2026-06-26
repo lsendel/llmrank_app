@@ -206,8 +206,61 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
                 "technical",
                 { anthropicApiKey: env.anthropicApiKey! },
               );
-            } catch {
-              // Non-critical — narrative can be generated on demand
+            } catch (err) {
+              // Non-critical to ingest, but log so the cause is visible instead
+              // of a silent "no narrative" (this catch swallowed it entirely).
+              console.error(
+                `[post-processing] narrative auto-generation failed for job ${crawlJobId}:`,
+                err,
+              );
+            }
+          })(),
+        );
+      }
+
+      // Auto-dispatch the post-crawl insights pipeline — the "Automatic post-crawl
+      // insights" the dashboard advertises. Nothing wired this before, so
+      // pipeline_runs stayed empty and the Actions checklist sat at PENDING
+      // forever. Runs in waitUntil (a cold Fly report service shouldn't block the
+      // ingest response) via the shared dispatcher, which retries the cold-start
+      // and records failures instead of swallowing them.
+      if (batch.is_final && env.reportServiceUrl && env.sharedSecret) {
+        const reportServiceUrl = env.reportServiceUrl;
+        const sharedSecret = env.sharedSecret;
+        args.executionCtx.waitUntil(
+          (async () => {
+            try {
+              const db = createAppDb(env.d1);
+              const project = await projectQueries(db).getById(projectId);
+              if (!project) return;
+              const settings = (project.pipelineSettings ?? {}) as {
+                skipSteps?: string[];
+              };
+              const { dispatchInsightsPipeline } =
+                await import("./pipeline-dispatch");
+              const result = await dispatchInsightsPipeline(
+                db,
+                projectId,
+                crawlJobId,
+                {
+                  reportServiceUrl,
+                  sharedSecret,
+                  anthropicApiKey: env.anthropicApiKey,
+                  perplexityApiKey: env.perplexityApiKey,
+                  xaiApiKey: env.xaiApiKey,
+                  skipSteps: settings.skipSteps,
+                },
+              );
+              if (result.status === "failed") {
+                console.error(
+                  `[post-processing] auto insights pipeline failed for job ${crawlJobId}: ${result.error}`,
+                );
+              }
+            } catch (err) {
+              console.error(
+                `[post-processing] auto insights pipeline dispatch threw for job ${crawlJobId}:`,
+                err,
+              );
             }
           })(),
         );
