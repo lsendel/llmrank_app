@@ -8,6 +8,7 @@ import {
   createOutboxRepository,
 } from "@llm-boost/repositories";
 import { createIngestService } from "../services/ingest-service";
+import { rescoreFactors } from "../services/factor-rescoring";
 import { handleServiceError } from "../lib/error-handler";
 import { ServiceError, CrawlStatus } from "@llm-boost/shared";
 
@@ -115,6 +116,40 @@ ingestRoutes.post("/rescore-llm", async (c) => {
         kvNamespace: c.env.KV,
         r2: c.env.R2,
       },
+    });
+    return c.json({ data: result });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /rescore-factors — Re-run deterministic factor scoring on an existing
+// crawl job from already-stored data (no recrawl). Rewrites page_scores +
+// issues in place so scoring fixes apply to historical crawls. Cursor-batched:
+// the caller loops, passing the returned `nextCursor` until `done` is true.
+// ---------------------------------------------------------------------------
+
+ingestRoutes.post("/rescore-factors", async (c) => {
+  const { job_id, cursor, limit } = await c.req.json<{
+    job_id: string;
+    cursor?: string;
+    limit?: number;
+  }>();
+
+  if (!job_id) {
+    return handleServiceError(
+      c,
+      new ServiceError("INVALID_INPUT", 422, "job_id is required"),
+    );
+  }
+
+  try {
+    const result = await rescoreFactors({
+      db: c.get("db"),
+      jobId: job_id,
+      cursor,
+      limit,
     });
     return c.json({ data: result });
   } catch (error) {
