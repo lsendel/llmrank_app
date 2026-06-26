@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateMessage } from "@/components/ui/state";
@@ -65,6 +65,15 @@ import {
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Deep-link support: ?tab=issues&severity=critical pre-filters the Issues tab.
+  const severityParam = searchParams.get("severity");
+  const initialIssueSeverity =
+    severityParam === "critical" ||
+    severityParam === "warning" ||
+    severityParam === "info"
+      ? severityParam
+      : undefined;
   const {
     autoCrawlFailed,
     connectProvider,
@@ -358,6 +367,7 @@ export default function ProjectPage() {
                 issues={issuesData?.data ?? []}
                 crawlId={selectedCrawlId}
                 projectId={project?.id}
+                initialSeverityFilter={initialIssueSeverity}
               />
             </ProjectTabErrorBoundary>
           )}

@@ -23,6 +23,7 @@ import {
 } from "./issues-tab-sections";
 import { useIssuesTabActions } from "./use-issues-tab-actions";
 import { useIssuesTabData } from "./use-issues-tab-data";
+import { type IssueSeverityFilter } from "./issues-tab-helpers";
 
 // ---------------------------------------------------------------------------
 // Issues Tab
@@ -32,10 +33,12 @@ export function IssuesTab({
   issues,
   crawlId,
   projectId,
+  initialSeverityFilter,
 }: {
   issues: PageIssue[];
   crawlId?: string;
   projectId?: string;
+  initialSeverityFilter?: IssueSeverityFilter;
 }) {
   const { user } = useUser();
   const currentUserId = user?.id ?? null;
@@ -58,7 +61,7 @@ export function IssuesTab({
     setPage,
     totalPages,
     paginatedIssues,
-  } = useIssuesTabData({ issues, projectId });
+  } = useIssuesTabData({ issues, projectId, initialSeverityFilter });
   const {
     autoPlanning,
     handleStatusChange,
