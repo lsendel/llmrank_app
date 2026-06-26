@@ -329,9 +329,13 @@ describe("scoreContentCiteability", () => {
 
   // --- MISSING_FAQ_STRUCTURE ---
 
-  it("MISSING_FAQ_STRUCTURE: deducts 5 when question headings exist without FAQ schema", () => {
+  it("MISSING_FAQ_STRUCTURE: deducts for a genuine FAQ (3+ question headings) without schema", () => {
     const page = makePage();
-    page.extracted.h2 = ["What is SEO?", "Key Takeaways"];
+    page.extracted.h2 = [
+      "What is SEO?",
+      "How does it work?",
+      "When should I start?",
+    ];
     page.extracted.schema_types = [];
     const result = scoreContentCiteability(page);
     expect(result.issues).toContainEqual(
@@ -339,9 +343,22 @@ describe("scoreContentCiteability", () => {
     );
   });
 
-  it("MISSING_FAQ_STRUCTURE: no deduction when FAQ schema is present", () => {
+  it("MISSING_FAQ_STRUCTURE: no deduction for a single question-style heading", () => {
     const page = makePage();
     page.extracted.h2 = ["What is SEO?", "Key Takeaways"];
+    page.extracted.schema_types = [];
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "MISSING_FAQ_STRUCTURE");
+    expect(issue).toBeUndefined();
+  });
+
+  it("MISSING_FAQ_STRUCTURE: no deduction when FAQ schema is present", () => {
+    const page = makePage();
+    page.extracted.h2 = [
+      "What is SEO?",
+      "How does it work?",
+      "When should I start?",
+    ];
     page.extracted.schema_types = ["FAQPage"];
     const result = scoreContentCiteability(page);
     const issue = result.issues.find((i) => i.code === "MISSING_FAQ_STRUCTURE");

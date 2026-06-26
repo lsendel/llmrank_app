@@ -83,6 +83,7 @@ import {
 import {
   buildAiReadinessFactors,
   buildOtherCategoryRows,
+  selectTopIssues,
   type OverviewStatusState,
 } from "./overview-tab-helpers";
 
@@ -207,9 +208,22 @@ export function OverviewFreshnessSummary({
         Last analyzed: {relativeTimeLabel(crawlTimestamp)}
       </Badge>
       <Badge variant="secondary">Pages sampled: {pagesSampled}</Badge>
-      <Badge variant={dataConfidence.variant}>
-        Confidence: {dataConfidence.label}
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant={dataConfidence.variant} className="cursor-help">
+              Confidence: {dataConfidence.label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>
+              How much of the site we analyzed, based on the {pagesSampled} page
+              {pagesSampled === 1 ? "" : "s"} sampled — more pages sampled means
+              more reliable scores.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       {crawlId && <Badge variant="outline">Crawl: {crawlId.slice(0, 8)}</Badge>}
     </div>
   );
@@ -473,7 +487,22 @@ export function OverviewTopIssuesSection({
   issues: PageIssue[];
   projectId: string;
 }) {
-  if (issues.length === 0) return null;
+  if (issues.length === 0) {
+    return (
+      <div>
+        <h2 className="mb-4 text-lg font-semibold">Top Issues</h2>
+        <Card>
+          <CardContent className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
+            <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />
+            No issues found — every audited page is clean. Keep monitoring on
+            your next crawl.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const topIssues = selectTopIssues(issues);
 
   return (
     <div>
@@ -487,7 +516,7 @@ export function OverviewTopIssuesSection({
         </Link>
       </div>
       <div className="space-y-3">
-        {issues.slice(0, 5).map((issue) => (
+        {topIssues.map((issue) => (
           <IssueCard key={issue.code} {...issue} />
         ))}
       </div>

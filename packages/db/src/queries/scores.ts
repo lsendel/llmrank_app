@@ -59,6 +59,39 @@ function serializeIssue(data: IssueCreateData) {
   };
 }
 
+/** Parse a JSON text column. Idempotent: returns objects/null untouched. */
+function parseJson(value: unknown): unknown {
+  if (value == null) return null;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Inverse of {@link serializeScore}: the `detail`, `platform_scores`, and
+ * `recommendations` columns are TEXT-stored JSON, so every read must parse them
+ * back to objects. Without this, consumers that do `Object.entries(platformScores)`
+ * iterate the JSON *string's characters* (keys "0","1","2"…) — the source of the
+ * "0/100 +100 potential" platform cards. Applied in all read paths below.
+ */
+function deserializeScore<
+  T extends {
+    detail?: unknown;
+    platformScores?: unknown;
+    recommendations?: unknown;
+  },
+>(row: T) {
+  return {
+    ...row,
+    detail: parseJson(row.detail),
+    platformScores: parseJson(row.platformScores),
+    recommendations: parseJson(row.recommendations),
+  };
+}
+
 export function scoreQueries(db: Database) {
   return {
     async create(data: ScoreCreateData) {
@@ -80,9 +113,10 @@ export function scoreQueries(db: Database) {
     },
 
     async getByPage(pageId: string) {
-      return db.query.pageScores.findFirst({
+      const row = await db.query.pageScores.findFirst({
         where: eq(pageScores.pageId, pageId),
       });
+      return row ? deserializeScore(row) : row;
     },
 
     async listByJob(
@@ -97,18 +131,20 @@ export function scoreQueries(db: Database) {
         ? and(eq(pageScores.jobId, jobId), gt(pageScores.id, cursor))
         : eq(pageScores.jobId, jobId);
 
-      return db.query.pageScores.findMany({
+      const rows = await db.query.pageScores.findMany({
         where: conditions,
         limit: limit + 1,
         orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
       });
+      return rows.map(deserializeScore);
     },
 
     /** Fetch ALL scores for a job without pagination (for aggregation). */
     async listAllByJob(jobId: string) {
-      return db.query.pageScores.findMany({
+      const rows = await db.query.pageScores.findMany({
         where: eq(pageScores.jobId, jobId),
       });
+      return rows.map(deserializeScore);
     },
 
     async listByJobs(
@@ -124,11 +160,12 @@ export function scoreQueries(db: Database) {
         ? and(inArray(pageScores.jobId, jobIds), gt(pageScores.id, cursor))
         : inArray(pageScores.jobId, jobIds);
 
-      return db.query.pageScores.findMany({
+      const rows = await db.query.pageScores.findMany({
         where: conditions,
         limit: limit + 1,
         orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
       });
+      return rows.map(deserializeScore);
     },
 
     async createIssues(rows: IssueCreateData[]) {
@@ -163,7 +200,10 @@ export function scoreQueries(db: Database) {
         }),
         db.query.issues.findMany({ where: eq(issues.pageId, pageId) }),
       ]);
-      return { score: score ?? null, issues: pageIssues };
+      return {
+        score: score ? deserializeScore(score) : null,
+        issues: pageIssues,
+      };
     },
 
     /**
@@ -184,11 +224,13 @@ export function scoreQueries(db: Database) {
         : eq(pageScores.jobId, jobId);
 
       // Fetch scores with pagination (limit + 1 for hasMore detection)
-      const scores = await db.query.pageScores.findMany({
-        where: scoreConditions,
-        limit: limit + 1,
-        orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
-      });
+      const scores = (
+        await db.query.pageScores.findMany({
+          where: scoreConditions,
+          limit: limit + 1,
+          orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
+        })
+      ).map(deserializeScore);
 
       if (scores.length === 0) return [];
 

@@ -532,6 +532,33 @@ export function buildDetailedDocx(data: ReportData): Document {
 
       bodyParagraphs.push(spacer());
     }
+
+    if (data.integrations.cloudflare) {
+      const cf = data.integrations.cloudflare;
+      bodyParagraphs.push(
+        heading("AI Crawler Activity (Cloudflare)", HeadingLevel.HEADING_2),
+        simpleTable(
+          ["Metric", "Value"],
+          [
+            [
+              `Total AI-crawler requests (last ${cf.windowDays} days)`,
+              cf.totalAiBotHits.toLocaleString(),
+            ],
+            [
+              "Pages crawled by AI bots",
+              cf.pagesCrawledByBots.toLocaleString(),
+            ],
+            ...Object.entries(cf.byProvider)
+              .sort((a, b) => b[1] - a[1])
+              .map(([provider, count]): [string, string] => [
+                provider,
+                count.toLocaleString(),
+              ]),
+          ],
+        ),
+        spacer(),
+      );
+    }
   }
 
   // ── Assemble document ─────────────────────────────────────────────────

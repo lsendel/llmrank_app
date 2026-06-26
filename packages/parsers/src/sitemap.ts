@@ -12,41 +12,67 @@ export interface SitemapAnalysis {
   lastmodDates: string[];
 }
 
-/**
- * Fetch and analyze a sitemap.xml from a domain.
- */
-export async function analyzeSitemap(domain: string): Promise<SitemapAnalysis> {
-  const sitemapUrl = `https://${domain}/sitemap.xml`;
+/** Max child sitemaps to fetch when expanding an index (bounds fan-out). */
+const MAX_CHILD_SITEMAPS = 50;
+/** Cap on URLs collected from children (bounds memory on huge sites). */
+const MAX_URLS = 5000;
 
+const NOT_FOUND: SitemapAnalysis = {
+  exists: false,
+  isValid: false,
+  urlCount: 0,
+  staleUrlCount: 0,
+  urls: [],
+  lastmodDates: [],
+};
+
+async function fetchSitemapText(url: string): Promise<string | null> {
   try {
-    const response = await fetch(sitemapUrl, {
+    const res = await fetch(url, {
       headers: { "User-Agent": "AISEOBot/1.0" },
       signal: AbortSignal.timeout(10_000),
     });
-
-    if (!response.ok) {
-      return {
-        exists: false,
-        isValid: false,
-        urlCount: 0,
-        staleUrlCount: 0,
-        urls: [],
-        lastmodDates: [],
-      };
-    }
-
-    const xml = await response.text();
-    return parseSitemapXml(xml);
+    return res.ok ? await res.text() : null;
   } catch {
-    return {
-      exists: false,
-      isValid: false,
-      urlCount: 0,
-      staleUrlCount: 0,
-      urls: [],
-      lastmodDates: [],
-    };
+    return null;
   }
+}
+
+/**
+ * Fetch and analyze a sitemap.xml from a domain. When the sitemap is an index,
+ * recurse one level into the child sitemaps so urlCount reflects real page
+ * count (not the number of child sitemaps) — keeps SITEMAP_LOW_COVERAGE honest.
+ */
+export async function analyzeSitemap(domain: string): Promise<SitemapAnalysis> {
+  const xml = await fetchSitemapText(`https://${domain}/sitemap.xml`);
+  if (xml === null) return NOT_FOUND;
+
+  const top = parseSitemapXml(xml);
+  const isIndex = !/<urlset/i.test(xml) && /<sitemapindex/i.test(xml);
+  if (!top.isValid || !isIndex) return top;
+
+  // top.urls are the child sitemap locations — expand them.
+  const children = top.urls.slice(0, MAX_CHILD_SITEMAPS);
+  const childXmls = await Promise.all(children.map(fetchSitemapText));
+
+  let urlCount = 0;
+  let staleUrlCount = 0;
+  const urls: string[] = [];
+  const lastmodDates: string[] = [];
+  for (const childXml of childXmls) {
+    if (!childXml) continue;
+    const child = parseSitemapXml(childXml);
+    urlCount += child.urlCount;
+    staleUrlCount += child.staleUrlCount;
+    lastmodDates.push(...child.lastmodDates);
+    if (urls.length < MAX_URLS) {
+      urls.push(...child.urls.slice(0, MAX_URLS - urls.length));
+    }
+  }
+
+  // If no children could be fetched, fall back to the index-level view.
+  if (urlCount === 0) return top;
+  return { exists: true, isValid: true, urlCount, staleUrlCount, urls, lastmodDates };
 }
 
 function matchAllRegex(text: string, regex: RegExp): RegExpExecArray[] {
@@ -106,7 +132,9 @@ export function parseSitemapXml(xml: string): SitemapAnalysis {
 
   return {
     exists: true,
-    isValid: hasUrlset,
+    // A sitemap is valid if it's either a <urlset> or a <sitemapindex>.
+    // sitemapindex is the standard way to split large sites into child sitemaps.
+    isValid: hasUrlset || hasSitemapIndex,
     urlCount: urls.length,
     staleUrlCount,
     urls,

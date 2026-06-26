@@ -1078,6 +1078,36 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
             </Section>
           )}
 
+          {data.integrations.cloudflare && (
+            <Section title="AI Crawler Activity (Cloudflare)">
+              <View style={styles.metricRow}>
+                <Text style={styles.metricLabel}>
+                  Total AI-crawler requests (last{" "}
+                  {data.integrations.cloudflare.windowDays} days)
+                </Text>
+                <Text style={styles.metricValue}>
+                  {data.integrations.cloudflare.totalAiBotHits.toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.metricRow}>
+                <Text style={styles.metricLabel}>Pages crawled by AI bots</Text>
+                <Text style={styles.metricValue}>
+                  {data.integrations.cloudflare.pagesCrawledByBots.toLocaleString()}
+                </Text>
+              </View>
+              {Object.entries(data.integrations.cloudflare.byProvider)
+                .sort((a, b) => b[1] - a[1])
+                .map(([provider, count], i) => (
+                  <View key={i} style={styles.metricRow}>
+                    <Text style={styles.metricLabel}>{provider}</Text>
+                    <Text style={styles.metricValue}>
+                      {count.toLocaleString()}
+                    </Text>
+                  </View>
+                ))}
+            </Section>
+          )}
+
           <ReportFooter brandName={brandName} />
         </Page>
       )}

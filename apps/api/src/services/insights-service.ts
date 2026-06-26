@@ -1,4 +1,4 @@
-import { letterGrade } from "@llm-boost/shared";
+import { letterGrade, severityRank } from "@llm-boost/shared";
 import type {
   CrawlRepository,
   ProjectRepository,
@@ -94,14 +94,21 @@ export function createInsightsService(deps: InsightsServiceDeps) {
             Math.round(avg(allScores.map((s) => s.contentScore)) * 10) / 10,
           aiReadiness:
             Math.round(avg(allScores.map((s) => s.aiReadinessScore)) * 10) / 10,
-          performance:
-            Math.round(
-              avg(
-                allScores.map((s) =>
-                  s.lighthousePerf != null ? s.lighthousePerf * 100 : null,
-                ),
-              ) * 10,
-            ) / 10,
+          // Performance is only meaningful when real Lighthouse data exists.
+          // When no page has a Lighthouse score, report null ("not measured")
+          // rather than 0 — averaging an all-null set to 0 renders a false F.
+          // (The overall score uses the heuristic performanceScore separately.)
+          performance: (() => {
+            const lh = allScores
+              .map((s) =>
+                s.lighthousePerf != null ? s.lighthousePerf * 100 : null,
+              )
+              .filter((n): n is number => n != null);
+            return lh.length
+              ? Math.round((lh.reduce((a, b) => a + b, 0) / lh.length) * 10) /
+                  10
+              : null;
+          })(),
         },
         contentRatio: {
           avgWordCount: Math.round(avgWordCount * 10) / 10,
@@ -174,11 +181,4 @@ export function createInsightsService(deps: InsightsServiceDeps) {
       };
     },
   };
-}
-
-function severityRank(sev: string): number {
-  if (sev === "critical") return 3;
-  if (sev === "warning") return 2;
-  if (sev === "info") return 1;
-  return 0;
 }

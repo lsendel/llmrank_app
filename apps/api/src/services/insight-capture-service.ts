@@ -1,4 +1,4 @@
-import { letterGrade } from "@llm-boost/shared";
+import { letterGrade, severityRank } from "@llm-boost/shared";
 import type {
   CrawlInsightRepository,
   PageInsightRepository,
@@ -276,12 +276,4 @@ function buildPageInsightRows({
 
 function round(value: number) {
   return Math.round(value * 10) / 10;
-}
-
-function severityRank(severity: string | undefined) {
-  if (!severity) return 0;
-  if (severity === "critical") return 3;
-  if (severity === "warning") return 2;
-  if (severity === "info") return 1;
-  return 0;
 }

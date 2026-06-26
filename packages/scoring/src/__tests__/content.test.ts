@@ -312,9 +312,13 @@ describe("Content Quality Factors", () => {
 
   // --- MISSING_FAQ_STRUCTURE ---
 
-  it("MISSING_FAQ_STRUCTURE: deducts 5 for question headings without FAQ schema", () => {
+  it("MISSING_FAQ_STRUCTURE: deducts for a genuine FAQ (3+ question headings) without FAQ schema", () => {
     const page = makePageData();
-    page.extracted.h2 = ["What is SEO?", "How does it work?"];
+    page.extracted.h2 = [
+      "What is SEO?",
+      "How does it work?",
+      "When should I start?",
+    ];
     page.extracted.schema_types = ["WebPage"]; // no FAQPage
     const result = scoreContentFactors(page);
     expect(result.issues).toContainEqual(
@@ -322,9 +326,24 @@ describe("Content Quality Factors", () => {
     );
   });
 
+  it("MISSING_FAQ_STRUCTURE: no deduction for a single question-style heading (not an FAQ)", () => {
+    const page = makePageData();
+    // A lone rhetorical/section heading like "What is home care?" on an
+    // informational/directory page should NOT require FAQPage schema.
+    page.extracted.h2 = ["What is home care?", "Our Services"];
+    page.extracted.schema_types = ["WebPage"];
+    const result = scoreContentFactors(page);
+    const issue = result.issues.find((i) => i.code === "MISSING_FAQ_STRUCTURE");
+    expect(issue).toBeUndefined();
+  });
+
   it("MISSING_FAQ_STRUCTURE: no deduction when FAQPage schema present", () => {
     const page = makePageData();
-    page.extracted.h2 = ["What is SEO?", "How does it work?"];
+    page.extracted.h2 = [
+      "What is SEO?",
+      "How does it work?",
+      "When should I start?",
+    ];
     page.extracted.schema_types = ["WebPage", "FAQPage"];
     const result = scoreContentFactors(page);
     const issue = result.issues.find((i) => i.code === "MISSING_FAQ_STRUCTURE");

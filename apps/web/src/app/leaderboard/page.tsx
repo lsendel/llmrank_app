@@ -4,7 +4,7 @@ import { buildPublicMetadata } from "@/lib/seo-metadata";
 import { LeaderboardClient } from "./client";
 
 export const metadata: Metadata = buildPublicMetadata({
-  title: "AI Readiness Leaderboard | LLM Rank",
+  title: "AI Readiness Leaderboard",
   description:
     "See which websites are most visible in ChatGPT, Claude, and Perplexity. The leaderboard ranks sites by their AI-readiness score across 37 factors.",
   path: "/leaderboard",

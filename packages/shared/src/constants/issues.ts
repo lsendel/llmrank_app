@@ -218,6 +218,17 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     effortLevel: "high",
     dimension: "bot_access",
   },
+  HTTP_GONE: {
+    code: "HTTP_GONE",
+    category: "technical",
+    severity: "warning",
+    scoreImpact: -8,
+    message: "Page returns 410 Gone (intentionally removed)",
+    recommendation:
+      "410 is a deliberate 'this is gone' signal, not an error — but this page is still being crawled, so something still links to it. Remove internal links/sitemap entries pointing here, or restore the page if it should exist.",
+    effortLevel: "medium",
+    dimension: "bot_access",
+  },
   MISSING_OG_TAGS: {
     code: "MISSING_OG_TAGS",
     category: "technical",
