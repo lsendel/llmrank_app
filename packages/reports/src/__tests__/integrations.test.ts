@@ -27,6 +27,49 @@ describe("aggregateIntegrations", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Cloudflare (AI-crawler activity)
+  // -------------------------------------------------------------------------
+
+  it("aggregates cloudflare AI-crawler hits across pages by provider", () => {
+    const enrichments: RawEnrichment[] = [
+      makeEnrichment({
+        provider: "cloudflare",
+        data: {
+          aiCrawler: {
+            byProvider: { chatgpt: 40, claude: 10 },
+            total: 50,
+            windowDays: 7,
+          },
+        },
+      }),
+      makeEnrichment({
+        provider: "cloudflare",
+        data: {
+          aiCrawler: {
+            byProvider: { chatgpt: 5, perplexity: 3 },
+            total: 8,
+            windowDays: 7,
+          },
+        },
+      }),
+    ];
+    const result = aggregateIntegrations(enrichments);
+    expect(result?.cloudflare).toEqual({
+      totalAiBotHits: 58,
+      byProvider: { chatgpt: 45, claude: 10, perplexity: 3 },
+      pagesCrawledByBots: 2,
+      windowDays: 7,
+    });
+  });
+
+  it("returns null cloudflare when enrichments carry no aiCrawler data", () => {
+    const result = aggregateIntegrations([
+      makeEnrichment({ provider: "cloudflare", data: {} }),
+    ]);
+    expect(result).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
   // GSC
   // -------------------------------------------------------------------------
 
