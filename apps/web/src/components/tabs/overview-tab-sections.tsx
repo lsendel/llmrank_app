@@ -444,7 +444,9 @@ export function OverviewSupportingSections({
       {latestCrawl.id && (
         <AiInsightCard crawlJobId={latestCrawl.id} projectId={projectId} />
       )}
-      {latestCrawl.id && <AIAuditCard crawlId={latestCrawl.id} />}
+      {latestCrawl.id && (
+        <AIAuditCard crawlId={latestCrawl.id} projectId={projectId} />
+      )}
       <ScoreTrendChart projectId={projectId} />
       <ProjectProgressCard projectId={projectId} />
       <IntegrationInsightsCards projectId={projectId} />
