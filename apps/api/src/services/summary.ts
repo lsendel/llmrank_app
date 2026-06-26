@@ -40,7 +40,7 @@ export interface CrawlSummaryData {
     technical: number;
     content: number;
     aiReadiness: number;
-    performance: number;
+    performance: number | null;
   };
   quickWins: QuickWin[];
   pagesScored: number;

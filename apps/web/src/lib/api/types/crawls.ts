@@ -105,7 +105,8 @@ export interface CrawlInsights {
     technical: number;
     content: number;
     aiReadiness: number;
-    performance: number;
+    /** null when no Lighthouse data was collected ("not measured"). */
+    performance: number | null;
   };
   gradeDistribution: { grade: string; count: number; percentage: number }[];
   contentRatio: {

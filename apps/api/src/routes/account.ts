@@ -35,6 +35,7 @@ const PROJECT_TAB_VALUES = [
   "reports",
   "automation",
   "logs",
+  "ai-traffic",
   "settings",
 ] as const;
 type ProjectTab = (typeof PROJECT_TAB_VALUES)[number];

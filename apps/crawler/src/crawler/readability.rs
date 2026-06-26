@@ -1,5 +1,7 @@
+use regex::Regex;
 use scraper::{Html, Selector};
 use serde::Serialize;
+use std::sync::OnceLock;
 
 // ─── Value Objects ──────────────────────────────────────────────────
 
@@ -70,7 +72,11 @@ pub fn compute_text_html_ratio(document: &Html, raw_html: &str) -> TextHtmlRatio
         .map(|body| body.text().collect::<String>().trim().len())
         .unwrap_or(0);
 
-    let html_length = raw_html.len();
+    // Measure against content-relevant HTML: exclude <script>/<style>/comments
+    // (and the inline JSON they carry, e.g. framework hydration payloads) so the
+    // ratio reflects markup-vs-content density, not how much JS the page ships.
+    // Counting raw bytes falsely flagged nearly every page on JS-heavy sites.
+    let html_length = content_html_length(raw_html);
     let ratio = if html_length > 0 {
         (text_length as f64 / html_length as f64) * 100.0
     } else {
@@ -82,6 +88,17 @@ pub fn compute_text_html_ratio(document: &Html, raw_html: &str) -> TextHtmlRatio
         html_length,
         ratio,
     }
+}
+
+/// Byte length of HTML with `<script>`, `<style>` blocks and comments removed,
+/// used as the text-to-HTML ratio denominator.
+fn content_html_length(raw_html: &str) -> usize {
+    static STRIP_RE: OnceLock<Regex> = OnceLock::new();
+    let re = STRIP_RE.get_or_init(|| {
+        Regex::new(r"(?is)<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>|<!--.*?-->")
+            .expect("valid content-strip regex")
+    });
+    re.replace_all(raw_html, "").len()
 }
 
 // ─── Private Helpers ────────────────────────────────────────────────
@@ -165,7 +182,31 @@ mod tests {
         let ratio = compute_text_html_ratio(&doc, raw);
         assert!(ratio.ratio > 0.0);
         assert!(ratio.ratio < 100.0);
+        // No script/style/comments to strip, so denominator == raw length.
         assert_eq!(ratio.html_length, raw.len());
+    }
+
+    #[test]
+    fn test_text_html_ratio_excludes_script_style_comments() {
+        // Same visible text, but heavy <script>/<style> payloads + a comment.
+        // The ratio must reflect content density, not how much JS the page ships.
+        let raw = format!(
+            "<html><head><style>{}</style></head><body><!-- {} --><p>Hello world</p><script>{}</script></body></html>",
+            "a{{color:red}}".repeat(50),
+            "x".repeat(200),
+            "var y = 1;".repeat(500),
+        );
+        let doc = Html::parse_document(&raw);
+        let ratio = compute_text_html_ratio(&doc, &raw);
+        // Denominator excludes script/style/comment bytes.
+        assert!(
+            ratio.html_length < raw.len(),
+            "script/style should be stripped from the denominator"
+        );
+        assert_eq!(ratio.html_length, content_html_length(&raw));
+        // Without stripping the ratio would be a tiny fraction of this.
+        let raw_ratio = (ratio.text_length as f64 / raw.len() as f64) * 100.0;
+        assert!(ratio.ratio > raw_ratio * 2.0);
     }
 
     #[test]
