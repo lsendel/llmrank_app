@@ -171,6 +171,39 @@ describe("Crawl Routes", () => {
 
       const body: any = await res.json();
       expect(body.data).toHaveProperty("id", "crawl-1");
+      expect(body.data.llmScoring).toBeNull();
+    });
+
+    it("returns short cache headers and LLM status when complete crawl has partial LLM scoring", async () => {
+      const crawl = buildCrawlJob({
+        id: "crawl-1",
+        projectId: "proj-1",
+        status: "complete",
+      });
+      mockCrawlRepo.getById.mockResolvedValue(crawl);
+      await kv.put(
+        "llm:status:crawl-1",
+        JSON.stringify({
+          status: "partial",
+          cause: "rate_limit",
+          scored: 3,
+          failed: 2,
+          at: "2026-06-25T00:00:00.000Z",
+        }),
+      );
+
+      const res = await request("/api/crawls/crawl-1");
+      expect(res.status).toBe(200);
+
+      const cacheControl = res.headers.get("cache-control");
+      expect(cacheControl).toContain("max-age=10");
+
+      const body: any = await res.json();
+      expect(body.data.llmScoring).toMatchObject({
+        status: "partial",
+        scored: 3,
+        failed: 2,
+      });
     });
 
     it("returns private cache headers when crawl is in-progress", async () => {

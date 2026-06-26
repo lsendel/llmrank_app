@@ -1,4 +1,4 @@
-import { letterGrade } from "@llm-boost/shared";
+import { letterGrade, severityRank } from "@llm-boost/shared";
 import type {
   CrawlRepository,
   ProjectRepository,
@@ -181,11 +181,4 @@ export function createInsightsService(deps: InsightsServiceDeps) {
       };
     },
   };
-}
-
-function severityRank(sev: string): number {
-  if (sev === "critical") return 3;
-  if (sev === "warning") return 2;
-  if (sev === "info") return 1;
-  return 0;
 }

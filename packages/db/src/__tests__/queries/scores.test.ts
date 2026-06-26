@@ -114,7 +114,8 @@ describe("scoreQueries", () => {
     const result = await queries.getByPage("pg1");
 
     expect(mock.db.query.pageScores.findFirst).toHaveBeenCalled();
-    expect(result).toEqual(score);
+    // deserializeScore adds parsed detail/platformScores/recommendations.
+    expect(result).toMatchObject(score);
   });
 
   it("getByPage returns undefined when no score exists", async () => {
@@ -209,10 +210,8 @@ describe("scoreQueries", () => {
 
     const result = await queries.getByPageWithIssues("pg1");
 
-    expect(result).toEqual({
-      score,
-      issues: pageIssues,
-    });
+    expect(result.score).toMatchObject(score);
+    expect(result.issues).toEqual(pageIssues);
   });
 
   it("getByPageWithIssues returns null score when no score exists", async () => {
@@ -290,5 +289,73 @@ describe("scoreQueries", () => {
     expect(mock.chain.set).toHaveBeenCalled();
     expect(mock.chain.where).toHaveBeenCalled();
     expect(result).toEqual(updated);
+  });
+
+  // --- JSON column deserialization (detail / platform_scores / recommendations) ---
+  // Columns are TEXT-stored JSON; reads must parse them back to objects, else
+  // consumers that do Object.entries(platformScores) iterate the string's
+  // characters ("0","1","2"…) — the "0/100 +100 potential" platform-card bug.
+  it("listAllByJob parses platform_scores/detail JSON text into objects", async () => {
+    const platformScores = {
+      chatgpt: { score: 73, grade: "C", tips: ["t"] },
+      claude: { score: 60, grade: "D", tips: [] },
+    };
+    mock.db.query.pageScores.findMany.mockResolvedValueOnce([
+      {
+        id: "s1",
+        jobId: "j1",
+        overallScore: 77,
+        platformScores: JSON.stringify(platformScores),
+        detail: JSON.stringify({ llmContentScores: { quality: 80 } }),
+        recommendations: null,
+      },
+    ]);
+
+    const [row] = await queries.listAllByJob("j1");
+
+    expect(row.platformScores).toEqual(platformScores);
+    // Regression guard: real platform keys, not character indices.
+    expect(Object.keys(row.platformScores as unknown as object)).toEqual([
+      "chatgpt",
+      "claude",
+    ]);
+    expect(
+      (row.detail as unknown as { llmContentScores: { quality: number } })
+        .llmContentScores.quality,
+    ).toBe(80);
+  });
+
+  it("deserialization is idempotent when columns are already objects", async () => {
+    const platformScores = { chatgpt: { score: 73 } };
+    mock.db.query.pageScores.findMany.mockResolvedValueOnce([
+      {
+        id: "s1",
+        jobId: "j1",
+        platformScores,
+        detail: { a: 1 },
+        recommendations: null,
+      },
+    ]);
+
+    const [row] = await queries.listAllByJob("j1");
+
+    expect(row.platformScores).toEqual(platformScores);
+    expect(row.detail).toEqual({ a: 1 });
+  });
+
+  it("deserialization returns null for malformed JSON instead of crashing", async () => {
+    mock.db.query.pageScores.findMany.mockResolvedValueOnce([
+      {
+        id: "s1",
+        jobId: "j1",
+        platformScores: "{not json",
+        detail: null,
+        recommendations: null,
+      },
+    ]);
+
+    const [row] = await queries.listAllByJob("j1");
+
+    expect(row.platformScores).toBeNull();
   });
 });

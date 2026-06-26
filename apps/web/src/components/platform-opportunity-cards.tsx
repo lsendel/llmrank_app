@@ -3,9 +3,16 @@
 import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type FusedInsights } from "@/lib/api";
 import { cn, gradeColor } from "@/lib/utils";
+import { platformDisplay } from "@/lib/platform-display";
 
 function scoreGrade(score: number): string {
   if (score >= 90) return "A";
@@ -38,60 +45,90 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
     <div className="space-y-6">
       {/* Platform Opportunities */}
       {platformOpportunities.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {platformOpportunities.map((opp) => (
-            <Card key={opp.platform}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm capitalize">
-                  {opp.platform}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className={cn(
-                      "text-2xl font-bold",
-                      gradeColor(opp.currentScore),
-                    )}
-                  >
-                    {opp.currentScore}
-                  </span>
-                  <span className="text-xs text-muted-foreground">/ 100</span>
-                  {opp.opportunityScore > 0 && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      +{opp.opportunityScore} potential
-                    </Badge>
-                  )}
-                </div>
+        <TooltipProvider>
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">AI Platform Readiness</h3>
+              <p className="text-xs text-muted-foreground">
+                How ready your content is for each AI assistant — scored out of
+                100. &ldquo;+N potential&rdquo; is the headroom to a perfect
+                score.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {platformOpportunities.map((opp) => {
+                const { label, icon } = platformDisplay(opp.platform);
+                return (
+                  <Card key={opp.platform}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-1.5 text-sm">
+                        <span aria-hidden>{icon}</span>
+                        <span>{label}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-baseline gap-2">
+                        <span
+                          className={cn(
+                            "text-2xl font-bold",
+                            gradeColor(opp.currentScore),
+                          )}
+                        >
+                          {opp.currentScore}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          / 100
+                        </span>
+                        {opp.opportunityScore > 0 && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="secondary"
+                                className="cursor-help text-[10px]"
+                              >
+                                +{opp.opportunityScore} potential
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                Points of headroom to a perfect 100 on {label}.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
 
-                {opp.visibilityRate !== null && (
-                  <p className="text-xs text-muted-foreground">
-                    Visibility:{" "}
-                    <span className="font-medium text-foreground">
-                      {opp.visibilityRate === 0
-                        ? "Not checked"
-                        : `${(opp.visibilityRate * 100).toFixed(0)}%`}
-                    </span>
-                  </p>
-                )}
+                      {opp.visibilityRate !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          Visibility:{" "}
+                          <span className="font-medium text-foreground">
+                            {opp.visibilityRate === 0
+                              ? "Not checked"
+                              : `${(opp.visibilityRate * 100).toFixed(0)}%`}
+                          </span>
+                        </p>
+                      )}
 
-                {opp.topTips.length > 0 && (
-                  <ul className="space-y-1">
-                    {opp.topTips.slice(0, 3).map((tip, i) => (
-                      <li
-                        key={i}
-                        className="text-xs text-muted-foreground flex gap-1.5"
-                      >
-                        <span className="text-primary shrink-0">-</span>
-                        {tip}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                      {opp.topTips.length > 0 && (
+                        <ul className="space-y-1">
+                          {opp.topTips.slice(0, 3).map((tip, i) => (
+                            <li
+                              key={i}
+                              className="text-xs text-muted-foreground flex gap-1.5"
+                            >
+                              <span className="text-primary shrink-0">-</span>
+                              {tip}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </TooltipProvider>
       )}
 
       {/* Content Health Matrix */}

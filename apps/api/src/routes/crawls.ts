@@ -165,12 +165,21 @@ crawlRoutes.get("/:id", withOwnership("crawl"), async (c) => {
 
   try {
     const data = await crawlService.getCrawl(userId, crawlId);
-    if ("status" in data && data.status === "complete") {
+    // LLM-scoring status (set by the scoring pipeline in KV): lets the UI flag a
+    // deterministic-only result when the LLM depth analysis didn't run.
+    const llmScoring = (await c.env.KV.get(
+      `llm:status:${crawlId}`,
+      "json",
+    ).catch(() => null)) as {
+      status?: "ok" | "partial" | "unavailable";
+    } | null;
+    const llmFinal = !llmScoring || llmScoring.status === "ok";
+    if ("status" in data && data.status === "complete" && llmFinal) {
       c.header("Cache-Control", "private, max-age=86400, immutable");
     } else {
       c.header("Cache-Control", "private, max-age=10");
     }
-    return c.json({ data: toCrawlResponse(data) });
+    return c.json({ data: { ...toCrawlResponse(data), llmScoring } });
   } catch (error) {
     return handleServiceError(c, error);
   }
