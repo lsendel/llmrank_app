@@ -62,6 +62,12 @@ export const ExtractedDataSchema = z.object({
   // Human-Readiness (Tier 2)
   sentence_length_variance: z.number().nullable().optional(),
   top_transition_words: z.array(z.string()).optional().default([]),
+  // International SEO: hreflang alternates (lang code + target URL)
+  hreflang: z
+    .array(z.object({ lang: z.string(), href: z.string() }))
+    .optional(),
+  // Analytics/tag-manager tools detected in the page (e.g. "ga4", "gtm")
+  analytics_tools: z.array(z.string()).optional(),
 });
 
 // Lighthouse results for a page

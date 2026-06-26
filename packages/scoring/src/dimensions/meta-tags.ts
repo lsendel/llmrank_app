@@ -1,6 +1,7 @@
 import type { PageData, FactorResult } from "../types";
 import { deduct, type ScoreState } from "../factors/helpers";
 import { THRESHOLDS } from "../thresholds";
+import { hreflangHasXDefault, invalidHreflangCodes } from "../seo-audit";
 
 export function scoreMetaTags(page: PageData): FactorResult {
   const s: ScoreState = { score: 100, issues: [] };
@@ -42,6 +43,25 @@ export function scoreMetaTags(page: PageData): FactorResult {
   // MISSING_CANONICAL
   if (!page.canonicalUrl) {
     deduct(s, "MISSING_CANONICAL");
+  }
+
+  // MISSING_ANALYTICS — crawler looked for analytics/tag-manager tags and
+  // found none. `undefined` means "not measured" (older crawl data), so only
+  // flag when the field is present and empty.
+  if (page.extracted.analytics_tools?.length === 0) {
+    deduct(s, "MISSING_ANALYTICS");
+  }
+
+  // hreflang audit (international SEO). Only evaluates pages that declare
+  // hreflang; absence is not penalized (single-locale sites are fine).
+  const hreflang = page.extracted.hreflang ?? [];
+  if (hreflang.length > 0) {
+    const invalid = invalidHreflangCodes(hreflang);
+    if (invalid.length > 0) {
+      deduct(s, "HREFLANG_INVALID", { invalid });
+    } else if (!hreflangHasXDefault(hreflang)) {
+      deduct(s, "HREFLANG_NO_X_DEFAULT");
+    }
   }
 
   return { score: Math.max(0, s.score), issues: s.issues };

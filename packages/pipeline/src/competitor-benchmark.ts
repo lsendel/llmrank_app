@@ -131,6 +131,8 @@ export function createCompetitorBenchmarkService(
           cors_has_issues: false,
           sentence_length_variance: null,
           top_transition_words: [],
+          hreflang: parsed.hreflang,
+          analytics_tools: parsed.analyticsTools,
         },
         lighthouse: null,
         llmScores: null,

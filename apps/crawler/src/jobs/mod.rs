@@ -912,6 +912,8 @@ mod tests {
                 top_transition_words: vec![],
                 feed_urls: vec![],
                 hreflang_urls: vec![],
+                hreflang: vec![],
+                analytics_tools: vec![],
                 has_faq_schema: false,
                 has_howto_schema: false,
                 has_breadcrumb_schema: false,

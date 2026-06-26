@@ -162,6 +162,66 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     },
   },
 
+  MISSING_ANALYTICS: {
+    issueCode: "MISSING_ANALYTICS",
+    title: "Install Web Analytics",
+    estimatedMinutes: 10,
+    difficulty: "beginner",
+    aiFixAvailable: false,
+    platforms: {
+      generic: [
+        {
+          title: "Add Google Analytics 4 (or a privacy-first alternative)",
+          description:
+            "Without analytics you can't measure whether AI search and organic traffic reach this page. Add GA4 via gtag.js or Tag Manager, or a lightweight tool like Plausible/Fathom. Make sure it loads on every template, not just the homepage.",
+          codeSnippet: `<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'G-XXXXXXXXXX');\n</script>`,
+          language: "html",
+          tip: "Server-render the tag (or inject via Tag Manager) so it's present in the initial HTML.",
+        },
+      ],
+    },
+  },
+
+  HREFLANG_NO_X_DEFAULT: {
+    issueCode: "HREFLANG_NO_X_DEFAULT",
+    title: "Add an x-default hreflang",
+    estimatedMinutes: 10,
+    difficulty: "intermediate",
+    aiFixAvailable: false,
+    platforms: {
+      generic: [
+        {
+          title: "Add an x-default alternate",
+          description:
+            "You already declare hreflang alternates, but there's no x-default. x-default tells engines which URL to serve when no language/region matches — important as you expand internationally.",
+          codeSnippet: `<link rel="alternate" hreflang="x-default" href="https://example.com/" />`,
+          language: "html",
+          tip: "x-default usually points at your language selector or primary-market home page.",
+        },
+      ],
+    },
+  },
+
+  HREFLANG_INVALID: {
+    issueCode: "HREFLANG_INVALID",
+    title: "Fix invalid hreflang codes",
+    estimatedMinutes: 15,
+    difficulty: "intermediate",
+    aiFixAvailable: false,
+    platforms: {
+      generic: [
+        {
+          title: "Use valid BCP-47 language/region codes",
+          description:
+            "One or more hreflang values aren't valid and are silently ignored by search engines, breaking international targeting. Use a language code, optionally with a region (e.g. en, en-US, pt-BR, zh-Hant), or x-default.",
+          codeSnippet: `<link rel="alternate" hreflang="en-US" href="https://example.com/us/" />\n<link rel="alternate" hreflang="en-GB" href="https://example.com/gb/" />\n<link rel="alternate" hreflang="x-default" href="https://example.com/" />`,
+          language: "html",
+          tip: "Region must be a 2-letter ISO 3166-1 country code, not a language (use en-GB, not en-UK).",
+        },
+      ],
+    },
+  },
+
   MISSING_H1: {
     issueCode: "MISSING_H1",
     title: "Add an H1 Heading Tag",
