@@ -42,3 +42,6 @@ audit-workspace/
 
 # Root MCP config (use .claude/mcp.json for shared config)
 /.mcp.json
+
+# pnpm content-addressable store (created when store-dir resolves into the repo)
+.pnpm-store/
