@@ -19,7 +19,15 @@ function serializeDueAt(dueAt: ActionItemDueAt): string | null {
 export function actionItemQueries(db: Database) {
   return {
     async create(data: typeof actionItems.$inferInsert) {
-      const [created] = await db.insert(actionItems).values(data).returning();
+      // The `id` (text PK) has no DB default, and Drizzle sends `null` for any
+      // omitted column — so without generating it here every insert fails the
+      // PK NOT NULL constraint (D1 500). Generate a UUID when the caller didn't
+      // supply one. This is the single insert path for action items (manual
+      // create, bulk upsert, and regression-service all route through it).
+      const [created] = await db
+        .insert(actionItems)
+        .values({ ...data, id: data.id ?? crypto.randomUUID() })
+        .returning();
       return created;
     },
 
