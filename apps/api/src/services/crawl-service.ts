@@ -635,9 +635,12 @@ export function createCrawlService(deps: CrawlServiceDeps) {
           olderThanISO,
         });
         if (!claimed) continue;
+        // claimStalled marked the job `cancelled` (resurrection-proof). The
+        // no-replacement outcomes below relabel it `failed` for a clearer user
+        // signal; the re-dispatch-success path keeps it `cancelled` so a late
+        // callback can't resurrect it alongside the running replacement.
 
-        // Exhausted: stop retrying and surface a terminal failure (the claim
-        // already set status=failed; just record the final reason).
+        // Exhausted: stop retrying and surface a terminal failure.
         if (attempts >= maxRedispatch) {
           await deps.crawls.updateStatus(job.id, {
             status: "failed",
@@ -676,8 +679,11 @@ export function createCrawlService(deps: CrawlServiceDeps) {
             status: "queued",
             startedAt: new Date(),
           });
+          // Keep the old job `cancelled` (set by the claim) so a late callback
+          // from a slow-but-alive original crawler can't resurrect it while the
+          // replacement runs; just record what superseded it.
           await deps.crawls.updateStatus(job.id, {
-            status: "failed",
+            status: "cancelled",
             errorMessage: `Crawl stalled (no activity ${stallMinutes}m); re-dispatched as ${newJob.id} (attempt ${attempts + 1}/${maxRedispatch}).`,
           });
           recovered++;

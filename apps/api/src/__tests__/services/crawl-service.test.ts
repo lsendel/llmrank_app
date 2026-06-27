@@ -795,6 +795,7 @@ describe("CrawlService.recoverStalledCrawls", () => {
       redispatchCount: 0,
     });
     crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    crawls.claimStalled = vi.fn().mockResolvedValue(stalled);
     crawls.create = vi.fn().mockResolvedValue(buildCrawlJob({ id: "new-job" }));
 
     const result = await service().recoverStalledCrawls({
@@ -803,6 +804,10 @@ describe("CrawlService.recoverStalledCrawls", () => {
     });
 
     expect(result).toEqual({ recovered: 1, failed: 0 });
+    // Atomic claim happened before any side effects.
+    expect(crawls.claimStalled).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "old-job" }),
+    );
     // New job created with an incremented re-dispatch counter (clean slate id).
     expect(crawls.create).toHaveBeenCalledWith(
       expect.objectContaining({ redispatchCount: 1 }),
@@ -812,14 +817,15 @@ describe("CrawlService.recoverStalledCrawls", () => {
       "https://crawler.test/api/v1/jobs",
       expect.objectContaining({ method: "POST" }),
     );
-    // New job queued; old job terminated as failed/superseded.
+    // New job queued; old job kept CANCELLED (resurrection-proof), not failed,
+    // so a late callback can't revive it next to the running replacement.
     expect(crawls.updateStatus).toHaveBeenCalledWith(
       "new-job",
       expect.objectContaining({ status: "queued" }),
     );
     expect(crawls.updateStatus).toHaveBeenCalledWith(
       "old-job",
-      expect.objectContaining({ status: "failed" }),
+      expect.objectContaining({ status: "cancelled" }),
     );
   });
 

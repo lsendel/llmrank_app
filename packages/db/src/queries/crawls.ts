@@ -3,7 +3,6 @@ import {
   desc,
   asc,
   and,
-  lt,
   sql,
   inArray,
   type InferSelectModel,
@@ -126,11 +125,11 @@ export function crawlQueries(db: Database) {
           ]),
           // COALESCE so a row written by old code during the migration→deploy
           // window (updated_at still NULL) is evaluated by createdAt age instead
-          // of being invisible to `lt` forever.
-          lt(
-            sql`coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})`,
-            opts.olderThanISO,
-          ),
+          // of being invisible to `lt` forever. Both sides wrapped in datetime()
+          // because created_at is stored as `YYYY-MM-DD HH:MM:SS` (datetime('now'))
+          // while updated_at and the cutoff are ISO (`...T...Z`); a raw string
+          // compare sorts ' ' before 'T' and would flag fresh rows as stale.
+          sql`datetime(coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})) < datetime(${opts.olderThanISO})`,
         ),
         orderBy: [asc(crawlJobs.updatedAt)],
         limit: opts.limit ?? 20,
@@ -138,21 +137,28 @@ export function crawlQueries(db: Database) {
     },
 
     /**
-     * Atomically claim a stalled job for recovery: transition it active→failed
-     * only if it is STILL non-terminal and STILL stale (COALESCE(updated_at,
-     * created_at) < cutoff). Returns the claimed row, or undefined if the
-     * conditional update matched nothing — meaning an ingest callback bumped
-     * activity (the crawler was alive after all) or another worker already
-     * claimed it. The caller must only re-dispatch when it wins the claim,
-     * which closes the find→act race that could otherwise double-dispatch.
+     * Atomically claim a stalled job for recovery: transition it
+     * active→cancelled only if it is STILL non-terminal and STILL stale
+     * (datetime(COALESCE(updated_at, created_at)) < cutoff). Returns the claimed
+     * row, or undefined if the conditional update matched nothing — meaning an
+     * ingest callback bumped activity (the crawler was alive after all) or
+     * another worker already claimed it. The caller must only re-dispatch when
+     * it wins the claim, closing the find→act race that could double-dispatch.
+     *
+     * Claimed jobs are marked `cancelled` (a terminal state ingest drops late
+     * callbacks for) rather than `failed`, so a slow-but-alive original crawler
+     * posting a batch after the claim can't resurrect the job alongside its
+     * replacement. The caller may relabel no-replacement outcomes as `failed`.
      */
     async claimStalled(opts: { id: string; olderThanISO: string }) {
+      const now = new Date().toISOString();
       const [claimed] = await db
         .update(crawlJobs)
         .set({
-          status: "failed",
-          updatedAt: new Date().toISOString(),
-          errorMessage: "Crawl stalled: recovering (no crawler activity).",
+          status: "cancelled",
+          cancelledAt: now,
+          cancelReason: "stall-recovery: claimed (no crawler activity)",
+          updatedAt: now,
         })
         .where(
           and(
@@ -163,10 +169,7 @@ export function crawlQueries(db: Database) {
               "crawling",
               "scoring",
             ]),
-            lt(
-              sql`coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})`,
-              opts.olderThanISO,
-            ),
+            sql`datetime(coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})) < datetime(${opts.olderThanISO})`,
           ),
         )
         .returning();

@@ -158,9 +158,9 @@ describe("crawlQueries", () => {
   });
 
   // --- claimStalled ---
-  it("claimStalled conditionally fails a job and returns the claimed row", async () => {
+  it("claimStalled conditionally cancels a job and returns the claimed row", async () => {
     mock.chain.returning.mockResolvedValueOnce([
-      { id: "j1", status: "failed" },
+      { id: "j1", status: "cancelled" },
     ]);
 
     const result = await queries.claimStalled({
@@ -169,13 +169,16 @@ describe("crawlQueries", () => {
     });
 
     expect(mock.chain.update).toHaveBeenCalled();
+    // Marked cancelled (resurrection-proof terminal state ingest drops late
+    // callbacks for), not failed, and stamps cancelledAt + updatedAt.
     expect(mock.chain.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "failed",
+        status: "cancelled",
+        cancelledAt: expect.any(String),
         updatedAt: expect.any(String),
       }),
     );
-    expect(result).toEqual({ id: "j1", status: "failed" });
+    expect(result).toEqual({ id: "j1", status: "cancelled" });
   });
 
   it("claimStalled returns undefined when the conditional update matches nothing", async () => {

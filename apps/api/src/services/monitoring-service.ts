@@ -1,5 +1,5 @@
 import { type Database, crawlJobs } from "@llm-boost/db";
-import { and, count, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { createLogger } from "@llm-boost/shared";
 import { NotificationService } from "./notification-service";
 
@@ -61,10 +61,10 @@ export function createMonitoringService(
             ]),
             // COALESCE so deploy-window rows with a NULL updated_at (written by
             // old code before the new Worker shipped) are still reaped by age.
-            lt(
-              sql`coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})`,
-              stallThreshold.toISOString(),
-            ),
+            // datetime() on both sides normalizes the mixed storage formats
+            // (created_at `YYYY-MM-DD HH:MM:SS` vs updated_at/cutoff ISO) so the
+            // comparison isn't a buggy lexical sort (' ' < 'T').
+            sql`datetime(coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})) < datetime(${stallThreshold.toISOString()})`,
           ),
         );
 
