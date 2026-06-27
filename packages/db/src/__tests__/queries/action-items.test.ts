@@ -4,6 +4,8 @@ import { actionItemQueries } from "../../queries/action-items";
 function createMockDb() {
   const chain: Record<string, ReturnType<typeof vi.fn>> = {};
 
+  chain.insert = vi.fn().mockReturnValue(chain);
+  chain.values = vi.fn().mockReturnValue(chain);
   chain.update = vi.fn().mockReturnValue(chain);
   chain.set = vi.fn().mockReturnValue(chain);
   chain.where = vi.fn().mockReturnValue(chain);
@@ -19,6 +21,42 @@ describe("actionItemQueries", () => {
   beforeEach(() => {
     mock = createMockDb();
     queries = actionItemQueries(mock.db);
+  });
+
+  it("create generates a UUID id (PK has no DB default; null would 500)", async () => {
+    mock.chain.returning.mockResolvedValueOnce([{ id: "generated" }]);
+
+    await queries.create({
+      projectId: "p1",
+      issueCode: "NOINDEX_SET",
+      title: "t",
+      severity: "critical",
+      category: "technical",
+    } as never);
+
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({ id: expect.any(String) }),
+    );
+    // The generated id must be a non-empty string, never null/undefined.
+    const arg = mock.chain.values.mock.calls[0][0];
+    expect(arg.id).toBeTruthy();
+  });
+
+  it("create preserves a caller-supplied id", async () => {
+    mock.chain.returning.mockResolvedValueOnce([{ id: "fixed-id" }]);
+
+    await queries.create({
+      id: "fixed-id",
+      projectId: "p1",
+      issueCode: "NOINDEX_SET",
+      title: "t",
+      severity: "critical",
+      category: "technical",
+    } as never);
+
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "fixed-id" }),
+    );
   });
 
   it("update accepts an already-normalized ISO due date string", async () => {
