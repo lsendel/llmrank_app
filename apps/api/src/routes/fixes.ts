@@ -44,11 +44,38 @@ async function readR2Html(
 }
 
 /**
+ * Fix codes whose prompt is about the whole SITE, not one page — these need the
+ * crawl's page list (`ctx.pages`), so we ground them at the project level even
+ * when the issue row happens to carry a pageId (e.g. MISSING_LLMS_TXT is derived
+ * from siteContext but stored on a page issue row).
+ */
+const SITE_WIDE_FIX_CODES = new Set(["MISSING_LLMS_TXT"]);
+
+/** Best-effort list of the project's crawled pages (url + title). */
+async function fetchProjectPages(
+  db: Parameters<typeof pageQueries>[0],
+  projectId: string,
+): Promise<{ url: string; title: string }[]> {
+  try {
+    const latest = await crawlQueries(db).getLatestByProject(projectId);
+    if (latest?.id) {
+      const rows = await pageQueries(db).listByJob(latest.id, { limit: 30 });
+      return rows
+        .slice(0, 30)
+        .map((p) => ({ url: p.url, title: p.title ?? p.url }));
+    }
+  } catch {
+    // ignore — fall back to no page list
+  }
+  return [];
+}
+
+/**
  * Build a content-grounded context for the fix generator. Previously this was
  * `{ excerpt: "" }`, which made the LLM emit generic boilerplate. We now pull
  * the page's real HTML from R2 (headings + text excerpt) for page-level fixes,
- * and the crawl's actual page list for project-level fixes (llms.txt, sitemap).
- * Best-effort: any lookup failure degrades to the lighter context, never throws.
+ * and the crawl's actual page list for site-wide fixes (llms.txt). Best-effort:
+ * any lookup failure degrades to the lighter context, never throws.
  */
 async function buildFixContext(args: {
   db: Parameters<typeof pageQueries>[0];
@@ -56,14 +83,22 @@ async function buildFixContext(args: {
   projectId: string;
   project: { domain: string; name: string };
   pageId?: string;
+  issueCode: string;
 }): Promise<FixPageContext> {
-  const { db, r2, projectId, project, pageId } = args;
+  const { db, r2, projectId, project, pageId, issueCode } = args;
   const base: FixPageContext = {
     url: project.domain,
     title: project.name,
     excerpt: "",
     domain: project.domain,
   };
+
+  // Site-wide fixes need the page LIST, not one page's body — even if the issue
+  // row carries a pageId. Ground them at the project level.
+  if (SITE_WIDE_FIX_CODES.has(issueCode)) {
+    const pages = await fetchProjectPages(db, projectId);
+    return pages.length > 0 ? { ...base, pages } : base;
+  }
 
   if (pageId) {
     const page = await pageQueries(db).getById(pageId);
@@ -96,22 +131,9 @@ async function buildFixContext(args: {
     return ctx;
   }
 
-  // Project-level fix (no page): ground llms.txt / sitemap fixes with the real
-  // list of crawled pages instead of an empty document.
-  try {
-    const latest = await crawlQueries(db).getLatestByProject(projectId);
-    if (latest?.id) {
-      const rows = await pageQueries(db).listByJob(latest.id, { limit: 30 });
-      const pageList = rows.slice(0, 30).map((p) => ({
-        url: p.url,
-        title: p.title ?? p.url,
-      }));
-      if (pageList.length > 0) return { ...base, pages: pageList };
-    }
-  } catch {
-    // fall through to base context
-  }
-  return base;
+  // Project-level fix with no page: still ground with the crawl's page list.
+  const pages = await fetchProjectPages(db, projectId);
+  return pages.length > 0 ? { ...base, pages } : base;
 }
 
 export const fixRoutes = new Hono<AppEnv>();
@@ -187,6 +209,7 @@ fixRoutes.post("/generate", async (c) => {
       projectId: body.projectId,
       project,
       pageId: body.pageId,
+      issueCode: body.issueCode,
     });
 
     const service = createFixGeneratorService({

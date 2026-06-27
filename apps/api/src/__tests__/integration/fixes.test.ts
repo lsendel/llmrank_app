@@ -34,6 +34,8 @@ vi.mock("@anthropic-ai/sdk", () => ({
 const mockProjectGetById = vi.fn();
 const mockUserGetById = vi.fn();
 const mockPageGetById = vi.fn();
+const mockPageListByJob = vi.fn();
+const mockCrawlGetLatestByProject = vi.fn();
 const mockContentFixCreate = vi.fn();
 const mockContentFixCountByUserThisMonth = vi.fn();
 const mockContentFixListByProject = vi.fn();
@@ -50,6 +52,10 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
     }),
     pageQueries: () => ({
       getById: mockPageGetById,
+      listByJob: mockPageListByJob,
+    }),
+    crawlQueries: () => ({
+      getLatestByProject: mockCrawlGetLatestByProject,
     }),
     contentFixQueries: () => ({
       create: mockContentFixCreate,
@@ -103,6 +109,10 @@ describe("Fixes Routes", () => {
       title: "Test Page",
       metaDesc: "Some description",
     });
+
+    // No crawl page list by default — site-wide grounding is opted into per test.
+    mockCrawlGetLatestByProject.mockResolvedValue(null);
+    mockPageListByJob.mockResolvedValue([]);
 
     mockContentFixCreate.mockResolvedValue({
       id: "fix-1",
@@ -254,6 +264,35 @@ describe("Fixes Routes", () => {
       expect(body.data).toHaveProperty("id", "fix-1");
       expect(body.data).toHaveProperty("issueCode", "MISSING_META_DESC");
       expect(body.data).toHaveProperty("generatedFix");
+    });
+
+    it("grounds site-wide fixes (MISSING_LLMS_TXT) on the crawl's page list, not one page's body", async () => {
+      mockCrawlGetLatestByProject.mockResolvedValue({ id: "crawl-1" });
+      mockPageListByJob.mockResolvedValue([
+        { url: "https://example.com/about", title: "About" },
+        { url: "https://example.com/services", title: "Services" },
+      ]);
+
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          pageId: "00000000-0000-0000-0000-000000000002",
+          issueCode: "MISSING_LLMS_TXT",
+        },
+      });
+      expect(res.status).toBe(201);
+
+      // The route verifies pageId ownership (one getById), but buildFixContext
+      // must NOT additionally read the page body for a site-wide code.
+      expect(mockPageGetById.mock.calls.length).toBeLessThanOrEqual(1);
+
+      // The llms.txt prompt must be grounded in the real crawled URLs (not "N/A").
+      const lastCall = mockMessagesCreate.mock.calls.at(-1);
+      const userContent: string = lastCall?.[0]?.messages?.[0]?.content ?? "";
+      expect(userContent).toContain("https://example.com/about");
+      expect(userContent).toContain("https://example.com/services");
+      expect(userContent).not.toContain("N/A");
     });
 
     it("maps provider quota/rate errors to a clean 503 (not a raw 500)", async () => {
