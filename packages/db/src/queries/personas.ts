@@ -2,19 +2,47 @@ import { eq, desc, sql } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { personas } from "../schema";
 
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value !== "string" || value.trim().length === 0) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function deserializePersona<
+  T extends { vocabulary: unknown; sampleQueries: unknown },
+>(persona: T) {
+  return {
+    ...persona,
+    vocabulary: parseStringArray(persona.vocabulary),
+    sampleQueries: parseStringArray(persona.sampleQueries),
+  };
+}
+
 export function personaQueries(db: Database) {
   return {
     async getById(id: string) {
-      return db.query.personas.findFirst({
+      const persona = await db.query.personas.findFirst({
         where: eq(personas.id, id),
       });
+      return persona ? deserializePersona(persona) : persona;
     },
 
     async listByProject(projectId: string) {
-      return db.query.personas.findMany({
+      const rows = await db.query.personas.findMany({
         where: eq(personas.projectId, projectId),
         orderBy: [desc(personas.createdAt)],
       });
+      return rows.map(deserializePersona);
     },
 
     async countByProject(projectId: string) {
@@ -52,7 +80,7 @@ export function personaQueries(db: Database) {
             : undefined,
         })
         .returning();
-      return persona;
+      return persona ? deserializePersona(persona) : persona;
     },
 
     async update(
@@ -80,7 +108,7 @@ export function personaQueries(db: Database) {
         .set(setData)
         .where(eq(personas.id, id))
         .returning();
-      return updated;
+      return updated ? deserializePersona(updated) : updated;
     },
 
     async remove(id: string) {
@@ -88,7 +116,7 @@ export function personaQueries(db: Database) {
         .delete(personas)
         .where(eq(personas.id, id))
         .returning();
-      return deleted;
+      return deleted ? deserializePersona(deleted) : deleted;
     },
   };
 }

@@ -2,9 +2,17 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { withOwnership } from "../middleware/ownership";
-import { pipelineRunQueries, projectQueries } from "@llm-boost/db";
 import {
-  runHealthCheck,
+  competitorQueries,
+  crawlQueries,
+  pipelineRunQueries,
+  projectQueries,
+  savedKeywordQueries,
+  scoreQueries,
+  userQueries,
+} from "@llm-boost/db";
+import {
+  buildHealthCheckResult,
   createRecommendationsService,
 } from "@llm-boost/pipeline";
 
@@ -91,8 +99,11 @@ pipelineRoutes.get(
   async (c) => {
     const projectId = c.req.param("projectId");
     const db = c.get("db");
+    const project = c.get("project") as {
+      userId: string;
+      crawlSchedule?: string | null;
+    };
 
-    const { crawlQueries } = await import("@llm-boost/db");
     const latestCrawl = await crawlQueries(db).getLatestByProject(projectId);
 
     if (!latestCrawl || latestCrawl.status !== "complete") {
@@ -102,10 +113,21 @@ pipelineRoutes.get(
       );
     }
 
-    const result = await runHealthCheck({
-      databaseUrl: c.env.SUPABASE.connectionString,
+    const [user, keywordCount, competitors, issues] = await Promise.all([
+      userQueries(db).getById(project.userId),
+      savedKeywordQueries(db).countByProject(projectId),
+      competitorQueries(db).listByProject(projectId),
+      scoreQueries(db).getIssuesByJob(latestCrawl.id),
+    ]);
+
+    const result = buildHealthCheckResult({
       projectId,
       crawlJobId: latestCrawl.id,
+      project,
+      user: user ?? null,
+      keywordCount,
+      competitors,
+      issues,
     });
 
     return c.json({ data: result });

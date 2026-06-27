@@ -8,6 +8,7 @@ import { Loader2, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api, type SavedKeyword, type Persona } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
+import { normalizeStringArrayField } from "@/lib/persona-fields";
 
 interface KeywordPickerProps {
   projectId: string;
@@ -87,7 +88,7 @@ export function KeywordPicker({
 
   // Persona queries mapped to virtual IDs for selection
   const personaQueries = (personas ?? []).flatMap((p) =>
-    (p.sampleQueries ?? []).map((q) => ({
+    normalizeStringArrayField(p.sampleQueries).map((q) => ({
       id: `persona:${p.id}:${q}`,
       keyword: q,
       personaName: p.name,

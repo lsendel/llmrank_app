@@ -6,7 +6,10 @@ import type { ReportStatus } from "../schema/enums";
 export function reportQueries(db: Database) {
   return {
     async create(data: typeof reports.$inferInsert) {
-      const [row] = await db.insert(reports).values(data).returning();
+      const [row] = await db
+        .insert(reports)
+        .values({ ...data, id: data.id ?? crypto.randomUUID() })
+        .returning();
       return row;
     },
 

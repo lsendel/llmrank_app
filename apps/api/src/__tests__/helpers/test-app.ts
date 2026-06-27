@@ -30,6 +30,8 @@ import { competitorRoutes } from "../../routes/competitors";
 import { actionItemRoutes } from "../../routes/action-items";
 import { promptResearchRoutes } from "../../routes/prompt-research";
 import { brandPerformanceRoutes } from "../../routes/brand-performance";
+import { personaRoutes } from "../../routes/personas";
+import { pipelineRoutes } from "../../routes/pipeline";
 
 interface TestAppOptions {
   db?: AppDatabase;
@@ -99,6 +101,8 @@ export function createTestApp(options: TestAppOptions = {}) {
   app.route("/api/action-plan", actionItemRoutes);
   app.route("/api/prompt-research", promptResearchRoutes);
   app.route("/api/brand", brandPerformanceRoutes);
+  app.route("/api/personas", personaRoutes);
+  app.route("/api/pipeline", pipelineRoutes);
 
   app.notFound((c) =>
     c.json({ error: { code: "NOT_FOUND", message: "Route not found" } }, 404),

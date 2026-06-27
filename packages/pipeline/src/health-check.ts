@@ -29,25 +29,26 @@ export interface HealthCheckResult {
   score: number;
 }
 
-export async function runHealthCheck(
-  input: HealthCheckInput,
-): Promise<HealthCheckResult> {
-  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
-  const db = createAgencyDb(input.databaseUrl) as any;
-  const project = await projectQueries(db).getById(input.projectId);
-  if (!project) throw new Error("Project not found");
+export interface HealthCheckData {
+  projectId: string;
+  crawlJobId: string;
+  project: {
+    userId: string;
+    crawlSchedule?: string | null;
+  };
+  user: {
+    plan?: string | null;
+  } | null;
+  keywordCount: number;
+  competitors: unknown[];
+  issues: Array<{ code: string }>;
+}
 
-  const user = await userQueries(db).getById(project.userId);
-  const keywordCount = await savedKeywordQueries(db).countByProject(
-    input.projectId,
-  );
-  const competitors = await competitorQueries(db).listByProject(
-    input.projectId,
-  );
-  const issues = await scoreQueries(db).getIssuesByJob(input.crawlJobId);
-
+export function buildHealthCheckResult(
+  input: HealthCheckData,
+): HealthCheckResult {
   const checks: CheckResult[] = [];
-  const issueCodes = new Set(issues.map((i) => i.code));
+  const issueCodes = new Set(input.issues.map((i) => i.code));
 
   // Technical checks from crawl issues
   if (issueCodes.has("AI_CRAWLER_BLOCKED")) {
@@ -89,7 +90,7 @@ export async function runHealthCheck(
   }
 
   // Configuration checks
-  if (competitors.length === 0) {
+  if (input.competitors.length === 0) {
     checks.push({
       check: "competitors_tracked",
       category: "configuration",
@@ -103,17 +104,17 @@ export async function runHealthCheck(
       check: "competitors_tracked",
       category: "configuration",
       status: "pass",
-      message: `${competitors.length} competitors tracked`,
+      message: `${input.competitors.length} competitors tracked`,
       autoFixable: false,
     });
   }
 
-  if (keywordCount < 5) {
+  if (input.keywordCount < 5) {
     checks.push({
       check: "keyword_coverage",
       category: "configuration",
       status: "fail",
-      message: `Only ${keywordCount} keywords tracked (recommend 5+)`,
+      message: `Only ${input.keywordCount} keywords tracked (recommend 5+)`,
       autoFixable: true,
       suggestion: "Generate more keywords from crawl data",
     });
@@ -122,12 +123,16 @@ export async function runHealthCheck(
       check: "keyword_coverage",
       category: "configuration",
       status: "pass",
-      message: `${keywordCount} keywords tracked`,
+      message: `${input.keywordCount} keywords tracked`,
       autoFixable: false,
     });
   }
 
-  if (project.crawlSchedule === "manual" && user && user.plan !== "free") {
+  if (
+    input.project.crawlSchedule === "manual" &&
+    input.user &&
+    input.user.plan !== "free"
+  ) {
     checks.push({
       check: "crawl_schedule",
       category: "configuration",
@@ -148,4 +153,32 @@ export async function runHealthCheck(
     checks,
     score,
   };
+}
+
+export async function runHealthCheck(
+  input: HealthCheckInput,
+): Promise<HealthCheckResult> {
+  // TODO: pipeline needs both D1 and Supabase DB access; using AgencyDb as stopgap
+  const db = createAgencyDb(input.databaseUrl) as any;
+  const project = await projectQueries(db).getById(input.projectId);
+  if (!project) throw new Error("Project not found");
+
+  const user = await userQueries(db).getById(project.userId);
+  const keywordCount = await savedKeywordQueries(db).countByProject(
+    input.projectId,
+  );
+  const competitors = await competitorQueries(db).listByProject(
+    input.projectId,
+  );
+  const issues = await scoreQueries(db).getIssuesByJob(input.crawlJobId);
+
+  return buildHealthCheckResult({
+    projectId: input.projectId,
+    crawlJobId: input.crawlJobId,
+    project,
+    user: user ?? null,
+    keywordCount,
+    competitors,
+    issues,
+  });
 }

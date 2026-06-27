@@ -88,6 +88,36 @@ describe("reportQueries", () => {
     expect(result).toEqual(report);
   });
 
+  it("create generates an id when the caller omits one", async () => {
+    const report = {
+      id: "generated-report-id",
+      projectId: "p1",
+      userId: "u1",
+      crawlJobId: "c1",
+      format: "pdf",
+      type: "summary",
+      status: "queued",
+    };
+    mock.chain.returning.mockResolvedValueOnce([report]);
+
+    const result = await queries.create({
+      projectId: "p1",
+      userId: "u1",
+      crawlJobId: "c1",
+      format: "pdf" as any,
+      type: "summary" as any,
+      status: "queued" as any,
+    } as any);
+
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expect.any(String),
+        projectId: "p1",
+      }),
+    );
+    expect(result).toEqual(report);
+  });
+
   // --- getById ---
   it("getById calls findFirst and returns report", async () => {
     const report = {

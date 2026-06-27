@@ -31,6 +31,7 @@ export {
   type PortfolioPriorityItem,
 } from "./recommendations";
 export {
+  buildHealthCheckResult,
   runHealthCheck,
   type HealthCheckInput,
   type HealthCheckResult,

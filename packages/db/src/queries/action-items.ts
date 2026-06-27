@@ -8,6 +8,14 @@ export type ActionItemStatus =
   | "fixed"
   | "dismissed";
 
+type ActionItemDueAt = Date | string | null;
+
+function serializeDueAt(dueAt: ActionItemDueAt): string | null {
+  if (dueAt === null) return null;
+  if (typeof dueAt === "string") return dueAt;
+  return dueAt.toISOString();
+}
+
 export function actionItemQueries(db: Database) {
   return {
     async create(data: typeof actionItems.$inferInsert) {
@@ -61,7 +69,7 @@ export function actionItemQueries(db: Database) {
       data: Partial<{
         status: ActionItemStatus;
         assigneeId: string | null;
-        dueAt: Date | null;
+        dueAt: ActionItemDueAt;
         title: string;
         description: string | null;
       }>,
@@ -71,9 +79,7 @@ export function actionItemQueries(db: Database) {
         .set({
           ...data,
           dueAt:
-            data.dueAt !== undefined
-              ? (data.dueAt?.toISOString() ?? null)
-              : undefined,
+            data.dueAt !== undefined ? serializeDueAt(data.dueAt) : undefined,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(actionItems.id, id))

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -22,6 +23,7 @@ import {
 import { Plus, Sparkles, Trash2, User, Loader2, Wand2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { StateCard } from "@/components/ui/state";
+import { normalizeStringArrayField } from "@/lib/persona-fields";
 
 const FUNNEL_COLORS = {
   education: "bg-blue-100 text-blue-800",
@@ -168,6 +170,10 @@ export function PersonasTab({ projectId }: { projectId: string }) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Persona with AI</DialogTitle>
+              <DialogDescription>
+                Enter an audience role and generate a persona draft to save for
+                visibility tracking.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -209,120 +215,126 @@ export function PersonasTab({ projectId }: { projectId: string }) {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {personas.map((persona) => (
-            <Card
-              key={persona.id}
-              className="cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() =>
-                setExpandedId(expandedId === persona.id ? null : persona.id)
-              }
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {persona.avatarUrl ? (
-                      <img
-                        src={persona.avatarUrl}
-                        alt={persona.name}
-                        className="h-10 w-10 rounded-full"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                        <User className="h-5 w-5" />
-                      </div>
-                    )}
-                    <div>
-                      <CardTitle className="text-base">
-                        {persona.name}
-                      </CardTitle>
-                      <CardDescription>{persona.role}</CardDescription>
-                    </div>
-                  </div>
-                  <Badge
-                    className={FUNNEL_COLORS[persona.funnelStage]}
-                    variant="secondary"
-                  >
-                    {persona.funnelStage}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {persona.jobToBeDone && (
-                  <p className="mb-2 text-sm text-muted-foreground">
-                    {persona.jobToBeDone}
-                  </p>
-                )}
-                <div className="text-xs text-muted-foreground">
-                  {persona.sampleQueries.length} sample queries
-                </div>
+          {personas.map((persona) => {
+            const sampleQueries = normalizeStringArrayField(
+              persona.sampleQueries,
+            );
 
-                {expandedId === persona.id && (
-                  <div className="mt-4 space-y-3 border-t pt-4">
-                    {persona.constraints && (
+            return (
+              <Card
+                key={persona.id}
+                className="cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() =>
+                  setExpandedId(expandedId === persona.id ? null : persona.id)
+                }
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {persona.avatarUrl ? (
+                        <img
+                          src={persona.avatarUrl}
+                          alt={persona.name}
+                          className="h-10 w-10 rounded-full"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                          <User className="h-5 w-5" />
+                        </div>
+                      )}
                       <div>
-                        <p className="text-xs font-medium">Constraints</p>
-                        <p className="text-xs text-muted-foreground">
-                          {persona.constraints}
-                        </p>
+                        <CardTitle className="text-base">
+                          {persona.name}
+                        </CardTitle>
+                        <CardDescription>{persona.role}</CardDescription>
                       </div>
-                    )}
-                    {persona.successMetrics && (
-                      <div>
-                        <p className="text-xs font-medium">Success Metrics</p>
-                        <p className="text-xs text-muted-foreground">
-                          {persona.successMetrics}
-                        </p>
-                      </div>
-                    )}
-                    {persona.sampleQueries.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium">Sample Queries</p>
-                        <ul className="mt-1 space-y-1">
-                          {persona.sampleQueries.map((q, i) => (
-                            <li
-                              key={i}
-                              className="text-xs text-muted-foreground"
-                            >
-                              &ldquo;{q}&rdquo;
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRefine(persona.id);
-                        }}
-                        disabled={refining === persona.id}
-                      >
-                        {refining === persona.id ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <Wand2 className="mr-1 h-3 w-3" />
-                        )}
-                        AI Refine
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(persona.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
                     </div>
+                    <Badge
+                      className={FUNNEL_COLORS[persona.funnelStage]}
+                      variant="secondary"
+                    >
+                      {persona.funnelStage}
+                    </Badge>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  {persona.jobToBeDone && (
+                    <p className="mb-2 text-sm text-muted-foreground">
+                      {persona.jobToBeDone}
+                    </p>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    {sampleQueries.length} sample queries
+                  </div>
+
+                  {expandedId === persona.id && (
+                    <div className="mt-4 space-y-3 border-t pt-4">
+                      {persona.constraints && (
+                        <div>
+                          <p className="text-xs font-medium">Constraints</p>
+                          <p className="text-xs text-muted-foreground">
+                            {persona.constraints}
+                          </p>
+                        </div>
+                      )}
+                      {persona.successMetrics && (
+                        <div>
+                          <p className="text-xs font-medium">Success Metrics</p>
+                          <p className="text-xs text-muted-foreground">
+                            {persona.successMetrics}
+                          </p>
+                        </div>
+                      )}
+                      {sampleQueries.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium">Sample Queries</p>
+                          <ul className="mt-1 space-y-1">
+                            {sampleQueries.map((q, i) => (
+                              <li
+                                key={i}
+                                className="text-xs text-muted-foreground"
+                              >
+                                &ldquo;{q}&rdquo;
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRefine(persona.id);
+                          }}
+                          disabled={refining === persona.id}
+                        >
+                          {refining === persona.id ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Wand2 className="mr-1 h-3 w-3" />
+                          )}
+                          AI Refine
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(persona.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
