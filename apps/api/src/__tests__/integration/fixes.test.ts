@@ -256,6 +256,22 @@ describe("Fixes Routes", () => {
       expect(body.data).toHaveProperty("generatedFix");
     });
 
+    it("grounds site-wide fixes (MISSING_LLMS_TXT) on the page list, not one page's body", async () => {
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          pageId: "00000000-0000-0000-0000-000000000002",
+          issueCode: "MISSING_LLMS_TXT",
+        },
+      });
+      expect(res.status).toBe(201);
+      // The route verifies pageId ownership (one getById), but buildFixContext
+      // must NOT additionally read the page body for a site-wide code — so the
+      // page row is fetched at most once, never down the page-body path.
+      expect(mockPageGetById.mock.calls.length).toBeLessThanOrEqual(1);
+    });
+
     it("maps provider quota/rate errors to a clean 503 (not a raw 500)", async () => {
       mockMessagesCreate.mockRejectedValueOnce(
         Object.assign(
