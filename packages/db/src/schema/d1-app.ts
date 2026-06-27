@@ -392,6 +392,13 @@ export const crawlJobs = sqliteTable(
     cancelledAt: text("cancelled_at"),
     cancelledBy: text("cancelled_by").references(() => users.id),
     cancelReason: text("cancel_reason"),
+    // Activity timestamp — bumped on every status/progress write (each ingest
+    // batch). The stall watchdog uses this (not createdAt) so a crawler that
+    // dies mid-run is detected by inactivity in minutes, not 6h from creation.
+    updatedAt: updatedAt(),
+    // Number of times this job was auto-re-dispatched after a stall. Bounds the
+    // recovery loop so a persistently-failing crawl is failed, not retried forever.
+    redispatchCount: integer("redispatch_count").notNull().default(0),
     createdAt: createdAt(),
   },
   (t) => [

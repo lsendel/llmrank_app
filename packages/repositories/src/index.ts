@@ -166,8 +166,15 @@ export interface CrawlRepository {
   create(data: {
     projectId: string;
     config: unknown;
+    redispatchCount?: number;
   }): ReturnType<ReturnType<typeof crawlQueries>["create"]>;
   getById(id: string): ReturnType<ReturnType<typeof crawlQueries>["getById"]>;
+  findStalled(
+    opts: Parameters<ReturnType<typeof crawlQueries>["findStalled"]>[0],
+  ): ReturnType<ReturnType<typeof crawlQueries>["findStalled"]>;
+  claimStalled(
+    opts: Parameters<ReturnType<typeof crawlQueries>["claimStalled"]>[0],
+  ): ReturnType<ReturnType<typeof crawlQueries>["claimStalled"]>;
   getLatestByProject(
     projectId: string,
   ): ReturnType<ReturnType<typeof crawlQueries>["getLatestByProject"]>;
@@ -227,6 +234,8 @@ export function createCrawlRepository(db: Database): CrawlRepository {
   return {
     create: (data) => queries.create(data),
     getById: (id) => queries.getById(id),
+    findStalled: (opts) => queries.findStalled(opts),
+    claimStalled: (opts) => queries.claimStalled(opts),
     getLatestByProject: (projectId) => queries.getLatestByProject(projectId),
     getLatestByProjects: (projectIds) =>
       queries.getLatestByProjects(projectIds),

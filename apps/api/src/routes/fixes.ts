@@ -11,6 +11,130 @@ import {
   crawlQueries,
 } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
+import { parseHtml } from "@llm-boost/parsers";
+
+interface FixPageContext {
+  url: string;
+  title: string;
+  excerpt: string;
+  domain: string;
+  contentType?: string;
+  metaDescription?: string;
+  headings?: string[];
+  pages?: { url: string; title: string }[];
+}
+
+/** Read raw page HTML from R2 (handles gzip), returning null on any failure. */
+async function readR2Html(
+  r2: R2Bucket,
+  key: string | null | undefined,
+): Promise<string | null> {
+  if (!key) return null;
+  try {
+    const obj = await r2.get(key);
+    if (!obj) return null;
+    if (obj.httpMetadata?.contentEncoding === "gzip") {
+      const ds = obj.body.pipeThrough(new DecompressionStream("gzip"));
+      return await new Response(ds).text();
+    }
+    return await obj.text();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fix codes whose prompt is about the whole SITE, not one page — these need the
+ * crawl's page list (`ctx.pages`), so we ground them at the project level even
+ * when the issue row happens to carry a pageId (e.g. MISSING_LLMS_TXT is derived
+ * from siteContext but stored on a page issue row).
+ */
+const SITE_WIDE_FIX_CODES = new Set(["MISSING_LLMS_TXT"]);
+
+/** Best-effort list of the project's crawled pages (url + title). */
+async function fetchProjectPages(
+  db: Parameters<typeof pageQueries>[0],
+  projectId: string,
+): Promise<{ url: string; title: string }[]> {
+  try {
+    const latest = await crawlQueries(db).getLatestByProject(projectId);
+    if (latest?.id) {
+      const rows = await pageQueries(db).listByJob(latest.id, { limit: 30 });
+      return rows
+        .slice(0, 30)
+        .map((p) => ({ url: p.url, title: p.title ?? p.url }));
+    }
+  } catch {
+    // ignore — fall back to no page list
+  }
+  return [];
+}
+
+/**
+ * Build a content-grounded context for the fix generator. Previously this was
+ * `{ excerpt: "" }`, which made the LLM emit generic boilerplate. We now pull
+ * the page's real HTML from R2 (headings + text excerpt) for page-level fixes,
+ * and the crawl's actual page list for site-wide fixes (llms.txt). Best-effort:
+ * any lookup failure degrades to the lighter context, never throws.
+ */
+async function buildFixContext(args: {
+  db: Parameters<typeof pageQueries>[0];
+  r2: R2Bucket;
+  projectId: string;
+  project: { domain: string; name: string };
+  pageId?: string;
+  issueCode: string;
+}): Promise<FixPageContext> {
+  const { db, r2, projectId, project, pageId, issueCode } = args;
+  const base: FixPageContext = {
+    url: project.domain,
+    title: project.name,
+    excerpt: "",
+    domain: project.domain,
+  };
+
+  // Site-wide fixes need the page LIST, not one page's body — even if the issue
+  // row carries a pageId. Ground them at the project level.
+  if (SITE_WIDE_FIX_CODES.has(issueCode)) {
+    const pages = await fetchProjectPages(db, projectId);
+    return pages.length > 0 ? { ...base, pages } : base;
+  }
+
+  if (pageId) {
+    const page = await pageQueries(db).getById(pageId);
+    // Never read a page that isn't part of this project (tenant isolation).
+    if (!page || page.projectId !== projectId) return base;
+    const ctx: FixPageContext = {
+      url: page.url,
+      title: page.title ?? project.name,
+      excerpt: page.metaDesc ?? "",
+      domain: project.domain,
+      contentType: page.contentType ?? undefined,
+      metaDescription: page.metaDesc ?? undefined,
+    };
+    const html = await readR2Html(r2, page.r2RawKey);
+    if (html) {
+      const parsed = parseHtml(html, page.url);
+      const headings = [...parsed.h1, ...parsed.h2, ...parsed.h3].slice(0, 30);
+      if (headings.length > 0) ctx.headings = headings;
+      if (!ctx.metaDescription && parsed.metaDescription) {
+        ctx.metaDescription = parsed.metaDescription;
+      }
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (text) ctx.excerpt = text.slice(0, 2000);
+    }
+    return ctx;
+  }
+
+  // Project-level fix with no page: still ground with the crawl's page list.
+  const pages = await fetchProjectPages(db, projectId);
+  return pages.length > 0 ? { ...base, pages } : base;
+}
 
 export const fixRoutes = new Hono<AppEnv>();
 fixRoutes.use("*", authMiddleware);
@@ -64,25 +188,29 @@ fixRoutes.post("/generate", async (c) => {
       );
     }
 
-    // Build page context
-    let pageContext = {
-      url: project.domain,
-      title: project.name,
-      excerpt: "",
-      domain: project.domain,
-    };
-
+    // Tenant isolation: a pageId must belong to the (already-owned) project, or
+    // a caller could pair their projectId with another tenant's pageId and have
+    // us read that page's raw HTML into the fix prompt.
     if (body.pageId) {
       const page = await pageQueries(db).getById(body.pageId);
-      if (page) {
-        pageContext = {
-          url: page.url,
-          title: page.title ?? project.name,
-          excerpt: page.metaDesc ?? "",
-          domain: project.domain,
-        };
+      if (!page || page.projectId !== body.projectId) {
+        return c.json(
+          { error: { code: "NOT_FOUND", message: "Page not found" } },
+          404,
+        );
       }
     }
+
+    // Build a content-grounded context (real headings/excerpt from R2, or the
+    // crawl's page list for project-level fixes) so the LLM isn't guessing.
+    const pageContext = await buildFixContext({
+      db,
+      r2: c.env.R2,
+      projectId: body.projectId,
+      project,
+      pageId: body.pageId,
+      issueCode: body.issueCode,
+    });
 
     const service = createFixGeneratorService({
       contentFixes: contentFixQueries(db),

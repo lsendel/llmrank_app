@@ -190,7 +190,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     scoreImpact: -20,
     message: "Page has a noindex robots directive",
     recommendation:
-      "Remove the noindex directive if this page should be discoverable by AI search engines.",
+      "Remove the noindex directive if this page should be discoverable by AI search engines. If this page is intentionally kept out of search/AI indexes (e.g. a thin, duplicate, or internal page), mark this issue “Won't Fix” to clear it from your critical count.",
     effortLevel: "low",
     implementationSnippet: `<!-- Remove this tag: -->\n<!-- <meta name="robots" content="noindex"> -->`,
     dimension: "robots_crawlability",

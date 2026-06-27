@@ -34,6 +34,8 @@ vi.mock("@anthropic-ai/sdk", () => ({
 const mockProjectGetById = vi.fn();
 const mockUserGetById = vi.fn();
 const mockPageGetById = vi.fn();
+const mockPageListByJob = vi.fn();
+const mockCrawlGetLatestByProject = vi.fn();
 const mockContentFixCreate = vi.fn();
 const mockContentFixCountByUserThisMonth = vi.fn();
 const mockContentFixListByProject = vi.fn();
@@ -50,6 +52,10 @@ vi.mock("@llm-boost/db", async (importOriginal) => {
     }),
     pageQueries: () => ({
       getById: mockPageGetById,
+      listByJob: mockPageListByJob,
+    }),
+    crawlQueries: () => ({
+      getLatestByProject: mockCrawlGetLatestByProject,
     }),
     contentFixQueries: () => ({
       create: mockContentFixCreate,
@@ -98,10 +104,15 @@ describe("Fixes Routes", () => {
 
     mockPageGetById.mockResolvedValue({
       id: "00000000-0000-0000-0000-000000000002",
+      projectId: "00000000-0000-0000-0000-000000000001",
       url: "https://example.com/page1",
       title: "Test Page",
       metaDesc: "Some description",
     });
+
+    // No crawl page list by default — site-wide grounding is opted into per test.
+    mockCrawlGetLatestByProject.mockResolvedValue(null);
+    mockPageListByJob.mockResolvedValue([]);
 
     mockContentFixCreate.mockResolvedValue({
       id: "fix-1",
@@ -191,6 +202,33 @@ describe("Fixes Routes", () => {
       expect(body.error.code).toBe("NOT_FOUND");
     });
 
+    it("returns 404 when pageId belongs to a different project (tenant isolation)", async () => {
+      // Caller owns the project, but supplies a pageId from another tenant.
+      mockPageGetById.mockResolvedValue({
+        id: "00000000-0000-0000-0000-000000000099",
+        projectId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        url: "https://victim.com/secret",
+        title: "Another tenant's page",
+        metaDesc: "Confidential",
+        r2RawKey: "raw/victim.html",
+      });
+
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          pageId: "00000000-0000-0000-0000-000000000099",
+          issueCode: "MISSING_META_DESC",
+        },
+      });
+      expect(res.status).toBe(404);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("NOT_FOUND");
+      // The foreign page's content must never reach the LLM.
+      expect(mockMessagesCreate).not.toHaveBeenCalled();
+    });
+
     it("returns 404 when project belongs to different user", async () => {
       mockProjectGetById.mockResolvedValue({
         id: "00000000-0000-0000-0000-000000000001",
@@ -226,6 +264,58 @@ describe("Fixes Routes", () => {
       expect(body.data).toHaveProperty("id", "fix-1");
       expect(body.data).toHaveProperty("issueCode", "MISSING_META_DESC");
       expect(body.data).toHaveProperty("generatedFix");
+    });
+
+    it("grounds site-wide fixes (MISSING_LLMS_TXT) on the crawl's page list, not one page's body", async () => {
+      mockCrawlGetLatestByProject.mockResolvedValue({ id: "crawl-1" });
+      mockPageListByJob.mockResolvedValue([
+        { url: "https://example.com/about", title: "About" },
+        { url: "https://example.com/services", title: "Services" },
+      ]);
+
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          pageId: "00000000-0000-0000-0000-000000000002",
+          issueCode: "MISSING_LLMS_TXT",
+        },
+      });
+      expect(res.status).toBe(201);
+
+      // The route verifies pageId ownership (one getById), but buildFixContext
+      // must NOT additionally read the page body for a site-wide code.
+      expect(mockPageGetById.mock.calls.length).toBeLessThanOrEqual(1);
+
+      // The llms.txt prompt must be grounded in the real crawled URLs (not "N/A").
+      const lastCall = mockMessagesCreate.mock.calls.at(-1);
+      const userContent: string = lastCall?.[0]?.messages?.[0]?.content ?? "";
+      expect(userContent).toContain("https://example.com/about");
+      expect(userContent).toContain("https://example.com/services");
+      expect(userContent).not.toContain("N/A");
+    });
+
+    it("maps provider quota/rate errors to a clean 503 (not a raw 500)", async () => {
+      mockMessagesCreate.mockRejectedValueOnce(
+        Object.assign(
+          new Error("You have reached your specified API usage limits."),
+          { status: 400 },
+        ),
+      );
+
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          issueCode: "MISSING_META_DESC",
+        },
+      });
+      expect(res.status).toBe(503);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("AI_UNAVAILABLE");
+      // The raw provider JSON must not leak to the user.
+      expect(body.error.message).not.toContain('"type"');
     });
 
     it("returns 403 when plan limit is reached", async () => {
@@ -309,13 +399,15 @@ describe("Fixes Routes", () => {
 
       const body: any = await res.json();
       expect(body.data).toBeInstanceOf(Array);
-      expect(body.data).toHaveLength(13);
+      expect(body.data).toHaveLength(15);
       expect(body.data).toContain("MISSING_META_DESC");
       expect(body.data).toContain("MISSING_TITLE");
       expect(body.data).toContain("NO_STRUCTURED_DATA");
       expect(body.data).toContain("AI_CRAWLER_BLOCKED");
       expect(body.data).toContain("MISSING_SPEAKABLE");
       expect(body.data).toContain("THIN_CONTENT_FOR_AI");
+      expect(body.data).toContain("META_DESC_LENGTH");
+      expect(body.data).toContain("TITLE_LENGTH");
     });
   });
 });

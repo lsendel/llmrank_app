@@ -34,6 +34,56 @@ struct BacklinkEntry {
     rel: String,
 }
 
+/// Path prefix used to bucket sitemap URLs for fair sampling, e.g.
+/// "https://families.care/us/location/stamford-ct" -> "/us/location".
+fn path_prefix_key(url: &str) -> String {
+    let path = url
+        .split_once("://")
+        .and_then(|(_, rest)| rest.split_once('/').map(|(_, p)| p))
+        .unwrap_or("");
+    let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).take(2).collect();
+    if segs.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{}", segs.join("/"))
+    }
+}
+
+/// Pick up to `cap` URLs, round-robining across path-prefix buckets so each page
+/// type (locations, providers, categories, …) gets a fair share of the budget
+/// instead of whatever appears first in sitemap order. Returns all URLs unchanged
+/// when the set already fits within `cap`.
+fn fair_sample_by_prefix(urls: Vec<String>, cap: usize) -> Vec<String> {
+    if urls.len() <= cap {
+        return urls;
+    }
+    // BTreeMap keeps bucket iteration order deterministic across runs.
+    let mut buckets: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for u in urls {
+        buckets.entry(path_prefix_key(&u)).or_default().push(u);
+    }
+    let mut iters: Vec<std::vec::IntoIter<String>> =
+        buckets.into_values().map(|v| v.into_iter()).collect();
+    let mut out: Vec<String> = Vec::with_capacity(cap);
+    while out.len() < cap {
+        let mut progressed = false;
+        for it in iters.iter_mut() {
+            if out.len() >= cap {
+                break;
+            }
+            if let Some(u) = it.next() {
+                out.push(u);
+                progressed = true;
+            }
+        }
+        if !progressed {
+            break;
+        }
+    }
+    out
+}
+
 /// Collect all external link details from a batch of pages into BacklinkEntry list.
 fn collect_backlink_entries(pages: &[CrawlPageResult]) -> Vec<BacklinkEntry> {
     let mut entries = Vec::new();
@@ -359,6 +409,17 @@ impl JobManager {
             None
         };
 
+        // Fallback: if robots.txt declared no `Sitemap:`, probe the well-known
+        // /sitemap.xml (Googlebot does this too). Sites that omit the directive
+        // — e.g. families.care — would otherwise get zero sitemap coverage and
+        // fall back to homepage BFS, never reaching deep page types like
+        // /us/location/* that aren't shallowly linked.
+        if sitemap_urls_from_robots.is_empty() {
+            if let Some(ref d) = domain {
+                sitemap_urls_from_robots.push(format!("https://{}/sitemap.xml", d));
+            }
+        }
+
         // Fetch and parse sitemaps discovered in robots.txt
         if !sitemap_urls_from_robots.is_empty() {
             if let Some(ref d) = domain {
@@ -432,7 +493,11 @@ impl JobManager {
         let mut frontier = Frontier::new(&crawl_config.seed_urls, crawl_config.max_depth);
         if !sitemap_urls_from_robots.is_empty() {
             let cap = crawl_config.max_pages as usize;
-            let to_add: Vec<String> = sitemap_urls_from_robots.into_iter().take(cap).collect();
+            // Fair-sample across path prefixes (e.g. /us/location, /us/providers,
+            // /us/category) so a budget smaller than the sitemap doesn't fill up
+            // with whatever appears first in sitemap order — which dropped deep
+            // page types (location pages) entirely.
+            let to_add: Vec<String> = fair_sample_by_prefix(sitemap_urls_from_robots, cap);
             tracing::info!(
                 job_id = %payload.job_id,
                 added = to_add.len(),
@@ -872,6 +937,47 @@ impl JobManager {
 mod tests {
     use super::*;
     use crate::models::{ExtractedData, ExtractedLink};
+
+    #[test]
+    fn fair_sample_gives_every_path_prefix_a_share() {
+        // 1000 provider URLs dominate sitemap order; only 5 location URLs trail.
+        let mut urls: Vec<String> = (0..1000)
+            .map(|i| format!("https://families.care/us/providers/p-{i}"))
+            .collect();
+        for i in 0..5 {
+            urls.push(format!("https://families.care/us/location/city-{i}"));
+        }
+        // take(first-N) would never reach the trailing location URLs at cap=20.
+        let sampled = fair_sample_by_prefix(urls, 20);
+        assert_eq!(sampled.len(), 20);
+        let locations = sampled
+            .iter()
+            .filter(|u| u.contains("/us/location/"))
+            .count();
+        assert!(
+            locations > 0,
+            "fair sampling must include location pages, got: {sampled:?}"
+        );
+    }
+
+    #[test]
+    fn fair_sample_passes_through_when_under_cap() {
+        let urls = vec!["https://x.com/a".to_string(), "https://x.com/b".to_string()];
+        assert_eq!(fair_sample_by_prefix(urls.clone(), 10), urls);
+    }
+
+    #[test]
+    fn path_prefix_key_buckets_by_two_segments() {
+        assert_eq!(
+            path_prefix_key("https://families.care/us/location/stamford-ct"),
+            "/us/location"
+        );
+        assert_eq!(
+            path_prefix_key("https://families.care/us/providers/x"),
+            "/us/providers"
+        );
+        assert_eq!(path_prefix_key("https://families.care/"), "/");
+    }
 
     fn make_page(url: &str, external_links: Vec<ExtractedLink>) -> CrawlPageResult {
         CrawlPageResult {

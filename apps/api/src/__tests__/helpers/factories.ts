@@ -134,6 +134,8 @@ export function buildCrawlJob(
     cancelledAt: null,
     cancelledBy: null,
     cancelReason: null,
+    updatedAt: STATIC_DATE_ISO,
+    redispatchCount: 0,
     createdAt: STATIC_DATE_ISO,
     ...overrides,
   };

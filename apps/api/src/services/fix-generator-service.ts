@@ -129,9 +129,17 @@ Return the content expansion plan in a structured format.`,
   }),
 };
 
+// A meta description / title that is the wrong length needs the same generation
+// as a missing one — the field just gets rewritten to spec. Alias so these very
+// common issues get a working "AI Fix" instead of UNSUPPORTED_FIX.
+FIX_PROMPTS.META_DESC_LENGTH = FIX_PROMPTS.MISSING_META_DESC;
+FIX_PROMPTS.TITLE_LENGTH = FIX_PROMPTS.MISSING_TITLE;
+
 const ISSUE_TO_FIX_TYPE: Record<string, string> = {
   MISSING_META_DESC: "meta_description",
+  META_DESC_LENGTH: "meta_description",
   MISSING_TITLE: "title_tag",
+  TITLE_LENGTH: "title_tag",
   NO_STRUCTURED_DATA: "json_ld",
   MISSING_LLMS_TXT: "llms_txt",
   NO_FAQ_SECTION: "faq_section",
@@ -184,15 +192,35 @@ export function createFixGeneratorService(deps: FixGeneratorDeps) {
       const promptObj = promptFn(args.context);
 
       const client = new Anthropic({ apiKey: args.apiKey });
-      const message = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        // Fix generation is a short, well-scoped task. Sonnet 4.6 defaults to
-        // high effort; keep thinking off so it stays as fast/cheap as 4.5 was.
-        thinking: { type: "disabled" },
-        system: promptObj.system,
-        messages: [{ role: "user", content: promptObj.user }],
-      });
+      let message: Anthropic.Message;
+      try {
+        message = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1024,
+          // Fix generation is a short, well-scoped task. Sonnet 4.6 defaults to
+          // high effort; keep thinking off so it stays as fast/cheap as 4.5 was.
+          thinking: { type: "disabled" },
+          system: promptObj.system,
+          messages: [{ role: "user", content: promptObj.user }],
+        });
+      } catch (err: unknown) {
+        // Don't leak raw provider JSON as a 500. Map quota / rate-limit /
+        // overload errors to a clean, retryable message for the user.
+        const status = (err as { status?: number } | null)?.status;
+        const raw = err instanceof Error ? err.message : String(err);
+        const transient =
+          status === 429 ||
+          status === 529 ||
+          /usage limit|rate limit|quota|credit balance|overloaded/i.test(raw);
+        if (transient) {
+          throw new ServiceError(
+            "AI_UNAVAILABLE",
+            503,
+            "AI fix generation is temporarily unavailable (provider usage limit). Please try again shortly.",
+          );
+        }
+        throw err;
+      }
 
       const generatedText = message.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
