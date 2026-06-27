@@ -171,10 +171,7 @@ export function createNarrativeService(deps: Deps) {
         crawlJobId,
         tone,
       );
-      if (!narrative) {
-        throw new ServiceError("NOT_FOUND", 404, "Narrative not found");
-      }
-      return narrative;
+      return narrative ?? null;
     },
 
     async editSection(

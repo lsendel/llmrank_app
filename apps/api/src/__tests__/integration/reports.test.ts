@@ -64,6 +64,16 @@ const mockReportRepo = {
   delete: vi.fn().mockResolvedValue(undefined),
 };
 
+const mockDbProjectGetById = vi.fn().mockResolvedValue(null);
+const mockDbUserGetById = vi
+  .fn()
+  .mockResolvedValue(buildUser({ id: "test-user-id", plan: "pro" }));
+const mockReportScheduleCreate = vi.fn().mockResolvedValue({ id: "sched-1" });
+const mockReportScheduleListByProject = vi.fn().mockResolvedValue([]);
+const mockReportScheduleGetById = vi.fn().mockResolvedValue(null);
+const mockReportScheduleUpdate = vi.fn().mockResolvedValue({ id: "sched-1" });
+const mockReportScheduleDelete = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("@llm-boost/repositories", () => ({
   createProjectRepository: () => mockProjectRepo,
   createUserRepository: () => mockUserRepo,
@@ -72,6 +82,27 @@ vi.mock("@llm-boost/repositories", () => ({
   createPageRepository: () => ({}),
   createReportRepository: () => mockReportRepo,
 }));
+
+vi.mock("@llm-boost/db", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("@llm-boost/db")>();
+  return {
+    ...orig,
+    projectQueries: () => ({
+      getById: mockDbProjectGetById,
+    }),
+    userQueries: () => ({
+      getById: mockDbUserGetById,
+    }),
+    reportScheduleQueries: () => ({
+      create: mockReportScheduleCreate,
+      listByProject: mockReportScheduleListByProject,
+      getById: mockReportScheduleGetById,
+      update: mockReportScheduleUpdate,
+      delete: mockReportScheduleDelete,
+    }),
+    createAppDb: orig.createAppDb,
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Constants — valid UUIDs for schema validation
@@ -98,6 +129,15 @@ describe("Report Routes", () => {
     mockReportRepo.getById.mockResolvedValue(null);
     mockReportRepo.countThisMonth.mockResolvedValue(0);
     mockReportRepo.listByProject.mockResolvedValue([]);
+    mockDbUserGetById.mockResolvedValue(
+      buildUser({ id: "test-user-id", plan: "pro" }),
+    );
+    mockDbProjectGetById.mockResolvedValue(null);
+    mockReportScheduleCreate.mockResolvedValue({ id: "sched-1" });
+    mockReportScheduleListByProject.mockResolvedValue([]);
+    mockReportScheduleGetById.mockResolvedValue(null);
+    mockReportScheduleUpdate.mockResolvedValue({ id: "sched-1" });
+    mockReportScheduleDelete.mockResolvedValue(undefined);
   });
 
   // -----------------------------------------------------------------------
@@ -304,6 +344,50 @@ describe("Report Routes", () => {
 
       const body: any = await res.json();
       expect(body.error.code).toBe("NOT_FOUND");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /api/reports/schedules
+  // -----------------------------------------------------------------------
+
+  describe("GET /api/reports/schedules", () => {
+    it("lists schedules instead of treating schedules as a report id", async () => {
+      // Regression: ISSUE-001 - /api/reports/schedules was matched by /:id.
+      // Found by /qa on 2026-06-27.
+      const project = buildProject({
+        id: VALID_PROJECT_ID,
+        userId: "test-user-id",
+      });
+      const schedules = [
+        {
+          id: "sched-1",
+          projectId: VALID_PROJECT_ID,
+          format: "pdf",
+          type: "summary",
+          recipientEmail: "team@families.care",
+          enabled: true,
+        },
+      ];
+
+      mockDbProjectGetById.mockResolvedValue(project);
+      mockReportScheduleListByProject.mockResolvedValue(schedules);
+
+      const res = await request(
+        `/api/reports/schedules?projectId=${VALID_PROJECT_ID}`,
+      );
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data).toHaveLength(1);
+      expect(body.data[0]).toMatchObject({
+        id: "sched-1",
+        recipientEmail: "team@families.care",
+      });
+      expect(mockReportScheduleListByProject).toHaveBeenCalledWith(
+        VALID_PROJECT_ID,
+      );
+      expect(mockReportRepo.getById).not.toHaveBeenCalledWith("schedules");
     });
   });
 

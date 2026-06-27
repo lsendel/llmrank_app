@@ -91,6 +91,51 @@ reportRoutes.get("/", async (c) => {
   }
 });
 
+// GET /api/reports/schedules?projectId=xxx — List schedules for a project
+reportRoutes.get("/schedules", async (c) => {
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const projectId = c.req.query("projectId");
+
+  if (!projectId) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "projectId is required",
+        },
+      },
+      422,
+    );
+  }
+
+  const project = await projectQueries(db).getById(projectId);
+  if (!project || project.userId !== userId) {
+    return c.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      404,
+    );
+  }
+
+  try {
+    const schedules = await reportScheduleQueries(db).listByProject(projectId);
+    return c.json({ data: schedules });
+  } catch (err) {
+    c.var.logger.error("[schedules] Failed to list schedules", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to list report schedules",
+        },
+      },
+      500,
+    );
+  }
+});
+
 // GET /api/reports/:id — Get report status
 reportRoutes.get("/:id", async (c) => {
   const db = c.get("db");
@@ -314,51 +359,6 @@ reportRoutes.post("/schedules", async (c) => {
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to create report schedule",
-        },
-      },
-      500,
-    );
-  }
-});
-
-// GET /api/reports/schedules?projectId=xxx — List schedules for a project
-reportRoutes.get("/schedules", async (c) => {
-  const db = c.get("db");
-  const userId = c.get("userId");
-  const projectId = c.req.query("projectId");
-
-  if (!projectId) {
-    return c.json(
-      {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "projectId is required",
-        },
-      },
-      422,
-    );
-  }
-
-  const project = await projectQueries(db).getById(projectId);
-  if (!project || project.userId !== userId) {
-    return c.json(
-      { error: { code: "NOT_FOUND", message: "Project not found" } },
-      404,
-    );
-  }
-
-  try {
-    const schedules = await reportScheduleQueries(db).listByProject(projectId);
-    return c.json({ data: schedules });
-  } catch (err) {
-    c.var.logger.error("[schedules] Failed to list schedules", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json(
-      {
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to list report schedules",
         },
       },
       500,
