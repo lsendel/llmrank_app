@@ -2,6 +2,8 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
 use url::Url;
 
+use crate::models::DEFAULT_USER_AGENT;
+
 /// Result of fetching and parsing sitemaps for a domain.
 #[derive(Debug, Clone)]
 pub struct SitemapResult {
@@ -25,7 +27,7 @@ pub async fn fetch_sitemap_urls(
 ) -> SitemapResult {
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
-        .user_agent("AISEOBot/1.0")
+        .user_agent(DEFAULT_USER_AGENT)
         .build()
     {
         Ok(c) => c,

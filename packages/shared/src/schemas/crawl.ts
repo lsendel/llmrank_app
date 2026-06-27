@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const DEFAULT_CRAWL_USER_AGENT =
+  "LLMRankBot/1.0 (+https://llmrank.app/bot)";
+
 // Cloudflare -> Hetzner: Job submission payload
 export const CrawlJobPayloadSchema = z.object({
   job_id: z.string(),
@@ -13,7 +16,7 @@ export const CrawlJobPayloadSchema = z.object({
     extract_schema: z.boolean().default(true),
     extract_links: z.boolean().default(true),
     check_llms_txt: z.boolean().default(true),
-    user_agent: z.string().default("AISEOBot/1.0"),
+    user_agent: z.string().default(DEFAULT_CRAWL_USER_AGENT),
     rate_limit_ms: z.number().int().default(1000),
     timeout_s: z.number().int().default(30),
     custom_extractors: z

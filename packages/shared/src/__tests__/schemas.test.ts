@@ -257,7 +257,9 @@ describe("CrawlJobPayloadSchema", () => {
   it("accepts valid payload with defaults", () => {
     const result = CrawlJobPayloadSchema.parse(validPayload);
     expect(result.config.respect_robots).toBe(true);
-    expect(result.config.user_agent).toBe("AISEOBot/1.0");
+    expect(result.config.user_agent).toBe(
+      "LLMRankBot/1.0 (+https://llmrank.app/bot)",
+    );
   });
 
   it("rejects max_pages > 2000", () => {

@@ -677,6 +677,7 @@ describe("buildCrawlConfig", () => {
     );
     expect(config.max_pages).toBe(10);
     expect(config.max_depth).toBe(2);
+    expect(config.user_agent).toBe("LLMRankBot/1.0 (+https://llmrank.app/bot)");
   });
 
   it("respects pro plan page limit", () => {

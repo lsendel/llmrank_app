@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 use crate::crawler::fetcher::RedirectHop;
 
+pub const DEFAULT_USER_AGENT: &str = "LLMRankBot/1.0 (+https://llmrank.app/bot)";
+
 // --- Crawl Configuration ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,7 +43,7 @@ fn default_true() -> bool {
 }
 
 fn default_user_agent() -> String {
-    "AISEOBot/1.0".to_string()
+    DEFAULT_USER_AGENT.to_string()
 }
 
 fn default_rate_limit_ms() -> u32 {

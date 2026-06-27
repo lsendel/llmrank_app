@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use thiserror::Error;
 use url::Url;
 
+use crate::models::DEFAULT_USER_AGENT;
+
 #[derive(Error, Debug)]
 pub enum RobotsError {
     #[error("Failed to fetch robots.txt: {0}")]
@@ -36,7 +38,7 @@ impl RobotsChecker {
         let robots_url = format!("https://{}/robots.txt", domain);
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
-            .user_agent("AISEOBot/1.0")
+            .user_agent(DEFAULT_USER_AGENT)
             .build()?;
 
         let response = match client.get(&robots_url).send().await {
@@ -203,7 +205,7 @@ pub async fn fetch_llms_txt(domain: &str) -> Option<String> {
     let url = format!("https://{}/llms.txt", domain);
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
-        .user_agent("AISEOBot/1.0")
+        .user_agent(DEFAULT_USER_AGENT)
         .build()
         .ok()?;
 
