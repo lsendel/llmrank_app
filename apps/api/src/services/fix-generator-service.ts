@@ -192,15 +192,35 @@ export function createFixGeneratorService(deps: FixGeneratorDeps) {
       const promptObj = promptFn(args.context);
 
       const client = new Anthropic({ apiKey: args.apiKey });
-      const message = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        // Fix generation is a short, well-scoped task. Sonnet 4.6 defaults to
-        // high effort; keep thinking off so it stays as fast/cheap as 4.5 was.
-        thinking: { type: "disabled" },
-        system: promptObj.system,
-        messages: [{ role: "user", content: promptObj.user }],
-      });
+      let message: Anthropic.Message;
+      try {
+        message = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1024,
+          // Fix generation is a short, well-scoped task. Sonnet 4.6 defaults to
+          // high effort; keep thinking off so it stays as fast/cheap as 4.5 was.
+          thinking: { type: "disabled" },
+          system: promptObj.system,
+          messages: [{ role: "user", content: promptObj.user }],
+        });
+      } catch (err: unknown) {
+        // Don't leak raw provider JSON as a 500. Map quota / rate-limit /
+        // overload errors to a clean, retryable message for the user.
+        const status = (err as { status?: number } | null)?.status;
+        const raw = err instanceof Error ? err.message : String(err);
+        const transient =
+          status === 429 ||
+          status === 529 ||
+          /usage limit|rate limit|quota|credit balance|overloaded/i.test(raw);
+        if (transient) {
+          throw new ServiceError(
+            "AI_UNAVAILABLE",
+            503,
+            "AI fix generation is temporarily unavailable (provider usage limit). Please try again shortly.",
+          );
+        }
+        throw err;
+      }
 
       const generatedText = message.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
