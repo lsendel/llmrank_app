@@ -256,6 +256,29 @@ describe("Fixes Routes", () => {
       expect(body.data).toHaveProperty("generatedFix");
     });
 
+    it("maps provider quota/rate errors to a clean 503 (not a raw 500)", async () => {
+      mockMessagesCreate.mockRejectedValueOnce(
+        Object.assign(
+          new Error("You have reached your specified API usage limits."),
+          { status: 400 },
+        ),
+      );
+
+      const res = await request("/api/fixes/generate", {
+        method: "POST",
+        json: {
+          projectId: "00000000-0000-0000-0000-000000000001",
+          issueCode: "MISSING_META_DESC",
+        },
+      });
+      expect(res.status).toBe(503);
+
+      const body: any = await res.json();
+      expect(body.error.code).toBe("AI_UNAVAILABLE");
+      // The raw provider JSON must not leak to the user.
+      expect(body.error.message).not.toContain('"type"');
+    });
+
     it("returns 403 when plan limit is reached", async () => {
       mockContentFixCountByUserThisMonth.mockResolvedValue(200);
 
