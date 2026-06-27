@@ -519,7 +519,7 @@ export function OverviewTopIssuesSection({
       </div>
       <div className="space-y-3">
         {topIssues.map((issue) => (
-          <IssueCard key={issue.code} {...issue} />
+          <IssueCard key={issue.code} {...issue} projectId={projectId} />
         ))}
       </div>
     </div>

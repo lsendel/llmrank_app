@@ -1,4 +1,5 @@
 import type { ActionItem, PageIssue } from "@/lib/api";
+import { severityRank } from "@llm-boost/shared";
 
 export type StatusFilter = "all" | "open" | "in_progress" | "fixed";
 export type IssueSeverityFilter = "all" | PageIssue["severity"];
@@ -110,7 +111,7 @@ export function filterIssues(args: {
     getActionItemForIssue,
   } = args;
 
-  return issues.filter((issue) => {
+  const filtered = issues.filter((issue) => {
     if (severityFilter !== "all" && issue.severity !== severityFilter) {
       return false;
     }
@@ -133,6 +134,12 @@ export function filterIssues(args: {
 
     return true;
   });
+
+  // Most severe first so critical issues are never buried below info-level
+  // notes. Stable within a severity (Array.prototype.sort is stable).
+  return filtered.sort(
+    (a, b) => severityRank(b.severity) - severityRank(a.severity),
+  );
 }
 
 export function summarizeExecutionLanes(items: ActionItem[], now = Date.now()) {

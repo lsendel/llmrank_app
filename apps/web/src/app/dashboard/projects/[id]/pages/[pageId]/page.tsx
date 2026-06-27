@@ -229,7 +229,11 @@ export default function PageDetailPage() {
         </TabsContent>
 
         <TabsContent value="issues" className="space-y-3 pt-4">
-          <PageIssuesSection issues={page.issues} />
+          <PageIssuesSection
+            issues={page.issues}
+            projectId={params.id}
+            pageId={params.pageId}
+          />
         </TabsContent>
 
         {llmScores && (
