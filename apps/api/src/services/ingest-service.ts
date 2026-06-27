@@ -108,6 +108,22 @@ export function createIngestService(deps: IngestServiceDeps) {
         throw new ServiceError("NOT_FOUND", 404, "Crawl job not found");
       }
 
+      // Drop late callbacks for a cancelled job. Stall recovery marks a
+      // superseded job `cancelled` and dispatches a fresh replacement; if the
+      // original crawler is slow-but-alive and posts a batch after that, ingesting
+      // it would resurrect the cancelled job (the later updateStatus writes
+      // crawling/complete unconditionally) and run two crawlers on one project.
+      // Ack with a no-op so the crawler stops retrying. `failed` is intentionally
+      // NOT dropped — the ingest-error self-heal retry path depends on it.
+      if (crawlJob.status === "cancelled") {
+        return {
+          job_id: batch.job_id,
+          batch_index: batch.batch_index,
+          pages_processed: 0,
+          is_final: batch.is_final,
+        };
+      }
+
       // Idempotency: the crawler delivers callbacks at-least-once, so a
       // re-delivered batch must not duplicate pages/scores/issues. Skip a batch
       // we've already fully processed (keyed by job + batch index).
