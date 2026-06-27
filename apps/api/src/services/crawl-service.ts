@@ -46,6 +46,40 @@ export interface CrawlerDispatchEnv {
   };
 }
 
+/**
+ * Dispatch a single crawl job straight to the Fly crawler (HMAC-signed). Shared
+ * by scheduled dispatch and stall recovery so both speak to the crawler the same
+ * way. Results post back to this API's /ingest/batch (not the crawler). Throws
+ * if the crawler can't be reached after fetchWithRetry's attempts.
+ */
+async function dispatchJobToCrawler(args: {
+  jobId: string;
+  config: unknown;
+  crawlerUrl: string;
+  sharedSecret: string;
+  baseUrl?: string;
+}): Promise<void> {
+  const payload: CrawlJobPayload = {
+    job_id: args.jobId,
+    callback_url: `${args.baseUrl ?? ""}/ingest/batch`,
+    config: args.config as CrawlJobPayload["config"],
+  };
+  const payloadJson = JSON.stringify(payload);
+  const { signature, timestamp } = await signPayload(
+    args.sharedSecret,
+    payloadJson,
+  );
+  await fetchWithRetry(`${args.crawlerUrl}/api/v1/jobs`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Signature": signature,
+      "X-Timestamp": timestamp,
+    },
+    body: payloadJson,
+  });
+}
+
 export function createCrawlService(deps: CrawlServiceDeps) {
   return {
     async requestCrawl(args: {
@@ -510,28 +544,13 @@ export function createCrawlService(deps: CrawlServiceDeps) {
             startedAt: new Date(),
           });
         } else if (env.crawlerUrl) {
-          const payload: CrawlJobPayload = {
-            job_id: job.id,
-            // Results post back to THIS API's /ingest/batch, not the crawler.
-            callback_url: `${env.baseUrl ?? ""}/ingest/batch`,
-            config,
-          };
-
-          const payloadJson = JSON.stringify(payload);
-          const { signature, timestamp } = await signPayload(
-            env.sharedSecret,
-            payloadJson,
-          );
-
           try {
-            await fetchWithRetry(`${env.crawlerUrl}/api/v1/jobs`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Signature": signature,
-                "X-Timestamp": timestamp,
-              },
-              body: payloadJson,
+            await dispatchJobToCrawler({
+              jobId: job.id,
+              config,
+              crawlerUrl: env.crawlerUrl,
+              sharedSecret: env.sharedSecret,
+              baseUrl: env.baseUrl,
             });
             await deps.crawls.updateStatus(job.id, {
               status: "queued",
@@ -560,6 +579,114 @@ export function createCrawlService(deps: CrawlServiceDeps) {
         }
         await deps.projects.updateNextCrawl(project.id, nextDate);
       }
+    },
+
+    /**
+     * Recover crawls orphaned by a crawler that died mid-run (Fly deploy
+     * restart, crash, OOM) without a terminal callback. Detection is
+     * activity-based: a job in a non-terminal state whose updatedAt is older
+     * than `stallMinutes` has gone silent. Each such job is re-dispatched as a
+     * FRESH job_id (clean slate — reusing the id would duplicate page rows and
+     * collide on the per-(job,batch) KV idempotency keys), up to
+     * `maxRedispatch` attempts, after which it is failed. Runs on the 5-minute
+     * cron, so recovery latency is ≈ stallMinutes, not the 6h backstop.
+     */
+    async recoverStalledCrawls(
+      env: CrawlerDispatchEnv & {
+        baseUrl?: string;
+        stallMinutes?: number;
+        maxRedispatch?: number;
+        limit?: number;
+      },
+    ): Promise<{ recovered: number; failed: number }> {
+      // Without a crawler target we can't re-dispatch; leave stalled jobs for
+      // the 6h backstop (monitoring-service) to fail.
+      if (!env.crawlerUrl) return { recovered: 0, failed: 0 };
+
+      const stallMinutes = env.stallMinutes ?? 30;
+      const maxRedispatch = env.maxRedispatch ?? 2;
+      const olderThanISO = new Date(
+        Date.now() - stallMinutes * 60_000,
+      ).toISOString();
+
+      const stalled = await deps.crawls.findStalled({
+        olderThanISO,
+        limit: env.limit ?? 20,
+      });
+
+      let recovered = 0;
+      let failed = 0;
+
+      for (const job of stalled) {
+        const attempts = job.redispatchCount ?? 0;
+
+        // Exhausted: stop retrying and surface a terminal failure.
+        if (attempts >= maxRedispatch) {
+          await deps.crawls.updateStatus(job.id, {
+            status: "failed",
+            errorMessage: `Crawl stalled: no crawler activity for ${stallMinutes}m after ${attempts} re-dispatch attempt(s).`,
+          });
+          failed++;
+          continue;
+        }
+
+        let config: unknown;
+        try {
+          config =
+            typeof job.config === "string"
+              ? JSON.parse(job.config)
+              : job.config;
+        } catch {
+          config = job.config;
+        }
+
+        let newJobId: string | undefined;
+        try {
+          const newJob = await deps.crawls.create({
+            projectId: job.projectId,
+            config,
+            redispatchCount: attempts + 1,
+          });
+          newJobId = newJob.id;
+          await dispatchJobToCrawler({
+            jobId: newJob.id,
+            config,
+            crawlerUrl: env.crawlerUrl,
+            sharedSecret: env.sharedSecret,
+            baseUrl: env.baseUrl,
+          });
+          await deps.crawls.updateStatus(newJob.id, {
+            status: "queued",
+            startedAt: new Date(),
+          });
+          await deps.crawls.updateStatus(job.id, {
+            status: "failed",
+            errorMessage: `Crawl stalled (no activity ${stallMinutes}m); re-dispatched as ${newJob.id} (attempt ${attempts + 1}/${maxRedispatch}).`,
+          });
+          recovered++;
+        } catch (err) {
+          // Couldn't reach the crawler to re-dispatch. Fail both the throwaway
+          // new job (if created) and the stalled job so we don't loop; the
+          // crawler-down alert (checkCrawlerHealth) surfaces the infra cause.
+          const message = err instanceof Error ? err.message : String(err);
+          if (newJobId) {
+            await deps.crawls.updateStatus(newJobId, {
+              status: "failed",
+              errorMessage: `Re-dispatch failed: ${message}`.slice(0, 500),
+            });
+          }
+          await deps.crawls.updateStatus(job.id, {
+            status: "failed",
+            errorMessage: `Crawl stalled; re-dispatch failed: ${message}`.slice(
+              0,
+              500,
+            ),
+          });
+          failed++;
+        }
+      }
+
+      return { recovered, failed };
     },
   };
 }

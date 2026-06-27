@@ -79,13 +79,26 @@ describe("crawlQueries", () => {
     });
 
     expect(mock.chain.insert).toHaveBeenCalled();
-    expect(mock.chain.values).toHaveBeenCalledWith({
-      id: expect.any(String),
-      projectId: "p1",
-      config: JSON.stringify({ maxPages: 10 }),
-      status: "pending",
-    });
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expect.any(String),
+        projectId: "p1",
+        config: JSON.stringify({ maxPages: 10 }),
+        status: "pending",
+        // updated_at has no DB default, so create sets it explicitly.
+        updatedAt: expect.any(String),
+        redispatchCount: 0,
+      }),
+    );
     expect(result).toEqual(newJob);
+  });
+
+  it("create carries an explicit redispatchCount for stall re-dispatch", async () => {
+    mock.chain.returning.mockResolvedValueOnce([{ id: "j2" }]);
+    await queries.create({ projectId: "p1", config: {}, redispatchCount: 2 });
+    expect(mock.chain.values).toHaveBeenCalledWith(
+      expect.objectContaining({ redispatchCount: 2 }),
+    );
   });
 
   // --- updateStatus ---
@@ -99,10 +112,14 @@ describe("crawlQueries", () => {
     });
 
     expect(mock.chain.update).toHaveBeenCalled();
-    expect(mock.chain.set).toHaveBeenCalledWith({
-      status: "crawling",
-      pagesFound: 5,
-    });
+    // Always stamps updatedAt so the stall watchdog measures inactivity, not age.
+    expect(mock.chain.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "crawling",
+        pagesFound: 5,
+        updatedAt: expect.any(String),
+      }),
+    );
     expect(result).toEqual(updated);
   });
 
@@ -119,6 +136,25 @@ describe("crawlQueries", () => {
       expect.objectContaining({ status: "failed", errorMessage: "timeout" }),
     );
     expect(result).toEqual(updated);
+  });
+
+  // --- findStalled ---
+  it("findStalled queries non-terminal jobs by inactivity and returns them", async () => {
+    const stale = [{ id: "j1", status: "crawling" }];
+    mock.queryHandlers.crawlJobs = {
+      findFirst: vi.fn().mockResolvedValue(undefined),
+      findMany: vi.fn().mockResolvedValue(stale),
+    };
+
+    const result = await queries.findStalled({
+      olderThanISO: "2026-06-27T00:00:00.000Z",
+      limit: 5,
+    });
+
+    expect(mock.queryHandlers.crawlJobs.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 5 }),
+    );
+    expect(result).toEqual(stale);
   });
 
   // --- getById ---

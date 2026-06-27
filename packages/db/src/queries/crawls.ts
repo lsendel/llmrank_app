@@ -1,7 +1,9 @@
 import {
   eq,
   desc,
+  asc,
   and,
+  lt,
   sql,
   inArray,
   type InferSelectModel,
@@ -25,7 +27,15 @@ function scoreToLetterGrade(score: number): "A" | "B" | "C" | "D" | "F" {
 
 export function crawlQueries(db: Database) {
   return {
-    async create(data: { projectId: string; config: unknown }) {
+    async create(data: {
+      projectId: string;
+      config: unknown;
+      redispatchCount?: number;
+    }) {
+      // updated_at has no DB default (added nullable via migration; SQLite
+      // forbids a datetime() default on ADD COLUMN), so set it explicitly here
+      // and on every updateStatus so the stall watchdog always has activity.
+      const now = new Date().toISOString();
       const [job] = await db
         .insert(crawlJobs)
         .values({
@@ -36,6 +46,8 @@ export function crawlQueries(db: Database) {
               ? data.config
               : JSON.stringify(data.config),
           status: "pending",
+          redispatchCount: data.redispatchCount ?? 0,
+          updatedAt: now,
         })
         .returning();
       return job;
@@ -55,7 +67,11 @@ export function crawlQueries(db: Database) {
         siteContext?: unknown;
       },
     ) {
-      const setData: Record<string, unknown> = { status: update.status };
+      // Always stamp activity so the stall watchdog measures inactivity, not age.
+      const setData: Record<string, unknown> = {
+        status: update.status,
+        updatedAt: new Date().toISOString(),
+      };
       if (update.pagesFound !== undefined)
         setData.pagesFound = update.pagesFound;
       if (update.pagesCrawled !== undefined)
@@ -90,6 +106,29 @@ export function crawlQueries(db: Database) {
 
     async getById(id: string) {
       return db.query.crawlJobs.findFirst({ where: eq(crawlJobs.id, id) });
+    },
+
+    /**
+     * Find crawls that are still in a non-terminal state but have had no
+     * activity (no status/progress write) since `olderThanISO`. These are jobs
+     * whose crawler died mid-run (deploy restart, crash) without a terminal
+     * callback. Ordered oldest-activity first; capped so one watchdog tick
+     * can't fan out unbounded recovery work.
+     */
+    async findStalled(opts: { olderThanISO: string; limit?: number }) {
+      return db.query.crawlJobs.findMany({
+        where: and(
+          inArray(crawlJobs.status, [
+            "pending",
+            "queued",
+            "crawling",
+            "scoring",
+          ]),
+          lt(crawlJobs.updatedAt, opts.olderThanISO),
+        ),
+        orderBy: [asc(crawlJobs.updatedAt)],
+        limit: opts.limit ?? 20,
+      });
     },
 
     async getLatestByProject(projectId: string) {

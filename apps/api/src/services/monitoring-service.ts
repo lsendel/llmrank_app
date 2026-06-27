@@ -38,13 +38,14 @@ export function createMonitoringService(
     async checkSystemHealth() {
       log.info("Running system health check...");
 
-      // 1. Detect Stalled Crawls
-      // Backstop only: real ingest failures are now surfaced immediately by the
-      // /ingest/batch route, so this just reaps crawls whose crawler died without
-      // ever calling back. crawl_jobs has no activity timestamp, so detection is
-      // age-based off createdAt; the window is deliberately generous (6h) so a
-      // large but healthy crawl — Agency tier allows 2,000 pages and Lighthouse
-      // can push a run to hours — is never failed while still progressing.
+      // 1. Detect Stalled Crawls (6h backstop)
+      // Primary recovery is crawl-service.recoverStalledCrawls, which re-dispatches
+      // jobs gone silent for ~30m. This is the absolute backstop for jobs that
+      // recovery can't handle (e.g. no crawler URL configured, or re-dispatch
+      // itself failing). Detection is activity-based off updatedAt (bumped on
+      // every ingest batch), so a job is only failed after 6h of true silence —
+      // a large but healthy crawl (Agency tier: 2,000 pages + Lighthouse) keeps
+      // bumping updatedAt and is never failed while still progressing.
       const stallThreshold = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
       const stalledJobs = await db
@@ -58,7 +59,7 @@ export function createMonitoringService(
               "crawling",
               "scoring",
             ]),
-            lt(crawlJobs.createdAt, stallThreshold.toISOString()),
+            lt(crawlJobs.updatedAt, stallThreshold.toISOString()),
           ),
         );
 
