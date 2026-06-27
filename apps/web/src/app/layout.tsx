@@ -7,6 +7,7 @@ import { MicrosoftClarity } from "@/components/microsoft-clarity";
 import { Intercom } from "@/components/intercom";
 import { CloudflareAnalytics } from "@/components/cloudflare-analytics";
 import { AuthRedirectTracker } from "@/components/auth-redirect-tracker";
+import { Toaster } from "@/components/ui/toaster";
 import {
   JsonLd,
   organizationSchema,
@@ -79,6 +80,10 @@ export default function RootLayout({
           </Suspense>
           {children}
         </PostHogProvider>
+        {/* Renders toasts from useToast() — 31 components push to the toast
+            store, but without this mount nothing was ever displayed (silent
+            failures, incl. AI Fix errors). */}
+        <Toaster />
         <GoogleAnalytics />
         <MicrosoftClarity />
         <Intercom />
