@@ -103,8 +103,28 @@ pub struct RateLimitedFetcher {
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
 const BASE_RETRY_DELAY_MS: u64 = 500;
+/// Longer base delay used when the previous attempt hit a server-overload status
+/// (429/503). These signal the origin is temporarily unavailable (cold start,
+/// Hyperdrive/D1 contention), and that window often outlasts the ~3s spanned by
+/// BASE_RETRY_DELAY_MS — so the page gets scored as an HTTP error. Backing off
+/// harder (≈4s then 8s) gives the origin time to recover before the final try.
+const SERVER_RETRY_DELAY_MS: u64 = 2000;
 const MAX_BACKOFF_SECS: u64 = 60;
 const BACKOFF_BASE_SECS: u64 = 5;
+
+/// Exponential backoff before a retry attempt. When the previous attempt hit a
+/// server-overload status (429/503), `server_overloaded` selects the longer
+/// SERVER_RETRY_DELAY_MS base so the cumulative retry window (≈4s + 8s) outlasts
+/// a transient origin-overload window instead of giving up after ~3s and scoring
+/// the page as an HTTP error.
+fn retry_delay_ms(server_overloaded: bool, attempt: u32) -> u64 {
+    let base = if server_overloaded {
+        SERVER_RETRY_DELAY_MS
+    } else {
+        BASE_RETRY_DELAY_MS
+    };
+    base * 2u64.pow(attempt)
+}
 
 impl RateLimitedFetcher {
     /// Create a new rate-limited fetcher.
@@ -217,10 +237,13 @@ impl RateLimitedFetcher {
 
         // Retry loop with exponential backoff
         let mut last_error: Option<FetchError> = None;
+        // Set when the previous attempt returned 429/503, so the next attempt
+        // backs off harder (SERVER_RETRY_DELAY_MS) to outlast origin overload.
+        let mut server_overloaded = false;
 
         for attempt in 0..MAX_RETRY_ATTEMPTS {
             if attempt > 0 {
-                let delay = Duration::from_millis(BASE_RETRY_DELAY_MS * 2u64.pow(attempt));
+                let delay = Duration::from_millis(retry_delay_ms(server_overloaded, attempt));
                 tracing::warn!(
                     url = %url,
                     attempt = attempt + 1,
@@ -230,6 +253,7 @@ impl RateLimitedFetcher {
                 );
                 tokio::time::sleep(delay).await;
             }
+            server_overloaded = false;
 
             // Manual redirect-following loop (max 10 hops)
             let mut current_url = url.to_string();
@@ -310,6 +334,11 @@ impl RateLimitedFetcher {
                         self.circuit_breaker.record_failure(&domain).await;
 
                         if attempt + 1 < MAX_RETRY_ATTEMPTS {
+                            // Origin is overloaded; back off harder before the
+                            // next attempt so the retry window outlasts the
+                            // transient unavailability instead of scoring an
+                            // HTTP error.
+                            server_overloaded = true;
                             tracing::warn!(
                                 url = %url,
                                 status = status_code,
@@ -359,5 +388,41 @@ impl RateLimitedFetcher {
 
         // Should only reach here if all retries exhausted via continue
         Err(last_error.unwrap_or(FetchError::RateLimitError))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normal_backoff_uses_base_delay() {
+        // attempt 1 -> 1s, attempt 2 -> 2s (cumulative ~3s window)
+        assert_eq!(retry_delay_ms(false, 1), 1000);
+        assert_eq!(retry_delay_ms(false, 2), 2000);
+    }
+
+    #[test]
+    fn server_overload_backoff_is_longer() {
+        // attempt 1 -> 4s, attempt 2 -> 8s (cumulative ~12s window)
+        assert_eq!(retry_delay_ms(true, 1), 4000);
+        assert_eq!(retry_delay_ms(true, 2), 8000);
+    }
+
+    #[test]
+    fn server_overload_window_outlasts_normal_window() {
+        // The whole point: a 429/503 retry must wait materially longer than a
+        // generic-error retry, so a transient origin-overload window is ridden
+        // out rather than scored as an HTTP error.
+        let normal: u64 = (1..MAX_RETRY_ATTEMPTS)
+            .map(|a| retry_delay_ms(false, a))
+            .sum();
+        let overloaded: u64 = (1..MAX_RETRY_ATTEMPTS)
+            .map(|a| retry_delay_ms(true, a))
+            .sum();
+        assert!(
+            overloaded >= normal * 3,
+            "overloaded window {overloaded}ms should be >= 3x normal {normal}ms"
+        );
     }
 }
