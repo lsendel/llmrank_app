@@ -157,6 +157,38 @@ describe("crawlQueries", () => {
     expect(result).toEqual(stale);
   });
 
+  // --- claimStalled ---
+  it("claimStalled conditionally fails a job and returns the claimed row", async () => {
+    mock.chain.returning.mockResolvedValueOnce([
+      { id: "j1", status: "failed" },
+    ]);
+
+    const result = await queries.claimStalled({
+      id: "j1",
+      olderThanISO: "2026-06-27T00:00:00.000Z",
+    });
+
+    expect(mock.chain.update).toHaveBeenCalled();
+    expect(mock.chain.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        updatedAt: expect.any(String),
+      }),
+    );
+    expect(result).toEqual({ id: "j1", status: "failed" });
+  });
+
+  it("claimStalled returns undefined when the conditional update matches nothing", async () => {
+    mock.chain.returning.mockResolvedValueOnce([]);
+
+    const result = await queries.claimStalled({
+      id: "j1",
+      olderThanISO: "2026-06-27T00:00:00.000Z",
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   // --- getById ---
   it("getById retrieves a crawl job by id", async () => {
     const job = { id: "j1", status: "complete" };

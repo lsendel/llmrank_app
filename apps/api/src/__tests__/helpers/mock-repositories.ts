@@ -92,6 +92,7 @@ export function createMockCrawlRepo(
       create: vi.fn().mockResolvedValue({ id: "crawl-1" }),
       getById: vi.fn().mockResolvedValue(null),
       findStalled: vi.fn().mockResolvedValue([]),
+      claimStalled: vi.fn().mockResolvedValue({ id: "crawl-1" }),
       getLatestByProject: vi.fn().mockResolvedValue(null),
       getLatestByProjects: vi.fn().mockResolvedValue([]),
       listByProject: vi.fn().mockResolvedValue([]),

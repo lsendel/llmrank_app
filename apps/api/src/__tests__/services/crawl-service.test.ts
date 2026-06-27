@@ -896,6 +896,55 @@ describe("CrawlService.recoverStalledCrawls", () => {
     expect(crawls.findStalled).not.toHaveBeenCalled();
   });
 
+  it("skips re-dispatch when the atomic claim is lost (job became active again)", async () => {
+    const stalled = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 0,
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    // An ingest callback bumped activity between findStalled and the claim, so
+    // the conditional update matches nothing — we must NOT re-dispatch.
+    crawls.claimStalled = vi.fn().mockResolvedValue(undefined);
+    crawls.create = vi.fn();
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 0 });
+    expect(crawls.claimStalled).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "old-job" }),
+    );
+    expect(crawls.create).not.toHaveBeenCalled();
+    expect(mockFetchWithRetry).not.toHaveBeenCalled();
+  });
+
+  it("treats a non-2xx crawler response as a dispatch failure (not a success)", async () => {
+    const stalled = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 0,
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    crawls.claimStalled = vi.fn().mockResolvedValue(stalled);
+    crawls.create = vi.fn().mockResolvedValue(buildCrawlJob({ id: "new-job" }));
+    // Crawler rejects (e.g. bad HMAC) — fetchWithRetry resolves, does not throw.
+    mockFetchWithRetry.mockResolvedValue({ ok: false, status: 401 });
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 1 });
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "new-job",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
   it("queries stalled jobs using an activity cutoff derived from stallMinutes", async () => {
     crawls.findStalled = vi.fn().mockResolvedValue([]);
 

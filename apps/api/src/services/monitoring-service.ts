@@ -59,7 +59,12 @@ export function createMonitoringService(
               "crawling",
               "scoring",
             ]),
-            lt(crawlJobs.updatedAt, stallThreshold.toISOString()),
+            // COALESCE so deploy-window rows with a NULL updated_at (written by
+            // old code before the new Worker shipped) are still reaped by age.
+            lt(
+              sql`coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})`,
+              stallThreshold.toISOString(),
+            ),
           ),
         );
 

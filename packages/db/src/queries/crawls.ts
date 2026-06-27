@@ -124,11 +124,53 @@ export function crawlQueries(db: Database) {
             "crawling",
             "scoring",
           ]),
-          lt(crawlJobs.updatedAt, opts.olderThanISO),
+          // COALESCE so a row written by old code during the migration→deploy
+          // window (updated_at still NULL) is evaluated by createdAt age instead
+          // of being invisible to `lt` forever.
+          lt(
+            sql`coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})`,
+            opts.olderThanISO,
+          ),
         ),
         orderBy: [asc(crawlJobs.updatedAt)],
         limit: opts.limit ?? 20,
       });
+    },
+
+    /**
+     * Atomically claim a stalled job for recovery: transition it active→failed
+     * only if it is STILL non-terminal and STILL stale (COALESCE(updated_at,
+     * created_at) < cutoff). Returns the claimed row, or undefined if the
+     * conditional update matched nothing — meaning an ingest callback bumped
+     * activity (the crawler was alive after all) or another worker already
+     * claimed it. The caller must only re-dispatch when it wins the claim,
+     * which closes the find→act race that could otherwise double-dispatch.
+     */
+    async claimStalled(opts: { id: string; olderThanISO: string }) {
+      const [claimed] = await db
+        .update(crawlJobs)
+        .set({
+          status: "failed",
+          updatedAt: new Date().toISOString(),
+          errorMessage: "Crawl stalled: recovering (no crawler activity).",
+        })
+        .where(
+          and(
+            eq(crawlJobs.id, opts.id),
+            inArray(crawlJobs.status, [
+              "pending",
+              "queued",
+              "crawling",
+              "scoring",
+            ]),
+            lt(
+              sql`coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})`,
+              opts.olderThanISO,
+            ),
+          ),
+        )
+        .returning();
+      return claimed;
     },
 
     async getLatestByProject(projectId: string) {

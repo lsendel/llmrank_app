@@ -69,7 +69,10 @@ async function dispatchJobToCrawler(args: {
     args.sharedSecret,
     payloadJson,
   );
-  await fetchWithRetry(`${args.crawlerUrl}/api/v1/jobs`, {
+  // fetchWithRetry resolves with a Response on HTTP errors (401 bad HMAC, 429
+  // queue-full, persistent 5xx) rather than throwing, so a non-2xx must be
+  // turned into a throw — otherwise callers treat a rejected job as dispatched.
+  const res = await fetchWithRetry(`${args.crawlerUrl}/api/v1/jobs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -78,6 +81,9 @@ async function dispatchJobToCrawler(args: {
     },
     body: payloadJson,
   });
+  if (!res.ok) {
+    throw new Error(`Crawler rejected job dispatch: HTTP ${res.status}`);
+  }
 }
 
 export function createCrawlService(deps: CrawlServiceDeps) {
@@ -620,7 +626,18 @@ export function createCrawlService(deps: CrawlServiceDeps) {
       for (const job of stalled) {
         const attempts = job.redispatchCount ?? 0;
 
-        // Exhausted: stop retrying and surface a terminal failure.
+        // Atomically claim the job (active→failed, only if STILL stale). If an
+        // ingest callback bumped activity between findStalled and now, the claim
+        // no-ops and we skip — preventing a double-dispatch where the original
+        // crawler is alive and a fresh job also runs.
+        const claimed = await deps.crawls.claimStalled({
+          id: job.id,
+          olderThanISO,
+        });
+        if (!claimed) continue;
+
+        // Exhausted: stop retrying and surface a terminal failure (the claim
+        // already set status=failed; just record the final reason).
         if (attempts >= maxRedispatch) {
           await deps.crawls.updateStatus(job.id, {
             status: "failed",
