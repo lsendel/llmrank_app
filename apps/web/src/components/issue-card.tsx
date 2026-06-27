@@ -11,6 +11,7 @@ import {
   Circle,
   UserCheck,
   CalendarDays,
+  BookOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +26,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { ActionItemStatus } from "@/lib/api";
 import { AiFixButton, SUPPORTED_FIX_CODES } from "@/components/ai-fix-button";
+import { FixWizardDialog } from "@/components/fix-wizard/fix-wizard-dialog";
+import { FIX_GUIDES } from "@llm-boost/shared";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/auth-hooks";
 
@@ -188,6 +191,10 @@ export const IssueCard = memo(function IssueCard({
   const { user } = useUser();
   const defaultDueDate = defaultDueDateInputBySeverity(severity);
   const [expanded, setExpanded] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  // Step-by-step fix guide (platform instructions + clickable docs links) when
+  // one exists for this issue code.
+  const fixGuide = FIX_GUIDES[code];
   const [dueDateDraft, setDueDateDraft] = useState(
     actionItemDueAt
       ? actionItemDueAt.slice(0, 10)
@@ -354,6 +361,17 @@ export const IssueCard = memo(function IssueCard({
                   Optimize with AI
                 </Button>
               )}
+              {fixGuide && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() => setWizardOpen(true)}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  View fix guide
+                </Button>
+              )}
               {actionItemId && onTaskUpdate ? (
                 <>
                   <Button
@@ -418,6 +436,11 @@ export const IssueCard = memo(function IssueCard({
           </div>
         </CardContent>
       )}
+      <FixWizardDialog
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        guide={fixGuide ?? null}
+      />
     </Card>
   );
 });
