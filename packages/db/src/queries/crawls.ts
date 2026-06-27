@@ -1,6 +1,7 @@
 import {
   eq,
   desc,
+  asc,
   and,
   sql,
   inArray,
@@ -25,7 +26,15 @@ function scoreToLetterGrade(score: number): "A" | "B" | "C" | "D" | "F" {
 
 export function crawlQueries(db: Database) {
   return {
-    async create(data: { projectId: string; config: unknown }) {
+    async create(data: {
+      projectId: string;
+      config: unknown;
+      redispatchCount?: number;
+    }) {
+      // updated_at has no DB default (added nullable via migration; SQLite
+      // forbids a datetime() default on ADD COLUMN), so set it explicitly here
+      // and on every updateStatus so the stall watchdog always has activity.
+      const now = new Date().toISOString();
       const [job] = await db
         .insert(crawlJobs)
         .values({
@@ -36,6 +45,8 @@ export function crawlQueries(db: Database) {
               ? data.config
               : JSON.stringify(data.config),
           status: "pending",
+          redispatchCount: data.redispatchCount ?? 0,
+          updatedAt: now,
         })
         .returning();
       return job;
@@ -55,7 +66,11 @@ export function crawlQueries(db: Database) {
         siteContext?: unknown;
       },
     ) {
-      const setData: Record<string, unknown> = { status: update.status };
+      // Always stamp activity so the stall watchdog measures inactivity, not age.
+      const setData: Record<string, unknown> = {
+        status: update.status,
+        updatedAt: new Date().toISOString(),
+      };
       if (update.pagesFound !== undefined)
         setData.pagesFound = update.pagesFound;
       if (update.pagesCrawled !== undefined)
@@ -90,6 +105,75 @@ export function crawlQueries(db: Database) {
 
     async getById(id: string) {
       return db.query.crawlJobs.findFirst({ where: eq(crawlJobs.id, id) });
+    },
+
+    /**
+     * Find crawls that are still in a non-terminal state but have had no
+     * activity (no status/progress write) since `olderThanISO`. These are jobs
+     * whose crawler died mid-run (deploy restart, crash) without a terminal
+     * callback. Ordered oldest-activity first; capped so one watchdog tick
+     * can't fan out unbounded recovery work.
+     */
+    async findStalled(opts: { olderThanISO: string; limit?: number }) {
+      return db.query.crawlJobs.findMany({
+        where: and(
+          inArray(crawlJobs.status, [
+            "pending",
+            "queued",
+            "crawling",
+            "scoring",
+          ]),
+          // COALESCE so a row written by old code during the migration→deploy
+          // window (updated_at still NULL) is evaluated by createdAt age instead
+          // of being invisible to `lt` forever. Both sides wrapped in datetime()
+          // because created_at is stored as `YYYY-MM-DD HH:MM:SS` (datetime('now'))
+          // while updated_at and the cutoff are ISO (`...T...Z`); a raw string
+          // compare sorts ' ' before 'T' and would flag fresh rows as stale.
+          sql`datetime(coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})) < datetime(${opts.olderThanISO})`,
+        ),
+        orderBy: [asc(crawlJobs.updatedAt)],
+        limit: opts.limit ?? 20,
+      });
+    },
+
+    /**
+     * Atomically claim a stalled job for recovery: transition it
+     * active→cancelled only if it is STILL non-terminal and STILL stale
+     * (datetime(COALESCE(updated_at, created_at)) < cutoff). Returns the claimed
+     * row, or undefined if the conditional update matched nothing — meaning an
+     * ingest callback bumped activity (the crawler was alive after all) or
+     * another worker already claimed it. The caller must only re-dispatch when
+     * it wins the claim, closing the find→act race that could double-dispatch.
+     *
+     * Claimed jobs are marked `cancelled` (a terminal state ingest drops late
+     * callbacks for) rather than `failed`, so a slow-but-alive original crawler
+     * posting a batch after the claim can't resurrect the job alongside its
+     * replacement. The caller may relabel no-replacement outcomes as `failed`.
+     */
+    async claimStalled(opts: { id: string; olderThanISO: string }) {
+      const now = new Date().toISOString();
+      const [claimed] = await db
+        .update(crawlJobs)
+        .set({
+          status: "cancelled",
+          cancelledAt: now,
+          cancelReason: "stall-recovery: claimed (no crawler activity)",
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(crawlJobs.id, opts.id),
+            inArray(crawlJobs.status, [
+              "pending",
+              "queued",
+              "crawling",
+              "scoring",
+            ]),
+            sql`datetime(coalesce(${crawlJobs.updatedAt}, ${crawlJobs.createdAt})) < datetime(${opts.olderThanISO})`,
+          ),
+        )
+        .returning();
+      return claimed;
     },
 
     async getLatestByProject(projectId: string) {

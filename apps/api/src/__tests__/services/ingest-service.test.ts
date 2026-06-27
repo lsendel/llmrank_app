@@ -280,6 +280,28 @@ describe("IngestService", () => {
     ).rejects.toThrow("Crawl job not found");
   });
 
+  it("drops a late callback for a cancelled (stall-superseded) job without resurrecting it", async () => {
+    crawls.getById.mockResolvedValue(
+      buildCrawlJob({
+        id: "crawl-1",
+        status: "cancelled",
+        projectId: "proj-1",
+      }),
+    );
+    const service = createIngestService({ crawls, pages, scores, outbox });
+
+    const result = await service.processBatch({
+      rawBody: validBatchPayload(),
+      env: makeMockEnv(),
+      executionCtx: makeMockCtx(),
+    });
+
+    // No-op ack; must NOT insert pages or write status (which would revive it).
+    expect(result.pages_processed).toBe(0);
+    expect(pages.createBatch).not.toHaveBeenCalled();
+    expect(crawls.updateStatus).not.toHaveBeenCalled();
+  });
+
   // ---- Status transitions ----
 
   it("transitions pending job to crawling on first batch", async () => {

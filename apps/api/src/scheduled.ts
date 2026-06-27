@@ -108,6 +108,19 @@ async function runScheduledTasks(env: Bindings) {
       // own origin so the crawler posts results back to /ingest/batch here.
       baseUrl: env.BETTER_AUTH_URL,
     });
+
+    // Recover crawls orphaned by a crawler restart/crash: re-dispatch jobs that
+    // have gone silent (~30m of no ingest activity) as fresh jobs, bounded by a
+    // retry cap. Without this, a deploy that restarts the crawler mid-run leaves
+    // the crawl stuck until the 6h backstop fails it.
+    const recovery = await crawlService.recoverStalledCrawls({
+      crawlerUrl: env.CRAWLER_URL,
+      sharedSecret: env.SHARED_SECRET,
+      baseUrl: env.BETTER_AUTH_URL,
+    });
+    if (recovery.recovered > 0 || recovery.failed > 0) {
+      log.warn("Stalled crawl recovery", recovery);
+    }
   } catch (err) {
     log.error("Scheduled crawl dispatch failed", {
       error: err instanceof Error ? err.message : String(err),

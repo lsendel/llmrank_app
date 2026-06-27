@@ -764,3 +764,204 @@ describe("buildCrawlConfig", () => {
     expect(config.allow_http_fallback).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// recoverStalledCrawls — re-dispatch crawls orphaned by a crawler restart
+// ---------------------------------------------------------------------------
+
+describe("CrawlService.recoverStalledCrawls", () => {
+  let crawls: ReturnType<typeof createMockCrawlRepo>;
+  let projects: ReturnType<typeof createMockProjectRepo>;
+  let users: ReturnType<typeof createMockUserRepo>;
+  let scores: ReturnType<typeof createMockScoreRepo>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projects = createMockProjectRepo();
+    users = createMockUserRepo();
+    scores = createMockScoreRepo();
+    crawls = createMockCrawlRepo();
+    mockFetchWithRetry.mockResolvedValue({ ok: true, status: 200 });
+  });
+
+  function service() {
+    return createCrawlService({ crawls, projects, users, scores });
+  }
+
+  it("re-dispatches a stalled job under the cap as a FRESH job", async () => {
+    const stalled = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 0,
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    crawls.claimStalled = vi.fn().mockResolvedValue(stalled);
+    crawls.create = vi.fn().mockResolvedValue(buildCrawlJob({ id: "new-job" }));
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 1, failed: 0 });
+    // Atomic claim happened before any side effects.
+    expect(crawls.claimStalled).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "old-job" }),
+    );
+    // New job created with an incremented re-dispatch counter (clean slate id).
+    expect(crawls.create).toHaveBeenCalledWith(
+      expect.objectContaining({ redispatchCount: 1 }),
+    );
+    // Dispatched to the crawler with the new job's id.
+    expect(mockFetchWithRetry).toHaveBeenCalledWith(
+      "https://crawler.test/api/v1/jobs",
+      expect.objectContaining({ method: "POST" }),
+    );
+    // New job queued; old job kept CANCELLED (resurrection-proof), not failed,
+    // so a late callback can't revive it next to the running replacement.
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "new-job",
+      expect.objectContaining({ status: "queued" }),
+    );
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "old-job",
+      expect.objectContaining({ status: "cancelled" }),
+    );
+  });
+
+  it("fails (does not re-dispatch) a job that hit the re-dispatch cap", async () => {
+    const exhausted = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 2, // == default maxRedispatch
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([exhausted]);
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 1 });
+    expect(crawls.create).not.toHaveBeenCalled();
+    expect(mockFetchWithRetry).not.toHaveBeenCalled();
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "old-job",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("is a no-op when there are no stalled jobs", async () => {
+    crawls.findStalled = vi.fn().mockResolvedValue([]);
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 0 });
+    expect(crawls.create).not.toHaveBeenCalled();
+    expect(mockFetchWithRetry).not.toHaveBeenCalled();
+  });
+
+  it("fails both jobs when re-dispatch to the crawler errors", async () => {
+    const stalled = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 0,
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    crawls.create = vi.fn().mockResolvedValue(buildCrawlJob({ id: "new-job" }));
+    mockFetchWithRetry.mockRejectedValue(new Error("crawler unreachable"));
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 1 });
+    // The throwaway new job and the stalled job are both failed (no loop).
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "new-job",
+      expect.objectContaining({ status: "failed" }),
+    );
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "old-job",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("does nothing (and skips the DB query) when no crawler URL is configured", async () => {
+    crawls.findStalled = vi.fn();
+
+    const result = await service().recoverStalledCrawls({
+      sharedSecret: "secret-123",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 0 });
+    expect(crawls.findStalled).not.toHaveBeenCalled();
+  });
+
+  it("skips re-dispatch when the atomic claim is lost (job became active again)", async () => {
+    const stalled = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 0,
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    // An ingest callback bumped activity between findStalled and the claim, so
+    // the conditional update matches nothing — we must NOT re-dispatch.
+    crawls.claimStalled = vi.fn().mockResolvedValue(undefined);
+    crawls.create = vi.fn();
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 0 });
+    expect(crawls.claimStalled).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "old-job" }),
+    );
+    expect(crawls.create).not.toHaveBeenCalled();
+    expect(mockFetchWithRetry).not.toHaveBeenCalled();
+  });
+
+  it("treats a non-2xx crawler response as a dispatch failure (not a success)", async () => {
+    const stalled = buildCrawlJob({
+      id: "old-job",
+      status: "crawling",
+      redispatchCount: 0,
+    });
+    crawls.findStalled = vi.fn().mockResolvedValue([stalled]);
+    crawls.claimStalled = vi.fn().mockResolvedValue(stalled);
+    crawls.create = vi.fn().mockResolvedValue(buildCrawlJob({ id: "new-job" }));
+    // Crawler rejects (e.g. bad HMAC) — fetchWithRetry resolves, does not throw.
+    mockFetchWithRetry.mockResolvedValue({ ok: false, status: 401 });
+
+    const result = await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+    });
+
+    expect(result).toEqual({ recovered: 0, failed: 1 });
+    expect(crawls.updateStatus).toHaveBeenCalledWith(
+      "new-job",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("queries stalled jobs using an activity cutoff derived from stallMinutes", async () => {
+    crawls.findStalled = vi.fn().mockResolvedValue([]);
+
+    await service().recoverStalledCrawls({
+      ...env,
+      baseUrl: "",
+      stallMinutes: 30,
+    });
+
+    expect(crawls.findStalled).toHaveBeenCalledWith(
+      expect.objectContaining({ olderThanISO: expect.any(String) }),
+    );
+  });
+});
