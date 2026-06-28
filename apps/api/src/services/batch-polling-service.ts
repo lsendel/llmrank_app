@@ -44,9 +44,15 @@ export async function pollPendingBatches(env: {
     try {
       const batch = await client.messages.batches.retrieve(job.batchId);
 
-      // Update progress
+      // Update progress counts. Do NOT persist "ended" here — that status is
+      // excluded from listPending, so if results-fetching below throws a
+      // transient error the batch would never be re-polled and its results
+      // would be lost. Keep it pollable until results are actually applied
+      // (the terminal "completed" write happens after processing).
       await batchJobQueries(db).updateStatus(job.id, {
-        status: batch.processing_status,
+        ...(batch.processing_status === "ended"
+          ? {}
+          : { status: batch.processing_status }),
         completedRequests: batch.request_counts.succeeded,
         failedRequests: batch.request_counts.errored,
       });

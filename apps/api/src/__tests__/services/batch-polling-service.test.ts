@@ -131,6 +131,30 @@ describe("pollPendingBatches — orphan handling (retrieve-first)", () => {
     );
   });
 
+  it("keeps an ended batch pollable when result-fetching fails transiently", async () => {
+    mockListPending.mockResolvedValue([
+      { id: "bj-6", batchId: "batch-6", createdAt: hours(2) },
+    ]);
+    mockRetrieve.mockResolvedValue({
+      processing_status: "ended",
+      request_counts: { succeeded: 1, errored: 0 },
+    });
+    mockResults.mockRejectedValue(new Error("503 transient"));
+
+    await pollPendingBatches(env);
+
+    // Must NOT persist "ended" (excluded from listPending → never re-polled)...
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(
+      "bj-6",
+      expect.objectContaining({ status: "ended" }),
+    );
+    // ...and must NOT fail it (transient) — it stays pollable for next tick.
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(
+      "bj-6",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
   it("does NOT fail a fresh in-progress batch (leaves it pending)", async () => {
     mockListPending.mockResolvedValue([
       { id: "bj-4", batchId: "batch-4", createdAt: hours(1) }, // 1h old
