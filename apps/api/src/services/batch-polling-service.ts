@@ -5,6 +5,18 @@ import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ service: "batch-polling" });
 
+/** A confirmed-gone batch (vs a transient 5xx/timeout that should be retried). */
+function isBatchGone(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("not found") ||
+    m.includes("404") ||
+    m.includes("expired") ||
+    m.includes("does not exist") ||
+    m.includes("no longer available")
+  );
+}
+
 export async function pollPendingBatches(env: {
   AGENCY_DB_URL: string;
   ANTHROPIC_API_KEY: string;
@@ -113,22 +125,22 @@ export async function pollPendingBatches(env: {
       });
       completed++;
     } catch (err) {
-      log.error("Batch polling error", {
-        batchId: job.batchId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      // Couldn't retrieve. If it's well past expiry the batch is likely
-      // purged/orphaned — mark failed so it stops being re-polled forever.
-      // Otherwise leave it pending for a transient retry on the next tick.
-      if (isStale) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error("Batch polling error", { batchId: job.batchId, error: msg });
+      // Only give up on a CONFIRMED-gone batch (404 / not found / expired).
+      // Transient errors (5xx / timeout) or a failure while fetching results
+      // after a successful retrieve must stay pending — the batch may still be
+      // completed and collectible on the next tick; failing here would discard
+      // its results.
+      if (isBatchGone(msg)) {
         await batchJobQueries(db)
           .updateStatus(job.id, {
             status: "failed",
-            error: "Batch unretrievable past 26h (expired/orphaned)",
+            error: "Batch no longer retrievable (expired/not found)",
             completedAt: new Date(),
           })
           .catch(() => {});
-        log.warn("Marked unretrievable batch job failed (orphaned)", {
+        log.warn("Marked gone batch job failed", {
           batchId: job.batchId,
           ageHours: Math.round(ageMs / 3.6e6),
         });

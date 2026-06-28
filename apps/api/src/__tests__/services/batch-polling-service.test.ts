@@ -84,7 +84,7 @@ describe("pollPendingBatches — orphan handling (retrieve-first)", () => {
     );
   });
 
-  it("marks a stale UNRETRIEVABLE batch failed (retrieve threw)", async () => {
+  it("marks a CONFIRMED-GONE batch failed (404/not found)", async () => {
     mockListPending.mockResolvedValue([
       { id: "bj-2", batchId: "batch-2", createdAt: hours(30) },
     ]);
@@ -95,6 +95,21 @@ describe("pollPendingBatches — orphan handling (retrieve-first)", () => {
     expect(mockRetrieve).toHaveBeenCalledWith("batch-2");
     expect(mockUpdateStatus).toHaveBeenCalledWith(
       "bj-2",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("leaves a stale batch with a TRANSIENT error pending (no fail, retry next tick)", async () => {
+    mockListPending.mockResolvedValue([
+      { id: "bj-5", batchId: "batch-5", createdAt: hours(30) }, // stale
+    ]);
+    mockRetrieve.mockRejectedValue(new Error("503 service unavailable"));
+
+    await pollPendingBatches(env);
+
+    // Transient — must NOT be marked failed (the batch may still be collectible).
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(
+      "bj-5",
       expect.objectContaining({ status: "failed" }),
     );
   });
