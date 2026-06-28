@@ -74,24 +74,57 @@ export function extractWorkersAiText(res: unknown): string | null {
 }
 
 /**
+ * Scan `text` for complete, balanced top-level `{...}` objects, respecting string
+ * literals (so braces inside quoted strings don't break nesting). Returns them in
+ * source order. Used to pull the real score object out of reasoning prose that
+ * may itself contain stray braces — a plain first-`{`-to-last-`}` slice over-spans.
+ */
+export function extractJsonObjects(text: string): string[] {
+  const objects: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}" && depth > 0) {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        objects.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return objects;
+}
+
+/**
  * Parse + validate model output into {@link LLMContentScores}. Strips markdown
  * fences and tolerates surrounding prose / reasoning, then validates against the
  * zod schema — so a malformed or out-of-range response yields null (the page
  * keeps its deterministic scores) rather than corrupting the stored score.
  */
 export function parseContentScores(text: string): LLMContentScores | null {
-  const candidates: string[] = [];
   const trimmed = text.trim();
-  candidates.push(trimmed);
+  const candidates: string[] = [trimmed];
 
   const fence = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
   if (fence) candidates.push(fence[1].trim());
 
-  // Largest {...} span — survives reasoning text emitted before/after the JSON.
-  const first = trimmed.indexOf("{");
-  const last = trimmed.lastIndexOf("}");
-  if (first !== -1 && last > first)
-    candidates.push(trimmed.slice(first, last + 1));
+  // Each balanced top-level object, last first — the score object is normally the
+  // final JSON in a reasoning-then-answer response.
+  const objects = extractJsonObjects(trimmed);
+  for (let i = objects.length - 1; i >= 0; i--) candidates.push(objects[i]);
 
   for (const candidate of candidates) {
     try {

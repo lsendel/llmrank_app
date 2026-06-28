@@ -92,6 +92,27 @@ describe("parseContentScores", () => {
     const text = `Let me think about this carefully.\nFinal answer:\n${VALID_JSON}\nThat's my assessment.`;
     expect(parseContentScores(text)).toMatchObject({ citation_worthiness: 60 });
   });
+  it("extracts the score object past reasoning that contains stray braces", () => {
+    const text = `Weighing the rubric { note: weights } before deciding.\nFinal: ${VALID_JSON}`;
+    expect(parseContentScores(text)).toMatchObject({ clarity: 80 });
+  });
+  it("ignores braces inside quoted strings while scanning", () => {
+    const text = `The author wrote "use { braces } sparingly".\n${VALID_JSON}`;
+    expect(parseContentScores(text)).toMatchObject({ structure: 85 });
+  });
+  it("returns the LAST valid object when several appear", () => {
+    const earlier =
+      '{"clarity":10,"authority":10,"comprehensiveness":10,"structure":10,"citation_worthiness":10}';
+    expect(
+      parseContentScores(`draft ${earlier}\nrevised ${VALID_JSON}`),
+    ).toEqual({
+      clarity: 80,
+      authority: 70,
+      comprehensiveness: 75,
+      structure: 85,
+      citation_worthiness: 60,
+    });
+  });
   it("rejects out-of-range scores (schema validation)", () => {
     const bad =
       '{"clarity":150,"authority":70,"comprehensiveness":75,"structure":85,"citation_worthiness":60}';
