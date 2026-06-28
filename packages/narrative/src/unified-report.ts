@@ -78,6 +78,12 @@ export class UnifiedReportGenerator {
     const content =
       response.content[0].type === "text" ? response.content[0].text : "";
 
+    // Fail rather than emit an empty report (non-text/empty LLM response). The
+    // caller persists this content; an empty string would be a useless report.
+    if (!content.trim()) {
+      throw new Error("Unified report generation returned empty content");
+    }
+
     const inputTokens = response.usage.input_tokens;
     const outputTokens = response.usage.output_tokens;
 

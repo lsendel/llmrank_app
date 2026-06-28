@@ -269,11 +269,23 @@ export function createNarrativeService(deps: Deps) {
         sectionPrompts,
       });
 
-      const newSection = await engine.regenerateSection(
-        sectionType,
-        narrativeInput,
-        instructions,
-      );
+      let newSection;
+      try {
+        newSection = await engine.regenerateSection(
+          sectionType,
+          narrativeInput,
+          instructions,
+        );
+      } catch (err) {
+        if (err instanceof ServiceError) throw err;
+        // Any regeneration failure (empty/non-text response, provider error)
+        // must NOT overwrite the existing section — keep it, let the user retry.
+        throw new ServiceError(
+          "AI_UNAVAILABLE",
+          503,
+          "Section regeneration failed — your existing section was kept. Please try again.",
+        );
+      }
 
       const updatedSections = (narrative.sections as any[]).map((s: any) =>
         s.type === sectionType ? newSection : s,

@@ -88,7 +88,13 @@ export async function generateCrawlSummary(input: SummaryInput): Promise<void> {
     pagesScored: summaryData.pagesScored,
   });
 
-  await crawlQueries(db).updateSummary(input.jobId, summary);
+  // Never overwrite a good summary with an empty one. The LLM returns "" for a
+  // successful-but-non-text/empty response, and this runs from a retryable
+  // outbox event — without this guard a provider hiccup would wipe a prior
+  // good summary.
+  if (summary.trim().length > 0) {
+    await crawlQueries(db).updateSummary(input.jobId, summary);
+  }
 }
 
 /** Normalize crawler's snake_case siteContext keys to camelCase for the frontend. */

@@ -177,4 +177,28 @@ describe("NarrativeEngine", () => {
       "Focus more on mobile performance",
     );
   });
+
+  it("throws (never returns empty) when the response is non-text", async () => {
+    // A successful-but-non-text response must not yield empty content — callers
+    // overwrite the stored section with this, so empty would wipe it.
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "tool_use", id: "t", name: "x", input: {} }],
+      usage: { input_tokens: 10, output_tokens: 0 },
+    });
+
+    await expect(
+      engine.regenerateSection("executive_summary", makeInput(), undefined),
+    ).rejects.toThrow(/empty content/i);
+  });
+
+  it("throws when the response text is only whitespace", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "   \n  " }],
+      usage: { input_tokens: 10, output_tokens: 1 },
+    });
+
+    await expect(
+      engine.regenerateSection("executive_summary", makeInput(), undefined),
+    ).rejects.toThrow(/empty content/i);
+  });
 });

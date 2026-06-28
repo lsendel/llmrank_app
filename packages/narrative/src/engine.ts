@@ -117,6 +117,12 @@ ${JSON.stringify(dataContext, null, 2)}`;
     const content =
       response.content[0].type === "text" ? response.content[0].text : "";
 
+    // Fail rather than return empty content: callers replace the stored section
+    // with this, so an empty/non-text response would wipe a good section.
+    if (!content.trim()) {
+      throw new Error("Section regeneration returned empty content");
+    }
+
     return {
       id: crypto.randomUUID(),
       type: config.type,
