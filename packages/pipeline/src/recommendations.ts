@@ -134,6 +134,57 @@ export interface NextAction {
   action?: string;
 }
 
+type IssueLike = {
+  code?: string | null;
+  message?: string | null;
+  severity?: string | null;
+  scoreImpact?: number | null;
+};
+
+function pluralizePages(count: number) {
+  return `${count} page${count === 1 ? "" : "s"}`;
+}
+
+function summarizeIssueClusters(issues: IssueLike[], limit = 3): string {
+  const clusters = new Map<
+    string,
+    { code: string; message: string; count: number; maxImpact: number }
+  >();
+
+  for (const issue of issues) {
+    const code = issue.code?.trim() || "ISSUE";
+    const message = issue.message?.trim() || code;
+    const key = `${code}:${message}`;
+    const existing = clusters.get(key) ?? {
+      code,
+      message,
+      count: 0,
+      maxImpact: 0,
+    };
+
+    existing.count += 1;
+    existing.maxImpact = Math.max(
+      existing.maxImpact,
+      Math.abs(Number(issue.scoreImpact ?? 0)),
+    );
+    clusters.set(key, existing);
+  }
+
+  return [...clusters.values()]
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return right.maxImpact - left.maxImpact;
+    })
+    .slice(0, limit)
+    .map((cluster) => {
+      if (!cluster.code || cluster.code === "ISSUE") {
+        return `${cluster.message} (${pluralizePages(cluster.count)})`;
+      }
+      return `${cluster.code}: ${cluster.message} (${pluralizePages(cluster.count)})`;
+    })
+    .join("; ");
+}
+
 export interface PortfolioPriorityItem {
   id: string;
   projectId: string;
@@ -656,10 +707,18 @@ export function createRecommendationsService(db: Database) {
             priority: "critical",
             category: "issues",
             title: `${criticalIssues.length} critical issues found`,
-            description: criticalIssues
-              .map((i) => i.message)
-              .slice(0, 3)
-              .join("; "),
+            description: summarizeIssueClusters(criticalIssues),
+            action: "get_action_items",
+          });
+        }
+
+        const warningIssues = issues.filter((i) => i.severity === "warning");
+        if (warningIssues.length >= 3) {
+          recommendations.push({
+            priority: warningIssues.length >= 10 ? "high" : "medium",
+            category: "issues",
+            title: `${warningIssues.length} warning issues need batch fixes`,
+            description: `Batch by issue code or page template: ${summarizeIssueClusters(warningIssues)}`,
             action: "get_action_items",
           });
         }

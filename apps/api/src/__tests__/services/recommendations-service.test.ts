@@ -120,6 +120,62 @@ describe("createRecommendationsService", () => {
       category: "issues",
       title: "2 critical issues found",
     });
+    expect(recs[0].description).toBe(
+      "AI crawlers blocked (1 page); Missing llms.txt (1 page)",
+    );
+  });
+
+  it("recommends high-volume warning batches even when critical issues exist", async () => {
+    mockGetById.mockResolvedValueOnce({ id: "proj-1", userId: "u-1" });
+    mockGetLatestByProject.mockResolvedValueOnce({
+      id: "crawl-1",
+      status: "complete",
+      completedAt: new Date(),
+    });
+    mockGetIssuesByJob.mockResolvedValueOnce([
+      {
+        severity: "critical",
+        code: "HTTP_STATUS",
+        message: "Page returned HTTP 404",
+      },
+      {
+        severity: "critical",
+        code: "HTTP_STATUS",
+        message: "Page returned HTTP 404",
+      },
+      ...Array.from({ length: 8 }, () => ({
+        severity: "warning",
+        code: "LOW_READING_EASE",
+        message: "Content readability is below recommended level",
+        scoreImpact: -10,
+      })),
+      ...Array.from({ length: 4 }, () => ({
+        severity: "warning",
+        code: "NO_DIRECT_ANSWERS",
+        message: "Content does not contain direct answers",
+        scoreImpact: -12,
+      })),
+    ]);
+    mockCountByProject.mockResolvedValueOnce(10);
+    mockListByProject.mockResolvedValueOnce([{ id: "comp-1" }]);
+    mockGetLatestPipeline.mockResolvedValueOnce({ id: "run-1" });
+
+    const service = createRecommendationsService(fakeDb);
+    const recs = await service.getForProject("proj-1");
+
+    expect(recs).toHaveLength(2);
+    expect(recs[0]).toMatchObject({
+      priority: "critical",
+      title: "2 critical issues found",
+      description: "HTTP_STATUS: Page returned HTTP 404 (2 pages)",
+    });
+    expect(recs[1]).toMatchObject({
+      priority: "high",
+      category: "issues",
+      title: "12 warning issues need batch fixes",
+      description:
+        "Batch by issue code or page template: LOW_READING_EASE: Content readability is below recommended level (8 pages); NO_DIRECT_ANSWERS: Content does not contain direct answers (4 pages)",
+    });
   });
 
   it("sorts by priority (critical first)", async () => {
