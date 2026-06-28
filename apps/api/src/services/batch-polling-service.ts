@@ -20,7 +20,26 @@ export async function pollPendingBatches(env: {
   log.info(`Polling ${pending.length} pending batch jobs`);
   let completed = 0;
 
+  const ORPHAN_AFTER_MS = 26 * 60 * 60 * 1000; // Anthropic batches expire ~24h
+
   for (const job of pending) {
+    // A batch still pending well past Anthropic's 24h expiry is orphaned
+    // (un-retrievable / purged). Mark it failed so it stops being re-polled
+    // forever and the crawl's pages keep their deterministic-only scores.
+    const ageMs = Date.now() - new Date(job.createdAt).getTime();
+    if (ageMs > ORPHAN_AFTER_MS) {
+      await batchJobQueries(db).updateStatus(job.id, {
+        status: "failed",
+        error: "Batch not completed within 26h (expired/orphaned)",
+        completedAt: new Date(),
+      });
+      log.warn("Marked stale batch job failed (orphaned)", {
+        batchId: job.batchId,
+        ageHours: Math.round(ageMs / 3.6e6),
+      });
+      continue;
+    }
+
     try {
       const batch = await client.messages.batches.retrieve(job.batchId);
 

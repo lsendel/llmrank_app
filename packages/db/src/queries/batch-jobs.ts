@@ -15,8 +15,16 @@ export function batchJobQueries(db: Database) {
     },
 
     async listPending() {
+      // Every non-terminal status. The poller writes Anthropic's
+      // processing_status ("in_progress" / "canceling"); without these a batch
+      // would drop out of polling after the first tick and never be collected.
       return db.query.llmBatchJobs.findMany({
-        where: inArray(llmBatchJobs.status, ["submitted", "processing"]),
+        where: inArray(llmBatchJobs.status, [
+          "submitted",
+          "processing",
+          "in_progress",
+          "canceling",
+        ]),
       });
     },
 
