@@ -99,6 +99,9 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             insertedPages,
             insertedScores,
             jobId: crawlJobId,
+            // Required to persist the batch_jobs row (project_id is a non-null
+            // UUID); without it llm-scoring routes to sync to avoid orphaning.
+            projectId,
           },
         });
       }

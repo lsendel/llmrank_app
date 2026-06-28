@@ -288,11 +288,15 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
     return;
   }
 
-  // --- Step 5: Sync fallback for small batches ---
-  if (requests.length < BATCH_THRESHOLD) {
-    log.info("Using sync scoring (below batch threshold)", {
+  // --- Step 5: Sync fallback for small batches (or when we can't bookkeep) ---
+  // Without a valid projectId the batch_jobs row (project_id is a required UUID)
+  // can't be persisted, which would orphan an already-billed batch — so score
+  // these synchronously instead of submitting an unpollable batch.
+  if (requests.length < BATCH_THRESHOLD || !input.projectId) {
+    log.info("Using sync scoring (below batch threshold or no projectId)", {
       jobId: input.jobId,
       count: requests.length,
+      hasProjectId: Boolean(input.projectId),
     });
     let syncFailed = 0;
     let syncLastError = "";

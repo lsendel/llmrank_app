@@ -3,10 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockListPending = vi.fn();
 const mockUpdateStatus = vi.fn().mockResolvedValue(undefined);
 const mockRetrieve = vi.fn();
+const mockResults = vi.fn();
+const mockGetByPage = vi.fn();
+const mockUpdateDetail = vi.fn().mockResolvedValue(undefined);
+const mockProcessBatchResult = vi.fn();
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: vi.fn().mockImplementation(() => ({
-    messages: { batches: { retrieve: mockRetrieve } },
+    messages: { batches: { retrieve: mockRetrieve, results: mockResults } },
   })),
 }));
 
@@ -16,11 +20,16 @@ vi.mock("@llm-boost/db", () => ({
     listPending: mockListPending,
     updateStatus: mockUpdateStatus,
   })),
-  scoreQueries: vi.fn(() => ({})),
+  scoreQueries: vi.fn(() => ({
+    getByPage: mockGetByPage,
+    updateDetail: mockUpdateDetail,
+  })),
 }));
 
 vi.mock("@llm-boost/llm", () => ({
-  LLMScorer: vi.fn().mockImplementation(() => ({})),
+  LLMScorer: vi.fn().mockImplementation(() => ({
+    processBatchResult: mockProcessBatchResult,
+  })),
 }));
 
 vi.mock("@llm-boost/shared", async (importOriginal) => {
@@ -39,30 +48,60 @@ vi.mock("@llm-boost/shared", async (importOriginal) => {
 import { pollPendingBatches } from "../../services/batch-polling-service";
 
 const env = { AGENCY_DB_URL: "postgres://x", ANTHROPIC_API_KEY: "sk-test" };
+const hours = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
 
-describe("pollPendingBatches — orphan handling", () => {
+describe("pollPendingBatches — orphan handling (retrieve-first)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("marks a batch older than 26h failed and never retrieves it", async () => {
-    const old = new Date(Date.now() - 30 * 60 * 60 * 1000); // 30h
+  it("retrieves a stale-but-COMPLETED batch and applies results (never discards)", async () => {
     mockListPending.mockResolvedValue([
-      { id: "bj-1", batchId: "batch-1", createdAt: old },
+      { id: "bj-1", batchId: "batch-1", createdAt: hours(30) }, // 30h old
     ]);
+    mockRetrieve.mockResolvedValue({
+      processing_status: "ended",
+      request_counts: { succeeded: 1, errored: 0 },
+    });
+    mockResults.mockResolvedValue([
+      { custom_id: "page-1", result: { type: "succeeded", message: {} } },
+    ]);
+    mockProcessBatchResult.mockReturnValue({ clarity: 9 });
+    mockGetByPage.mockResolvedValue({ id: "score-1" });
 
-    const res = await pollPendingBatches(env);
+    await pollPendingBatches(env);
 
+    expect(mockRetrieve).toHaveBeenCalledWith("batch-1");
+    expect(mockUpdateDetail).toHaveBeenCalledWith("score-1", {
+      llmContentScores: { clarity: 9 },
+    });
+    // Completed, NOT failed — results were applied.
     expect(mockUpdateStatus).toHaveBeenCalledWith(
+      "bj-1",
+      expect.objectContaining({ status: "completed" }),
+    );
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(
       "bj-1",
       expect.objectContaining({ status: "failed" }),
     );
-    expect(mockRetrieve).not.toHaveBeenCalled();
-    expect(res.polled).toBe(1);
   });
 
-  it("retrieves (does not orphan-fail) a fresh batch", async () => {
-    const fresh = new Date(Date.now() - 60 * 60 * 1000); // 1h
+  it("marks a stale UNRETRIEVABLE batch failed (retrieve threw)", async () => {
     mockListPending.mockResolvedValue([
-      { id: "bj-2", batchId: "batch-2", createdAt: fresh },
+      { id: "bj-2", batchId: "batch-2", createdAt: hours(30) },
+    ]);
+    mockRetrieve.mockRejectedValue(new Error("404 not found"));
+
+    await pollPendingBatches(env);
+
+    expect(mockRetrieve).toHaveBeenCalledWith("batch-2");
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      "bj-2",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("marks a stale STUCK batch failed (still not ended past expiry)", async () => {
+    mockListPending.mockResolvedValue([
+      { id: "bj-3", batchId: "batch-3", createdAt: hours(30) },
     ]);
     mockRetrieve.mockResolvedValue({
       processing_status: "in_progress",
@@ -71,13 +110,29 @@ describe("pollPendingBatches — orphan handling", () => {
 
     await pollPendingBatches(env);
 
-    expect(mockRetrieve).toHaveBeenCalledWith("batch-2");
     expect(mockUpdateStatus).toHaveBeenCalledWith(
-      "bj-2",
+      "bj-3",
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("does NOT fail a fresh in-progress batch (leaves it pending)", async () => {
+    mockListPending.mockResolvedValue([
+      { id: "bj-4", batchId: "batch-4", createdAt: hours(1) }, // 1h old
+    ]);
+    mockRetrieve.mockResolvedValue({
+      processing_status: "in_progress",
+      request_counts: { succeeded: 0, errored: 0 },
+    });
+
+    await pollPendingBatches(env);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      "bj-4",
       expect.objectContaining({ status: "in_progress" }),
     );
     expect(mockUpdateStatus).not.toHaveBeenCalledWith(
-      "bj-2",
+      "bj-4",
       expect.objectContaining({ status: "failed" }),
     );
   });

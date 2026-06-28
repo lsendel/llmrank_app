@@ -169,6 +169,7 @@ function fivePageInput() {
   });
   return {
     ...baseLLMInput(),
+    projectId: "11111111-1111-1111-1111-111111111111",
     r2Bucket: createMockR2Bucket(r2Objects),
     batchPages,
     insertedPages: batchPages.map((_, i) => ({
@@ -320,6 +321,17 @@ describe("runLLMScoring", () => {
 
       // usage_limit short-circuits — pages keep deterministic scores, no storm.
       expect(mockScoreContent).not.toHaveBeenCalled();
+    });
+
+    it("scores synchronously (no batch) when projectId is missing", async () => {
+      // Without a projectId the batch_jobs row can't be persisted, so an
+      // already-billed batch would be orphaned. Score via sync instead.
+      mockScoreContent.mockResolvedValue({ contentQuality: 80 });
+
+      await runLLMScoring({ ...fivePageInput(), projectId: undefined } as any);
+
+      expect(mockBatchCreate).not.toHaveBeenCalled();
+      expect(mockScoreContent).toHaveBeenCalled();
     });
   });
 });

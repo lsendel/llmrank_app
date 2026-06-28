@@ -23,22 +23,11 @@ export async function pollPendingBatches(env: {
   const ORPHAN_AFTER_MS = 26 * 60 * 60 * 1000; // Anthropic batches expire ~24h
 
   for (const job of pending) {
-    // A batch still pending well past Anthropic's 24h expiry is orphaned
-    // (un-retrievable / purged). Mark it failed so it stops being re-polled
-    // forever and the crawl's pages keep their deterministic-only scores.
+    // Anthropic batches expire ~24h. Always retrieve first so completed results
+    // are never discarded; only give up (mark failed) on a STALE batch that is
+    // unretrievable or still not 'ended' past expiry.
     const ageMs = Date.now() - new Date(job.createdAt).getTime();
-    if (ageMs > ORPHAN_AFTER_MS) {
-      await batchJobQueries(db).updateStatus(job.id, {
-        status: "failed",
-        error: "Batch not completed within 26h (expired/orphaned)",
-        completedAt: new Date(),
-      });
-      log.warn("Marked stale batch job failed (orphaned)", {
-        batchId: job.batchId,
-        ageHours: Math.round(ageMs / 3.6e6),
-      });
-      continue;
-    }
+    const isStale = ageMs > ORPHAN_AFTER_MS;
 
     try {
       const batch = await client.messages.batches.retrieve(job.batchId);
@@ -50,7 +39,22 @@ export async function pollPendingBatches(env: {
         failedRequests: batch.request_counts.errored,
       });
 
-      if (batch.processing_status !== "ended") continue;
+      if (batch.processing_status !== "ended") {
+        // Still processing — but if it's well past expiry and STILL not ended,
+        // stop re-polling it forever.
+        if (isStale) {
+          await batchJobQueries(db).updateStatus(job.id, {
+            status: "failed",
+            error: "Batch never reached 'ended' within 26h (stuck/orphaned)",
+            completedAt: new Date(),
+          });
+          log.warn("Marked stuck batch job failed (not ended within 26h)", {
+            batchId: job.batchId,
+            ageHours: Math.round(ageMs / 3.6e6),
+          });
+        }
+        continue;
+      }
 
       // Fetch and process results
       const scorer = new LLMScorer({
@@ -113,6 +117,22 @@ export async function pollPendingBatches(env: {
         batchId: job.batchId,
         error: err instanceof Error ? err.message : String(err),
       });
+      // Couldn't retrieve. If it's well past expiry the batch is likely
+      // purged/orphaned — mark failed so it stops being re-polled forever.
+      // Otherwise leave it pending for a transient retry on the next tick.
+      if (isStale) {
+        await batchJobQueries(db)
+          .updateStatus(job.id, {
+            status: "failed",
+            error: "Batch unretrievable past 26h (expired/orphaned)",
+            completedAt: new Date(),
+          })
+          .catch(() => {});
+        log.warn("Marked unretrievable batch job failed (orphaned)", {
+          batchId: job.batchId,
+          ageHours: Math.round(ageMs / 3.6e6),
+        });
+      }
     }
   }
 
