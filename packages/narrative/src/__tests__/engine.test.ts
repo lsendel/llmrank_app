@@ -164,6 +164,19 @@ describe("NarrativeEngine", () => {
     );
   });
 
+  it("excludes sections that come back empty/non-text (never emits blank sections)", async () => {
+    // Every section returns a successful-but-empty response → each is rejected
+    // → none included, rather than a narrative full of blank sections.
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "   " }],
+      usage: { input_tokens: 10, output_tokens: 0 },
+    });
+
+    await expect(engine.generate(makeInput())).rejects.toThrow(
+      "No narrative sections could be generated",
+    );
+  });
+
   it("regenerates a single section with custom instructions", async () => {
     const section = await engine.regenerateSection(
       "executive_summary",
@@ -176,5 +189,29 @@ describe("NarrativeEngine", () => {
     expect(callArgs.messages[0].content).toContain(
       "Focus more on mobile performance",
     );
+  });
+
+  it("throws (never returns empty) when the response is non-text", async () => {
+    // A successful-but-non-text response must not yield empty content — callers
+    // overwrite the stored section with this, so empty would wipe it.
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "tool_use", id: "t", name: "x", input: {} }],
+      usage: { input_tokens: 10, output_tokens: 0 },
+    });
+
+    await expect(
+      engine.regenerateSection("executive_summary", makeInput(), undefined),
+    ).rejects.toThrow(/empty content/i);
+  });
+
+  it("throws when the response text is only whitespace", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "   \n  " }],
+      usage: { input_tokens: 10, output_tokens: 1 },
+    });
+
+    await expect(
+      engine.regenerateSection("executive_summary", makeInput(), undefined),
+    ).rejects.toThrow(/empty content/i);
   });
 });

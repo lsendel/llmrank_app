@@ -102,6 +102,13 @@ ${JSON.stringify(dataContext, null, 2)}`;
   const content =
     response.content[0].type === "text" ? response.content[0].text : "";
 
+  // Reject an empty/non-text section instead of emitting empty content. The
+  // caller uses allSettled, so this section is simply excluded from the
+  // narrative rather than included blank.
+  if (!content.trim()) {
+    throw new Error(`Section ${config.type} returned empty content`);
+  }
+
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
 

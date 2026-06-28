@@ -277,5 +277,21 @@ describe("crawl summaries", () => {
         }),
       );
     });
+
+    it("does NOT overwrite a stored summary when the LLM returns empty", async () => {
+      // A successful-but-non-text/empty response yields "". This runs from a
+      // retryable outbox event, so writing "" would wipe a prior good summary.
+      mockGenerateExecutiveSummary.mockResolvedValueOnce("   ");
+
+      await generateCrawlSummary({
+        d1: {} as D1Database,
+        anthropicApiKey: "sk-test",
+        projectId: "proj-1",
+        jobId: "job-1",
+      });
+
+      expect(mockGenerateExecutiveSummary).toHaveBeenCalled();
+      expect(mockCrawlUpdateSummary).not.toHaveBeenCalled();
+    });
   });
 });
