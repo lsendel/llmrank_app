@@ -50,15 +50,19 @@ export function extractWorkersAiText(res: unknown): string | null {
   const choiceContent = r.choices?.[0]?.message?.content;
   if (typeof choiceContent === "string") return choiceContent;
 
-  // gpt-oss harmony: output is an array of messages with content blocks; the
-  // final-channel text is what we want.
+  // Responses/harmony: output is an array of items. Skip `reasoning` items and
+  // `reasoning_text` blocks — only the final assistant `message` holds the
+  // answer. Concatenating reasoning could let the parser span the reasoning's
+  // stray braces plus the real JSON and reject an otherwise-valid score.
   if (Array.isArray(r.output)) {
     const parts: string[] = [];
-    for (const msg of r.output) {
-      const content = msg?.content;
+    for (const item of r.output) {
+      if (item?.type === "reasoning") continue;
+      const content = item?.content;
       if (typeof content === "string") parts.push(content);
       else if (Array.isArray(content)) {
         for (const block of content) {
+          if (block?.type === "reasoning_text") continue;
           if (typeof block?.text === "string") parts.push(block.text);
         }
       }

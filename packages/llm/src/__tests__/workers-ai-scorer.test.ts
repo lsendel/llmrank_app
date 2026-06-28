@@ -46,6 +46,23 @@ describe("extractWorkersAiText", () => {
       }),
     ).toBe("a\nb");
   });
+  it("skips reasoning items/blocks, returning only the final message", () => {
+    expect(
+      extractWorkersAiText({
+        output: [
+          {
+            type: "reasoning",
+            content: [{ type: "reasoning_text", text: "thinking { hmm }" }],
+          },
+          {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: VALID_JSON }],
+          },
+        ],
+      }),
+    ).toBe(VALID_JSON);
+  });
   it("handles a bare string", () => {
     expect(extractWorkersAiText("hi")).toBe("hi");
   });
