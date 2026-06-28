@@ -107,7 +107,7 @@ describe("WorkersAiScorer.scoreContent", () => {
     expect(ai.run).not.toHaveBeenCalled();
   });
 
-  it("scores valid content, defaults to gpt-oss-120b, and caches", async () => {
+  it("scores valid content, defaults to gpt-oss-120b (instructions+input), caches", async () => {
     const kv = createMockKV();
     const ai: WorkersAi = {
       run: vi.fn(async () => ({ response: VALID_JSON })),
@@ -116,17 +116,22 @@ describe("WorkersAiScorer.scoreContent", () => {
 
     const result = await scorer.scoreContent(richText, "hash2");
     expect(result).toMatchObject({ structure: 85 });
+    // gpt-oss takes the Responses shape (instructions + input), not `messages`.
     expect(ai.run).toHaveBeenCalledWith(
       DEFAULT_WORKERS_AI_MODEL,
-      expect.objectContaining({ response_format: expect.any(Object) }),
+      expect.objectContaining({
+        instructions: expect.any(String),
+        input: expect.any(String),
+      }),
     );
+    expect((ai.run as any).mock.calls[0][1]).not.toHaveProperty("messages");
     // cached for next time
     expect(await kv.get("llm-score:hash2", "json")).toMatchObject({
       clarity: 80,
     });
   });
 
-  it("uses a configured model override", async () => {
+  it("uses the chat (messages) shape for a non-OpenAI model override", async () => {
     const ai: WorkersAi = {
       run: vi.fn(async () => ({ response: VALID_JSON })),
     };
@@ -134,7 +139,7 @@ describe("WorkersAiScorer.scoreContent", () => {
     await scorer.scoreContent(richText, "h3");
     expect(ai.run).toHaveBeenCalledWith(
       "@cf/qwen/qwen3-30b",
-      expect.anything(),
+      expect.objectContaining({ messages: expect.any(Array) }),
     );
   });
 
@@ -144,16 +149,17 @@ describe("WorkersAiScorer.scoreContent", () => {
     expect(await scorer.scoreContent(richText, "h4")).toBeNull();
   });
 
-  it("falls back to a plain call when response_format is rejected", async () => {
+  it("falls back to the other request shape when the first throws", async () => {
+    // gpt-oss default → first attempt is the Responses shape; if it errors, the
+    // scorer retries with the chat (messages) shape.
     const run = vi
       .fn()
-      .mockRejectedValueOnce(new Error("response_format not supported"))
+      .mockRejectedValueOnce(new Error("unsupported field"))
       .mockResolvedValueOnce({ response: VALID_JSON });
     const scorer = new WorkersAiScorer({ ai: { run } });
     const result = await scorer.scoreContent(richText, "h5");
     expect(result).toMatchObject({ clarity: 80 });
     expect(run).toHaveBeenCalledTimes(2);
-    // second (fallback) call omits response_format
-    expect(run.mock.calls[1][1]).not.toHaveProperty("response_format");
+    expect(run.mock.calls[1][1]).toHaveProperty("messages");
   });
 });

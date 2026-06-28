@@ -89,7 +89,10 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         args;
       const env = args.env;
 
-      if (env.anthropicApiKey) {
+      // Score when either provider is available: the Workers AI binding (the
+      // default worker path) OR an Anthropic key (legacy). Gating on the key
+      // alone skipped scoring entirely on AI-only deployments.
+      if (env.ai || env.anthropicApiKey) {
         await dispatchOrRun(deps.outbox, args.executionCtx, {
           type: "llm_scoring",
           payload: {

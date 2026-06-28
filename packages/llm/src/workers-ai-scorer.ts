@@ -26,25 +26,10 @@ const MIN_WORD_COUNT = 200;
 /** Default Workers AI model: OpenAI's 120B open reasoning model. Configurable. */
 export const DEFAULT_WORKERS_AI_MODEL = "@cf/openai/gpt-oss-120b";
 
-/** JSON-schema for the score object, used to constrain the model's output. */
-const SCORE_JSON_SCHEMA = {
-  type: "object",
-  properties: {
-    clarity: { type: "number" },
-    authority: { type: "number" },
-    comprehensiveness: { type: "number" },
-    structure: { type: "number" },
-    citation_worthiness: { type: "number" },
-  },
-  required: [
-    "clarity",
-    "authority",
-    "comprehensiveness",
-    "structure",
-    "citation_worthiness",
-  ],
-  additionalProperties: false,
-} as const;
+/** True for models that take the `instructions`+`input` request shape (gpt-oss / OpenAI). */
+export function usesResponsesShape(model: string): boolean {
+  return /gpt-oss|@cf\/openai\//i.test(model);
+}
 
 /**
  * Pull the assistant text out of a Workers AI `run()` response. The shape varies
@@ -150,36 +135,43 @@ export class WorkersAiScorer {
     if (wordCount < MIN_WORD_COUNT) return null;
 
     const prompt = buildContentScoringPrompt(pageText);
-    const baseInput = {
+    // gpt-oss / OpenAI models take `instructions` + `input`; Llama/Qwen/etc. take
+    // a `messages` array. Try the model-appropriate shape first, then the other —
+    // this covers model swaps (the gpt-oss → Qwen3 A/B) and per-model schema
+    // differences. The rubric prompt already demands JSON-only and
+    // parseContentScores tolerates reasoning/prose, so no structured-output param
+    // is sent (its field name differs across Workers AI model families).
+    const responsesInput = {
+      instructions: prompt.system,
+      input: prompt.user,
+      max_tokens: 1024,
+    };
+    const chatInput = {
       messages: [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
       ],
       max_tokens: 1024,
     };
-    // Prefer a JSON-schema-constrained response (guarantees valid output). Not
-    // every model/endpoint accepts `response_format`, so on error fall back to a
-    // plain call — the prompt already demands JSON-only and parseContentScores
-    // tolerates reasoning/prose around the object.
-    let res: unknown;
-    try {
-      res = await this.ai.run(this.model, {
-        ...baseInput,
-        response_format: {
-          type: "json_schema",
-          json_schema: SCORE_JSON_SCHEMA,
-        },
-      });
-    } catch {
-      res = await this.ai.run(this.model, baseInput);
+    const attempts = usesResponsesShape(this.model)
+      ? [responsesInput, chatInput]
+      : [chatInput, responsesInput];
+
+    for (const attempt of attempts) {
+      let res: unknown;
+      try {
+        res = await this.ai.run(this.model, attempt);
+      } catch {
+        continue; // wrong shape / transient — try the next
+      }
+      const text = extractWorkersAiText(res);
+      if (!text) continue;
+      const scores = parseContentScores(text);
+      if (scores) {
+        if (this.kv) await setCachedScore(this.kv, contentHash, scores);
+        return scores;
+      }
     }
-
-    const text = extractWorkersAiText(res);
-    if (!text) return null;
-    const scores = parseContentScores(text);
-    if (!scores) return null;
-
-    if (this.kv) await setCachedScore(this.kv, contentHash, scores);
-    return scores;
+    return null; // unscoreable — caller keeps the deterministic score
   }
 }
