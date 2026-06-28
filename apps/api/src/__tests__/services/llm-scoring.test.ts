@@ -11,6 +11,8 @@ const mockCreateIssues = vi.fn().mockResolvedValue(undefined);
 const mockScoreContent = vi.fn();
 const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
+const mockBatchCreate = vi.fn();
+const mockBatchJobCreate = vi.fn().mockResolvedValue({ id: "bj-1" });
 
 vi.mock("@llm-boost/db", () => ({
   createAppDb: vi.fn().mockReturnValue({}),
@@ -25,6 +27,9 @@ vi.mock("@llm-boost/db", () => ({
   pageQueries: vi.fn(() => ({
     listByJob: mockListPagesByJob,
   })),
+  batchJobQueries: vi.fn(() => ({
+    create: mockBatchJobCreate,
+  })),
 }));
 
 vi.mock("@llm-boost/llm", () => ({
@@ -34,6 +39,9 @@ vi.mock("@llm-boost/llm", () => ({
       cached: [],
       requests: pages.map((p: any) => ({ custom_id: p.pageId })),
     })),
+    anthropicClient: {
+      messages: { batches: { create: mockBatchCreate } },
+    },
   })),
 }));
 
@@ -144,6 +152,37 @@ function baseLLMInput(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// Five uncached pages → above BATCH_THRESHOLD → exercises the batch path.
+function fivePageInput() {
+  const r2Objects: Record<string, { body: string }> = {};
+  const batchPages = Array.from({ length: 5 }, (_, i) => {
+    const key = `raw/page${i}.html`;
+    r2Objects[key] = {
+      body: "<html><body><p>" + "word ".repeat(250) + "</p></body></html>",
+    };
+    return {
+      ...baseLLMInput().batchPages[0],
+      url: `https://example.com/page${i}`,
+      content_hash: `hash${i}`,
+      html_r2_key: key,
+    };
+  });
+  return {
+    ...baseLLMInput(),
+    projectId: "11111111-1111-1111-1111-111111111111",
+    r2Bucket: createMockR2Bucket(r2Objects),
+    batchPages,
+    insertedPages: batchPages.map((_, i) => ({
+      id: `page-${i}`,
+      url: `https://example.com/page${i}`,
+    })),
+    insertedScores: batchPages.map((_, i) => ({
+      id: `score-${i}`,
+      pageId: `page-${i}`,
+    })),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests - runLLMScoring
 // ---------------------------------------------------------------------------
@@ -238,6 +277,62 @@ describe("runLLMScoring", () => {
 
     await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  describe("batch path cost-resilience", () => {
+    it("does NOT sync re-charge when the batch submits but bookkeeping fails", async () => {
+      mockScoreContent.mockResolvedValue({ contentQuality: 80 });
+      // Anthropic accepts (and bills) the batch...
+      mockBatchCreate.mockResolvedValueOnce({ id: "batch-123" });
+      // ...but persisting the batch_jobs row fails.
+      mockBatchJobCreate.mockRejectedValueOnce(new Error("supabase down"));
+
+      await expect(
+        runLLMScoring(fivePageInput() as any),
+      ).resolves.toBeUndefined();
+
+      expect(mockBatchCreate).toHaveBeenCalledTimes(1);
+      // The batch is already running/billed — must NOT re-score each page.
+      expect(mockScoreContent).not.toHaveBeenCalled();
+    });
+
+    it("still falls back to sync when the batch SUBMISSION itself fails", async () => {
+      mockScoreContent.mockResolvedValue({ contentQuality: 80 });
+      // A transient (non-usage-limit) submit error → sync fallback is correct
+      // here because no batch was accepted, so there is no double-charge.
+      mockBatchCreate.mockRejectedValueOnce(
+        new Error("transient network blip"),
+      );
+
+      await runLLMScoring(fivePageInput() as any);
+
+      expect(mockScoreContent).toHaveBeenCalled();
+      // bookkeeping never reached on a submit failure
+      expect(mockBatchJobCreate).not.toHaveBeenCalled();
+    });
+
+    it("does NOT sync-fallback on a hard usage-limit submit error", async () => {
+      mockScoreContent.mockResolvedValue({ contentQuality: 80 });
+      mockBatchCreate.mockRejectedValueOnce(
+        new Error("Your credit balance is too low"),
+      );
+
+      await runLLMScoring(fivePageInput() as any);
+
+      // usage_limit short-circuits — pages keep deterministic scores, no storm.
+      expect(mockScoreContent).not.toHaveBeenCalled();
+    });
+
+    it("scores synchronously (no batch) when projectId is missing", async () => {
+      // Without a projectId the batch_jobs row can't be persisted, so an
+      // already-billed batch would be orphaned. Score via sync instead.
+      mockScoreContent.mockResolvedValue({ contentQuality: 80 });
+
+      await runLLMScoring({ ...fivePageInput(), projectId: undefined } as any);
+
+      expect(mockBatchCreate).not.toHaveBeenCalled();
+      expect(mockScoreContent).toHaveBeenCalled();
+    });
   });
 });
 

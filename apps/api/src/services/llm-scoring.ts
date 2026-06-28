@@ -288,11 +288,15 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
     return;
   }
 
-  // --- Step 5: Sync fallback for small batches ---
-  if (requests.length < BATCH_THRESHOLD) {
-    log.info("Using sync scoring (below batch threshold)", {
+  // --- Step 5: Sync fallback for small batches (or when we can't bookkeep) ---
+  // Without a valid projectId the batch_jobs row (project_id is a required UUID)
+  // can't be persisted, which would orphan an already-billed batch — so score
+  // these synchronously instead of submitting an unpollable batch.
+  if (requests.length < BATCH_THRESHOLD || !input.projectId) {
+    log.info("Using sync scoring (below batch threshold or no projectId)", {
       jobId: input.jobId,
       count: requests.length,
+      hasProjectId: Boolean(input.projectId),
     });
     let syncFailed = 0;
     let syncLastError = "";
@@ -349,31 +353,21 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
   }
 
   // --- Step 6: Submit batch via Anthropic Message Batches API ---
+  let batch: Awaited<
+    ReturnType<typeof scorer.anthropicClient.messages.batches.create>
+  >;
   try {
     log.info("Submitting Anthropic batch", {
       jobId: input.jobId,
       requestCount: requests.length,
     });
 
-    const batch = await scorer.anthropicClient.messages.batches.create({
+    batch = await scorer.anthropicClient.messages.batches.create({
       requests,
     });
-
-    // Store batch job reference for the polling service to pick up
-    await batchJobQueries(agencyDb).create({
-      batchId: batch.id,
-      jobId: input.jobId,
-      projectId: input.projectId ?? "",
-      totalRequests: requests.length,
-    });
-
-    log.info("Anthropic batch submitted", {
-      jobId: input.jobId,
-      batchId: batch.id,
-      totalRequests: requests.length,
-    });
   } catch (err) {
-    // --- Step 7: classify the batch failure ---
+    // --- Step 7: classify the SUBMISSION failure ---
+    // No batch was accepted here, so a per-page sync retry cannot double-charge.
     const batchMsg = err instanceof Error ? err.message : String(err);
     const cause = classifyLLMError(batchMsg);
     if (cause !== "other") {
@@ -453,6 +447,45 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
       cause: failed > 0 ? classifyLLMError(lastError) : undefined,
       scored: cached.length + (requests.length - failed),
       failed,
+    });
+    return;
+  }
+
+  // The batch was ACCEPTED by Anthropic (and will be billed). Persist its
+  // reference so the poller can collect the results. If this bookkeeping write
+  // fails we must NOT re-submit or sync-fallback — that double-charges for work
+  // Anthropic is already running. Log the orphaned batch and keep deterministic
+  // scores until it is reconciled.
+  try {
+    await batchJobQueries(agencyDb).create({
+      batchId: batch.id,
+      jobId: input.jobId,
+      projectId: input.projectId ?? "",
+      totalRequests: requests.length,
+    });
+    log.info("Anthropic batch submitted", {
+      jobId: input.jobId,
+      batchId: batch.id,
+      totalRequests: requests.length,
+    });
+  } catch (bookkeepErr) {
+    log.error(
+      "Anthropic batch submitted but persisting the batch_jobs row failed — " +
+        "the batch will run (and be billed) but the poller cannot collect it. " +
+        "NOT retrying, to avoid double-charging; pages keep deterministic scores.",
+      {
+        jobId: input.jobId,
+        batchId: batch.id,
+        error:
+          bookkeepErr instanceof Error
+            ? bookkeepErr.message
+            : String(bookkeepErr),
+      },
+    );
+    await markLLMStatus(input.kvNamespace, input.jobId, {
+      status: "partial",
+      scored: cached.length,
+      failed: requests.length,
     });
   }
 }

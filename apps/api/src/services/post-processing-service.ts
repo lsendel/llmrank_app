@@ -99,6 +99,12 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             insertedPages,
             insertedScores,
             jobId: crawlJobId,
+            // NOTE: projectId is intentionally NOT passed. The Message-Batches
+            // poller persists results via the Supabase agency DB, but worker
+            // page_scores live in D1 — so a worker-submitted batch can never be
+            // applied. Without projectId, llm-scoring routes these crawls to the
+            // sync path (see the Step-5 guard). Enabling the batch path here
+            // needs the poller to write D1 first (RANK2 correctness fix).
           },
         });
       }

@@ -5,6 +5,18 @@ import { createLogger } from "@llm-boost/shared";
 
 const log = createLogger({ service: "batch-polling" });
 
+/** A confirmed-gone batch (vs a transient 5xx/timeout that should be retried). */
+function isBatchGone(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("not found") ||
+    m.includes("404") ||
+    m.includes("expired") ||
+    m.includes("does not exist") ||
+    m.includes("no longer available")
+  );
+}
+
 export async function pollPendingBatches(env: {
   AGENCY_DB_URL: string;
   ANTHROPIC_API_KEY: string;
@@ -20,18 +32,47 @@ export async function pollPendingBatches(env: {
   log.info(`Polling ${pending.length} pending batch jobs`);
   let completed = 0;
 
+  const ORPHAN_AFTER_MS = 26 * 60 * 60 * 1000; // Anthropic batches expire ~24h
+
   for (const job of pending) {
+    // Anthropic batches expire ~24h. Always retrieve first so completed results
+    // are never discarded; only give up (mark failed) on a STALE batch that is
+    // unretrievable or still not 'ended' past expiry.
+    const ageMs = Date.now() - new Date(job.createdAt).getTime();
+    const isStale = ageMs > ORPHAN_AFTER_MS;
+
     try {
       const batch = await client.messages.batches.retrieve(job.batchId);
 
-      // Update progress
+      // Update progress counts. Do NOT persist "ended" here — that status is
+      // excluded from listPending, so if results-fetching below throws a
+      // transient error the batch would never be re-polled and its results
+      // would be lost. Keep it pollable until results are actually applied
+      // (the terminal "completed" write happens after processing).
       await batchJobQueries(db).updateStatus(job.id, {
-        status: batch.processing_status,
+        ...(batch.processing_status === "ended"
+          ? {}
+          : { status: batch.processing_status }),
         completedRequests: batch.request_counts.succeeded,
         failedRequests: batch.request_counts.errored,
       });
 
-      if (batch.processing_status !== "ended") continue;
+      if (batch.processing_status !== "ended") {
+        // Still processing — but if it's well past expiry and STILL not ended,
+        // stop re-polling it forever.
+        if (isStale) {
+          await batchJobQueries(db).updateStatus(job.id, {
+            status: "failed",
+            error: "Batch never reached 'ended' within 26h (stuck/orphaned)",
+            completedAt: new Date(),
+          });
+          log.warn("Marked stuck batch job failed (not ended within 26h)", {
+            batchId: job.batchId,
+            ageHours: Math.round(ageMs / 3.6e6),
+          });
+        }
+        continue;
+      }
 
       // Fetch and process results
       const scorer = new LLMScorer({
@@ -90,10 +131,26 @@ export async function pollPendingBatches(env: {
       });
       completed++;
     } catch (err) {
-      log.error("Batch polling error", {
-        batchId: job.batchId,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error("Batch polling error", { batchId: job.batchId, error: msg });
+      // Only give up on a CONFIRMED-gone batch (404 / not found / expired).
+      // Transient errors (5xx / timeout) or a failure while fetching results
+      // after a successful retrieve must stay pending — the batch may still be
+      // completed and collectible on the next tick; failing here would discard
+      // its results.
+      if (isBatchGone(msg)) {
+        await batchJobQueries(db)
+          .updateStatus(job.id, {
+            status: "failed",
+            error: "Batch no longer retrievable (expired/not found)",
+            completedAt: new Date(),
+          })
+          .catch(() => {});
+        log.warn("Marked gone batch job failed", {
+          batchId: job.batchId,
+          ageHours: Math.round(ageMs / 3.6e6),
+        });
+      }
     }
   }
 
