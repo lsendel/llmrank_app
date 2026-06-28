@@ -164,6 +164,19 @@ describe("NarrativeEngine", () => {
     );
   });
 
+  it("excludes sections that come back empty/non-text (never emits blank sections)", async () => {
+    // Every section returns a successful-but-empty response → each is rejected
+    // → none included, rather than a narrative full of blank sections.
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: "   " }],
+      usage: { input_tokens: 10, output_tokens: 0 },
+    });
+
+    await expect(engine.generate(makeInput())).rejects.toThrow(
+      "No narrative sections could be generated",
+    );
+  });
+
   it("regenerates a single section with custom instructions", async () => {
     const section = await engine.regenerateSection(
       "executive_summary",
