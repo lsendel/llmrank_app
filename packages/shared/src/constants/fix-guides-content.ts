@@ -6,7 +6,6 @@ export const CONTENT_GUIDES: Record<string, FixGuide> = {
     title: "Expand Thin Content to 500+ Words",
     estimatedMinutes: 60,
     difficulty: "advanced",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -83,7 +82,6 @@ export const CONTENT_GUIDES: Record<string, FixGuide> = {
     title: "Improve Content Depth and Topic Coverage",
     estimatedMinutes: 90,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -166,7 +164,6 @@ export const CONTENT_GUIDES: Record<string, FixGuide> = {
     title: "Improve Content Readability and Structure",
     estimatedMinutes: 45,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -232,7 +229,6 @@ export const CONTENT_GUIDES: Record<string, FixGuide> = {
     title: "Add Authority Signals: Citations, Data, and Expertise",
     estimatedMinutes: 60,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -307,7 +303,6 @@ export const CONTENT_GUIDES: Record<string, FixGuide> = {
     title: "Resolve Duplicate Content Issues",
     estimatedMinutes: 30,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -376,7 +371,6 @@ redirects: async () => [
     title: "Refresh Stale Content (Older Than 12 Months)",
     estimatedMinutes: 45,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -442,7 +436,6 @@ redirects: async () => [
     title: "Add Internal Links to Related Pages",
     estimatedMinutes: 15,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -511,7 +504,6 @@ redirects: async () => [
     title: "Balance External and Internal Link Ratio",
     estimatedMinutes: 20,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -571,7 +563,6 @@ const external = doc.querySelectorAll(
     title: "Add FAQ Schema and Q&A Formatting",
     estimatedMinutes: 30,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -664,7 +655,6 @@ configuring settings, and running the wizard.</p>`,
     title: "Improve Flesch Readability Score to 60+",
     estimatedMinutes: 45,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -721,7 +711,6 @@ configuring settings, and running the wizard.</p>`,
     title: "Increase Text-to-HTML Ratio Above 15%",
     estimatedMinutes: 40,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -788,7 +777,6 @@ configuring settings, and running the wizard.</p>`,
     title: "Remove AI-Generated Transition Phrases",
     estimatedMinutes: 20,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -847,7 +835,6 @@ configuring settings, and running the wizard.</p>`,
     title: "Vary Sentence Length for Natural Rhythm",
     estimatedMinutes: 30,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -910,7 +897,6 @@ Queue capacity? Fifty items.`,
     title: "Boost E-E-A-T with Experience and Expertise Signals",
     estimatedMinutes: 60,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -996,7 +982,6 @@ Queue capacity? Fifty items.`,
     title: "Add Citations to Authoritative Sources (.gov, .edu, Major Media)",
     estimatedMinutes: 25,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {

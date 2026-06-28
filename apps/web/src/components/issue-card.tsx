@@ -25,9 +25,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ActionItemStatus } from "@/lib/api";
-import { AiFixButton, SUPPORTED_FIX_CODES } from "@/components/ai-fix-button";
+import { AiFixButton } from "@/components/ai-fix-button";
 import { FixWizardDialog } from "@/components/fix-wizard/fix-wizard-dialog";
-import { FIX_GUIDES } from "@llm-boost/shared";
+import { FIX_GUIDES, SUPPORTED_FIX_CODES } from "@llm-boost/shared";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/auth-hooks";
 
@@ -346,10 +346,13 @@ export const IssueCard = memo(function IssueCard({
                   }}
                 />
               ) : (
+                // Same "AI Fix" control, disabled — keeping one consistent label
+                // (not a second-looking "Optimize with AI" button) so users don't
+                // think it's a different feature. The tooltip explains why.
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 text-[10px]"
+                  className="gap-1"
                   disabled
                   title={
                     !projectId
@@ -357,8 +360,8 @@ export const IssueCard = memo(function IssueCard({
                       : "An automated AI fix isn't available for this issue type yet."
                   }
                 >
-                  <Sparkles className="mr-1.5 h-3 w-3 text-primary" />
-                  Optimize with AI
+                  <Sparkles className="h-3 w-3" />
+                  AI Fix
                 </Button>
               )}
               {fixGuide && (

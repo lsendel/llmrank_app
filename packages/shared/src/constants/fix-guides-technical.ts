@@ -6,7 +6,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add or Fix Page Title Tag",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -64,7 +63,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add or Fix Meta Description",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -118,7 +116,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Adjust Title Tag Length",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -147,7 +144,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Adjust Meta Description Length",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -167,7 +163,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Install Web Analytics",
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -187,7 +182,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add an x-default hreflang",
     estimatedMinutes: 10,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -207,7 +201,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Fix invalid hreflang codes",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -227,7 +220,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add an H1 Heading Tag",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -274,7 +266,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Reduce to a Single H1 Tag",
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -326,7 +317,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Fix Heading Level Hierarchy",
     estimatedMinutes: 15,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -379,7 +369,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Fix Broken Internal and External Links",
     estimatedMinutes: 30,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -438,7 +427,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add a Canonical Link Tag",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -493,7 +481,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Remove Noindex Directive",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -544,7 +531,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add Alt Text to Images",
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -598,7 +584,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Fix HTTP 4xx/5xx Error Status Codes",
     estimatedMinutes: 20,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -661,7 +646,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Add Open Graph Meta Tags",
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -718,7 +702,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Improve Server Response Time",
     estimatedMinutes: 60,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -784,7 +767,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Create a Sitemap.xml",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -844,7 +826,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Fix Malformed Sitemap XML",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -897,7 +878,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Update Stale Sitemap lastmod Dates",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -950,7 +930,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Improve Sitemap Page Coverage",
     estimatedMinutes: 20,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -1004,7 +983,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Shorten Redirect Chains",
     estimatedMinutes: 20,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -1061,7 +1039,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: "Fix Mixed Content (HTTP on HTTPS Pages)",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -1122,7 +1099,6 @@ export const TECHNICAL_GUIDES: Record<string, FixGuide> = {
     title: 'Add rel="noopener" to External Links',
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {

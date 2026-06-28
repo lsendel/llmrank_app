@@ -51,19 +51,30 @@ async function readR2Html(
  */
 const SITE_WIDE_FIX_CODES = new Set(["MISSING_LLMS_TXT"]);
 
-/** Best-effort list of the project's crawled pages (url + title). */
+/** Best-effort list of a specific crawl job's pages (url + title). */
+async function listJobPages(
+  db: Parameters<typeof pageQueries>[0],
+  jobId: string,
+): Promise<{ url: string; title: string }[]> {
+  try {
+    const rows = await pageQueries(db).listByJob(jobId, { limit: 30 });
+    return rows
+      .slice(0, 30)
+      .map((p) => ({ url: p.url, title: p.title ?? p.url }));
+  } catch {
+    // ignore — fall back to no page list
+    return [];
+  }
+}
+
+/** Best-effort list of the project's LATEST crawl pages (url + title). */
 async function fetchProjectPages(
   db: Parameters<typeof pageQueries>[0],
   projectId: string,
 ): Promise<{ url: string; title: string }[]> {
   try {
     const latest = await crawlQueries(db).getLatestByProject(projectId);
-    if (latest?.id) {
-      const rows = await pageQueries(db).listByJob(latest.id, { limit: 30 });
-      return rows
-        .slice(0, 30)
-        .map((p) => ({ url: p.url, title: p.title ?? p.url }));
-    }
+    if (latest?.id) return listJobPages(db, latest.id);
   } catch {
     // ignore — fall back to no page list
   }
@@ -316,6 +327,22 @@ fixRoutes.post("/generate-batch", async (c) => {
       PLAN_LIMITS[
         (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
       ];
+
+    // Ground the batch with the REQUESTED crawl's real page list (URLs +
+    // titles), fetched ONCE and shared across every win — so llms.txt and
+    // project-level fixes get actual pages from this exact snapshot (not the
+    // project's latest crawl) instead of the old empty `{ excerpt: "" }`
+    // boilerplate. Batch wins have no single pageId, so the page list is the
+    // best available context.
+    const projectPages = await listJobPages(db, crawl.id);
+    const batchContext: FixPageContext = {
+      url: project.domain,
+      title: project.name,
+      excerpt: "",
+      domain: project.domain,
+      ...(projectPages.length > 0 ? { pages: projectPages } : {}),
+    };
+
     const results: any[] = [];
 
     for (const win of toGenerate) {
@@ -324,12 +351,7 @@ fixRoutes.post("/generate-batch", async (c) => {
           userId,
           projectId: body.projectId,
           issueCode: win.code,
-          context: {
-            url: project.domain,
-            title: project.name,
-            excerpt: "",
-            domain: project.domain,
-          },
+          context: batchContext,
           apiKey: c.env.ANTHROPIC_API_KEY,
           planLimit: limits.fixesPerMonth,
         });

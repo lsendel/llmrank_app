@@ -230,12 +230,15 @@ function ApplyFixButton({
   }
 
   return (
+    // Labeled "Draft citable snippet" — NOT "AI Fix". This is a separate feature
+    // from the issue-card AI Fix: it drafts an ephemeral content snippet to close
+    // a competitor fact gap, and is not saved. Distinct label avoids confusion.
     <button
       onClick={handleApply}
       disabled={loading}
       className="mt-2 text-xs font-medium text-primary hover:underline disabled:opacity-50"
     >
-      {loading ? "Generating fix..." : "Generate AI fix →"}
+      {loading ? "Drafting snippet..." : "Draft citable snippet →"}
     </button>
   );
 }

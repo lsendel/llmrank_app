@@ -12,6 +12,7 @@ import {
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 import { track } from "@/lib/telemetry";
+import { FIX_TYPE_BY_CODE } from "@llm-boost/shared";
 
 interface Props {
   projectId: string;
@@ -143,27 +144,6 @@ export function AiFixButton({
   );
 }
 
-const ISSUE_TO_FIX_TYPE: Record<string, string> = {
-  MISSING_META_DESC: "meta_description",
-  META_DESC_LENGTH: "meta_description",
-  MISSING_TITLE: "title_tag",
-  TITLE_LENGTH: "title_tag",
-  NO_STRUCTURED_DATA: "json_ld",
-  MISSING_LLMS_TXT: "llms_txt",
-  NO_FAQ_SECTION: "faq_section",
-  MISSING_SUMMARY: "summary_section",
-  MISSING_ALT_TEXT: "alt_text",
-  MISSING_OG_TAGS: "og_tags",
-  MISSING_CANONICAL: "canonical",
-  BAD_HEADING_HIERARCHY: "heading_structure",
-  AI_CRAWLER_BLOCKED: "robots_txt",
-  MISSING_SPEAKABLE: "speakable",
-  THIN_CONTENT_FOR_AI: "content_expansion",
-};
-
-/** Issue codes that have AI fix prompts on the backend */
-export const SUPPORTED_FIX_CODES = new Set(Object.keys(ISSUE_TO_FIX_TYPE));
-
 function getFixType(issueCode: string): string {
-  return ISSUE_TO_FIX_TYPE[issueCode] ?? issueCode;
+  return FIX_TYPE_BY_CODE[issueCode] ?? issueCode;
 }

@@ -22,7 +22,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { useApiSWR } from "@/lib/use-api-swr";
 import { api } from "@/lib/api";
-import { AiFixButton, SUPPORTED_FIX_CODES } from "@/components/ai-fix-button";
+import { AiFixButton } from "@/components/ai-fix-button";
+import { SUPPORTED_FIX_CODES } from "@llm-boost/shared";
 
 const EFFORT_LABELS: Record<string, { label: string; color: string }> = {
   low: { label: "Quick Fix", color: "bg-success/10 text-success" },
@@ -62,6 +63,16 @@ export function QuickWinsCard({
         projectId,
         crawlId,
       });
+      // Don't pop an empty "Generated Fixes (0/0)" dialog when none of these
+      // quick wins have an AI fix — tell the user where to go instead.
+      if (results.length === 0) {
+        toast({
+          title: "No automated fixes for these quick wins",
+          description:
+            "These issues don't have an AI fix yet. Open an issue and use “View fix guide” for step-by-step instructions.",
+        });
+        return;
+      }
       setBatchResults(results);
       setBatchDialogOpen(true);
     } catch (err: unknown) {

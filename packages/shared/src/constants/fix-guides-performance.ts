@@ -6,7 +6,6 @@ export const PERFORMANCE_GUIDES: Record<string, FixGuide> = {
     title: "Lighthouse Performance Score Below Threshold",
     estimatedMinutes: 120,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -133,7 +132,6 @@ module.exports = withBundleAnalyzer({});`,
     title: "Lighthouse SEO Score Below 0.8",
     estimatedMinutes: 30,
     difficulty: "beginner",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -214,7 +212,6 @@ export default function robots() {
     title: "Lighthouse Accessibility Score Below 0.7",
     estimatedMinutes: 60,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -293,7 +290,6 @@ export default function robots() {
     title: "Lighthouse Best Practices Score Below 0.8",
     estimatedMinutes: 45,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -374,7 +370,6 @@ export function ClientOnly({ children }) {
     title: "Total Page Size Exceeds 3 MB",
     estimatedMinutes: 60,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {

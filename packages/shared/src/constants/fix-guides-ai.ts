@@ -6,7 +6,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Create an llms.txt file",
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -64,7 +63,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Unblock AI crawlers in robots.txt",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -121,7 +119,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Add JSON-LD structured data",
     estimatedMinutes: 20,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -188,7 +185,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Complete structured data properties",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -247,7 +243,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Improve content citation worthiness",
     estimatedMinutes: 60,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -307,7 +302,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Add direct answers to likely queries",
     estimatedMinutes: 30,
     difficulty: "intermediate",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -364,7 +358,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Add schema markup for key entities",
     estimatedMinutes: 25,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -423,7 +416,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Add a summary or key takeaways section",
     estimatedMinutes: 10,
     difficulty: "beginner",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -475,7 +467,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Improve coverage of likely search queries",
     estimatedMinutes: 45,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -536,7 +527,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Fix JSON-LD parse errors",
     estimatedMinutes: 15,
     difficulty: "intermediate",
-    aiFixAvailable: true,
     platforms: {
       generic: [
         {
@@ -595,7 +585,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Optimize PDF content for AI discoverability",
     estimatedMinutes: 5,
     difficulty: "beginner",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -627,7 +616,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Create HTML alternatives for PDF content",
     estimatedMinutes: 45,
     difficulty: "advanced",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
@@ -678,7 +666,6 @@ export const AI_READINESS_GUIDES: Record<string, FixGuide> = {
     title: "Content is well-structured for AI extraction",
     estimatedMinutes: 0,
     difficulty: "beginner",
-    aiFixAvailable: false,
     platforms: {
       generic: [
         {
