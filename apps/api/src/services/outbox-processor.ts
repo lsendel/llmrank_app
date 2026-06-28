@@ -1,5 +1,6 @@
 import { createAppDb, outboxEvents, eq, and, lte, sql } from "@llm-boost/db";
 import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
+import type { WorkersAi } from "@llm-boost/llm";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import { generateCrawlSummary, type SummaryInput } from "./summary";
 import { createLogger } from "@llm-boost/shared";
@@ -16,6 +17,7 @@ type ProcessableType = (typeof _PROCESSABLE_TYPES)[number];
 
 interface OutboxEnv {
   ANTHROPIC_API_KEY?: string;
+  AI?: WorkersAi;
   KV?: KVNamespace;
   R2?: R2Bucket;
   INTEGRATION_ENCRYPTION_KEY?: string;
@@ -33,14 +35,22 @@ async function processEvent(
 ): Promise<void> {
   switch (type) {
     case "llm_scoring": {
+      // d1 + ai are bindings — they can't be JSON-serialized into the durable
+      // outbox, so re-inject them here from the live processor env. The Workers
+      // AI path (ai + d1) is the worker default; anthropicApiKey is only needed
+      // for the legacy Supabase/Anthropic path.
       const enriched = {
         ...payload,
+        d1: _d1,
+        ai: env?.AI ?? payload.ai,
         anthropicApiKey: env?.ANTHROPIC_API_KEY ?? payload.anthropicApiKey,
         kvNamespace: env?.KV ?? payload.kvNamespace,
         r2Bucket: env?.R2 ?? payload.r2Bucket,
       };
-      if (!enriched.anthropicApiKey) {
-        throw new Error("Missing anthropicApiKey — cannot run LLM scoring");
+      if (!enriched.ai && !enriched.anthropicApiKey) {
+        throw new Error(
+          "Missing AI binding and anthropicApiKey — cannot run LLM scoring",
+        );
       }
       await runLLMScoring(enriched as unknown as LLMScoringInput);
       break;
