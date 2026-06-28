@@ -1,6 +1,14 @@
 export { buildContentScoringPrompt } from "./prompts";
 export { LLMScorer } from "./scorer";
 export type { LLMScorerOptions } from "./scorer";
+export {
+  WorkersAiScorer,
+  DEFAULT_WORKERS_AI_MODEL,
+  extractWorkersAiText,
+  extractJsonObjects,
+  parseContentScores,
+} from "./workers-ai-scorer";
+export type { WorkersAi, WorkersAiScorerOptions } from "./workers-ai-scorer";
 export { SummaryGenerator } from "./summary";
 export type { SummaryGeneratorOptions } from "./summary";
 export { PersonaGenerator } from "./personas";

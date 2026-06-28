@@ -44,6 +44,7 @@ ingestRoutes.post("/batch", async (c) => {
         kvNamespace: c.env.KV,
         seenUrls: c.env.SEEN_URLS,
         r2: c.env.R2,
+        ai: c.env.AI,
         integrationKey: c.env.INTEGRATION_ENCRYPTION_KEY,
         googleClientId: c.env.GOOGLE_OAUTH_CLIENT_ID,
         googleClientSecret: c.env.GOOGLE_OAUTH_CLIENT_SECRET,

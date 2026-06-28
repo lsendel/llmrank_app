@@ -29,6 +29,7 @@ import {
 import { handleScheduled } from "./scheduled";
 import { analyticsRoutes } from "./routes/analytics";
 import { APP_ORIGINS, isAllowedOrigin } from "./lib/cors";
+import type { WorkersAi } from "@llm-boost/llm";
 
 export type Bindings = {
   R2: R2Bucket;
@@ -36,6 +37,11 @@ export type Bindings = {
   SEEN_URLS: KVNamespace;
   REPORT_SERVICE_URL: string;
   BROWSER: any;
+  // Workers AI binding — runs LLM content scoring inside the worker (gpt-oss-120b
+  // by default), writing straight to D1. See services/llm-scoring.ts. Optional so
+  // tests/legacy contexts without the binding still typecheck; the scoring code
+  // guards on its presence.
+  AI?: WorkersAi;
   D1_APP: D1Database;
   D1_ADMIN: D1Database;
   SUPABASE: Hyperdrive;

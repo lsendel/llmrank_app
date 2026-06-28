@@ -130,6 +130,7 @@ async function runScheduledTasks(env: Bindings) {
   try {
     await processOutboxEvents(env.D1_APP, {
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      AI: env.AI,
       KV: env.KV,
       R2: env.R2,
       INTEGRATION_ENCRYPTION_KEY: env.INTEGRATION_ENCRYPTION_KEY,
