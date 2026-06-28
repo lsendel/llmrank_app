@@ -290,6 +290,11 @@ async function persistLLMScore(
       extracted: crawlPage.extracted,
       lighthouse: crawlPage.lighthouse ?? null,
       llmContentScores: llmScores,
+      // Preserve the redirect metadata the initial deterministic score wrote
+      // (page-scoring-service); page lists + strategy-service filter on it, so
+      // rewriting detail without these fields would un-hide redirect pages.
+      is_cross_domain_redirect: crawlPage.is_cross_domain_redirect || false,
+      redirect_url: crawlPage.redirect_url ?? null,
     },
     platformScores: result.platformScores,
     recommendations: generateRecommendations(
