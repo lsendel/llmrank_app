@@ -2,13 +2,22 @@
  * DTO mappers for crawl API responses.
  */
 
+function parseJsonField(value: unknown) {
+  if (typeof value !== "string") return value ?? null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export function toCrawlResponse(entity: Record<string, any>) {
   return {
     id: entity.id,
     projectId: entity.projectId,
     projectName: entity.projectName ?? null,
     status: entity.status,
-    config: entity.config ?? null,
+    config: parseJsonField(entity.config),
     pagesFound: entity.pagesFound ?? null,
     pagesCrawled: entity.pagesCrawled ?? null,
     pagesScored: entity.pagesScored ?? null,

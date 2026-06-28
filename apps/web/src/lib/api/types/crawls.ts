@@ -42,7 +42,19 @@ export interface CrawlSummaryData {
 export interface CrawlJob {
   id: string;
   projectId: string;
-  status: "pending" | "crawling" | "scoring" | "complete" | "failed";
+  status:
+    | "pending"
+    | "queued"
+    | "crawling"
+    | "scoring"
+    | "complete"
+    | "failed"
+    | "cancelled";
+  config?: {
+    maxPages?: number;
+    maxDepth?: number;
+    [key: string]: unknown;
+  } | null;
   startedAt: string | null;
   completedAt: string | null;
   pagesFound: number;

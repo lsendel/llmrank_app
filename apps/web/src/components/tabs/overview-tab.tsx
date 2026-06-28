@@ -2,6 +2,7 @@
 
 import { IntegrationPromptBanner } from "@/components/integration-prompt-banner";
 import { type CrawlJob, type PageIssue } from "@/lib/api";
+import type { OverviewActiveCrawl } from "./overview-tab-helpers";
 import {
   OverviewExecutiveSummary,
   OverviewFreshnessSummary,
@@ -20,12 +21,14 @@ export function OverviewTab({
   projectId,
   onStartCrawl,
   startingCrawl,
+  activeCrawl,
 }: {
   latestCrawl: CrawlJob | null | undefined;
   issues: PageIssue[];
   projectId: string;
   onStartCrawl?: () => void;
   startingCrawl?: boolean;
+  activeCrawl?: OverviewActiveCrawl | null;
 }) {
   const { handleExportCsv, handleExportJson } = useOverviewTabActions({
     projectId,
@@ -40,9 +43,15 @@ export function OverviewTab({
     dataConfidence,
     statusState,
   } = useOverviewTabData({ latestCrawl, projectId });
+  const activeCrawlState =
+    activeCrawl?.id && activeCrawl.id !== latestCrawl?.id
+      ? ({ kind: "loading", crawlId: activeCrawl.id } as const)
+      : null;
 
-  if (!hasScores && statusState) {
-    return <OverviewStatusStateCard state={statusState} />;
+  if (!hasScores && (activeCrawlState || statusState)) {
+    return (
+      <OverviewStatusStateCard state={(activeCrawlState ?? statusState)!} />
+    );
   }
 
   if (!latestCrawl) {
@@ -58,6 +67,7 @@ export function OverviewTab({
         onExportCsv={handleExportCsv}
         onExportJson={handleExportJson}
       />
+      {activeCrawlState && <OverviewStatusStateCard state={activeCrawlState} />}
       <OverviewFreshnessSummary
         crawlTimestamp={crawlTimestamp}
         pagesSampled={pagesSampled}

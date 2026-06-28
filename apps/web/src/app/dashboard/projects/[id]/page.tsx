@@ -30,6 +30,7 @@ import { api, ApiError } from "@/lib/api";
 import { useProject } from "@/hooks/use-project";
 import { useCrawlHistory } from "@/hooks/use-crawl";
 import { OverviewTab } from "@/components/tabs/overview-tab";
+import { findActiveOverviewCrawl } from "@/components/tabs/overview-tab-helpers";
 import { BrandingSettingsForm } from "@/components/forms/branding-settings-form";
 import { CrawlSettingsForm } from "@/components/forms/crawl-settings-form";
 import { ScoringProfileSection } from "@/components/settings/scoring-profile-section";
@@ -163,6 +164,7 @@ export default function ProjectPage() {
   const selectedCrawlId = requestedCrawlId ?? latestCrawlId;
 
   const { data: crawlHistoryData } = useCrawlHistory(params.id);
+  const activeCrawl = findActiveOverviewCrawl(crawlHistoryData?.data ?? []);
 
   const { data: pagesData } = useApiSWR(
     selectedCrawlId ? `pages-${selectedCrawlId}` : null,
@@ -347,6 +349,7 @@ export default function ProjectPage() {
             <ProjectTabErrorBoundary>
               <OverviewTab
                 latestCrawl={project.latestCrawl}
+                activeCrawl={activeCrawl}
                 issues={issuesData?.data ?? []}
                 projectId={project.id}
                 onStartCrawl={handleStartCrawl}

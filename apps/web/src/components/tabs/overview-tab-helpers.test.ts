@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAiReadinessFactors,
+  findActiveOverviewCrawl,
   buildOtherCategoryRows,
   buildOverviewMeta,
   buildOverviewStatusState,
+  isOverviewActiveCrawl,
   selectTopIssues,
 } from "./overview-tab-helpers";
 
@@ -121,5 +123,20 @@ describe("overview-tab helpers", () => {
     const issues = Array.from({ length: 8 }, (_, i) => mk(`CODE_${i}`));
 
     expect(selectTopIssues(issues, 5)).toHaveLength(5);
+  });
+
+  it("finds active crawl history without treating terminal crawls as active", () => {
+    expect(isOverviewActiveCrawl({ id: "crawl-1", status: "complete" })).toBe(
+      false,
+    );
+    expect(isOverviewActiveCrawl({ id: "crawl-2", status: "queued" })).toBe(
+      true,
+    );
+    expect(
+      findActiveOverviewCrawl([
+        { id: "crawl-1", status: "complete" },
+        { id: "crawl-2", status: "crawling" },
+      ]),
+    ).toEqual({ id: "crawl-2", status: "crawling" });
   });
 });

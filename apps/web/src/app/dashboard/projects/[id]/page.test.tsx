@@ -6,11 +6,14 @@ const {
   mockPush,
   mockReplace,
   searchParamState,
+  activeCrawlHistoryState,
   firstSevenDaysState,
+  mockOverviewTab,
   mockSearchParamsGet,
   mockSearchParamsToString,
 } = vi.hoisted(() => {
   const state = { tab: "overview" };
+  const activeHistory = { crawls: [] as Array<{ id: string; status: string }> };
   const firstSevenDays = { issueCount: 0, actionItemTotal: 0 };
   const getMock = vi.fn((key: string) => {
     if (key === "tab") return state.tab;
@@ -21,7 +24,9 @@ const {
     mockPush: vi.fn(),
     mockReplace: vi.fn(),
     searchParamState: state,
+    activeCrawlHistoryState: activeHistory,
     firstSevenDaysState: firstSevenDays,
+    mockOverviewTab: vi.fn(),
     mockSearchParamsGet: getMock,
     mockSearchParamsToString: toStringMock,
   };
@@ -67,8 +72,11 @@ vi.mock("@/lib/use-api-swr", () => ({
         isLoading: false,
       };
     }
-    if (key.includes("crawls-by-project")) {
-      return { data: [], isLoading: false };
+    if (key.includes("crawl-history-")) {
+      return {
+        data: { data: activeCrawlHistoryState.crawls },
+        isLoading: false,
+      };
     }
     if (key.includes("issues-")) {
       return {
@@ -101,7 +109,10 @@ vi.mock("@/lib/use-api-swr", () => ({
 
 // Mock components used in OverviewTab to avoid complex rendering needs
 vi.mock("@/components/tabs/overview-tab", () => ({
-  OverviewTab: () => <div>Score: 88</div>,
+  OverviewTab: (props: Record<string, unknown>) => {
+    mockOverviewTab(props);
+    return <div>Score: 88</div>;
+  },
 }));
 
 vi.mock("@/components/tabs/pages-tab", () => ({
@@ -144,6 +155,7 @@ describe("Project Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchParamState.tab = "overview";
+    activeCrawlHistoryState.crawls = [];
     firstSevenDaysState.issueCount = 0;
     firstSevenDaysState.actionItemTotal = 0;
   });
@@ -158,6 +170,24 @@ describe("Project Page", () => {
   it("renders overview tab by default", async () => {
     render(<ProjectPage />);
     expect(await screen.findByText("Score: 88")).toBeInTheDocument();
+  });
+
+  it("passes active crawl history into the overview tab", async () => {
+    activeCrawlHistoryState.crawls = [
+      { id: "crawl-2", status: "crawling" },
+      { id: "crawl-1", status: "complete" },
+    ];
+
+    render(<ProjectPage />);
+    expect(await screen.findByText("Score: 88")).toBeInTheDocument();
+
+    const overviewProps = mockOverviewTab.mock.calls.at(-1)?.[0] as {
+      activeCrawl?: unknown;
+    };
+    expect(overviewProps.activeCrawl).toEqual({
+      id: "crawl-2",
+      status: "crawling",
+    });
   });
 
   it("renders sidebar navigation items", async () => {

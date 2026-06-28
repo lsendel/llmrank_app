@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { CrawlJob, QuickWin } from "@/lib/api";
 import {
   CRAWL_DETAIL_SCORE_ITEMS,
+  getCrawlDiscoveredPageCount,
+  getCrawlDisplayPageTarget,
   getCrawlStatusBadgeVariant,
   getCrawlSubtitle,
   getQuickWinOpportunityPoints,
+  isTerminalCrawlStatus,
   isCrawlerUnavailable,
 } from "./crawl-detail-helpers";
 
@@ -90,5 +93,54 @@ describe("crawl detail helpers", () => {
       }),
     ).toBe(true);
     expect(getQuickWinOpportunityPoints(quickWins)).toBe(13);
+  });
+
+  it("uses the configured or processed page target instead of discovered URLs", () => {
+    expect(isTerminalCrawlStatus("complete")).toBe(true);
+    expect(isTerminalCrawlStatus("crawling")).toBe(false);
+
+    expect(
+      getCrawlDisplayPageTarget({
+        ...baseCrawl,
+        config: { maxPages: 2000 },
+        pagesFound: 31574,
+        pagesCrawled: 2000,
+        pagesScored: 2000,
+      }),
+    ).toBe(2000);
+
+    expect(
+      getCrawlDisplayPageTarget({
+        ...baseCrawl,
+        config: null,
+        pagesFound: 31574,
+        pagesCrawled: 2000,
+        pagesScored: 2000,
+      }),
+    ).toBe(2000);
+
+    expect(
+      getCrawlDisplayPageTarget({
+        ...baseCrawl,
+        status: "failed",
+        config: null,
+        pagesFound: 13937,
+        pagesCrawled: 728,
+        pagesScored: 728,
+      }),
+    ).toBe(13937);
+
+    expect(
+      getCrawlDisplayPageTarget({
+        ...baseCrawl,
+        status: "crawling",
+        config: null,
+        pagesFound: 31574,
+        pagesCrawled: 1915,
+        pagesScored: 1915,
+      }),
+    ).toBe(31574);
+
+    expect(getCrawlDiscoveredPageCount(baseCrawl)).toBe(12);
   });
 });

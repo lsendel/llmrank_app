@@ -33,6 +33,11 @@ export type AiReadinessFactor = {
   details?: string;
 };
 
+export type OverviewActiveCrawl = {
+  id: string;
+  status?: string | null;
+};
+
 /**
  * "Top Issues" for the overview. Issues arrive as per-page instances (not
  * deduped by code); collapse to one card per code (severity is fixed per code),
@@ -71,6 +76,24 @@ export function buildOverviewStatusState(
   }
 
   return { kind: "empty" };
+}
+
+export function isOverviewActiveCrawl(
+  crawl: OverviewActiveCrawl | null | undefined,
+): crawl is OverviewActiveCrawl & { id: string } {
+  return (
+    !!crawl?.id &&
+    (crawl.status === "pending" ||
+      crawl.status === "queued" ||
+      crawl.status === "crawling" ||
+      crawl.status === "scoring")
+  );
+}
+
+export function findActiveOverviewCrawl(
+  crawls: OverviewActiveCrawl[] | null | undefined,
+) {
+  return crawls?.find(isOverviewActiveCrawl) ?? null;
 }
 
 export function buildOverviewMeta(latestCrawl: CrawlJob | null | undefined) {

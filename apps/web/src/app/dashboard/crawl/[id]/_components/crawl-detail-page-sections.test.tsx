@@ -4,14 +4,30 @@ import type { CrawlJob, PageIssue, QuickWin } from "@/lib/api";
 import { CrawlDetailLayout } from "./crawl-detail-page-sections";
 
 vi.mock("@/components/crawl-progress", () => ({
-  CrawlProgress: ({ status }: { status: string }) => (
-    <div>Crawl progress: {status}</div>
+  CrawlProgress: ({
+    status,
+    pagesTarget,
+  }: {
+    status: string;
+    pagesTarget?: number;
+  }) => (
+    <div>
+      Crawl progress: {status} target {pagesTarget}
+    </div>
   ),
 }));
 
 vi.mock("@/components/charts/crawl-progress-chart", () => ({
-  CrawlProgressChart: ({ found }: { found: number }) => (
-    <div>Progress chart: {found}</div>
+  CrawlProgressChart: ({
+    found,
+    target,
+  }: {
+    found: number;
+    target?: number;
+  }) => (
+    <div>
+      Progress chart: {found} target {target}
+    </div>
   ),
 }));
 
@@ -123,6 +139,12 @@ describe("crawl detail page sections", () => {
     expect(screen.getByText("Crawl Details")).toBeInTheDocument();
     expect(screen.getByText(/Marketing Site - Started/i)).toBeInTheDocument();
     expect(screen.getByText("Executive Summary")).toBeInTheDocument();
+    expect(
+      screen.getByText("Crawl progress: complete target 10"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Progress chart: 12 target 10"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Score Summary")).toBeInTheDocument();
     expect(screen.getByText("What to Do Next")).toBeInTheDocument();
     expect(screen.getByText("Overall: 84")).toBeInTheDocument();

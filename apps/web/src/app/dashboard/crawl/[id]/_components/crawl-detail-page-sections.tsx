@@ -23,6 +23,7 @@ import type { CrawlJob, PageIssue, QuickWin } from "@/lib/api";
 import { cn, scoreColor } from "@/lib/utils";
 import {
   CRAWL_DETAIL_SCORE_ITEMS,
+  getCrawlDisplayPageTarget,
   getCrawlStatusBadgeVariant,
   getCrawlSubtitle,
   getQuickWinOpportunityPoints,
@@ -168,6 +169,8 @@ function CrawlDetailExecutiveSummary({
 function CrawlDetailProgressSection({
   crawl,
 }: Pick<CrawlDetailLayoutProps, "crawl">) {
+  const displayPageTarget = getCrawlDisplayPageTarget(crawl);
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <CrawlProgress
@@ -175,6 +178,7 @@ function CrawlDetailProgressSection({
         pagesFound={crawl.pagesFound}
         pagesCrawled={crawl.pagesCrawled}
         pagesScored={crawl.pagesScored}
+        pagesTarget={displayPageTarget}
         startedAt={crawl.startedAt}
       />
       <CrawlProgressChart
@@ -183,6 +187,7 @@ function CrawlDetailProgressSection({
         scored={crawl.pagesScored}
         errored={crawl.pagesErrored ?? 0}
         status={crawl.status}
+        target={displayPageTarget}
       />
     </div>
   );

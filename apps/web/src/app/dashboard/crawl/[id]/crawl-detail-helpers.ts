@@ -47,3 +47,36 @@ export function isCrawlerUnavailable(crawl: CrawlJob): boolean {
 export function getQuickWinOpportunityPoints(quickWins: QuickWin[]): number {
   return quickWins.reduce((sum, win) => sum + win.scoreImpact, 0);
 }
+
+export function isTerminalCrawlStatus(status: CrawlJob["status"]): boolean {
+  return status === "complete" || status === "failed" || status === "cancelled";
+}
+
+export function getCrawlDisplayPageTarget(crawl: CrawlJob): number {
+  const configuredMaxPages =
+    typeof crawl.config?.maxPages === "number" && crawl.config.maxPages > 0
+      ? crawl.config.maxPages
+      : null;
+  const processedPages = Math.max(
+    crawl.pagesCrawled ?? 0,
+    crawl.pagesScored ?? 0,
+    crawl.pagesErrored ?? 0,
+  );
+
+  if (configuredMaxPages !== null) {
+    return Math.max(
+      1,
+      Math.min(crawl.pagesFound || configuredMaxPages, configuredMaxPages),
+    );
+  }
+
+  if (crawl.status === "complete") {
+    return Math.max(processedPages, 1);
+  }
+
+  return Math.max(crawl.pagesFound ?? 0, processedPages, 1);
+}
+
+export function getCrawlDiscoveredPageCount(crawl: CrawlJob): number {
+  return Math.max(crawl.pagesFound ?? 0, 0);
+}

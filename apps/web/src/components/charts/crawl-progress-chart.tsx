@@ -18,6 +18,7 @@ interface Props {
   scored: number;
   errored: number;
   status: string;
+  target?: number;
 }
 
 export const CrawlProgressChart = memo(function CrawlProgressChart({
@@ -26,10 +27,13 @@ export const CrawlProgressChart = memo(function CrawlProgressChart({
   scored,
   errored,
   status,
+  target,
 }: Props) {
-  const pending = Math.max(0, found - crawled);
+  const targetPages = Math.max(target ?? found, 1);
+  const pending = Math.max(0, targetPages - crawled);
   const crawledNotScored = Math.max(0, crawled - scored - errored);
-  const isActive = status !== "complete" && status !== "failed";
+  const isActive =
+    status !== "complete" && status !== "failed" && status !== "cancelled";
 
   const data = [
     { name: "Scored", value: scored },
@@ -80,7 +84,7 @@ export const CrawlProgressChart = memo(function CrawlProgressChart({
               textAnchor="middle"
               className="fill-foreground text-2xl font-bold"
             >
-              {scored}/{found}
+              {scored}/{targetPages}
             </text>
             <text
               x="50%"

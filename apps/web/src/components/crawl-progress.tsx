@@ -28,6 +28,7 @@ interface CrawlProgressProps {
   pagesFound: number;
   pagesCrawled: number;
   pagesScored: number;
+  pagesTarget?: number;
   startedAt?: string | null;
   className?: string;
 }
@@ -76,6 +77,7 @@ export function CrawlProgress({
   pagesFound,
   pagesCrawled,
   pagesScored,
+  pagesTarget,
   startedAt,
   className,
 }: CrawlProgressProps) {
@@ -95,8 +97,11 @@ export function CrawlProgress({
 
   const config = statusConfig[status];
   const StatusIcon = config.icon;
+  const targetPages = Math.max(pagesTarget ?? pagesFound, 1);
   const progressPercent =
-    pagesFound > 0 ? Math.round((pagesCrawled / pagesFound) * 100) : 0;
+    targetPages > 0
+      ? Math.min(100, Math.round((pagesCrawled / targetPages) * 100))
+      : 0;
 
   return (
     <Card className={cn(className)}>
@@ -116,11 +121,17 @@ export function CrawlProgress({
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">
-              {pagesCrawled} / {pagesFound || "?"} pages
+              {pagesCrawled} / {targetPages} pages
             </span>
             <span className="font-medium">{progressPercent}%</span>
           </div>
           <Progress value={progressPercent} />
+          {pagesFound > targetPages && (
+            <p className="text-xs text-muted-foreground">
+              {pagesFound} URLs discovered; this crawl is measuring the sampled
+              pages.
+            </p>
+          )}
         </div>
 
         {/* Counters */}
