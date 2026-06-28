@@ -162,7 +162,12 @@ strategyRoutes.post("/semantic-gap", enforcePlan("pro"), async (c) => {
 
   const userContent = `Title: ${page.title}. URL: ${page.url}. Word Count: ${page.wordCount}`;
 
-  let competitorContent = `A leading competitor in the niche of ${body.competitorDomain}. Their site features pricing starting at $49 and supports enterprise scale with 99.9% uptime.`;
+  // Neutral fallback when the competitor page can't be fetched — must NOT invent
+  // specific facts (pricing, uptime, scale). Hardcoded SaaS boilerplate here used
+  // to manufacture bogus "missing facts" for any non-SaaS competitor (a recipe
+  // blog, a law firm). With a fact-free fallback the extractor simply finds no
+  // competitor facts instead of fabricating them.
+  let competitorContent = `Publicly available information about the website at ${body.competitorDomain}.`;
 
   try {
     const resp = await fetch(`https://${body.competitorDomain}`, {
@@ -171,7 +176,7 @@ strategyRoutes.post("/semantic-gap", enforcePlan("pro"), async (c) => {
     });
     if (resp.ok) competitorContent = (await resp.text()).slice(0, 10000);
   } catch (_err) {
-    // Ignore fetch errors
+    // Ignore fetch errors — keep the neutral, fact-free fallback above.
   }
 
   try {

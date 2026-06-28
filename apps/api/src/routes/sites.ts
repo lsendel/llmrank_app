@@ -43,16 +43,16 @@ function requireScope(
 // ---------------------------------------------------------------------------
 // GET /sites/:id/scores — AI-citation counts per cited page (scope: visibility:read)
 //
-// External-consumer endpoint. Unlike the rest of the API it returns a
-// TOP-LEVEL `scores` array of { url, citations } — NOT the house `{ data }`
-// envelope — because the families.care `llmrank_sync.py` consumer reads
-// `resp.json()["scores"]` and boosts provider_seo_state by
-// `min(citations * 2, 20)` per `/providers/<slug>` URL. Keep this shape stable.
+// Stable EXTERNAL contract for any programmatic consumer (SDKs, sync scripts).
+// Unlike the rest of the API it returns a TOP-LEVEL `scores` array of
+// { url, citations } — NOT the house `{ data }` envelope — so a consumer can read
+// `resp.json()["scores"]` directly. This is a published shape: keep it stable.
+// (Our families.care dogfood sync is one such consumer; the endpoint is generic
+// and not specific to it.)
 //
-// `:id` is the project UUID (the consumer's LLMRANK_SITE_ID). Data comes from
-// the visibility_checks table (cited_url grouped + counted), so a project with
-// no completed visibility checks returns `{ scores: [] }` (a clean no-op for
-// the consumer), not an error.
+// `:id` is the project UUID. Data comes from the visibility_checks table
+// (cited_url grouped + counted), so a project with no completed visibility checks
+// returns `{ scores: [] }` (a clean no-op), not an error.
 // ---------------------------------------------------------------------------
 
 sitesRoutes.get("/:id/scores", async (c) => {
