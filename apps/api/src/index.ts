@@ -28,6 +28,8 @@ import {
 } from "./routes/register";
 import { handleScheduled } from "./scheduled";
 import { analyticsRoutes } from "./routes/analytics";
+import { APP_ORIGINS, isAllowedOrigin } from "./lib/cors";
+import type { WorkersAi } from "@llm-boost/llm";
 
 export type Bindings = {
   R2: R2Bucket;
@@ -35,6 +37,11 @@ export type Bindings = {
   SEEN_URLS: KVNamespace;
   REPORT_SERVICE_URL: string;
   BROWSER: any;
+  // Workers AI binding — runs LLM content scoring inside the worker (gpt-oss-120b
+  // by default), writing straight to D1. See services/llm-scoring.ts. Optional so
+  // tests/legacy contexts without the binding still typecheck; the scoring code
+  // guards on its presence.
+  AI?: WorkersAi;
   D1_APP: D1Database;
   D1_ADMIN: D1Database;
   SUPABASE: Hyperdrive;
@@ -63,6 +70,13 @@ export type Bindings = {
   ADMIN_ALERT_EMAIL?: string;
   SLACK_ALERT_WEBHOOK_URL?: string;
   CONNECT_SECRET?: string;
+  // Comma-separated extra CORS origins for cross-origin partner/dogfood sites:
+  // exact origins (https://app.example.com) and/or host suffixes (.example.com).
+  // Configured per deploy so the trust list isn't hardcoded to one brand's TLD.
+  CORS_ALLOWED_ORIGINS?: string;
+  // Comma-separated allowed callback-host suffixes for the /connect token
+  // exchange (e.g. "indices.app,families.care,localhost"). Config, not code.
+  CONNECT_ALLOWED_CALLBACK_HOSTS?: string;
   WEB_WORKER?: Fetcher;
   AXIOM_TOKEN?: string;
   AXIOM_DATASET?: string;
@@ -115,20 +129,11 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: (origin) => {
-      // Allow LLMRank/LLMBoost origins
-      const allowed = [
-        "http://localhost:3000",
-        "https://llmrank.app",
-        "https://www.llmrank.app",
-        "https://llmboost.com",
-        "https://www.llmboost.com",
-      ];
-      if (allowed.includes(origin)) return origin;
-      // Allow all .care domains (families.care, kazoku.care, etc.)
-      if (origin.endsWith(".care")) return origin;
-      return allowed[0];
-    },
+    origin: (origin, c) =>
+      isAllowedOrigin(origin, c.env.CORS_ALLOWED_ORIGINS)
+        ? origin
+        : // Disallowed: return a non-matching origin so the browser blocks it.
+          APP_ORIGINS[0],
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: [

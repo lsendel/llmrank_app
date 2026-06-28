@@ -27,6 +27,10 @@ id = "890e3a5ce54f4c3883556dce292ceb20"
 [browser]
 binding = "BROWSER"
 
+# Workers AI — in-worker LLM content scoring (gpt-oss-120b by default).
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "D1_APP"
 database_name = "llmrank-app"
@@ -48,6 +52,13 @@ CRAWLER_URL = "https://llmrank-crawler.fly.dev"
 REPORT_SERVICE_URL = "https://llm-boost-reports.fly.dev"
 APP_BASE_URL = "https://llmrank.app"
 BETTER_AUTH_URL = "https://api.llmrank.app"
+# Extra cross-origin callers (dogfood/partner sites). Exact origins and/or host
+# suffixes, comma-separated. ".care" preserves the prior dogfood behavior as
+# config (was a hardcoded `origin.endsWith(".care")`); tighten to exact origins
+# (e.g. "https://families.care,https://www.families.care") when enumerable.
+CORS_ALLOWED_ORIGINS = ".care"
+# Allowed callback-host suffixes for the first-party /connect token exchange.
+CONNECT_ALLOWED_CALLBACK_HOSTS = "indices.app,families.care,localhost"
 
 [env.preview]
 [env.preview.vars]

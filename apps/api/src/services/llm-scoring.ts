@@ -5,7 +5,7 @@ import {
   pageQueries,
   batchJobQueries,
 } from "@llm-boost/db";
-import { LLMScorer } from "@llm-boost/llm";
+import { LLMScorer, WorkersAiScorer, type WorkersAi } from "@llm-boost/llm";
 import type { CrawlPageResult } from "@llm-boost/shared";
 import { pMap } from "../lib/concurrent";
 import { createLogger } from "@llm-boost/shared";
@@ -82,6 +82,129 @@ export interface LLMScoringInput {
   insertedScores: { id: string; pageId: string }[];
   jobId: string;
   projectId?: string;
+  // Worker context (Cloudflare): the app D1 binding (where page_scores actually
+  // live) and the Workers AI binding. When both are present, scoring runs
+  // synchronously via Workers AI and persists straight to D1 — the correct, cheap
+  // path. `databaseUrl` (the Fly.io/Supabase path) is then unused; it never wrote
+  // the worker's D1 scores, which is why worker LLM scoring was previously dead.
+  d1?: D1Database;
+  ai?: WorkersAi;
+  workersAiModel?: string;
+}
+
+interface PageTextEntry {
+  pageId: string;
+  text: string;
+  contentHash: string;
+  crawlPage: CrawlPageResult;
+  scoreRowId: string;
+}
+
+/** Extract scoreable page text from R2 for each inserted page (skips thin/no-text). */
+async function extractPageTexts(
+  input: LLMScoringInput,
+): Promise<PageTextEntry[]> {
+  const pageTexts: PageTextEntry[] = [];
+  for (let i = 0; i < input.insertedPages.length; i++) {
+    const crawlPage = input.batchPages[i];
+    const scoreRow = input.insertedScores[i];
+    if (!scoreRow) continue;
+    if (crawlPage.word_count < 200 || !crawlPage.content_hash) continue;
+    try {
+      const text = await extractTextFromR2(
+        input.r2Bucket,
+        crawlPage.html_r2_key,
+      );
+      if (!text) continue;
+      pageTexts.push({
+        pageId: scoreRow.pageId,
+        text,
+        contentHash: crawlPage.content_hash,
+        crawlPage,
+        scoreRowId: scoreRow.id,
+      });
+    } catch (err) {
+      log.error("R2 text extraction failed", {
+        pageId: scoreRow.pageId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return pageTexts;
+}
+
+/**
+ * Worker-context scoring: score each page synchronously via Workers AI and write
+ * the result to D1 (with full headline recompute via persistLLMScore). This is
+ * the correct path for Cloudflare worker crawls — page_scores live in D1, and
+ * Workers AI runs inside the worker, so there is no async batch/poller and no
+ * Supabase round-trip. Cheap enough (~8x under batched Claude) to run inline; the
+ * per-ingest-batch dispatch keeps each call to a small page set.
+ */
+async function runWorkersAiScoring(
+  input: LLMScoringInput,
+  ai: WorkersAi,
+  d1: D1Database,
+): Promise<void> {
+  const appDb = createAppDb(d1);
+  const scorer = new WorkersAiScorer({
+    ai,
+    kvNamespace: input.kvNamespace,
+    model: input.workersAiModel,
+  });
+
+  const pageTexts = await extractPageTexts(input);
+  if (pageTexts.length === 0) return;
+
+  let scored = 0;
+  let failed = 0;
+  let lastError = "";
+  await pMap(
+    pageTexts,
+    async (p) => {
+      try {
+        const scores = await scorer.scoreContent(p.text, p.contentHash);
+        if (!scores) return; // thin or unparseable — keep deterministic score
+        await persistLLMScore(
+          appDb,
+          p.scoreRowId,
+          p.pageId,
+          input.jobId,
+          p.crawlPage,
+          scores,
+        );
+        scored++;
+      } catch (err) {
+        failed++;
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+    },
+    { concurrency: 8, settle: true },
+  );
+
+  if (failed > 0) {
+    log.error(
+      "Workers AI content scoring degraded — pages keep deterministic scores",
+      {
+        jobId: input.jobId,
+        failed,
+        total: pageTexts.length,
+        cause: classifyLLMError(lastError),
+        error: lastError.slice(0, 300),
+      },
+    );
+  }
+  await markLLMStatus(input.kvNamespace, input.jobId, {
+    status:
+      failed === 0
+        ? "ok"
+        : failed >= pageTexts.length
+          ? "unavailable"
+          : "partial",
+    cause: failed > 0 ? classifyLLMError(lastError) : undefined,
+    scored,
+    failed,
+  });
 }
 
 /** Helper: extract plain text from R2-stored HTML, handling gzip encoding. */
@@ -167,6 +290,11 @@ async function persistLLMScore(
       extracted: crawlPage.extracted,
       lighthouse: crawlPage.lighthouse ?? null,
       llmContentScores: llmScores,
+      // Preserve the redirect metadata the initial deterministic score wrote
+      // (page-scoring-service); page lists + strategy-service filter on it, so
+      // rewriting detail without these fields would un-hide redirect pages.
+      is_cross_domain_redirect: crawlPage.is_cross_domain_redirect || false,
+      redirect_url: crawlPage.redirect_url ?? null,
     },
     platformScores: result.platformScores,
     recommendations: generateRecommendations(
@@ -200,8 +328,16 @@ async function persistLLMScore(
  * for small batches or on batch submission failure.
  */
 export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
-  // In Fly.io report service context, databaseUrl is the Supabase connection string
-  // which serves as both app-level and agency-level db access
+  // Worker context (Cloudflare): score synchronously via Workers AI and write
+  // straight to D1. This is the correct, cheap path; the legacy Supabase/Anthropic
+  // path below was built for the Fly.io report service and never wrote the
+  // worker's D1 page_scores (so worker LLM scoring was effectively dead).
+  if (input.ai && input.d1) {
+    return runWorkersAiScoring(input, input.ai, input.d1);
+  }
+
+  // --- Legacy path (Fly.io report service): databaseUrl is the Supabase
+  // connection string serving as both app-level and agency-level db access. ---
   const db = createAgencyDb(input.databaseUrl) as any;
   const agencyDb = createAgencyDb(input.databaseUrl);
   const scorer = new LLMScorer({
@@ -210,42 +346,7 @@ export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
   });
 
   // --- Step 1: Extract page text from R2, build page list for batch scoring ---
-  const pageTexts: {
-    pageId: string;
-    text: string;
-    contentHash: string;
-    crawlPage: CrawlPageResult;
-    scoreRowId: string;
-  }[] = [];
-
-  for (let i = 0; i < input.insertedPages.length; i++) {
-    const crawlPage = input.batchPages[i];
-    const scoreRow = input.insertedScores[i];
-
-    if (!scoreRow) continue;
-    if (crawlPage.word_count < 200 || !crawlPage.content_hash) continue;
-
-    try {
-      const text = await extractTextFromR2(
-        input.r2Bucket,
-        crawlPage.html_r2_key,
-      );
-      if (!text) continue;
-
-      pageTexts.push({
-        pageId: scoreRow.pageId,
-        text,
-        contentHash: crawlPage.content_hash,
-        crawlPage,
-        scoreRowId: scoreRow.id,
-      });
-    } catch (err) {
-      log.error("R2 text extraction failed", {
-        pageId: scoreRow.pageId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
+  const pageTexts = await extractPageTexts(input);
 
   if (pageTexts.length === 0) return;
 

@@ -6,6 +6,7 @@ import {
   schemaTypesFromNodes,
   isEntityType,
 } from "../schema-utils";
+import { hasSummaryHeading } from "../summary-heading";
 
 // Required properties for common schema types
 const SCHEMA_REQUIRED_PROPS: Record<string, string[]> = {
@@ -108,13 +109,11 @@ export function scoreAiReadinessFactors(page: PageData): FactorResult {
     deduct(s, "MISSING_ENTITY_MARKUP");
   }
 
-  // NO_SUMMARY_SECTION: -5 if page lacks a summary/key takeaway section
-  const summaryPatterns =
-    /\b(summary|key takeaways?|tl;?dr|conclusion|overview|highlights?|in brief)\b/i;
-  const hasSummarySection = allHeadings.some((h) => summaryPatterns.test(h));
+  // NO_SUMMARY_SECTION: -5 if page lacks a summary/key-takeaway section
+  // (multilingual — see hasSummaryHeading).
   if (
     page.wordCount >= THRESHOLDS.summarySectionMinWords &&
-    !hasSummarySection
+    !hasSummaryHeading(allHeadings)
   ) {
     deduct(s, "NO_SUMMARY_SECTION");
   }

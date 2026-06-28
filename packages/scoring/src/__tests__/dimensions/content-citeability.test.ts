@@ -652,6 +652,16 @@ describe("scoreContentCiteability", () => {
     expect(issue).toBeUndefined();
   });
 
+  it("NO_SUMMARY_SECTION: no deduction for a German summary heading (multilingual)", () => {
+    const page = makePage({ wordCount: 600 });
+    page.extracted.h1 = ["Pflege zu Hause"];
+    page.extracted.h2 = ["Leistungen", "Zusammenfassung"]; // de summary heading
+    page.extracted.h3 = [];
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "NO_SUMMARY_SECTION");
+    expect(issue).toBeUndefined();
+  });
+
   // --- POOR_QUESTION_COVERAGE ---
 
   it("POOR_QUESTION_COVERAGE: deducts 10 when LLM structure score < 50", () => {

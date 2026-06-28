@@ -287,6 +287,14 @@ describe("AI Readiness Factors", () => {
     expect(issue).toBeUndefined();
   });
 
+  it("NO_SUMMARY_SECTION: no deduction for a Spanish summary heading (multilingual)", () => {
+    const page = makePageData({ wordCount: 600 });
+    page.extracted.h2 = ["Cómo Funciona", "En Resumen"]; // accented es heading
+    const result = scoreAiReadinessFactors(page);
+    const issue = result.issues.find((i) => i.code === "NO_SUMMARY_SECTION");
+    expect(issue).toBeUndefined();
+  });
+
   // --- POOR_QUESTION_COVERAGE ---
 
   it("POOR_QUESTION_COVERAGE: deducts 10 when LLM structure < 50", () => {

@@ -15,6 +15,7 @@ import type {
   UserRepository,
 } from "@llm-boost/repositories";
 import { ServiceError } from "@llm-boost/shared";
+import type { WorkersAi } from "@llm-boost/llm";
 import { rescoreLLM } from "./llm-scoring";
 import { createPageScoringService } from "./page-scoring-service";
 import { createPostProcessingService } from "./post-processing-service";
@@ -43,6 +44,7 @@ export interface BatchEnvironment {
   anthropicApiKey?: string;
   kvNamespace?: KVNamespace;
   r2: R2Bucket;
+  ai?: WorkersAi;
   integrationKey?: string;
   googleClientId?: string;
   googleClientSecret?: string;

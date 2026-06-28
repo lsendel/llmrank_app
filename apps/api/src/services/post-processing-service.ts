@@ -14,6 +14,7 @@ import {
   createUserRepository,
 } from "@llm-boost/repositories";
 import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
+import type { WorkersAi } from "@llm-boost/llm";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import {
   generateCrawlSummary,
@@ -52,6 +53,7 @@ export interface PostProcessingEnv {
   anthropicApiKey?: string;
   kvNamespace?: KVNamespace;
   r2: R2Bucket;
+  ai?: WorkersAi;
   integrationKey?: string;
   googleClientId?: string;
   googleClientSecret?: string;
@@ -87,11 +89,19 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         args;
       const env = args.env;
 
-      if (env.anthropicApiKey) {
+      // Score when either provider is available: the Workers AI binding (the
+      // default worker path) OR an Anthropic key (legacy). Gating on the key
+      // alone skipped scoring entirely on AI-only deployments.
+      if (env.ai || env.anthropicApiKey) {
         await dispatchOrRun(deps.outbox, args.executionCtx, {
           type: "llm_scoring",
           payload: {
+            // Worker context: score via Workers AI (in-worker) straight to D1.
+            // d1 + ai are bindings — they don't survive the durable-outbox JSON
+            // round-trip, so the outbox processor re-injects them from env; they
+            // are passed live here for the run-immediately path.
             d1: env.d1,
+            ai: env.ai,
             anthropicApiKey: env.anthropicApiKey,
             kvNamespace: env.kvNamespace,
             r2Bucket: env.r2,
@@ -99,12 +109,6 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             insertedPages,
             insertedScores,
             jobId: crawlJobId,
-            // NOTE: projectId is intentionally NOT passed. The Message-Batches
-            // poller persists results via the Supabase agency DB, but worker
-            // page_scores live in D1 — so a worker-submitted batch can never be
-            // applied. Without projectId, llm-scoring routes these crawls to the
-            // sync path (see the Step-5 guard). Enabling the batch path here
-            // needs the poller to write D1 first (RANK2 correctness fix).
           },
         });
       }

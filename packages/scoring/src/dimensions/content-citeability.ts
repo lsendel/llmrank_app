@@ -2,6 +2,7 @@ import type { PageData, FactorResult } from "../types";
 import { deduct, type ScoreState } from "../factors/helpers";
 import { applyContentFactors } from "../factors/content";
 import { THRESHOLDS } from "../thresholds";
+import { hasSummaryHeading } from "../summary-heading";
 
 export function scoreContentCiteability(page: PageData): FactorResult {
   const s: ScoreState = { score: 100, issues: [] };
@@ -97,15 +98,11 @@ export function scoreContentCiteability(page: PageData): FactorResult {
     deduct(s, "NO_DIRECT_ANSWERS");
   }
 
-  // NO_SUMMARY_SECTION: -5 if page lacks a summary/key takeaway section
-  const summaryPatterns =
-    /\b(summary|key takeaways?|tl;?dr|conclusion|overview|highlights?|in brief)\b/i;
-  const hasSummarySection = allHeadingsForDirectAnswers.some((h) =>
-    summaryPatterns.test(h),
-  );
+  // NO_SUMMARY_SECTION: -5 if page lacks a summary/key-takeaway section
+  // (multilingual — see hasSummaryHeading).
   if (
     page.wordCount >= THRESHOLDS.summarySectionMinWords &&
-    !hasSummarySection
+    !hasSummaryHeading(allHeadingsForDirectAnswers)
   ) {
     deduct(s, "NO_SUMMARY_SECTION");
   }

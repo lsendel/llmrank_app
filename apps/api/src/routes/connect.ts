@@ -65,14 +65,26 @@ connectRoutes.get("/indices", async (c) => {
     );
   }
 
-  // Validate callback URL
+  // Validate callback URL against the configured partner-host allowlist.
+  // Hosts come from CONNECT_ALLOWED_CALLBACK_HOSTS (config), not hardcoded brand
+  // names — defaulting to the first-party integrations if unset.
+  const allowedCallbackHosts = (
+    c.env.CONNECT_ALLOWED_CALLBACK_HOSTS ??
+    "indices.app,families.care,localhost"
+  )
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
   try {
     const url = new URL(callbackUrl);
-    if (
-      !url.hostname.endsWith("indices.app") &&
-      !url.hostname.endsWith("families.care") &&
-      !url.hostname.includes("localhost")
-    ) {
+    // Dot-bounded suffix match: "indices.app" allows indices.app and
+    // *.indices.app, but NOT "evilindices.app". localhost stays dev-permissive.
+    const hostAllowed = allowedCallbackHosts.some((h) =>
+      h === "localhost"
+        ? url.hostname.includes("localhost")
+        : url.hostname === h || url.hostname.endsWith(`.${h}`),
+    );
+    if (!hostAllowed) {
       return c.json(
         { code: "FORBIDDEN", message: "Invalid callback URL origin" },
         403,
