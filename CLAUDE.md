@@ -176,6 +176,20 @@ Cloudflare Workers ↔ Fly.io Crawler uses HMAC-SHA256 signed payloads:
 - `X-Timestamp: <unix_epoch_seconds>`
 - Replay protection: reject timestamps > 5 minutes old
 
+## Crawl Lifecycle & Stall Recovery
+
+A crawl progresses `pending → queued → crawling → scoring → complete` (terminal: `complete`, `failed`, `cancelled`). The Rust crawler streams results back to `/ingest/batch`; `ingest-service.processBatch` writes pages/scores and advances status on every batch.
+
+**Activity tracking.** `crawl_jobs.updated_at` is stamped on every status/progress write (each ingest batch) and on `create`. It has no DB default (SQLite forbids a `datetime()` default in `ALTER TABLE ADD COLUMN`), so `create`/`updateStatus` set it explicitly and migration `0001` backfilled existing rows from `created_at`. Because `created_at` is stored as `YYYY-MM-DD HH:MM:SS` while `updated_at`/cutoffs are ISO (`...T...Z`), **all stall comparisons must wrap both sides in `datetime(coalesce(updated_at, created_at))`** — a raw string compare sorts `' '` before `'T'` and false-positives fresh rows as stalled.
+
+**Auto-recovery** (`crawl-service.recoverStalledCrawls`, runs on the `*/5` cron via `runScheduledTasks`): a crawl that has gone silent (`datetime(coalesce(updated_at, created_at))` older than `stallMinutes`, default **30**) is recovered by re-dispatching it as a **fresh `job_id`** — reusing the id would duplicate page rows (`pages.createBatch` is a plain INSERT) and collide on the per-`(job, batch_index)` KV idempotency keys. Bounded by `crawl_jobs.redispatch_count` (default cap **2**); past the cap the job is `failed`.
+
+**Race safety.** Recovery first _atomically claims_ the job via `claimStalled` (a conditional `UPDATE active→cancelled` gated on still-stale); it only re-dispatches if it wins the claim. Superseded jobs are left `cancelled` (not `failed`), and `processBatch` **drops late callbacks for a `cancelled` job** — so a slow-but-alive original crawler can't resurrect a job alongside its replacement. `failed` is still ingested, preserving the transient-ingest-error self-heal retry.
+
+**Backstop.** `monitoring-service.checkSystemHealth` fails any non-terminal job with no activity for **6h** (covers jobs recovery can't handle, e.g. no `CRAWLER_URL`). Both watchdogs run on the 5-min cron.
+
+**Operational note:** deploying the crawler (`flyctl deploy`, or CI on push touching `apps/crawler/**`) restarts the Fly machine and kills any in-flight crawl. That orphaned crawl is now auto-recovered within ~`stallMinutes`. Durable recovery trace: `SELECT … FROM crawl_jobs WHERE redispatch_count > 0 OR cancel_reason LIKE 'stall-recovery%'`.
+
 ## API Versioning
 
 **Current Version:** v1
