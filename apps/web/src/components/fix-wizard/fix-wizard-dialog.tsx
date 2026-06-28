@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SUPPORTED_FIX_CODES } from "@llm-boost/shared";
 import { FixStep } from "./fix-step";
 
 interface FixGuideStep {
@@ -33,7 +34,6 @@ interface FixGuide {
   estimatedMinutes: number;
   difficulty: "beginner" | "intermediate" | "advanced";
   platforms: Record<string, FixGuideStep[]>;
-  aiFixAvailable: boolean;
 }
 
 interface FixWizardDialogProps {
@@ -121,7 +121,7 @@ export function FixWizardDialog({
                 <Gauge className="mr-1 h-3 w-3" />
                 {guide.difficulty}
               </Badge>
-              {guide.aiFixAvailable && (
+              {SUPPORTED_FIX_CODES.has(guide.issueCode) && (
                 <Badge variant="secondary">AI Fix Available</Badge>
               )}
             </div>

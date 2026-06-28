@@ -316,6 +316,20 @@ fixRoutes.post("/generate-batch", async (c) => {
       PLAN_LIMITS[
         (user?.plan ?? "free") as import("@llm-boost/shared").PlanTier
       ];
+
+    // Ground the batch with the crawl's real page list (URLs + titles), fetched
+    // ONCE and shared across every win — so llms.txt and project-level fixes get
+    // actual pages instead of the old empty `{ excerpt: "" }` boilerplate. Batch
+    // wins have no single pageId, so the page list is the best available context.
+    const projectPages = await fetchProjectPages(db, body.projectId);
+    const batchContext: FixPageContext = {
+      url: project.domain,
+      title: project.name,
+      excerpt: "",
+      domain: project.domain,
+      ...(projectPages.length > 0 ? { pages: projectPages } : {}),
+    };
+
     const results: any[] = [];
 
     for (const win of toGenerate) {
@@ -324,12 +338,7 @@ fixRoutes.post("/generate-batch", async (c) => {
           userId,
           projectId: body.projectId,
           issueCode: win.code,
-          context: {
-            url: project.domain,
-            title: project.name,
-            excerpt: "",
-            domain: project.domain,
-          },
+          context: batchContext,
           apiKey: c.env.ANTHROPIC_API_KEY,
           planLimit: limits.fixesPerMonth,
         });

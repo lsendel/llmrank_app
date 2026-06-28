@@ -13,7 +13,6 @@ export interface FixGuide {
   estimatedMinutes: number;
   difficulty: "beginner" | "intermediate" | "advanced";
   platforms: Record<string, FixGuideStep[]>;
-  aiFixAvailable: boolean;
 }
 
 import { TECHNICAL_GUIDES } from "./fix-guides-technical";
