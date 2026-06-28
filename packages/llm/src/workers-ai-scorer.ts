@@ -118,9 +118,10 @@ export class WorkersAiScorer {
   }
 
   /**
-   * Score page content. Returns null for thin content (< 200 words) or when the
-   * model output can't be validated (caller keeps deterministic scores). Checks
-   * the content-hash KV cache first and caches successful results for 30 days.
+   * Score page content. Returns null for thin content (< 200 words). THROWS when
+   * non-thin content yields no usable scores (provider error / wrong request
+   * shape / unparseable output) so the caller counts it as a failure rather than
+   * a silent skip. Checks the content-hash KV cache first; caches success 30 days.
    */
   async scoreContent(
     pageText: string,
@@ -141,10 +142,13 @@ export class WorkersAiScorer {
     // differences. The rubric prompt already demands JSON-only and
     // parseContentScores tolerates reasoning/prose, so no structured-output param
     // is sent (its field name differs across Workers AI model families).
+    // gpt-oss / OpenAI use the Responses shape (`instructions`+`input`,
+    // `max_output_tokens`); Llama/Qwen use the chat shape (`messages`,
+    // `max_tokens`).
     const responsesInput = {
       instructions: prompt.system,
       input: prompt.user,
-      max_tokens: 1024,
+      max_output_tokens: 1024,
     };
     const chatInput = {
       messages: [
@@ -157,12 +161,14 @@ export class WorkersAiScorer {
       ? [responsesInput, chatInput]
       : [chatInput, responsesInput];
 
+    let lastError: unknown;
     for (const attempt of attempts) {
       let res: unknown;
       try {
         res = await this.ai.run(this.model, attempt);
-      } catch {
-        continue; // wrong shape / transient — try the next
+      } catch (err) {
+        lastError = err; // wrong shape / transient — try the next
+        continue;
       }
       const text = extractWorkersAiText(res);
       if (!text) continue;
@@ -172,6 +178,12 @@ export class WorkersAiScorer {
         return scores;
       }
     }
-    return null; // unscoreable — caller keeps the deterministic score
+    // Non-thin content that produced no usable scores is a real failure (bad
+    // request shape, provider error, or unparseable output) — throw so the
+    // caller counts it, rather than silently reporting the crawl as fully scored.
+    throw new Error(
+      `Workers AI (${this.model}) produced no usable content scores` +
+        (lastError instanceof Error ? `: ${lastError.message}` : ""),
+    );
   }
 }

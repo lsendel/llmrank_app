@@ -143,10 +143,10 @@ describe("WorkersAiScorer.scoreContent", () => {
     );
   });
 
-  it("returns null (keeps deterministic score) when output is unparseable", async () => {
+  it("throws on non-thin unparseable output (so callers count the failure)", async () => {
     const ai: WorkersAi = { run: vi.fn(async () => ({ response: "garbage" })) };
     const scorer = new WorkersAiScorer({ ai });
-    expect(await scorer.scoreContent(richText, "h4")).toBeNull();
+    await expect(scorer.scoreContent(richText, "h4")).rejects.toThrow();
   });
 
   it("falls back to the other request shape when the first throws", async () => {
