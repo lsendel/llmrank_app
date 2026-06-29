@@ -13,6 +13,7 @@ const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
 const mockBatchCreate = vi.fn();
 const mockBatchJobCreate = vi.fn().mockResolvedValue({ id: "bj-1" });
+const mockWorkersScoreContent = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
   createAppDb: vi.fn().mockReturnValue({}),
@@ -42,6 +43,9 @@ vi.mock("@llm-boost/llm", () => ({
     anthropicClient: {
       messages: { batches: { create: mockBatchCreate } },
     },
+  })),
+  WorkersAiScorer: vi.fn().mockImplementation(() => ({
+    scoreContent: mockWorkersScoreContent,
   })),
 }));
 
@@ -594,5 +598,35 @@ describe("htmlToScoringText", () => {
 
   it("collapses whitespace and trims", () => {
     expect(htmlToScoringText("<p>  hello   world  </p>")).toBe("hello world");
+  });
+});
+
+describe("runWorkersAiScoring (worker path: input.ai + input.d1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("throws when a page fails to score, so the outbox event retries", async () => {
+    mockWorkersScoreContent.mockRejectedValue(
+      new Error("Workers AI produced no usable content scores"),
+    );
+    const input = { ...baseLLMInput(), ai: {}, d1: {} };
+    // Re-throw lets the outbox processor bump attempts + re-schedule instead of
+    // marking the event completed with the page silently keeping an inflated score.
+    await expect(runLLMScoring(input as any)).rejects.toThrow(
+      /Workers AI content scoring failed/,
+    );
+  });
+
+  it("resolves (no throw) when every page scores", async () => {
+    mockWorkersScoreContent.mockResolvedValue({
+      clarity: 80,
+      authority: 70,
+      comprehensiveness: 75,
+      structure: 80,
+      citation_worthiness: 60,
+    });
+    const input = { ...baseLLMInput(), ai: {}, d1: {} };
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
   });
 });
