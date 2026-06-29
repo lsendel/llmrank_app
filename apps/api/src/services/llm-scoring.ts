@@ -205,6 +205,38 @@ async function runWorkersAiScoring(
     scored,
     failed,
   });
+
+  // Surface partial/total failures so the outbox event is RETRIED (the outbox
+  // processor bumps attempts + re-schedules, up to MAX_ATTEMPTS). Without this
+  // the event is marked completed and the failed pages keep an inflated
+  // deterministic score forever (they never get the LLM content deductions —
+  // a scoring *failure* silently makes the grade look *better*). On retry,
+  // already-scored pages hit the KV cache so only the failed pages re-attempt;
+  // once attempts are exhausted the event stays failed (observable) instead of
+  // disappearing. markLLMStatus is written first so the per-job status survives.
+  if (failed > 0) {
+    throw new Error(
+      `Workers AI content scoring failed for ${failed}/${pageTexts.length} page(s) (job ${input.jobId})`,
+    );
+  }
+}
+
+/**
+ * Strip stored HTML to plain scoreable text. Removes <script>/<style> blocks
+ * (INCLUDING their contents — e.g. JSON-LD structured data) and HTML comments
+ * BEFORE stripping tags, so the LLM content scorer isn't fed raw JSON-LD as
+ * noise. Mirrors the crawler's get_all_text extraction (which excludes
+ * <script>/<style>); these paths previously stripped only tags, leaking the
+ * JSON-LD text into the scoring prompt and depressing content scores.
+ */
+export function htmlToScoringText(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Helper: extract plain text from R2-stored HTML, handling gzip encoding. */
@@ -223,10 +255,7 @@ async function extractTextFromR2(
     html = await r2Obj.text();
   }
 
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return htmlToScoringText(html);
 }
 
 /** Helper: re-score a page with LLM scores and persist to DB. */
@@ -663,10 +692,7 @@ export async function rescoreLLM(input: RescoreInput) {
         html = await r2Obj.text();
       }
 
-      const text = html
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+      const text = htmlToScoringText(html);
       const wordCount = text.split(/\s+/).filter(Boolean).length;
 
       if (wordCount < 50) {

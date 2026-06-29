@@ -13,6 +13,7 @@ const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
 const mockBatchCreate = vi.fn();
 const mockBatchJobCreate = vi.fn().mockResolvedValue({ id: "bj-1" });
+const mockWorkersScoreContent = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
   createAppDb: vi.fn().mockReturnValue({}),
@@ -42,6 +43,9 @@ vi.mock("@llm-boost/llm", () => ({
     anthropicClient: {
       messages: { batches: { create: mockBatchCreate } },
     },
+  })),
+  WorkersAiScorer: vi.fn().mockImplementation(() => ({
+    scoreContent: mockWorkersScoreContent,
   })),
 }));
 
@@ -73,7 +77,11 @@ vi.mock("@llm-boost/shared", async (importOriginal) => {
   };
 });
 
-import { runLLMScoring, rescoreLLM } from "../../services/llm-scoring";
+import {
+  runLLMScoring,
+  rescoreLLM,
+  htmlToScoringText,
+} from "../../services/llm-scoring";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -565,5 +573,60 @@ describe("rescoreLLM", () => {
     } as any);
 
     expect(result.results[0].status).toMatch(/too_short/);
+  });
+});
+
+describe("htmlToScoringText", () => {
+  it("strips <script> contents (e.g. JSON-LD) so they are not scored as text", () => {
+    const html = `<html><body><h1>Cuidado en Costa Rica</h1><p>Regulado por el Ministerio de Salud.</p><script type="application/ld+json">{"@type":"FAQPage","name":"CONAPAM Ley 1850 CPSAM"}</script></body></html>`;
+    const text = htmlToScoringText(html);
+    expect(text).toContain("Cuidado en Costa Rica");
+    expect(text).toContain("Ministerio de Salud");
+    // JSON-LD content must NOT leak into the scoreable text
+    expect(text).not.toContain("FAQPage");
+    expect(text).not.toContain("Ley 1850");
+    expect(text).not.toContain("@type");
+  });
+
+  it("strips <style> blocks and HTML comments", () => {
+    const html = `<html><head><style>.a{color:red}</style></head><body><!-- hidden note --><p>Contenido visible</p></body></html>`;
+    const text = htmlToScoringText(html);
+    expect(text).toBe("Contenido visible");
+    expect(text).not.toContain("color:red");
+    expect(text).not.toContain("hidden note");
+  });
+
+  it("collapses whitespace and trims", () => {
+    expect(htmlToScoringText("<p>  hello   world  </p>")).toBe("hello world");
+  });
+});
+
+describe("runWorkersAiScoring (worker path: input.ai + input.d1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("throws when a page fails to score, so the outbox event retries", async () => {
+    mockWorkersScoreContent.mockRejectedValue(
+      new Error("Workers AI produced no usable content scores"),
+    );
+    const input = { ...baseLLMInput(), ai: {}, d1: {} };
+    // Re-throw lets the outbox processor bump attempts + re-schedule instead of
+    // marking the event completed with the page silently keeping an inflated score.
+    await expect(runLLMScoring(input as any)).rejects.toThrow(
+      /Workers AI content scoring failed/,
+    );
+  });
+
+  it("resolves (no throw) when every page scores", async () => {
+    mockWorkersScoreContent.mockResolvedValue({
+      clarity: 80,
+      authority: 70,
+      comprehensiveness: 75,
+      structure: 80,
+      citation_worthiness: 60,
+    });
+    const input = { ...baseLLMInput(), ai: {}, d1: {} };
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
   });
 });
