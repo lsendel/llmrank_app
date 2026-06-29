@@ -83,6 +83,52 @@ describe("outboxQueries", () => {
     expect(result).toEqual(event);
   });
 
+  it("enqueue strips non-persistable bindings/secrets but keeps real data", async () => {
+    mock.chain.returning.mockResolvedValueOnce([{ id: "evt3" }]);
+
+    await queries.enqueue({
+      type: "llm_scoring",
+      payload: {
+        // Live worker bindings + secrets — must NOT be persisted (the processor
+        // re-injects them from env; they otherwise bloat the row as garbage).
+        d1: { alwaysPrimarySession: {} },
+        ai: { lastRequestId: null },
+        kvNamespace: {},
+        r2Bucket: {},
+        anthropicApiKey: "sk-secret",
+        encryptionKey: "enc-secret",
+        googleClientId: "gid",
+        googleClientSecret: "gsecret",
+        metaAppId: "mid",
+        metaAppSecret: "msecret",
+        // Real payload data — must survive.
+        jobId: "job-1",
+        insertedPages: [{ id: "p1" }],
+      },
+    });
+
+    const persisted = JSON.parse(mock.chain.values.mock.calls[0][0].payload);
+    expect(persisted).toEqual({
+      jobId: "job-1",
+      insertedPages: [{ id: "p1" }],
+    });
+    // Defense-in-depth: none of the binding/secret keys leak into the row.
+    for (const k of [
+      "d1",
+      "ai",
+      "kvNamespace",
+      "r2Bucket",
+      "anthropicApiKey",
+      "encryptionKey",
+      "googleClientId",
+      "googleClientSecret",
+      "metaAppId",
+      "metaAppSecret",
+    ]) {
+      expect(persisted).not.toHaveProperty(k);
+    }
+  });
+
   it("enqueue uses provided availableAt when specified", async () => {
     const scheduledAt = new Date("2026-03-01T12:00:00Z");
     mock.chain.returning.mockResolvedValueOnce([{ id: "evt2" }]);

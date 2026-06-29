@@ -10,6 +10,43 @@ export interface OutboxEventData {
   availableAt?: Date;
 }
 
+/**
+ * Keys the outbox processor re-injects from the live worker env at processing
+ * time (see outbox-processor.processEvent). They must NOT be persisted into the
+ * durable payload:
+ *   - Workers bindings (D1, AI, KV, R2) serialize to meaningless internal
+ *     objects (e.g. `{"alwaysPrimarySession":...}`) that bloat every row and are
+ *     useless on read — they're overwritten by the live binding anyway.
+ *   - Secrets shouldn't sit at rest in the events table.
+ * Stripping them keeps the durable copy small and binding/secret-free without
+ * affecting behavior, since processEvent supplies the live values.
+ */
+const NON_PERSISTABLE_PAYLOAD_KEYS = new Set([
+  "d1",
+  "ai",
+  "kv",
+  "kvNamespace",
+  "r2",
+  "r2Bucket",
+  "anthropicApiKey",
+  "encryptionKey",
+  "googleClientId",
+  "googleClientSecret",
+  "metaAppId",
+  "metaAppSecret",
+]);
+
+function stripNonPersistable(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (NON_PERSISTABLE_PAYLOAD_KEYS.has(key)) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
 export function outboxQueries(db: Database) {
   return {
     async enqueue(event: OutboxEventData) {
@@ -18,7 +55,7 @@ export function outboxQueries(db: Database) {
         .values({
           id: crypto.randomUUID(),
           type: event.type,
-          payload: JSON.stringify(event.payload),
+          payload: JSON.stringify(stripNonPersistable(event.payload)),
           availableAt: (event.availableAt ?? new Date()).toISOString(),
         })
         .returning();
