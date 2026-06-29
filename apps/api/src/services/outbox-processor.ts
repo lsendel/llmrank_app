@@ -4,8 +4,19 @@ import type { WorkersAi } from "@llm-boost/llm";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import { generateCrawlSummary, type SummaryInput } from "./summary";
 import { createLogger } from "@llm-boost/shared";
+import { pMap } from "../lib/concurrent";
 
 const MAX_ATTEMPTS = 5;
+
+// How many outbox events to work on at once. Each llm_scoring event already fans
+// its page scoring out internally (Workers AI, concurrency 8), so the cap on
+// in-flight AI calls is roughly EVENT_CONCURRENCY × 8. Before this, the cron
+// drained events strictly sequentially (~13/run) and LLM scoring ran hours
+// behind crawls; modest event-level parallelism multiplies throughput while
+// staying well under the Workers per-invocation subrequest cap (the LIMIT below
+// bounds total work per run regardless of concurrency).
+const EVENT_CONCURRENCY = 4;
+const EVENT_BATCH_LIMIT = 50;
 
 const _PROCESSABLE_TYPES = [
   "integration_enrichment",
@@ -106,7 +117,10 @@ export async function processOutboxEvents(
         sql`${outboxEvents.attempts} <= ${MAX_ATTEMPTS}`,
       ) as any,
     )
-    .limit(50);
+    // Oldest-available first so a large crawl can't perpetually jump ahead of an
+    // earlier one (and so ordering is deterministic across runs).
+    .orderBy(outboxEvents.availableAt)
+    .limit(EVENT_BATCH_LIMIT);
 
   if (events.length === 0) {
     return { processed: 0, failed: 0 };
@@ -119,47 +133,54 @@ export async function processOutboxEvents(
   let processed = 0;
   let failed = 0;
 
-  for (const event of events) {
-    try {
-      await processEvent(
-        event.type as ProcessableType,
-        (typeof event.payload === "string"
-          ? JSON.parse(event.payload)
-          : event.payload) as Record<string, unknown>,
-        d1,
-        env,
-      );
+  // Work the batch with bounded concurrency. JS stays single-threaded, so the
+  // processed/failed counters interleave safely across awaits; pMap(settle)
+  // ensures one event's failure never aborts the rest of the batch.
+  await pMap(
+    events,
+    async (event) => {
+      try {
+        await processEvent(
+          event.type as ProcessableType,
+          (typeof event.payload === "string"
+            ? JSON.parse(event.payload)
+            : event.payload) as Record<string, unknown>,
+          d1,
+          env,
+        );
 
-      await db
-        .update(outboxEvents)
-        .set({
-          status: "completed",
-          processedAt: new Date().toISOString(),
-        } as any)
-        .where(eq(outboxEvents.id, event.id) as any);
+        await db
+          .update(outboxEvents)
+          .set({
+            status: "completed",
+            processedAt: new Date().toISOString(),
+          } as any)
+          .where(eq(outboxEvents.id, event.id) as any);
 
-      processed++;
-      log.info(`Outbox event completed`, {
-        eventId: event.id,
-        type: event.type,
-      });
-    } catch (err) {
-      failed++;
-      log.error(`Outbox event failed`, {
-        eventId: event.id,
-        type: event.type,
-        error: err instanceof Error ? err.message : String(err),
-      });
+        processed++;
+        log.info(`Outbox event completed`, {
+          eventId: event.id,
+          type: event.type,
+        });
+      } catch (err) {
+        failed++;
+        log.error(`Outbox event failed`, {
+          eventId: event.id,
+          type: event.type,
+          error: err instanceof Error ? err.message : String(err),
+        });
 
-      await db
-        .update(outboxEvents)
-        .set({
-          attempts: event.attempts + 1,
-          availableAt: new Date(Date.now() + 120_000).toISOString(),
-        } as any)
-        .where(eq(outboxEvents.id, event.id) as any);
-    }
-  }
+        await db
+          .update(outboxEvents)
+          .set({
+            attempts: event.attempts + 1,
+            availableAt: new Date(Date.now() + 120_000).toISOString(),
+          } as any)
+          .where(eq(outboxEvents.id, event.id) as any);
+      }
+    },
+    { concurrency: EVENT_CONCURRENCY, settle: true },
+  );
 
   // Mark events that exceeded max attempts as permanently failed
   const staleEvents = await db
