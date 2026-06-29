@@ -205,6 +205,20 @@ async function runWorkersAiScoring(
     scored,
     failed,
   });
+
+  // Surface partial/total failures so the outbox event is RETRIED (the outbox
+  // processor bumps attempts + re-schedules, up to MAX_ATTEMPTS). Without this
+  // the event is marked completed and the failed pages keep an inflated
+  // deterministic score forever (they never get the LLM content deductions —
+  // a scoring *failure* silently makes the grade look *better*). On retry,
+  // already-scored pages hit the KV cache so only the failed pages re-attempt;
+  // once attempts are exhausted the event stays failed (observable) instead of
+  // disappearing. markLLMStatus is written first so the per-job status survives.
+  if (failed > 0) {
+    throw new Error(
+      `Workers AI content scoring failed for ${failed}/${pageTexts.length} page(s) (job ${input.jobId})`,
+    );
+  }
 }
 
 /**
