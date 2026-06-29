@@ -73,7 +73,11 @@ vi.mock("@llm-boost/shared", async (importOriginal) => {
   };
 });
 
-import { runLLMScoring, rescoreLLM } from "../../services/llm-scoring";
+import {
+  runLLMScoring,
+  rescoreLLM,
+  htmlToScoringText,
+} from "../../services/llm-scoring";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -565,5 +569,30 @@ describe("rescoreLLM", () => {
     } as any);
 
     expect(result.results[0].status).toMatch(/too_short/);
+  });
+});
+
+describe("htmlToScoringText", () => {
+  it("strips <script> contents (e.g. JSON-LD) so they are not scored as text", () => {
+    const html = `<html><body><h1>Cuidado en Costa Rica</h1><p>Regulado por el Ministerio de Salud.</p><script type="application/ld+json">{"@type":"FAQPage","name":"CONAPAM Ley 1850 CPSAM"}</script></body></html>`;
+    const text = htmlToScoringText(html);
+    expect(text).toContain("Cuidado en Costa Rica");
+    expect(text).toContain("Ministerio de Salud");
+    // JSON-LD content must NOT leak into the scoreable text
+    expect(text).not.toContain("FAQPage");
+    expect(text).not.toContain("Ley 1850");
+    expect(text).not.toContain("@type");
+  });
+
+  it("strips <style> blocks and HTML comments", () => {
+    const html = `<html><head><style>.a{color:red}</style></head><body><!-- hidden note --><p>Contenido visible</p></body></html>`;
+    const text = htmlToScoringText(html);
+    expect(text).toBe("Contenido visible");
+    expect(text).not.toContain("color:red");
+    expect(text).not.toContain("hidden note");
+  });
+
+  it("collapses whitespace and trims", () => {
+    expect(htmlToScoringText("<p>  hello   world  </p>")).toBe("hello world");
   });
 });
