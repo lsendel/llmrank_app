@@ -12,6 +12,17 @@ pub struct Config {
     pub max_concurrent_jobs: usize,
     pub max_concurrent_fetches: usize,
     pub max_concurrent_lighthouse: usize,
+    /// Remote Lighthouse offload URL. `None` (default) = run locally via the
+    /// Chromium the Dockerfile provisions. Set `LIGHTHOUSE_REMOTE_URL` to offload
+    /// (also the instant kill-switch for the local path — no redeploy needed).
+    pub lighthouse_remote_url: Option<String>,
+    /// Max pages to audit with Lighthouse per crawl (sampling cap). `0` = no cap.
+    pub max_lighthouse_pages: usize,
+    /// Per-audit timeout (seconds). Short so a hung audit resolves fast.
+    pub lighthouse_timeout_s: u64,
+    /// Stop attempting Lighthouse after this many consecutive failures in a
+    /// crawl (circuit-breaker; `0` = disabled).
+    pub lighthouse_failure_threshold: usize,
     pub max_concurrent_renderers: usize,
     pub renderer_script_path: String,
     pub batch_page_threshold: usize,
@@ -58,6 +69,32 @@ impl Config {
                 ConfigError::InvalidValue("MAX_CONCURRENT_LIGHTHOUSE", "must be a valid usize")
             })?;
 
+        // Default to LOCAL Lighthouse: empty/unset means run in-crawler.
+        let lighthouse_remote_url = env::var("LIGHTHOUSE_REMOTE_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
+        let max_lighthouse_pages = env::var("MAX_LIGHTHOUSE_PAGES")
+            .unwrap_or_else(|_| "25".to_string())
+            .parse::<usize>()
+            .map_err(|_| {
+                ConfigError::InvalidValue("MAX_LIGHTHOUSE_PAGES", "must be a valid usize")
+            })?;
+
+        let lighthouse_timeout_s = env::var("LIGHTHOUSE_TIMEOUT_S")
+            .unwrap_or_else(|_| "20".to_string())
+            .parse::<u64>()
+            .map_err(|_| {
+                ConfigError::InvalidValue("LIGHTHOUSE_TIMEOUT_S", "must be a valid u64")
+            })?;
+
+        let lighthouse_failure_threshold = env::var("LIGHTHOUSE_FAILURE_THRESHOLD")
+            .unwrap_or_else(|_| "3".to_string())
+            .parse::<usize>()
+            .map_err(|_| {
+                ConfigError::InvalidValue("LIGHTHOUSE_FAILURE_THRESHOLD", "must be a valid usize")
+            })?;
+
         let max_concurrent_renderers = env::var("MAX_CONCURRENT_RENDERERS")
             .unwrap_or_else(|_| "3".to_string())
             .parse::<usize>()
@@ -91,6 +128,10 @@ impl Config {
             max_concurrent_jobs,
             max_concurrent_fetches,
             max_concurrent_lighthouse,
+            lighthouse_remote_url,
+            max_lighthouse_pages,
+            lighthouse_timeout_s,
+            lighthouse_failure_threshold,
             max_concurrent_renderers,
             renderer_script_path,
             batch_page_threshold,
