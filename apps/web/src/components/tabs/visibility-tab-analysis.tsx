@@ -11,6 +11,7 @@ import { RecommendationsCard } from "@/components/visibility/recommendations-car
 import { SourceOpportunitiesTable } from "@/components/visibility/source-opportunities-table";
 import { AIVisibilityScoreHeader } from "@/components/visibility/ai-visibility-score-header";
 import { Badge } from "@/components/ui/badge";
+import { EngineModeBadge } from "@/components/visibility/engine-mode-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApi } from "@/lib/use-api";
@@ -221,7 +222,8 @@ export function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
           <CardTitle className="text-base capitalize">
             {check.llmProvider}
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <EngineModeBadge mode={check.engineMode} />
             <Badge variant={check.brandMentioned ? "success" : "destructive"}>
               {check.brandMentioned ? "Mentioned" : "Not Mentioned"}
             </Badge>

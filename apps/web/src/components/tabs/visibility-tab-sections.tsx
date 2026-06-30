@@ -1,5 +1,6 @@
 import { type ComponentProps, useState } from "react";
 import { KeywordPicker } from "@/components/visibility/keyword-picker";
+import { EngineModeBadge } from "@/components/visibility/engine-mode-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -707,7 +708,10 @@ export function VisibilityHistorySection({
                   {check.query}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{check.llmProvider}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="secondary">{check.llmProvider}</Badge>
+                    <EngineModeBadge mode={check.engineMode} />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge
