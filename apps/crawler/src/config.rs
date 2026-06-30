@@ -12,13 +12,14 @@ pub struct Config {
     pub max_concurrent_jobs: usize,
     pub max_concurrent_fetches: usize,
     pub max_concurrent_lighthouse: usize,
-    /// Remote Lighthouse offload URL. `None` (default) = run locally via the
-    /// Chromium the Dockerfile provisions. Set `LIGHTHOUSE_REMOTE_URL` to offload
-    /// (also the instant kill-switch for the local path — no redeploy needed).
-    pub lighthouse_remote_url: Option<String>,
+    /// Audit backend: `"psi"` (PageSpeed Insights, the default — no local
+    /// browser), `"local"` (Chromium subprocess; hangs on Fly), or `"off"`.
+    pub lighthouse_mode: String,
+    /// PageSpeed Insights API key (optional; PSI works keyless at lower quota).
+    pub pagespeed_api_key: Option<String>,
     /// Max pages to audit with Lighthouse per crawl (sampling cap). `0` = no cap.
     pub max_lighthouse_pages: usize,
-    /// Per-audit timeout (seconds). Short so a hung audit resolves fast.
+    /// Per-audit timeout (seconds).
     pub lighthouse_timeout_s: u64,
     /// Stop attempting Lighthouse after this many consecutive failures in a
     /// crawl (circuit-breaker; `0` = disabled).
@@ -69,8 +70,16 @@ impl Config {
                 ConfigError::InvalidValue("MAX_CONCURRENT_LIGHTHOUSE", "must be a valid usize")
             })?;
 
-        // Default to LOCAL Lighthouse: empty/unset means run in-crawler.
-        let lighthouse_remote_url = env::var("LIGHTHOUSE_REMOTE_URL")
+        // Audit backend: default to PageSpeed Insights (no local browser).
+        let lighthouse_mode = env::var("LIGHTHOUSE_MODE")
+            .ok()
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "psi".to_string());
+
+        // PSI key: PAGESPEED_API_KEY, falling back to GOOGLE_API_KEY.
+        let pagespeed_api_key = env::var("PAGESPEED_API_KEY")
+            .or_else(|_| env::var("GOOGLE_API_KEY"))
             .ok()
             .filter(|s| !s.trim().is_empty());
 
@@ -128,7 +137,8 @@ impl Config {
             max_concurrent_jobs,
             max_concurrent_fetches,
             max_concurrent_lighthouse,
-            lighthouse_remote_url,
+            lighthouse_mode,
+            pagespeed_api_key,
             max_lighthouse_pages,
             lighthouse_timeout_s,
             lighthouse_failure_threshold,

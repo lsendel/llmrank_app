@@ -18,18 +18,24 @@ pub enum LighthouseError {
     NotInstalled,
 }
 
-/// Lighthouse runner that runs locally (default) or offloads to a remote service.
+/// Lighthouse runner. Default backend is PageSpeed Insights (server-side, no
+/// local browser); `"local"` runs a Chromium subprocess (hangs on Fly — avoid),
+/// `"off"` disables auditing.
 ///
 /// Hardened so it can never stall the crawler: audits are budget-capped
-/// (sampling), the subprocess is killed on timeout (`kill_on_drop`, see
-/// `run_local_audit`), and a per-crawl circuit-breaker stops attempting audits
-/// after repeated failures — so a broken Chromium degrades to "no Lighthouse
-/// data" instead of piling up orphaned processes and exhausting the machine.
+/// (sampling), and a per-crawl circuit-breaker stops attempting after repeated
+/// failures — so a failing backend degrades to "no Lighthouse data" instead of
+/// piling up work.
 #[derive(Clone)]
 pub struct LighthouseRunner {
     semaphore: Arc<Semaphore>,
     timeout_secs: u64,
-    api_url: Option<String>, // remote audit URL; None = run locally
+    /// Audit backend: `"psi"` (PageSpeed Insights — server-side Lighthouse, no
+    /// local browser; the default), `"local"` (Chromium subprocess), or `"off"`.
+    mode: String,
+    /// PageSpeed Insights API key. Optional — PSI works keyless at lower quota.
+    psi_api_key: Option<String>,
+    http: reqwest::Client,
     /// Remaining per-crawl audit budget (sampling cap). `None` = unlimited.
     budget: Option<Arc<AtomicUsize>>,
     /// Consecutive audit failures this crawl (circuit-breaker input), shared
@@ -41,12 +47,13 @@ pub struct LighthouseRunner {
 }
 
 impl LighthouseRunner {
-    /// Create a new runner. `max_pages` caps audits per crawl (`0` = unlimited);
-    /// `failure_threshold` trips the circuit-breaker after that many consecutive
-    /// failures (`0` = disabled).
+    /// Create a new runner. `mode` selects the backend ("psi"/"local"/"off");
+    /// `max_pages` caps audits per crawl (`0` = unlimited); `failure_threshold`
+    /// trips the circuit-breaker after that many consecutive failures (`0` = off).
     pub fn new(
         max_concurrent: usize,
-        api_url: Option<String>,
+        mode: String,
+        psi_api_key: Option<String>,
         max_pages: usize,
         timeout_secs: u64,
         failure_threshold: usize,
@@ -54,7 +61,9 @@ impl LighthouseRunner {
         LighthouseRunner {
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
             timeout_secs,
-            api_url,
+            mode,
+            psi_api_key,
+            http: reqwest::Client::new(),
             budget: if max_pages > 0 {
                 Some(Arc::new(AtomicUsize::new(max_pages)))
             } else {
@@ -97,7 +106,7 @@ impl LighthouseRunner {
         &self,
         url: &str,
     ) -> Result<Option<LighthouseResult>, LighthouseError> {
-        if self.breaker_tripped() || !self.try_claim_budget() {
+        if self.mode == "off" || self.breaker_tripped() || !self.try_claim_budget() {
             return Ok(None);
         }
 
@@ -107,10 +116,10 @@ impl LighthouseRunner {
             .await
             .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
 
-        let result = if let Some(ref api_base) = self.api_url {
-            self.run_remote_audit(url, api_base).await
-        } else {
+        let result = if self.mode == "local" {
             self.run_local_audit(url).await
+        } else {
+            self.run_psi_audit(url).await
         };
 
         match &result {
@@ -122,22 +131,37 @@ impl LighthouseRunner {
         result.map(Some)
     }
 
-    async fn run_remote_audit(
-        &self,
-        url: &str,
-        api_base: &str,
-    ) -> Result<LighthouseResult, LighthouseError> {
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(format!("{}/api/browser/audit", api_base))
-            .json(&serde_json::json!({ "url": url }))
+    /// Audit via the Google PageSpeed Insights API — server-side Lighthouse, no
+    /// local browser (sidesteps Chromium-in-container entirely). Returns the same
+    /// 0-1 category scores as a local run.
+    async fn run_psi_audit(&self, url: &str) -> Result<LighthouseResult, LighthouseError> {
+        let mut psi_url =
+            url::Url::parse("https://www.googleapis.com/pagespeedonline/v5/runPagespeed")
+                .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
+        {
+            let mut qp = psi_url.query_pairs_mut();
+            qp.append_pair("url", url);
+            qp.append_pair("strategy", "mobile");
+            qp.append_pair("category", "performance");
+            qp.append_pair("category", "seo");
+            qp.append_pair("category", "accessibility");
+            qp.append_pair("category", "best-practices");
+            if let Some(ref key) = self.psi_api_key {
+                qp.append_pair("key", key);
+            }
+        }
+
+        let resp = self
+            .http
+            .get(psi_url)
+            .timeout(Duration::from_secs(self.timeout_secs))
             .send()
             .await
             .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
 
         if !resp.status().is_success() {
             return Err(LighthouseError::ProcessError(format!(
-                "API error: {}",
+                "PSI API error: {}",
                 resp.status()
             )));
         }
@@ -147,11 +171,19 @@ impl LighthouseRunner {
             .await
             .map_err(|e| LighthouseError::ParseError(e.to_string()))?;
 
-        let data = body
-            .get("data")
-            .ok_or_else(|| LighthouseError::ParseError("Missing data key".into()))?;
+        let cats = &body["lighthouseResult"]["categories"];
+        let score = |c: &str| cats[c]["score"].as_f64();
+        // Performance is the signal we require; the others are best-effort.
+        let performance = score("performance")
+            .ok_or_else(|| LighthouseError::ParseError("PSI: no performance score".into()))?;
 
-        serde_json::from_value(data.clone()).map_err(|e| LighthouseError::ParseError(e.to_string()))
+        Ok(LighthouseResult {
+            performance,
+            seo: score("seo").unwrap_or(0.0),
+            accessibility: score("accessibility").unwrap_or(0.0),
+            best_practices: score("best-practices").unwrap_or(0.0),
+            lh_r2_key: None,
+        })
     }
 
     async fn run_local_audit(&self, url: &str) -> Result<LighthouseResult, LighthouseError> {
@@ -257,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_budget_caps_audits() {
-        let r = LighthouseRunner::new(1, None, 2, 20, 3);
+        let r = LighthouseRunner::new(1, "off".to_string(), None, 2, 20, 3);
         assert!(r.try_claim_budget());
         assert!(r.try_claim_budget());
         assert!(!r.try_claim_budget());
@@ -265,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_budget_unlimited_when_zero() {
-        let r = LighthouseRunner::new(1, None, 0, 20, 3);
+        let r = LighthouseRunner::new(1, "off".to_string(), None, 0, 20, 3);
         for _ in 0..100 {
             assert!(r.try_claim_budget());
         }
@@ -273,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_circuit_breaker_trips_after_threshold() {
-        let r = LighthouseRunner::new(1, None, 0, 20, 3);
+        let r = LighthouseRunner::new(1, "off".to_string(), None, 0, 20, 3);
         assert!(!r.breaker_tripped());
         r.consecutive_failures.fetch_add(2, Ordering::SeqCst);
         assert!(!r.breaker_tripped()); // 2 < 3
@@ -285,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_circuit_breaker_disabled_when_zero() {
-        let r = LighthouseRunner::new(1, None, 0, 20, 0);
+        let r = LighthouseRunner::new(1, "off".to_string(), None, 0, 20, 0);
         r.consecutive_failures.fetch_add(50, Ordering::SeqCst);
         assert!(!r.breaker_tripped()); // threshold 0 = never trips
     }
