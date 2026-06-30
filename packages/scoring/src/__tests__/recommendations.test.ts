@@ -190,6 +190,56 @@ describe("real predicted score lift (#2B)", () => {
   });
 });
 
+describe("unified impact×effort prioritization (#2C)", () => {
+  it("ranks an easy moderate-impact fix above a hard high-impact one", () => {
+    const recs = generateRecommendations(
+      [
+        // big impact but high effort: 16 × 2 / 4 = 8
+        makeIssue({
+          code: "CONTENT_DEPTH",
+          category: "content",
+          severity: "warning",
+          scoreImpact: -16,
+        }),
+        // smaller impact but low effort: 8 × 2 / 1 = 16
+        makeIssue({
+          code: "NO_INTERNAL_LINKS",
+          category: "content",
+          severity: "warning",
+          scoreImpact: -8,
+        }),
+      ],
+      60,
+    );
+    expect(recs[0].issueCode).toBe("NO_INTERNAL_LINKS");
+    expect(recs[1].issueCode).toBe("CONTENT_DEPTH");
+  });
+
+  it("still ranks a critical high-impact issue first", () => {
+    const recs = generateRecommendations(
+      [
+        makeIssue({ code: "NO_INTERNAL_LINKS", severity: "warning" }),
+        makeIssue({ code: "MISSING_TITLE", severity: "critical" }),
+      ],
+      60,
+    );
+    expect(recs[0].issueCode).toBe("MISSING_TITLE");
+  });
+
+  it("keeps a critical above warnings even when the critical is higher-effort", () => {
+    // HTTP_STATUS (critical, high effort) priority 18.75 vs MISSING_META_DESC
+    // (warning, low effort) 20 — but a broken page must still lead.
+    const recs = generateRecommendations(
+      [
+        makeIssue({ code: "MISSING_META_DESC", severity: "warning" }),
+        makeIssue({ code: "HTTP_STATUS", severity: "critical" }),
+      ],
+      60,
+    );
+    expect(recs[0].issueCode).toBe("HTTP_STATUS");
+  });
+});
+
 describe("generateStrengths", () => {
   const categoryScores = {
     technical: 90,

@@ -29,11 +29,28 @@ interface IssueInstance {
   pageUrl?: string | null;
 }
 
-const EFFORT_DIVISOR: Record<EffortLevel, number> = {
+export const EFFORT_DIVISOR: Record<EffortLevel, number> = {
   low: 1,
   medium: 2,
   high: 4,
 };
+
+/**
+ * Unified issue prioritisation: |scoreImpact| × severity ÷ effort. Higher means
+ * a bigger, easier, more severe win. Single source of truth shared by the
+ * cross-page quick-wins ranking and the per-page recommendation sort so the two
+ * never disagree on what to fix first.
+ */
+export function issuePriority(args: {
+  scoreImpact: number;
+  severity: string | null | undefined;
+  effortLevel: EffortLevel;
+}): number {
+  const impact = Math.abs(args.scoreImpact);
+  const severity = severityRank(args.severity) || 1;
+  const effort = EFFORT_DIVISOR[args.effortLevel] ?? 2;
+  return (impact * severity) / effort;
+}
 
 /**
  * Ranks issues by impact and returns the top N quick wins.
@@ -75,9 +92,11 @@ export function getQuickWins(issues: IssueInstance[], limit = 5): QuickWin[] {
     const impact = Math.abs(def.scoreImpact);
     if (impact === 0) continue; // Skip LLM-scored dynamic issues
 
-    const severity = severityRank(def.severity) || 1;
-    const effort = EFFORT_DIVISOR[def.effortLevel] ?? 2;
-    const priority = (impact * severity) / effort;
+    const priority = issuePriority({
+      scoreImpact: def.scoreImpact,
+      severity: def.severity,
+      effortLevel: def.effortLevel,
+    });
 
     wins.push({
       code,
