@@ -37,3 +37,57 @@ export function buildVisibilityGapRecommendation(gap: VisibilityQueryGap): {
       `confirm you're now cited.`,
   };
 }
+
+/**
+ * A competitor domain surfaced in AI answers across queries where the brand is
+ * absent — the domain-centric shape `getSourceOpportunities` returns.
+ */
+export interface VisibilityGapOpportunity {
+  domain: string;
+  mentionCount: number;
+  queries: string[];
+}
+
+/** A portfolio "Next Best Action" derived from a measured visibility gap. */
+export interface VisibilityGapAction {
+  priority: "critical" | "high" | "medium" | "low";
+  category: string;
+  title: string;
+  description: string;
+  action?: string;
+}
+
+/**
+ * Turn measured visibility gaps (a competitor cited across queries where the
+ * brand is absent) into portfolio Next Best Actions — page-specific (names the
+ * competitor + the queries) and re-verifiable (re-run the check). Sorted by
+ * mention count, capped. Pure: no DB/IO.
+ */
+export function buildVisibilityGapActions(
+  opportunities: VisibilityGapOpportunity[],
+  limit = 3,
+): VisibilityGapAction[] {
+  return opportunities
+    .filter((o) => o.domain && o.mentionCount > 0 && o.queries.length > 0)
+    .sort((a, b) => b.mentionCount - a.mentionCount)
+    .slice(0, Math.max(0, limit))
+    .map((o) => {
+      const queryCount = o.queries.length;
+      const noun = queryCount === 1 ? "query" : "queries";
+      const sample = o.queries
+        .slice(0, 2)
+        .map((q) => `"${q}"`)
+        .join(", ");
+      return {
+        priority: o.mentionCount >= 3 ? "high" : "medium",
+        category: "visibility",
+        title: `${o.domain} is cited where you're invisible`,
+        description:
+          `${o.domain} appears in AI answers for ${queryCount} ${noun} ` +
+          `where your brand isn't mentioned (e.g. ${sample}). Publish ` +
+          `authoritative content targeting these queries, then re-run the ` +
+          `visibility check to confirm you're now cited.`,
+        action: "run_visibility_check",
+      };
+    });
+}

@@ -1,4 +1,4 @@
-import type { Database } from "@llm-boost/db";
+import type { Database, AgencyDatabase } from "@llm-boost/db";
 import {
   projectQueries,
   crawlQueries,
@@ -6,8 +6,12 @@ import {
   savedKeywordQueries,
   competitorQueries,
   pipelineRunQueries,
+  visibilityQueries,
 } from "@llm-boost/db";
-import { buildVisibilityGapRecommendation } from "@llm-boost/shared";
+import {
+  buildVisibilityGapRecommendation,
+  buildVisibilityGapActions,
+} from "@llm-boost/shared";
 
 export interface Recommendation {
   type: "gap" | "platform" | "issue" | "trend" | "coverage";
@@ -217,7 +221,10 @@ export interface PortfolioPriorityItem {
   };
 }
 
-export function createRecommendationsService(db: Database) {
+export function createRecommendationsService(
+  db: Database,
+  agencyDb?: AgencyDatabase,
+) {
   function dueDateForPriority(
     priority: PortfolioPriorityItem["priority"],
   ): string {
@@ -752,6 +759,20 @@ export function createRecommendationsService(db: Database) {
             "No competitors tracked. Discover competitors to benchmark against.",
           action: "run_full_analysis",
         });
+      }
+
+      // Visibility gaps — competitors cited in AI answers where the brand is
+      // absent. Closes the loop in the portfolio Next Best Actions. Visibility
+      // data lives in Supabase, so it's only available when an agency db is
+      // supplied; guarded so a missing/empty agency db never breaks the rest.
+      if (agencyDb) {
+        try {
+          const opportunities =
+            await visibilityQueries(agencyDb).getSourceOpportunities(projectId);
+          recommendations.push(...buildVisibilityGapActions(opportunities));
+        } catch {
+          // No visibility data for this project — skip silently.
+        }
       }
 
       // Check pipeline hasn't run

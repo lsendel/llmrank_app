@@ -12,6 +12,7 @@ const mockCountByProjects = vi.fn();
 const mockListByProject = vi.fn();
 const mockListByProjects = vi.fn();
 const mockGetLatestPipeline = vi.fn();
+const mockGetSourceOpportunities = vi.fn();
 
 vi.mock("@llm-boost/db", () => ({
   projectQueries: () => ({
@@ -36,6 +37,9 @@ vi.mock("@llm-boost/db", () => ({
     listByProjects: mockListByProjects,
   }),
   pipelineRunQueries: () => ({ getLatestByProject: mockGetLatestPipeline }),
+  visibilityQueries: () => ({
+    getSourceOpportunities: mockGetSourceOpportunities,
+  }),
 }));
 
 import { createRecommendationsService } from "@llm-boost/pipeline";
@@ -328,5 +332,52 @@ describe("createRecommendationsService", () => {
     expect(feed[0].trendDelta).toBe(-16);
     expect(feed[1].projectId).toBe("proj-up");
     expect(feed[1].trendDelta).toBe(11);
+  });
+
+  describe("getForProject visibility gaps (agency db)", () => {
+    function setupHealthyProject() {
+      mockGetById.mockResolvedValueOnce({ id: "proj-1", userId: "u-1" });
+      mockGetLatestByProject.mockResolvedValueOnce({
+        id: "crawl-1",
+        status: "complete",
+        completedAt: new Date().toISOString(),
+      });
+      mockGetIssuesByJob.mockResolvedValueOnce([]);
+      mockCountByProject.mockResolvedValueOnce(10);
+      mockListByProject.mockResolvedValueOnce([{ domain: "x.com" }]);
+      mockGetLatestPipeline.mockResolvedValueOnce({ id: "p-1" });
+    }
+
+    it("surfaces a visibility gap action when an agency db is provided", async () => {
+      setupHealthyProject();
+      mockGetSourceOpportunities.mockResolvedValueOnce([
+        { domain: "rival.com", mentionCount: 4, queries: ["best crm", "crm"] },
+      ]);
+
+      const service = createRecommendationsService(fakeDb, {} as any);
+      const recs = await service.getForProject("proj-1");
+
+      const gap = recs.find((r) => r.category === "visibility");
+      expect(gap).toBeDefined();
+      expect(gap?.title).toContain("rival.com");
+      expect(gap?.action).toBe("run_visibility_check");
+    });
+
+    it("never queries visibility without an agency db", async () => {
+      setupHealthyProject();
+      const service = createRecommendationsService(fakeDb);
+      await service.getForProject("proj-1");
+      expect(mockGetSourceOpportunities).not.toHaveBeenCalled();
+    });
+
+    it("degrades gracefully when the visibility query throws", async () => {
+      setupHealthyProject();
+      mockGetSourceOpportunities.mockRejectedValueOnce(new Error("PG down"));
+
+      const service = createRecommendationsService(fakeDb, {} as any);
+      await expect(service.getForProject("proj-1")).resolves.toBeInstanceOf(
+        Array,
+      );
+    });
   });
 });

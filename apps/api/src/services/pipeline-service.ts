@@ -1,4 +1,8 @@
-import { pipelineRunQueries, projectQueries } from "@llm-boost/db";
+import {
+  pipelineRunQueries,
+  projectQueries,
+  createAgencyDb,
+} from "@llm-boost/db";
 import type { Database } from "@llm-boost/db";
 import {
   runAutoSiteDescription,
@@ -128,8 +132,15 @@ export function createPipelineService(
           break;
         }
         case "action_report": {
-          const recommendations =
-            await createRecommendationsService(db).getForProject(projectId);
+          // Supabase visibility gaps need the agency db; keys.databaseUrl is the
+          // Supabase connection string. Skip (D1-only actions) if it's absent.
+          const agencyDb = keys.databaseUrl
+            ? createAgencyDb(keys.databaseUrl)
+            : undefined;
+          const recommendations = await createRecommendationsService(
+            db,
+            agencyDb,
+          ).getForProject(projectId);
           stepOutput = {
             actionsGenerated: recommendations.length,
             criticalActions: recommendations.filter(
