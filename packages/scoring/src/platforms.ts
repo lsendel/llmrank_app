@@ -30,16 +30,36 @@ function letterGrade(score: number): "A" | "B" | "C" | "D" | "F" {
 
 export function calculatePlatformScores(
   categories: CategoryScores,
+  performanceMeasured = true,
 ): PlatformScores {
   const platformScores: Partial<PlatformScores> = {};
 
   for (const id of LLM_PLATFORMS) {
     const weights = PLATFORM_WEIGHTS[id];
+
+    // Mirror the engine: when performance wasn't measured, drop its weight and
+    // renormalize the measured categories per-platform so an unmeasured page
+    // isn't credited a fabricated 100 on whatever weight this platform assigns
+    // to performance (up to 0.25 for Copilot/Grok).
+    let wTech = weights.technical;
+    let wContent = weights.content;
+    let wAi = weights.ai_readiness;
+    let wPerf = weights.performance;
+    if (!performanceMeasured) {
+      const measuredSum = wTech + wContent + wAi;
+      if (measuredSum > 0) {
+        wTech /= measuredSum;
+        wContent /= measuredSum;
+        wAi /= measuredSum;
+      }
+      wPerf = 0;
+    }
+
     const weightedScore =
-      categories.technicalScore * weights.technical +
-      categories.contentScore * weights.content +
-      categories.aiReadinessScore * weights.ai_readiness +
-      categories.performanceScore * weights.performance;
+      categories.technicalScore * wTech +
+      categories.contentScore * wContent +
+      categories.aiReadinessScore * wAi +
+      categories.performanceScore * wPerf;
 
     const normalized = Math.max(0, Math.min(100, Math.round(weightedScore)));
     platformScores[id] = {

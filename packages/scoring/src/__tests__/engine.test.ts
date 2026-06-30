@@ -360,4 +360,55 @@ describe("Scoring Engine (scorePage)", () => {
     const result = scorePage(page);
     expect(result.overallScore).toBeGreaterThanOrEqual(0);
   });
+
+  it("does not inflate the overall with a fabricated 100 when performance is unmeasured", () => {
+    // Same page scored three ways. Performance must behave neutrally when
+    // unmeasured: dropping its weight (renormalising the measured categories)
+    // rather than crediting a perfect 100. So the no-Lighthouse overall must sit
+    // between the poor-Lighthouse and perfect-Lighthouse overalls — never above
+    // the perfect case (which would prove a 100 cushion was wrongly applied).
+    const base = () => {
+      const p = makePageData({ wordCount: 400 });
+      p.extracted.h2 = [];
+      p.extracted.structured_data = [];
+      p.extracted.schema_types = [];
+      p.llmScores = {
+        clarity: 55,
+        authority: 50,
+        comprehensiveness: 55,
+        structure: 55,
+        citation_worthiness: 50,
+      };
+      return p;
+    };
+
+    const perfectLh = base();
+    perfectLh.lighthouse = {
+      performance: 1,
+      seo: 1,
+      accessibility: 1,
+      best_practices: 1,
+    };
+
+    const poorLh = base();
+    poorLh.lighthouse = {
+      performance: 0.2,
+      seo: 0.3,
+      accessibility: 0.3,
+      best_practices: 0.3,
+    };
+
+    const noLh = base();
+    noLh.lighthouse = null;
+
+    const perfect = scorePage(perfectLh).overallScore;
+    const poor = scorePage(poorLh).overallScore;
+    const none = scorePage(noLh).overallScore;
+
+    expect(none).toBeLessThanOrEqual(perfect);
+    expect(none).toBeGreaterThanOrEqual(poor);
+    // The unmeasured page must be strictly de-inflated relative to a perfect
+    // measured score, because its measured categories average below 100.
+    expect(none).toBeLessThan(perfect);
+  });
 });

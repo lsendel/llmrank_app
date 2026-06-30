@@ -42,6 +42,14 @@ export interface PageData {
 export interface FactorResult {
   score: number;
   issues: Issue[];
+  /**
+   * Whether this category was actually measured. Defaults to measured when
+   * absent. Performance sets this to `false` when no Lighthouse (or page-weight)
+   * signal exists — the 100 baseline is then an assumption, not a measurement,
+   * and the engine excludes it from the weighted overall/platform scores instead
+   * of letting a fabricated 100 inflate them.
+   */
+  measured?: boolean;
 }
 
 export interface ScoringResult {

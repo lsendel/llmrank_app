@@ -334,13 +334,20 @@ describe("Parity: scorePage (v1) vs scorePageV2 (v2)", () => {
       },
     ];
 
+    // v1 now renormalises away unmeasured performance (no Lighthouse → perf's
+    // weight is redistributed instead of crediting a fabricated 100). This
+    // de-inflates low-quality, no-Lighthouse pages and aligns v1 with v2's
+    // philosophy (the 7-dimension engine has no performance dimension at all),
+    // but on the most adversarial fixture the structurally different models
+    // diverge a few points more than before — hence 22 rather than 15.
+    const PARITY_TOLERANCE = 22;
     for (const { name, page } of toleranceScenarios) {
-      it(`${name}: overall scores within 15 points`, () => {
+      it(`${name}: overall scores within ${PARITY_TOLERANCE} points`, () => {
         const v1 = scorePage(page);
         const v2 = scorePageV2(page);
 
         const diff = Math.abs(v1.overallScore - v2.overallScore);
-        expect(diff).toBeLessThanOrEqual(15);
+        expect(diff).toBeLessThanOrEqual(PARITY_TOLERANCE);
       });
     }
   });
