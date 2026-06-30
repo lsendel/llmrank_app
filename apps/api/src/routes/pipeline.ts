@@ -142,7 +142,7 @@ pipelineRoutes.get(
   async (c) => {
     const db = c.get("db");
     const projectId = c.req.param("projectId");
-    const service = createRecommendationsService(db);
+    const service = createRecommendationsService(db, c.get("agencyDb"));
     const recommendations = await service.getForProject(projectId);
     return c.json({ data: recommendations });
   },
