@@ -12,14 +12,6 @@ pub struct Config {
     pub max_concurrent_jobs: usize,
     pub max_concurrent_fetches: usize,
     pub max_concurrent_lighthouse: usize,
-    /// Remote Lighthouse offload URL. When `None` (default), Lighthouse runs
-    /// LOCALLY via the Chromium the Dockerfile provisions. Set
-    /// `LIGHTHOUSE_REMOTE_URL` to offload to a browser-audit service.
-    pub lighthouse_remote_url: Option<String>,
-    /// Max pages to audit with Lighthouse per crawl (sampling cap). `0` = no cap.
-    /// Default 25 — local Lighthouse on every page of a large crawl is far too
-    /// slow, so we sample.
-    pub max_lighthouse_pages: usize,
     pub max_concurrent_renderers: usize,
     pub renderer_script_path: String,
     pub batch_page_threshold: usize,
@@ -66,18 +58,6 @@ impl Config {
                 ConfigError::InvalidValue("MAX_CONCURRENT_LIGHTHOUSE", "must be a valid usize")
             })?;
 
-        // Default to LOCAL Lighthouse: an empty/unset var means run in-crawler.
-        let lighthouse_remote_url = env::var("LIGHTHOUSE_REMOTE_URL")
-            .ok()
-            .filter(|s| !s.trim().is_empty());
-
-        let max_lighthouse_pages = env::var("MAX_LIGHTHOUSE_PAGES")
-            .unwrap_or_else(|_| "25".to_string())
-            .parse::<usize>()
-            .map_err(|_| {
-                ConfigError::InvalidValue("MAX_LIGHTHOUSE_PAGES", "must be a valid usize")
-            })?;
-
         let max_concurrent_renderers = env::var("MAX_CONCURRENT_RENDERERS")
             .unwrap_or_else(|_| "3".to_string())
             .parse::<usize>()
@@ -111,8 +91,6 @@ impl Config {
             max_concurrent_jobs,
             max_concurrent_fetches,
             max_concurrent_lighthouse,
-            lighthouse_remote_url,
-            max_lighthouse_pages,
             max_concurrent_renderers,
             renderer_script_path,
             batch_page_threshold,

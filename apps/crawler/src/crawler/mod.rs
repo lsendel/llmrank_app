@@ -131,9 +131,7 @@ impl CrawlEngine {
         let lighthouse_fut = async {
             if let Some(ref runner) = self.lighthouse {
                 match runner.run_lighthouse(url).await {
-                    Ok(Some(result)) => Some(result),
-                    // Sampled out by the per-crawl budget — not audited, not a failure.
-                    Ok(None) => None,
+                    Ok(result) => Some(result),
                     Err(e) => {
                         tracing::warn!(url = %url, error = %e, "Lighthouse failed");
                         None

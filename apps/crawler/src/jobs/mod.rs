@@ -349,8 +349,7 @@ impl JobManager {
         let lighthouse_runner = if crawl_config.run_lighthouse {
             Some(LighthouseRunner::new(
                 config.max_concurrent_lighthouse,
-                config.lighthouse_remote_url.clone(),
-                config.max_lighthouse_pages,
+                Some(config.api_base_url.clone()),
             ))
         } else {
             None
