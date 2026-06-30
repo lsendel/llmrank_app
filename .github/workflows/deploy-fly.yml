@@ -1,15 +1,16 @@
-name: Deploy Fly.io
+name: Deploy Fly.io (Crawler)
 
 on:
   push:
     branches: [main]
+    # Crawler-only paths. The Rust crawler does NOT depend on the TypeScript
+    # workspace packages (scoring/pipeline/parsers/repositories) — those drive
+    # the report-service (see deploy-fly-report.yml). Previously this workflow
+    # also triggered on those package paths and ran the crawler deploy
+    # unconditionally, so every packages/scoring change restarted the crawler's
+    # Fly machine and killed any in-flight crawl mid-run.
     paths:
       - "apps/crawler/**"
-      - "apps/report-service/**"
-      - "packages/pipeline/**"
-      - "packages/parsers/**"
-      - "packages/repositories/**"
-      - "packages/scoring/**"
       - "infra/docker/Dockerfile.crawler"
 
 jobs:
@@ -22,16 +23,5 @@ jobs:
 
       - run: flyctl deploy -a llmrank-crawler
         working-directory: apps/crawler
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  deploy-report-service:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - run: flyctl deploy -a llm-boost-reports --dockerfile apps/report-service/Dockerfile --config apps/report-service/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -1,0 +1,26 @@
+name: Deploy Fly.io (Report Service)
+
+on:
+  push:
+    branches: [main]
+    # Report-service inputs only: its own source plus the TypeScript workspace
+    # packages it consumes. Split out of deploy-fly.yml so these (frequently
+    # changed) package paths no longer redeploy the unrelated Rust crawler.
+    paths:
+      - "apps/report-service/**"
+      - "packages/pipeline/**"
+      - "packages/parsers/**"
+      - "packages/repositories/**"
+      - "packages/scoring/**"
+
+jobs:
+  deploy-report-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - run: flyctl deploy -a llm-boost-reports --dockerfile apps/report-service/Dockerfile --config apps/report-service/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
