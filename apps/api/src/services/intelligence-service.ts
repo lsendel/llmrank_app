@@ -1,4 +1,10 @@
-import { averageScores, ISSUE_DEFINITIONS } from "@llm-boost/shared";
+import {
+  averageScores,
+  ISSUE_DEFINITIONS,
+  PLATFORM_WEIGHTS,
+  type LLMPlatformId,
+} from "@llm-boost/shared";
+import { derivePlatformTips, type AggregatedIssue } from "./platform-tips";
 import type {
   CrawlRepository,
   ProjectRepository,
@@ -28,6 +34,19 @@ export function createIntelligenceService(deps: IntelligenceServiceDeps) {
         deps.scores.getIssuesByJob(crawlId),
         deps.pages.listByJob(crawlId),
       ]);
+
+      // Roll the project's issues up by code (count = affected pages). Shared by
+      // the data-driven platform tips and the ROI quick-wins below.
+      const issueCountByCode = new Map<string, number>();
+      for (const issue of allIssues) {
+        issueCountByCode.set(
+          issue.code,
+          (issueCountByCode.get(issue.code) ?? 0) + 1,
+        );
+      }
+      const aggregatedIssues: AggregatedIssue[] = [...issueCountByCode].map(
+        ([code, count]) => ({ code, count }),
+      );
 
       // --- AI Visibility Readiness ---
       // Composite: avg(aiReadinessScore) weighted 60% + avg(LLM citation_worthiness) weighted 40%
@@ -90,11 +109,23 @@ export function createIntelligenceService(deps: IntelligenceServiceDeps) {
 
       for (const [platform, agg] of platformAgg) {
         const avgScore = averageScores(agg.scores);
+        // Data-driven tips: this provider's most impactful ACTUAL issues,
+        // weighted by how heavily it weights each category. Fall back to the
+        // static PLATFORM_TIPS (carried on agg.tips) when the project has no
+        // mappable issues, so a clean/empty crawl never regresses.
+        const dataDriven =
+          platform in PLATFORM_WEIGHTS
+            ? derivePlatformTips(platform as LLMPlatformId, aggregatedIssues, {
+                limit: 3,
+              })
+            : [];
+        const topTips =
+          dataDriven.length > 0 ? dataDriven : [...agg.tips].slice(0, 3);
         platformOpportunities.push({
           platform,
           currentScore: avgScore,
           opportunityScore: 100 - avgScore,
-          topTips: [...agg.tips].slice(0, 3),
+          topTips,
           visibilityRate: visibilityRateByPlatform.get(platform) ?? null,
         });
       }
@@ -150,15 +181,8 @@ export function createIntelligenceService(deps: IntelligenceServiceDeps) {
       }
 
       // --- ROI Quick Wins ---
-      // Group issues by code, count affected pages, lookup score impact from ISSUE_DEFINITIONS
-      const issueCountByCode = new Map<string, number>();
-      for (const issue of allIssues) {
-        issueCountByCode.set(
-          issue.code,
-          (issueCountByCode.get(issue.code) ?? 0) + 1,
-        );
-      }
-
+      // Reuse the issueCountByCode rollup (affected pages per code) computed
+      // above; look up score impact + effort from ISSUE_DEFINITIONS.
       const roiQuickWins: any[] = [];
       for (const [code, affectedPages] of issueCountByCode) {
         const def = ISSUE_DEFINITIONS[code];

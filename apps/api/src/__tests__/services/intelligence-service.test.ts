@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { ISSUE_DEFINITIONS } from "@llm-boost/shared";
 import { createIntelligenceService } from "../../services/intelligence-service";
 
 function makeDeps(overrides: Record<string, any> = {}) {
@@ -133,6 +134,102 @@ describe("intelligence-service", () => {
     expect(perplexity).toBeDefined();
     expect(perplexity!.opportunityScore).toBe(45); // 100 - 55
     expect(perplexity!.topTips.length).toBeGreaterThan(0);
+  });
+
+  it("derives per-provider platform tips from actual issues, weighted by provider", async () => {
+    const deps = makeDeps();
+    deps.crawls.getById.mockResolvedValue({ id: crawlId, projectId });
+    deps.projects.getById.mockResolvedValue({ id: projectId, userId });
+    deps.scores.listByJob.mockResolvedValue([
+      {
+        pageId: "pg1",
+        overallScore: 70,
+        technicalScore: 70,
+        contentScore: 65,
+        aiReadinessScore: 60,
+        lighthousePerf: 0.6,
+        platformScores: {
+          chatgpt: { score: 70, grade: "C", tips: ["STATIC chatgpt tip"] },
+          copilot: { score: 65, grade: "D", tips: ["STATIC copilot tip"] },
+        },
+        detail: {},
+      },
+    ]);
+    // One issue per category, equal counts → only the provider's category
+    // weighting moves the ranking. (all three have |scoreImpact| 15)
+    const issueRows: any[] = [];
+    for (const code of [
+      "MISSING_TITLE",
+      "THIN_CONTENT",
+      "NO_STRUCTURED_DATA",
+    ]) {
+      for (let i = 0; i < 3; i++) issueRows.push({ pageId: `pg${i}`, code });
+    }
+    deps.scores.getIssuesByJob.mockResolvedValue(issueRows);
+    deps.pages.listByJob.mockResolvedValue([
+      { id: "pg1", url: "https://ex.com/a", wordCount: 800 },
+    ]);
+
+    const service = createIntelligenceService(deps as any);
+    const result = await service.getFusedInsights(userId, crawlId);
+
+    const chatgpt = result.platformOpportunities.find(
+      (p: any) => p.platform === "chatgpt",
+    );
+    const copilot = result.platformOpportunities.find(
+      (p: any) => p.platform === "copilot",
+    );
+
+    // ChatGPT weights ai_readiness (.5) > content (.3) > technical (.1).
+    expect(chatgpt!.topTips[0]).toBe(
+      ISSUE_DEFINITIONS.NO_STRUCTURED_DATA.recommendation,
+    );
+    // Copilot weights technical (.35) > content (.25) > ai_readiness (.15).
+    expect(copilot!.topTips[0]).toBe(
+      ISSUE_DEFINITIONS.MISSING_TITLE.recommendation,
+    );
+    // Data-driven tips replaced the static placeholder copy.
+    expect(chatgpt!.topTips).not.toContain("STATIC chatgpt tip");
+    expect(copilot!.topTips).not.toContain("STATIC copilot tip");
+  });
+
+  it("falls back to static platform tips when there are no issues", async () => {
+    const deps = makeDeps();
+    deps.crawls.getById.mockResolvedValue({ id: crawlId, projectId });
+    deps.projects.getById.mockResolvedValue({ id: projectId, userId });
+    deps.scores.listByJob.mockResolvedValue([
+      {
+        pageId: "pg1",
+        overallScore: 70,
+        technicalScore: 70,
+        contentScore: 65,
+        aiReadinessScore: 60,
+        lighthousePerf: 0.6,
+        platformScores: {
+          chatgpt: {
+            score: 70,
+            grade: "C",
+            tips: ["Static fallback A", "Static fallback B"],
+          },
+        },
+        detail: {},
+      },
+    ]);
+    deps.scores.getIssuesByJob.mockResolvedValue([]); // no issues
+    deps.pages.listByJob.mockResolvedValue([
+      { id: "pg1", url: "https://ex.com/a", wordCount: 800 },
+    ]);
+
+    const service = createIntelligenceService(deps as any);
+    const result = await service.getFusedInsights(userId, crawlId);
+
+    const chatgpt = result.platformOpportunities.find(
+      (p: any) => p.platform === "chatgpt",
+    );
+    expect(chatgpt!.topTips).toEqual([
+      "Static fallback A",
+      "Static fallback B",
+    ]);
   });
 
   it("gracefully handles missing enrichment data", async () => {
