@@ -42,6 +42,9 @@ export const visibilityChecks = pgTable(
     sentiment: text("sentiment"),
     brandDescription: text("brand_description"),
     competitorMentions: jsonb("competitor_mentions"),
+    // Distinct source hosts the answer cited (brand, competitors, third parties)
+    // — makes source-of-citation auditable. string[] stored as jsonb.
+    citedSources: jsonb("cited_sources"),
     // How the provider answered: "live_retrieval" (web-grounded: Perplexity,
     // Copilot) vs "recall" (plain completion, citations may be hallucinated).
     engineMode: text("engine_mode"),

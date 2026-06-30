@@ -14,6 +14,10 @@ export interface VisibilityCheckResult {
   urlCited: boolean;
   citedUrl: string | null;
   citationPosition: number | null;
+  /** Every distinct source host the answer cited (the brand's, competitors',
+   * and any third party) — makes source-of-citation auditable. Most meaningful
+   * for live-retrieval providers; recall-mode citations may be fabricated. */
+  citedSources: string[];
   competitorMentions: {
     domain: string;
     mentioned: boolean;
@@ -108,6 +112,7 @@ export class VisibilityChecker {
             urlCited: false,
             citedUrl: null,
             citationPosition: null,
+            citedSources: [],
             competitorMentions: competitors.map((domain) => ({
               domain,
               mentioned: false,
@@ -121,6 +126,28 @@ export class VisibilityChecker {
   }
 }
 
+/**
+ * Extract every distinct source host cited in an answer (deduped, www-stripped,
+ * capped) so source-of-citation is auditable — not just whether the target was
+ * cited. Malformed URLs are skipped.
+ */
+export function extractCitedSources(responseText: string): string[] {
+  // Stop on whitespace, ), ], and , so comma-joined URLs don't merge into one
+  // junk host (the trailing-punct strip below handles comma-plus-space).
+  const urls = responseText.match(/https?:\/\/[^\s),\]]+/gi) ?? [];
+  const hosts = new Set<string>();
+  for (const raw of urls) {
+    const clean = raw.replace(/[.,;:!?)\]]+$/, "");
+    try {
+      const host = new URL(clean).hostname.toLowerCase().replace(/^www\./, "");
+      if (host) hosts.add(host);
+    } catch {
+      // skip malformed URL
+    }
+  }
+  return [...hosts].slice(0, 20);
+}
+
 /** Parse a response text to detect brand mentions and URL citations. */
 export function analyzeResponse(
   responseText: string,
@@ -132,6 +159,7 @@ export function analyzeResponse(
   | "urlCited"
   | "citedUrl"
   | "citationPosition"
+  | "citedSources"
   | "competitorMentions"
 > {
   const text = responseText.toLowerCase();
@@ -223,6 +251,7 @@ export function analyzeResponse(
     urlCited,
     citedUrl,
     citationPosition,
+    citedSources: extractCitedSources(responseText),
     competitorMentions,
   };
 }

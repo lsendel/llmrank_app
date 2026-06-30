@@ -1,9 +1,51 @@
 import { describe, it, expect } from "vitest";
 import {
   analyzeResponse,
+  extractCitedSources,
   engineModeFor,
   PROVIDER_ENGINE_MODE,
 } from "../visibility";
+
+describe("extractCitedSources", () => {
+  it("collects distinct source hosts (www-stripped) from the answer", () => {
+    const sources = extractCitedSources(
+      "See https://www.nih.gov/study and [docs](https://example.com/a). " +
+        "Also https://example.com/b and https://rival.org.",
+    );
+    expect(sources).toContain("nih.gov");
+    expect(sources).toContain("example.com");
+    expect(sources).toContain("rival.org");
+    // deduped: example.com appears twice but once in the result
+    expect(sources.filter((s) => s === "example.com")).toHaveLength(1);
+  });
+
+  it("strips trailing punctuation and skips malformed URLs", () => {
+    const sources = extractCitedSources(
+      "Source: https://nih.gov/page. Not a url: http:// nope.",
+    );
+    expect(sources).toContain("nih.gov");
+    expect(sources).not.toContain("");
+  });
+
+  it("splits comma-joined URLs instead of merging them into a junk host", () => {
+    const sources = extractCitedSources("https://a.com,https://b.com");
+    expect(sources).toContain("a.com");
+    expect(sources).toContain("b.com");
+    expect(sources).not.toContain("a.com,https");
+  });
+
+  it("returns an empty array when nothing is cited", () => {
+    expect(extractCitedSources("No links here at all.")).toEqual([]);
+  });
+
+  it("caps at 20 sources", () => {
+    const text = Array.from(
+      { length: 30 },
+      (_, i) => `https://site${i}.com/x`,
+    ).join(" ");
+    expect(extractCitedSources(text)).toHaveLength(20);
+  });
+});
 
 describe("engineModeFor", () => {
   it("marks web-grounded providers as live_retrieval", () => {

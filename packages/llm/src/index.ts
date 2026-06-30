@@ -21,6 +21,7 @@ export { withRetry, withTimeout, TimeoutError } from "./retry";
 export {
   VisibilityChecker,
   analyzeResponse,
+  extractCitedSources,
   engineModeFor,
   PROVIDER_ENGINE_MODE,
 } from "./visibility";

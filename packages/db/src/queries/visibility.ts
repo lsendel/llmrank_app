@@ -24,6 +24,7 @@ export function visibilityQueries(db: Database) {
       citedUrl?: string | null;
       citationPosition?: number | null;
       competitorMentions?: unknown;
+      citedSources?: unknown;
       sentiment?: string | null;
       brandDescription?: string | null;
       engineMode?: string | null;

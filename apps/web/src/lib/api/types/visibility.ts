@@ -26,6 +26,8 @@ export interface VisibilityCheck {
   // How the provider answered: "live_retrieval" (web-grounded) vs "recall"
   // (plain completion — citations may be hallucinated). Null on older rows.
   engineMode?: "live_retrieval" | "recall" | null;
+  // Distinct source hosts the answer cited. Null on older rows.
+  citedSources?: string[] | null;
   checkedAt: string;
 }
 

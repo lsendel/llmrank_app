@@ -182,6 +182,7 @@ export function buildVisibilityCheck(
     citedUrl: null,
     citationPosition: null,
     competitorMentions: "{}",
+    citedSources: null,
     sentiment: null,
     brandDescription: null,
     engineMode: null,
