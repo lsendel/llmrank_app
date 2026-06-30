@@ -10,7 +10,7 @@ import { decrypt, encrypt } from "../lib/crypto";
 import { refreshAccessToken } from "../lib/google-oauth";
 import { refreshLongLivedToken } from "../lib/meta-oauth";
 
-const ENRICHMENT_PAGE_LIMIT = 50;
+const ENRICHMENT_PAGE_LIMIT = 10;
 
 export interface EnrichmentInput {
   d1: D1Database;

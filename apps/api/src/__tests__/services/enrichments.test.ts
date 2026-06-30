@@ -192,7 +192,7 @@ describe("runIntegrationEnrichments", () => {
     await runIntegrationEnrichments(baseInput());
 
     expect(mockDecrypt).toHaveBeenCalledWith("encrypted-creds", "abc123hex");
-    expect(mockListPagesByJob).toHaveBeenCalledWith("job-1", { limit: 50 });
+    expect(mockListPagesByJob).toHaveBeenCalledWith("job-1", { limit: 10 });
     expect(mockRunEnrichments).toHaveBeenCalledWith(
       [
         {
