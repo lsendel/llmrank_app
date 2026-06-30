@@ -1,5 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { analyzeResponse } from "../visibility";
+import {
+  analyzeResponse,
+  engineModeFor,
+  PROVIDER_ENGINE_MODE,
+} from "../visibility";
+
+describe("engineModeFor", () => {
+  it("marks web-grounded providers as live_retrieval", () => {
+    expect(engineModeFor("perplexity")).toBe("live_retrieval");
+    expect(engineModeFor("copilot")).toBe("live_retrieval");
+  });
+
+  it("marks completion-only providers as recall", () => {
+    for (const p of ["chatgpt", "claude", "gemini", "gemini_ai_mode", "grok"]) {
+      expect(engineModeFor(p)).toBe("recall");
+    }
+  });
+
+  it("defaults unknown providers to the conservative recall", () => {
+    expect(engineModeFor("some-new-provider")).toBe("recall");
+  });
+
+  it("covers every routed provider", () => {
+    for (const p of Object.keys(PROVIDER_ENGINE_MODE)) {
+      expect(["live_retrieval", "recall"]).toContain(engineModeFor(p));
+    }
+  });
+});
 
 describe("analyzeResponse", () => {
   it("detects brand mention by domain name", () => {

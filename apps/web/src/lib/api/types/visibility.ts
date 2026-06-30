@@ -23,6 +23,9 @@ export interface VisibilityCheck {
         position: number | null;
       }[]
     | null;
+  // How the provider answered: "live_retrieval" (web-grounded) vs "recall"
+  // (plain completion — citations may be hallucinated). Null on older rows.
+  engineMode?: "live_retrieval" | "recall" | null;
   checkedAt: string;
 }
 

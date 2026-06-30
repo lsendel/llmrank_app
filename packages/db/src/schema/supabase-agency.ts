@@ -42,6 +42,9 @@ export const visibilityChecks = pgTable(
     sentiment: text("sentiment"),
     brandDescription: text("brand_description"),
     competitorMentions: jsonb("competitor_mentions"),
+    // How the provider answered: "live_retrieval" (web-grounded: Perplexity,
+    // Copilot) vs "recall" (plain completion, citations may be hallucinated).
+    engineMode: text("engine_mode"),
     region: text("region").default("us"),
     language: text("language").default("en"),
     r2ResponseKey: text("r2_response_key"),

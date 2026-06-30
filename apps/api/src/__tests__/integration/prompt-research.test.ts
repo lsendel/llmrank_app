@@ -81,6 +81,8 @@ vi.mock("@llm-boost/db", async () => {
 vi.mock("@llm-boost/llm", () => ({
   discoverPrompts: vi.fn().mockResolvedValue([]),
   analyzeBrandSentiment: vi.fn().mockResolvedValue(null),
+  engineModeFor: (p: string) =>
+    p === "perplexity" || p === "copilot" ? "live_retrieval" : "recall",
   VisibilityChecker: vi.fn().mockImplementation(() => ({
     checkAllProviders: vi.fn().mockResolvedValue([
       {

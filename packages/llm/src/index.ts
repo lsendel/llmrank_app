@@ -18,10 +18,16 @@ export type { OptimizationResult, ContentBrief } from "./optimizer";
 export { getCachedScore, setCachedScore } from "./cache";
 export type { KVNamespace } from "./cache";
 export { withRetry, withTimeout, TimeoutError } from "./retry";
-export { VisibilityChecker, analyzeResponse } from "./visibility";
+export {
+  VisibilityChecker,
+  analyzeResponse,
+  engineModeFor,
+  PROVIDER_ENGINE_MODE,
+} from "./visibility";
 export type {
   VisibilityCheckResult,
   VisibilityCheckOptions,
+  EngineMode,
 } from "./visibility";
 export { FactExtractor } from "./fact-extractor";
 export type { ExtractedFact } from "./fact-extractor";

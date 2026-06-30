@@ -26,6 +26,7 @@ export function visibilityQueries(db: Database) {
       competitorMentions?: unknown;
       sentiment?: string | null;
       brandDescription?: string | null;
+      engineMode?: string | null;
       region?: string | null;
       language?: string | null;
     }) {

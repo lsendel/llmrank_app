@@ -184,6 +184,7 @@ export function buildVisibilityCheck(
     competitorMentions: "{}",
     sentiment: null,
     brandDescription: null,
+    engineMode: null,
     region: "us",
     language: "en",
     r2ResponseKey: null,
