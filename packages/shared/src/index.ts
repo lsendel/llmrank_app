@@ -16,6 +16,7 @@ export * from "./utils/env";
 export * from "./utils/quick-wins";
 export * from "./utils/scoring";
 export * from "./utils/severity";
+export * from "./utils/visibility-gap-actions";
 export * from "./domain/log-analysis";
 export * from "./domain/plan-enforcer";
 export { Plan } from "./domain/plan";

@@ -7,6 +7,7 @@ import {
   competitorQueries,
   pipelineRunQueries,
 } from "@llm-boost/db";
+import { buildVisibilityGapRecommendation } from "@llm-boost/shared";
 
 export interface Recommendation {
   type: "gap" | "platform" | "issue" | "trend" | "coverage";
@@ -45,12 +46,15 @@ export function generateRecommendations(input: {
 }): Recommendation[] {
   const recs: Recommendation[] = [];
 
-  // 1. Visibility gaps — queries where competitors are cited but user is not
+  // 1. Visibility gaps — queries where competitors are cited but user is not.
+  // Page-specific (names the query + competitors) and re-verifiable (re-run the
+  // check for that query), closing the loop with the measured visibility data.
   for (const gap of input.gaps.slice(0, 3)) {
+    const { title, description } = buildVisibilityGapRecommendation(gap);
     recs.push({
       type: "gap",
-      title: `Invisible for "${gap.query}"`,
-      description: `Competitors ${gap.competitorsCited.map((c) => c.domain).join(", ")} are cited for this query but you are not. Create targeted content addressing this topic.`,
+      title,
+      description,
       impact: "high",
       fixUrl: `/dashboard/projects/${input.projectId}?tab=strategy`,
     });
