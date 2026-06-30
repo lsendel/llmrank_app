@@ -158,6 +158,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Ensure headings follow a logical hierarchy: H1 > H2 > H3 without skipping levels.",
     effortLevel: "low",
+    implementationSnippet: `<!-- Insert the missing level instead of jumping H1 -> H3 -->\n<h1>Page Topic</h1>\n<h2>Section</h2>\n<h3>Sub-section</h3>`,
     dimension: "content_citeability",
   },
   BROKEN_LINKS: {
@@ -534,6 +535,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Improve your llms.txt with a title line (# Site Name), description (> text), and at least one section with links.",
     effortLevel: "low",
+    implementationSnippet: `# Your Site Name\n> One-sentence description of what your site offers.\n\n## Docs\n- [Getting started](https://example.com/start): Quick intro\n- [API reference](https://example.com/api): Full API`,
     dimension: "llms_txt",
   },
   LLMS_TXT_INCOMPLETE: {
@@ -545,6 +547,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add a description line (> your site description) and organized sections (## heading) with page links to your llms.txt.",
     effortLevel: "low",
+    implementationSnippet: `# Your Site Name\n> One-sentence description.\n\n## Key Pages\n- [Pricing](https://example.com/pricing)\n- [Docs](https://example.com/docs)`,
     dimension: "llms_txt",
   },
   AI_CRAWLER_BLOCKED: {
@@ -581,6 +584,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Complete all required properties in your JSON-LD schema markup.",
     effortLevel: "medium",
+    implementationSnippet: `<!-- Add the required properties your @type is missing (named in this issue) -->\n<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "YourType",\n  "name": "...",\n  "...": "fill in each missing required property"\n}\n</script>`,
     dimension: "schema_markup",
   },
   CITATION_WORTHINESS: {
@@ -604,6 +608,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add clear, concise answer paragraphs at the top of sections that directly address likely user questions.",
     effortLevel: "medium",
+    implementationSnippet: `<h2>How long does onboarding take?</h2>\n<p><strong>Onboarding typically takes 2-3 weeks.</strong> The timeline depends on team size and integrations...</p>`,
     dimension: "content_citeability",
   },
   MISSING_ENTITY_MARKUP: {
@@ -615,6 +620,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add schema markup for key entities (people, organizations, products) mentioned in your content.",
     effortLevel: "medium",
+    implementationSnippet: `<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "Your Brand",\n  "sameAs": ["https://www.wikidata.org/wiki/...", "https://www.linkedin.com/company/..."]\n}\n</script>`,
     dimension: "schema_markup",
   },
   NO_SUMMARY_SECTION: {
@@ -650,6 +656,7 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     recommendation:
       "Add a valid @type to every JSON-LD node (top level or inside @graph). Validate at schema.org or Google Rich Results Test.",
     effortLevel: "medium",
+    implementationSnippet: `<!-- Every JSON-LD node needs an @type -->\n<script type="application/ld+json">\n{ "@context": "https://schema.org", "@type": "Organization", "name": "..." }\n</script>`,
     dimension: "schema_markup",
   },
   HAS_PDF_CONTENT: {

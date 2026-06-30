@@ -50,6 +50,25 @@ describe("generateRecommendations", () => {
   });
 });
 
+describe("implementation snippets (#2E)", () => {
+  it("emits how-to-fix steps for codes that now carry a snippet", () => {
+    const cases: Array<[string, string]> = [
+      ["INCOMPLETE_SCHEMA", "application/ld+json"],
+      ["INVALID_SCHEMA", "@type"],
+      ["MISSING_ENTITY_MARKUP", "sameAs"],
+      ["NO_DIRECT_ANSWERS", "<p><strong>"],
+      ["LLMS_TXT_QUALITY", "## Docs"],
+      ["LLMS_TXT_INCOMPLETE", "## Key Pages"],
+      ["HEADING_HIERARCHY", "<h2>"],
+    ];
+    for (const [code, marker] of cases) {
+      const [rec] = generateRecommendations([makeIssue({ code })], 70);
+      expect(rec.steps, `${code} should have steps`).toBeDefined();
+      expect(rec.steps?.join("\n")).toContain(marker);
+    }
+  });
+});
+
 describe("page-specific recommendations (#2A)", () => {
   it("names the exact count from issue.data", () => {
     const [rec] = generateRecommendations(
