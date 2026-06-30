@@ -49,4 +49,27 @@ describe("setCachedScore", () => {
       { expirationTtl: 60 * 60 * 24 * 30 },
     );
   });
+
+  it("namespaces the key by model so different models don't collide", async () => {
+    const kv = createMockKV();
+    const sonnet = { ...sampleScores, authority: 90 };
+    const haiku = { ...sampleScores, authority: 40 };
+    await setCachedScore(kv, "samehash", sonnet, "claude-sonnet-5");
+    await setCachedScore(kv, "samehash", haiku, "claude-haiku-4-5");
+
+    // Same content hash, different models → separate entries, no cross-poison.
+    expect(await getCachedScore(kv, "samehash", "claude-sonnet-5")).toEqual(
+      sonnet,
+    );
+    expect(await getCachedScore(kv, "samehash", "claude-haiku-4-5")).toEqual(
+      haiku,
+    );
+    // A model with no cached entry misses (doesn't borrow another model's).
+    expect(await getCachedScore(kv, "samehash", "gpt-oss")).toBeNull();
+    expect(kv.put).toHaveBeenCalledWith(
+      "llm-score:claude-sonnet-5:samehash",
+      JSON.stringify(sonnet),
+      { expirationTtl: 60 * 60 * 24 * 30 },
+    );
+  });
 });

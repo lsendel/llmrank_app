@@ -165,7 +165,7 @@ export class WorkersAiScorer {
     contentHash: string,
   ): Promise<LLMContentScores | null> {
     if (this.kv) {
-      const cached = await getCachedScore(this.kv, contentHash);
+      const cached = await getCachedScore(this.kv, contentHash, this.model);
       if (cached) return cached;
     }
 
@@ -211,7 +211,8 @@ export class WorkersAiScorer {
       if (!text) continue;
       const scores = parseContentScores(text);
       if (scores) {
-        if (this.kv) await setCachedScore(this.kv, contentHash, scores);
+        if (this.kv)
+          await setCachedScore(this.kv, contentHash, scores, this.model);
         return scores;
       }
     }
