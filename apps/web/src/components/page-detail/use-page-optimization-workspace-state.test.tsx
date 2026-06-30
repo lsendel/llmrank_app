@@ -134,7 +134,9 @@ describe("usePageOptimizationWorkspaceState", () => {
       status: "pending",
       severity: "critical",
       category: "content",
-      scoreImpact: 82,
+      // impact "high" → impactScore 85 (badge magnitude now derives from the
+      // recommendation's qualitative impact, not estimatedImprovement).
+      scoreImpact: 85,
       title: "Title missing",
       description: "Ship this improved title",
       assigneeId: "user-1",

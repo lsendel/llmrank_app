@@ -141,7 +141,9 @@ describe("page optimization workspace helpers", () => {
       issueCode: "MISSING_TITLE",
       before: "Missing title",
       suggested: "Better page title",
-      impactScore: 82,
+      // impact: "high" → 85 (badge magnitude is derived from impact, not the
+      // estimatedImprovement point-lift).
+      impactScore: 85,
     });
     expect(tasks[2]).toMatchObject({
       issueCode: "BAD_HEADING_HIERARCHY",

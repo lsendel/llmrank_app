@@ -22,25 +22,32 @@ const mockAudit = {
   emitEvent: vi.fn().mockResolvedValue(undefined),
 };
 
+// pipeline-service imports these from @llm-boost/pipeline (not the local
+// services/* paths a previous version of this test mocked), so mock the
+// package itself and capture the visibility call to assert its key shape.
+// vi.hoisted so the factory (hoisted above imports) can reference the spy.
+const { mockRunAutoVisibilityChecks } = vi.hoisted(() => ({
+  mockRunAutoVisibilityChecks: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@llm-boost/db", () => ({
   pipelineRunQueries: () => mockPipelineRuns,
   projectQueries: () => mockProjectQueries,
 }));
 
-vi.mock("../../../services/auto-site-description-service", () => ({
+vi.mock("@llm-boost/pipeline", () => ({
   runAutoSiteDescription: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("../../../services/auto-persona-service", () => ({
   runAutoPersonaGeneration: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("../../../services/auto-keyword-service", () => ({
   runAutoKeywordGeneration: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("../../../services/auto-competitor-service", () => ({
   runAutoCompetitorDiscovery: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("../../../services/auto-visibility-service", () => ({
-  runAutoVisibilityChecks: vi.fn().mockResolvedValue(undefined),
+  runAutoVisibilityChecks: mockRunAutoVisibilityChecks,
+  runContentOptimization: vi
+    .fn()
+    .mockResolvedValue({ pagesAnalyzed: 0, suggestions: [] }),
+  createRecommendationsService: () => ({
+    getForProject: vi.fn().mockResolvedValue([]),
+  }),
+  runHealthCheck: vi.fn().mockResolvedValue({ status: "ok" }),
 }));
 
 import { createPipelineService } from "../../services/pipeline-service";
@@ -138,5 +145,34 @@ describe("PipelineService", () => {
     await expect(service.start("bad-proj", "crawl-1")).rejects.toThrow(
       "Project not found",
     );
+  });
+
+  it("runs auto-visibility with provider-name API keys (regression: zero providers)", async () => {
+    const service = createPipelineService(fakeDb, mockAudit as any, {
+      databaseUrl: "postgresql://test",
+      anthropicApiKey: "anthropic-key",
+      openaiApiKey: "openai-key",
+      perplexityApiKey: "pplx-key",
+      googleApiKey: "google-key",
+      bingApiKey: "bing-key",
+      grokApiKey: "grok-key",
+    });
+    await service.start("proj-1", "crawl-1");
+
+    expect(mockRunAutoVisibilityChecks).toHaveBeenCalledTimes(1);
+    const arg = mockRunAutoVisibilityChecks.mock.calls[0][0];
+    // Keys MUST be provider-named — the checker filters on apiKeys[provider].
+    expect(arg.apiKeys).toMatchObject({
+      chatgpt: "openai-key",
+      claude: "anthropic-key",
+      perplexity: "pplx-key",
+      gemini: "google-key",
+      copilot: "bing-key",
+      gemini_ai_mode: "google-key",
+      grok: "grok-key",
+    });
+    // The old bug shipped SDK-named keys, which matched no provider.
+    expect(arg.apiKeys.anthropicApiKey).toBeUndefined();
+    expect(arg.apiKeys.perplexityApiKey).toBeUndefined();
   });
 });

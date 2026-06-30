@@ -363,7 +363,10 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
           const pipeline = createPipelineService(db, audit, {
             databaseUrl: env.supabaseConnectionString ?? "",
             anthropicApiKey: env.anthropicApiKey,
+            openaiApiKey: env.openaiApiKey,
             perplexityApiKey: env.perplexityApiKey,
+            googleApiKey: env.googleApiKey,
+            bingApiKey: env.bingApiKey,
             grokApiKey: env.xaiApiKey,
             reportServiceUrl: env.reportServiceUrl,
             sharedSecret: env.sharedSecret,

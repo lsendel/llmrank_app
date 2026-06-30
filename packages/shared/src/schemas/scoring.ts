@@ -19,6 +19,10 @@ export const IssueSchema = z.object({
   message: z.string(),
   recommendation: z.string(),
   data: z.record(z.unknown()).optional(),
+  // The signed deduction this issue actually applied. Many definitions carry a
+  // nominal scoreImpact of 0 and compute the real amount at runtime (tiered or
+  // LLM-scored factors), so recommendations read this for an honest lift.
+  scoreImpact: z.number().optional(),
 });
 
 export const LLMContentScoresSchema = z.object({
