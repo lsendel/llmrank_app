@@ -102,6 +102,7 @@ vi.mock("@llm-boost/scoring", () => ({
 vi.mock("../../services/llm-scoring", () => ({
   runLLMScoring: vi.fn().mockResolvedValue(undefined),
   rescoreLLM: vi.fn().mockResolvedValue(undefined),
+  PAID_CONTENT_SCORING_MODEL: "claude-sonnet-5",
 }));
 
 vi.mock("../../services/enrichments", () => ({
@@ -130,14 +131,22 @@ vi.mock("../../services/frontier-service", () => ({
   }),
 }));
 
+const { mockUserGetById } = vi.hoisted(() => ({
+  mockUserGetById: vi
+    .fn()
+    .mockResolvedValue({ id: "user-1", plan: "pro", trialEndsAt: null }),
+}));
+
 vi.mock("@llm-boost/db", () => ({
   createAppDb: vi.fn().mockReturnValue({}),
   projectQueries: vi.fn().mockReturnValue({
     getById: vi.fn().mockResolvedValue({
       id: "proj-1",
+      userId: "user-1",
       pipelineSettings: { autoRunOnCrawl: false },
     }),
   }),
+  userQueries: vi.fn().mockReturnValue({ getById: mockUserGetById }),
   outboxEvents: { crawlCompleted: "crawl.completed" },
 }));
 
@@ -484,7 +493,7 @@ describe("IngestService", () => {
 
   // ---- Post-processing paths ----
 
-  it("enqueues LLM scoring via outbox when anthropicApiKey is set and outbox exists", async () => {
+  it("enqueues LLM scoring with the Sonnet model for paid tiers when anthropicApiKey is set", async () => {
     const env = {
       ...makeMockEnv(),
       anthropicApiKey: "sk-test",
@@ -497,6 +506,30 @@ describe("IngestService", () => {
     });
 
     expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "llm_scoring",
+        payload: expect.objectContaining({
+          contentScoringModel: "claude-sonnet-5",
+        }),
+      }),
+    );
+  });
+
+  it("does NOT enqueue LLM scoring for Free/Starter tiers (paid-only feature)", async () => {
+    mockUserGetById.mockResolvedValueOnce({
+      id: "user-1",
+      plan: "free",
+      trialEndsAt: null,
+    });
+    const env = { ...makeMockEnv(), anthropicApiKey: "sk-test" };
+    const service = createIngestService({ crawls, pages, scores, outbox });
+    await service.processBatch({
+      rawBody: validBatchPayload(),
+      env,
+      executionCtx: makeMockCtx(),
+    });
+
+    expect(outbox.enqueue).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "llm_scoring" }),
     );
   });

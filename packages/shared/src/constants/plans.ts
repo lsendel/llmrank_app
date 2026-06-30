@@ -111,7 +111,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     crawlsPerMonth: 10,
     projects: 5,
     lighthousePages: "all",
-    llmScoringTier: "full",
+    // LLM content scoring is a Pro+ feature — Starter gets deterministic
+    // structural scoring only (kept consistent with the runtime gate in
+    // post-processing-service).
+    llmScoringTier: "basic",
     scheduledQueries: 5,
     notificationChannels: 2, // email + 1 webhook
     apiTokens: 0,

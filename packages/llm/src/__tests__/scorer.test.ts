@@ -71,8 +71,9 @@ describe("LLMScorer", () => {
   });
 
   it("returns cached scores when available", async () => {
+    // Cache is namespaced by model (default scoring model = Haiku).
     const store: Record<string, unknown> = {
-      "llm-score:hash-cached": sampleScores,
+      "llm-score:claude-haiku-4-5-20251001:hash-cached": sampleScores,
     };
     const kvWithData = createMockKV(store);
     const cachedScorer = new LLMScorer({
@@ -85,7 +86,7 @@ describe("LLMScorer", () => {
 
     expect(result).toEqual(sampleScores);
     expect(kvWithData.get).toHaveBeenCalledWith(
-      "llm-score:hash-cached",
+      "llm-score:claude-haiku-4-5-20251001:hash-cached",
       "json",
     );
     // The mocked Anthropic create from beforeEach is on a different instance,
@@ -118,7 +119,7 @@ describe("LLMScorer", () => {
     await scorer.scoreContent(text, "hash-to-cache");
 
     expect(mockKV.put).toHaveBeenCalledWith(
-      "llm-score:hash-to-cache",
+      "llm-score:claude-haiku-4-5-20251001:hash-to-cache",
       JSON.stringify(sampleScores),
       { expirationTtl: 60 * 60 * 24 * 30 },
     );

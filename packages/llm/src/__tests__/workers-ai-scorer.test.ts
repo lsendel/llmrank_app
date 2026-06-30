@@ -129,7 +129,10 @@ describe("parseContentScores", () => {
 describe("WorkersAiScorer.scoreContent", () => {
   it("returns the cached score without calling the model", async () => {
     const kv = createMockKV();
-    await kv.put("llm-score:hash1", JSON.stringify(JSON.parse(VALID_JSON)));
+    await kv.put(
+      `llm-score:${DEFAULT_WORKERS_AI_MODEL}:hash1`,
+      JSON.stringify(JSON.parse(VALID_JSON)),
+    );
     const ai: WorkersAi = { run: vi.fn() };
     const scorer = new WorkersAiScorer({ ai, kvNamespace: kv });
 
@@ -164,7 +167,9 @@ describe("WorkersAiScorer.scoreContent", () => {
     );
     expect((ai.run as any).mock.calls[0][1]).not.toHaveProperty("messages");
     // cached for next time
-    expect(await kv.get("llm-score:hash2", "json")).toMatchObject({
+    expect(
+      await kv.get(`llm-score:${DEFAULT_WORKERS_AI_MODEL}:hash2`, "json"),
+    ).toMatchObject({
       clarity: 80,
     });
   });

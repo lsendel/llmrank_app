@@ -13,7 +13,12 @@ import {
   createReportRepository,
   createUserRepository,
 } from "@llm-boost/repositories";
-import { runLLMScoring, type LLMScoringInput } from "./llm-scoring";
+import {
+  runLLMScoring,
+  PAID_CONTENT_SCORING_MODEL,
+  type LLMScoringInput,
+} from "./llm-scoring";
+import { resolveEffectivePlan, type PlanTier } from "@llm-boost/shared";
 import type { WorkersAi } from "@llm-boost/llm";
 import { runIntegrationEnrichments, type EnrichmentInput } from "./enrichments";
 import {
@@ -31,6 +36,7 @@ import {
   createAgencyDb,
   outboxEvents,
   projectQueries,
+  userQueries,
   reportScheduleQueries,
 } from "@llm-boost/db";
 import { createPipelineService } from "./pipeline-service";
@@ -89,17 +95,47 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
         args;
       const env = args.env;
 
-      // Score when either provider is available: the Workers AI binding (the
-      // default worker path) OR an Anthropic key (legacy). Gating on the key
-      // alone skipped scoring entirely on AI-only deployments.
+      // LLM content scoring is a PAID feature: only Pro/Agency projects are
+      // scored (Free/Starter keep deterministic structural scoring). Paid tiers
+      // are scored with Sonnet when an Anthropic key is available, falling back
+      // to Workers AI otherwise. resolveEffectivePlan keeps trial users (→ pro)
+      // included. The provider check short-circuits the plan lookup on
+      // no-provider deployments.
+      let isPaidPlus = false;
       if (env.ai || env.anthropicApiKey) {
+        try {
+          const scoringDb = createAppDb(env.d1);
+          const scoringProject =
+            await projectQueries(scoringDb).getById(projectId);
+          const scoringOwner = scoringProject
+            ? await userQueries(scoringDb).getById(scoringProject.userId)
+            : null;
+          if (scoringOwner) {
+            const effectivePlan = resolveEffectivePlan({
+              plan: scoringOwner.plan as PlanTier,
+              trialEndsAt: scoringOwner.trialEndsAt,
+            });
+            isPaidPlus = effectivePlan === "pro" || effectivePlan === "agency";
+          }
+        } catch (err) {
+          // A plan-read fault must NEVER abort the rest of schedule() — the
+          // idempotency write happens after this in processBatch, so a throw
+          // here would re-run the batch (duplicate pages) and skip enrichment/
+          // summary/narrative. Default to no LLM scoring on error.
+          console.error(
+            `[post-processing] plan lookup failed for ${projectId}; skipping LLM scoring:`,
+            err,
+          );
+        }
+      }
+      if (isPaidPlus) {
         await dispatchOrRun(deps.outbox, args.executionCtx, {
           type: "llm_scoring",
           payload: {
-            // Worker context: score via Workers AI (in-worker) straight to D1.
-            // d1 + ai are bindings — they don't survive the durable-outbox JSON
-            // round-trip, so the outbox processor re-injects them from env; they
-            // are passed live here for the run-immediately path.
+            // Worker context: score in-worker straight to D1. d1 + ai are
+            // bindings — they don't survive the durable-outbox JSON round-trip,
+            // so the outbox processor re-injects them from env; they are passed
+            // live here for the run-immediately path.
             d1: env.d1,
             ai: env.ai,
             anthropicApiKey: env.anthropicApiKey,
@@ -109,6 +145,11 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             insertedPages,
             insertedScores,
             jobId: crawlJobId,
+            // Pro+ → high-quality Sonnet content scoring on the top pages.
+            // Requires an Anthropic key; without one, falls back to Workers AI.
+            contentScoringModel: env.anthropicApiKey
+              ? PAID_CONTENT_SCORING_MODEL
+              : undefined,
           },
         });
       }

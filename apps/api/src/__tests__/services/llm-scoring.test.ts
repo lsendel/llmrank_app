@@ -662,3 +662,29 @@ describe("runWorkersAiScoring (worker path: input.ai + input.d1)", () => {
     await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
   });
 });
+
+describe("runAnthropicD1Scoring (paid path: contentScoringModel + d1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("routes paid tiers to the Anthropic LLMScorer, not Workers AI", async () => {
+    mockScoreContent.mockResolvedValue({
+      clarity: 88,
+      authority: 80,
+      comprehensiveness: 85,
+      structure: 86,
+      citation_worthiness: 78,
+    });
+    const input = {
+      ...baseLLMInput(),
+      d1: {},
+      ai: {}, // present, but the Anthropic path must take precedence
+      anthropicApiKey: "sk-test",
+      contentScoringModel: "claude-sonnet-5",
+    };
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
+    expect(mockScoreContent).toHaveBeenCalled();
+    expect(mockWorkersScoreContent).not.toHaveBeenCalled();
+  });
+});

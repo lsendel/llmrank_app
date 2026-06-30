@@ -38,7 +38,7 @@ export class LLMScorer {
   ): Promise<LLMContentScores | null> {
     // Check cache first
     if (this.kv) {
-      const cached = await getCachedScore(this.kv, contentHash);
+      const cached = await getCachedScore(this.kv, contentHash, this.model);
       if (cached) return cached;
     }
 
@@ -65,7 +65,7 @@ export class LLMScorer {
 
     // Cache result
     if (this.kv) {
-      await setCachedScore(this.kv, contentHash, scores);
+      await setCachedScore(this.kv, contentHash, scores, this.model);
     }
 
     return scores;
@@ -105,7 +105,11 @@ export class LLMScorer {
     for (const page of pages) {
       // Check KV cache first
       if (this.kv) {
-        const cachedScore = await getCachedScore(this.kv, page.contentHash);
+        const cachedScore = await getCachedScore(
+          this.kv,
+          page.contentHash,
+          this.model,
+        );
         if (cachedScore) {
           cached.push({ pageId: page.pageId, scores: cachedScore });
           continue;
