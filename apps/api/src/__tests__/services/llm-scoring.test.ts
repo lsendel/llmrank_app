@@ -599,6 +599,38 @@ describe("htmlToScoringText", () => {
   it("collapses whitespace and trims", () => {
     expect(htmlToScoringText("<p>  hello   world  </p>")).toBe("hello world");
   });
+
+  it("isolates main content on NAV-HEAVY pages (chrome is a large share)", () => {
+    const nav = Array(90).fill("Menu").join(" ");
+    const body = Array(130).fill("content").join(" ");
+    // full ≈ 220 words, cleaned (main) = 130 → 130 < 0.75*220 → use cleaned
+    const html = `<nav>${nav}</nav><header>Login Signup</header><main><nav>On this page</nav><p>${body}</p></main><footer>Copyright 2026</footer>`;
+    const text = htmlToScoringText(html);
+    expect(text).not.toContain("Menu");
+    expect(text).not.toContain("On this page");
+    expect(text).not.toContain("Copyright 2026");
+    expect(text).toContain("content");
+  });
+
+  it("keeps FULL text on content-dense pages (minor chrome) — no regression", () => {
+    const nav = "Home About";
+    const body = Array(130).fill("content").join(" ");
+    // full = 132 words, cleaned = 130 → 130 > 0.75*132 → use full (chrome kept)
+    const html = `<nav>${nav}</nav><main><p>${body}</p></main>`;
+    const text = htmlToScoringText(html);
+    expect(text).toContain("Home About");
+    expect(text).toContain("content");
+  });
+
+  it("falls back to chrome-stripped body when there is no <main> and chrome dominates", () => {
+    const nav = Array(90).fill("Menu").join(" ");
+    const body = Array(40).fill("body").join(" ");
+    // full = 130, no <main>, chromeStripped = 40 → 40 < 0.75*130 → use stripped
+    const html = `<nav>${nav}</nav><div><p>${body}</p></div>`;
+    const text = htmlToScoringText(html);
+    expect(text).not.toContain("Menu");
+    expect(text).toContain("body");
+  });
 });
 
 describe("runWorkersAiScoring (worker path: input.ai + input.d1)", () => {
