@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
@@ -17,26 +18,62 @@ pub enum LighthouseError {
     NotInstalled,
 }
 
-/// Lighthouse runner that either runs locally or offloads to Cloudflare.
+/// Lighthouse runner that either runs locally or offloads to a remote service.
 #[derive(Clone)]
 pub struct LighthouseRunner {
     semaphore: Arc<Semaphore>,
     timeout_secs: u64,
-    api_url: Option<String>, // Cloudflare API URL for offloading
+    api_url: Option<String>, // remote audit URL; None = run locally
+    /// Remaining per-crawl audit budget (sampling cap). `None` = unlimited.
+    /// Shared across clones so all pages of a crawl draw from one budget.
+    budget: Option<Arc<AtomicUsize>>,
 }
 
 impl LighthouseRunner {
-    /// Create a new runner.
-    pub fn new(max_concurrent: usize, api_url: Option<String>) -> Self {
+    /// Create a new runner. `max_pages` is the per-crawl Lighthouse sampling cap
+    /// (`0` = unlimited).
+    pub fn new(max_concurrent: usize, api_url: Option<String>, max_pages: usize) -> Self {
         LighthouseRunner {
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
             timeout_secs: 60,
             api_url,
+            budget: if max_pages > 0 {
+                Some(Arc::new(AtomicUsize::new(max_pages)))
+            } else {
+                None
+            },
         }
     }
 
-    /// Run a Lighthouse audit. Offloads to Cloudflare if api_url is set.
-    pub async fn run_lighthouse(&self, url: &str) -> Result<LighthouseResult, LighthouseError> {
+    /// Claim one unit of the per-crawl audit budget. Returns `true` if this page
+    /// should be audited, `false` if the sampling cap is exhausted. Unlimited
+    /// when no budget is set.
+    fn try_claim_budget(&self) -> bool {
+        match &self.budget {
+            None => true,
+            Some(b) => b
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                    if n > 0 {
+                        Some(n - 1)
+                    } else {
+                        None
+                    }
+                })
+                .is_ok(),
+        }
+    }
+
+    /// Run a Lighthouse audit. Returns `Ok(None)` when the page is sampled out
+    /// by the per-crawl budget (not audited — distinct from `Err`, an audit
+    /// failure). Offloads to a remote service when `api_url` is set.
+    pub async fn run_lighthouse(
+        &self,
+        url: &str,
+    ) -> Result<Option<LighthouseResult>, LighthouseError> {
+        if !self.try_claim_budget() {
+            return Ok(None);
+        }
+
         let _permit = self
             .semaphore
             .acquire()
@@ -44,10 +81,10 @@ impl LighthouseRunner {
             .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
 
         if let Some(ref api_base) = self.api_url {
-            return self.run_remote_audit(url, api_base).await;
+            return self.run_remote_audit(url, api_base).await.map(Some);
         }
 
-        self.run_local_audit(url).await
+        self.run_local_audit(url).await.map(Some)
     }
 
     async fn run_remote_audit(
@@ -176,5 +213,33 @@ mod tests {
     fn test_extract_score_missing() {
         let json: serde_json::Value = serde_json::from_str(r#"{}"#).unwrap();
         assert!(extract_score(&json, "performance").is_err());
+    }
+
+    #[test]
+    fn test_budget_caps_audits() {
+        // max_pages = 2 → first two pages claim, third is sampled out.
+        let runner = LighthouseRunner::new(1, None, 2);
+        assert!(runner.try_claim_budget());
+        assert!(runner.try_claim_budget());
+        assert!(!runner.try_claim_budget());
+        assert!(!runner.try_claim_budget());
+    }
+
+    #[test]
+    fn test_budget_unlimited_when_zero() {
+        // max_pages = 0 → no cap, every page is audited.
+        let runner = LighthouseRunner::new(1, None, 0);
+        for _ in 0..100 {
+            assert!(runner.try_claim_budget());
+        }
+    }
+
+    #[test]
+    fn test_budget_shared_across_clones() {
+        // Clones share one budget (the crawler clones the runner per page).
+        let runner = LighthouseRunner::new(1, None, 1);
+        let clone = runner.clone();
+        assert!(runner.try_claim_budget());
+        assert!(!clone.try_claim_budget());
     }
 }
