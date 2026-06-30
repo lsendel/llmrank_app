@@ -28,6 +28,7 @@ export function visibilityQueries(db: Database) {
       sentiment?: string | null;
       brandDescription?: string | null;
       engineMode?: string | null;
+      r2ResponseKey?: string | null;
       region?: string | null;
       language?: string | null;
     }) {

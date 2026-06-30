@@ -16,12 +16,23 @@ import type {
 } from "@llm-boost/repositories";
 import { ServiceError } from "@llm-boost/shared";
 
+/**
+ * Minimal blob-store shape for archiving raw responses (an R2Bucket satisfies
+ * it structurally). Kept tiny so the pipeline package doesn't depend on the
+ * Workers R2 types.
+ */
+export interface VisibilityArchive {
+  put(key: string, body: string): Promise<unknown>;
+}
+
 export interface VisibilityServiceDeps {
   projects: ProjectRepository;
   users: UserRepository;
   visibility: VisibilityRepository;
   checker?: VisibilityChecker;
   competitors?: CompetitorRepository;
+  /** When provided, raw responses are archived here and r2_response_key set. */
+  archive?: VisibilityArchive;
 }
 
 export function createVisibilityService(deps: VisibilityServiceDeps) {
@@ -116,8 +127,20 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
       );
 
       const stored = await Promise.all(
-        results.map((result, i) => {
+        results.map(async (result, i) => {
           const sentiment = sentimentResults[i];
+          // Best-effort archive of the raw response for audit/inspection; a
+          // failed write must never fail the check itself.
+          let r2ResponseKey: string | undefined;
+          if (deps.archive && result.responseText) {
+            const key = `visibility/${project.id}/${crypto.randomUUID()}.txt`;
+            try {
+              await deps.archive.put(key, result.responseText);
+              r2ResponseKey = key;
+            } catch {
+              // archive unavailable — leave r2_response_key null
+            }
+          }
           return deps.visibility.create({
             projectId: project.id,
             llmProvider: result.provider as
@@ -138,6 +161,7 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
             // Tag whether this provider used live web retrieval or just recall,
             // so a recalled (possibly hallucinated) citation isn't read as fact.
             engineMode: engineModeFor(result.provider),
+            r2ResponseKey,
             ...(sentiment && {
               sentiment: sentiment.sentiment,
               brandDescription: sentiment.brandDescription,
