@@ -114,6 +114,10 @@ describe("Health Routes", () => {
         expect(["healthy", "degraded", "down"]).toContain(check.status);
         expect(check).toHaveProperty("latency");
       });
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:3000/api/v1/health",
+        expect.objectContaining({ method: "GET" }),
+      );
     });
 
     it("returns degraded status when crawler is down", async () => {
