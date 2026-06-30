@@ -509,6 +509,7 @@ v1Routes.post("/projects/:id/visibility/check", async (c) => {
     users: createUserRepository(db),
     visibility: createVisibilityRepository(agencyDb),
     competitors: createCompetitorRepository(db),
+    archive: c.env.R2,
   });
 
   const allResults = [];

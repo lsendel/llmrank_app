@@ -276,6 +276,25 @@ export function VisibilityResultCard({ check }: { check: VisibilityCheck }) {
               </div>
             </div>
           )}
+        {check.citedSources && check.citedSources.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
+              Cited sources
+              {check.engineMode === "recall" && (
+                <span className="ml-1 font-normal">
+                  (recall mode — may be unverified)
+                </span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {check.citedSources.map((source) => (
+                <Badge key={source} variant="outline">
+                  {source}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

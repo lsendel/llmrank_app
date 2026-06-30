@@ -305,6 +305,7 @@ async function processScheduledVisibilityChecks(env: Bindings): Promise<void> {
         users: createUserRepository(db),
         visibility: createVisibilityRepository(agencyDb),
         competitors: createCompetitorRepository(db),
+        archive: env.R2,
       });
 
       const stored = await visibilityService.runCheck({
