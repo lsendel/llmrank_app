@@ -40,10 +40,11 @@ pub struct JsRenderer {
 }
 
 impl JsRenderer {
-    pub fn new(max_concurrent: usize, script_path: String) -> Self {
+    pub fn new(max_concurrent: usize, script_path: String, timeout_secs: u64) -> Self {
         JsRenderer {
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
-            timeout_secs: 15,
+            // Guard against a 0 (or absurd) timeout disabling the watchdog.
+            timeout_secs: timeout_secs.clamp(1, 120),
             script_path,
         }
     }
@@ -56,11 +57,17 @@ impl JsRenderer {
             .await
             .map_err(|e| RendererError::ProcessError(e.to_string()))?;
 
+        // `kill_on_drop(true)` is the leak guard: when the timeout below fires
+        // (or the future is otherwise dropped), the spawned `node` child is
+        // killed instead of being orphaned. Chromium hangs/crashes on the Fly
+        // host, so without this every doomed render would leak a process and
+        // exhaust the 2 GB machine over a long (2000-page) crawl.
         let output = tokio::time::timeout(
             Duration::from_secs(self.timeout_secs),
             tokio::process::Command::new("node")
                 .arg(&self.script_path)
                 .arg(url)
+                .kill_on_drop(true)
                 .output(),
         )
         .await
@@ -129,5 +136,23 @@ mod tests {
         let json = "not json at all";
         let result = serde_json::from_str::<RenderOutput>(json);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_output_is_parse_error() {
+        // The live symptom: the renderer subprocess returns empty stdout (it
+        // crashed / was killed), which must surface as a ParseError so the
+        // caller falls back to raw HTML rather than panicking.
+        let result = serde_json::from_str::<RenderOutput>("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_new_clamps_timeout() {
+        // 0 would disable the watchdog; absurdly large would let a hung render
+        // pin a semaphore permit forever. Both are clamped into [1, 120].
+        assert_eq!(JsRenderer::new(1, "x".to_string(), 0).timeout_secs, 1);
+        assert_eq!(JsRenderer::new(1, "x".to_string(), 15).timeout_secs, 15);
+        assert_eq!(JsRenderer::new(1, "x".to_string(), 9999).timeout_secs, 120);
     }
 }

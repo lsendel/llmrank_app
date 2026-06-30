@@ -28,6 +28,8 @@ fn create_test_config() -> Config {
         lighthouse_failure_threshold: 3,
         max_concurrent_renderers: 1,
         renderer_script_path: "/app/scripts/render-links.mjs".to_string(),
+        renderer_enabled: false,
+        renderer_timeout_s: 15,
         batch_page_threshold: 25,
         batch_interval_secs: 15,
     }
