@@ -102,7 +102,7 @@ healthRoutes.get("/deep", async (c) => {
   // Check Crawler Service
   const crawlerStart = Date.now();
   try {
-    const response = await fetch(`${c.env.CRAWLER_URL}/health`, {
+    const response = await fetch(`${c.env.CRAWLER_URL}/api/v1/health`, {
       method: "GET",
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
