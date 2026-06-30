@@ -94,6 +94,88 @@ describe("IntegrationInsightsService", () => {
     expect(result.integrations?.gsc?.topQueries[0].query).toBe("ai seo");
   });
 
+  it("prefers a completed crawl over an active crawl for default insights", async () => {
+    crawls.listByProject.mockResolvedValue([
+      buildCrawlJob({
+        id: "crawl-active",
+        projectId: "proj-1",
+        status: "crawling",
+        createdAt: "2024-01-02T00:00:00.000Z",
+      }),
+      buildCrawlJob({
+        id: "crawl-complete",
+        projectId: "proj-1",
+        status: "complete",
+        createdAt: "2024-01-01T00:00:00.000Z",
+      }),
+    ]);
+    enrichments.listByJob.mockImplementation(async (jobId: string) =>
+      jobId === "crawl-complete"
+        ? [
+            {
+              id: "enr-1",
+              pageId: "page-1",
+              jobId,
+              provider: "gsc",
+              data: JSON.stringify({
+                query: "ai seo",
+                impressions: 120,
+                clicks: 12,
+                position: 2,
+              }),
+              fetchedAt: new Date().toISOString(),
+            },
+          ]
+        : [],
+    );
+
+    const service = createIntegrationInsightsService({
+      projects,
+      crawls,
+      enrichments,
+    });
+    const result = await service.getInsights("user-1", "proj-1");
+
+    expect(result.crawlId).toBe("crawl-complete");
+    expect(result.integrations?.gsc?.topQueries[0].query).toBe("ai seo");
+    expect(enrichments.listByJob).not.toHaveBeenCalledWith("crawl-active");
+  });
+
+  it("falls back to the latest completed crawl when no enrichments exist", async () => {
+    crawls.listByProject.mockResolvedValue([
+      buildCrawlJob({
+        id: "crawl-active",
+        projectId: "proj-1",
+        status: "crawling",
+        createdAt: "2024-01-02T00:00:00.000Z",
+      }),
+      buildCrawlJob({
+        id: "crawl-complete",
+        projectId: "proj-1",
+        status: "complete",
+        createdAt: "2024-01-01T00:00:00.000Z",
+      }),
+    ]);
+    enrichments.listByJob.mockResolvedValue([]);
+
+    const service = createIntegrationInsightsService({
+      projects,
+      crawls,
+      enrichments,
+    });
+    const result = await service.getInsights("user-1", "proj-1");
+
+    expect(result.crawlId).toBe("crawl-complete");
+    expect(result.integrations).toEqual({
+      gsc: null,
+      ga4: null,
+      clarity: null,
+      meta: null,
+      psi: null,
+      cloudflare: null,
+    });
+  });
+
   it("uses provided crawlId when available", async () => {
     const customCrawl = buildCrawlJob({ id: "crawl-2", projectId: "proj-1" });
     crawls.getById.mockResolvedValue(customCrawl);

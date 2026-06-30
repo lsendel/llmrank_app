@@ -54,14 +54,21 @@ export function createIntegrationInsightsService(
         };
       }
 
-      // Try the latest crawl first; if it has no enrichments, walk back
-      // through recent completed crawls to find one that does.
+      // Prefer completed crawls for dashboard insights. An in-flight crawl will
+      // not have final enrichment rows yet, so anchoring the integrations tab to
+      // it makes previously available provider data disappear while crawling.
       const recentCrawls = await deps.crawls.listByProject(projectId);
       if (recentCrawls.length === 0) {
         return { crawlId: null, crawlDate: null, integrations: null };
       }
 
-      for (const crawl of recentCrawls) {
+      const completedCrawls = recentCrawls.filter(
+        (crawl) => crawl.status === "complete",
+      );
+      const candidateCrawls =
+        completedCrawls.length > 0 ? completedCrawls : recentCrawls;
+
+      for (const crawl of candidateCrawls) {
         const rows = await deps.enrichments.listByJob(crawl.id);
         if (rows.length > 0) {
           const normalized = rows.map((row) => ({
@@ -76,8 +83,8 @@ export function createIntegrationInsightsService(
         }
       }
 
-      // No crawl has enrichments yet
-      const latestCrawl = recentCrawls[0];
+      // No candidate crawl has enrichments yet.
+      const latestCrawl = candidateCrawls[0];
       const crawlDate = latestCrawl.createdAt;
       return {
         crawlId: latestCrawl.id,
