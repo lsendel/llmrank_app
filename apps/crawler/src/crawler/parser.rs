@@ -209,17 +209,26 @@ impl Parser {
         let variance =
             lengths.iter().map(|l| (l - mean).powi(2)).sum::<f64>() / lengths.len() as f64;
 
-        // Extract transition words
+        // Formulaic AI-assistant tells (feeds the AI_ASSISTANT_SPEAK score).
+        // Keep in sync with `assistantWords` in
+        // packages/scoring/src/factors/content.ts. Deliberately excludes
+        // ordinary connectives (moreover, furthermore, however, therefore,
+        // additionally, consequently) — those are everyday human prose and
+        // flagging them penalised good writing.
         let assistant_words = [
             "in conclusion",
-            "moreover",
-            "furthermore",
-            "however",
-            "therefore",
-            "additionally",
-            "consequently",
             "it is important to note",
             "it's important to note",
+            "it is worth noting",
+            "it's worth noting",
+            "to summarize",
+            "in summary",
+            "delve into",
+            "a testament to",
+            "in today's digital age",
+            "in the realm of",
+            "plays a crucial role",
+            "plays a pivotal role",
         ];
 
         let mut found_transitions = Vec::new();

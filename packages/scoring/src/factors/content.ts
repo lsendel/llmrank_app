@@ -1,6 +1,39 @@
 import type { PageData, FactorResult } from "../types";
-import { deduct, type ScoreState } from "./helpers";
+import { deduct, isAuthoritativeUrl, type ScoreState } from "./helpers";
 import { THRESHOLDS } from "../thresholds";
+
+// Schema.org types that carry authorship / expertise — a real E-E-A-T signal.
+const EEAT_SCHEMA_TYPES = [
+  "person",
+  "article",
+  "newsarticle",
+  "blogposting",
+  "scholarlyarticle",
+  "techarticle",
+  "report",
+  "review",
+  "recipe",
+  "howto",
+  "medicalwebpage",
+  "aboutpage",
+  "profilepage",
+];
+
+/**
+ * True when the page carries a structured authorship/expertise signal: an
+ * E-E-A-T schema type, or an explicit author/creator in its structured data.
+ * Used to stop LOW_EEAT_SCORE from firing on legitimately-attributed content.
+ */
+function hasAuthorshipSignal(page: PageData): boolean {
+  const types = page.extracted.schema_types.map((t) => t.toLowerCase());
+  if (types.some((t) => EEAT_SCHEMA_TYPES.some((e) => t.includes(e)))) {
+    return true;
+  }
+  const nodes = page.extracted.structured_data ?? [];
+  return nodes.some(
+    (n) => !!n && typeof n === "object" && ("author" in n || "creator" in n),
+  );
+}
 
 /**
  * Apply every content-quality deduction to a score state. Shared by
@@ -139,15 +172,25 @@ export function applyContentFactors(page: PageData, s: ScoreState): void {
   }
 
   // AI_ASSISTANT_SPEAK
+  // Only formulaic AI tells — NOT ordinary connectives. "moreover",
+  // "furthermore", "however" etc. are everyday human prose and flagging them
+  // penalised good writing (a top false-positive). These phrases are populated
+  // by the crawler's transition-word extractor, so this list MUST stay in sync
+  // with `assistant_words` in apps/crawler/src/crawler/parser.rs.
   const assistantWords = [
     "in conclusion",
-    "moreover",
-    "furthermore",
     "it is important to note",
     "it's important to note",
+    "it is worth noting",
+    "it's worth noting",
     "to summarize",
-    "essentially",
-    "ultimately",
+    "in summary",
+    "delve into",
+    "a testament to",
+    "in today's digital age",
+    "in the realm of",
+    "plays a crucial role",
+    "plays a pivotal role",
   ];
   const detectedAssistantWords = (
     page.extracted.top_transition_words ?? []
@@ -170,15 +213,24 @@ export function applyContentFactors(page: PageData, s: ScoreState): void {
     });
   }
 
-  // LOW_EEAT_SCORE
+  // LOW_EEAT_SCORE — does the page show ANY experience/expertise/authority
+  // signal? The old check only scanned headings for first-person language,
+  // which headings almost never contain, so it false-fired on nearly every
+  // long page. Accept the signals that actually carry E-E-A-T: authorship
+  // structured data and citations to authoritative sources, in addition to
+  // experiential language in headings.
   const eeatMarkers = [
     /\b(I|me|my|mine|we|us|our)\b/i,
     /\b(experience|tested|verified|found|discovered)\b/i,
     /\b(case study|data set|analysis|research)\b/i,
   ];
-  const hasEEAT = [...page.extracted.h1, ...page.extracted.h2].some((h) =>
-    eeatMarkers.some((m) => m.test(h)),
+  const eeatFromHeadings = [...page.extracted.h1, ...page.extracted.h2].some(
+    (h) => eeatMarkers.some((m) => m.test(h)),
   );
+  const hasEEAT =
+    eeatFromHeadings ||
+    hasAuthorshipSignal(page) ||
+    page.extracted.external_links.some(isAuthoritativeUrl);
 
   if (!hasEEAT && page.wordCount >= THRESHOLDS.eeatMinWords) {
     deduct(s, "LOW_EEAT_SCORE");

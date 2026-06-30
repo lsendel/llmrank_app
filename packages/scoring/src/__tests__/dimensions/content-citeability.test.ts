@@ -442,12 +442,12 @@ describe("scoreContentCiteability", () => {
 
   // --- AI_ASSISTANT_SPEAK ---
 
-  it("AI_ASSISTANT_SPEAK: deducts 10 when 3+ AI assistant words detected", () => {
+  it("AI_ASSISTANT_SPEAK: deducts 10 when 3+ formulaic AI tells detected", () => {
     const page = makePage();
     page.extracted.top_transition_words = [
       "in conclusion",
-      "moreover",
-      "furthermore",
+      "it is important to note",
+      "to summarize",
     ];
     const result = scoreContentCiteability(page);
     expect(result.issues).toContainEqual(
@@ -457,7 +457,22 @@ describe("scoreContentCiteability", () => {
 
   it("AI_ASSISTANT_SPEAK: no deduction for fewer than 3 assistant words", () => {
     const page = makePage();
-    page.extracted.top_transition_words = ["in conclusion", "moreover"];
+    page.extracted.top_transition_words = ["in conclusion", "to summarize"];
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "AI_ASSISTANT_SPEAK");
+    expect(issue).toBeUndefined();
+  });
+
+  it("AI_ASSISTANT_SPEAK: does not penalize ordinary human connectives", () => {
+    // Regression: "moreover"/"furthermore"/"essentially"/"ultimately" are
+    // everyday prose and used to trip this flag, penalizing good writing.
+    const page = makePage();
+    page.extracted.top_transition_words = [
+      "moreover",
+      "furthermore",
+      "essentially",
+      "ultimately",
+    ];
     const result = scoreContentCiteability(page);
     const issue = result.issues.find((i) => i.code === "AI_ASSISTANT_SPEAK");
     expect(issue).toBeUndefined();
@@ -477,9 +492,9 @@ describe("scoreContentCiteability", () => {
 
   // --- UNIFORM_SENTENCE_LENGTH ---
 
-  it("UNIFORM_SENTENCE_LENGTH: deducts 5 when variance < 15 and word count >= 200", () => {
+  it("UNIFORM_SENTENCE_LENGTH: deducts 5 when variance < 8 and word count >= 200", () => {
     const page = makePage({ wordCount: 500 });
-    page.extracted.sentence_length_variance = 10;
+    page.extracted.sentence_length_variance = 5;
     const result = scoreContentCiteability(page);
     expect(result.issues).toContainEqual(
       expect.objectContaining({ code: "UNIFORM_SENTENCE_LENGTH" }),
@@ -496,9 +511,11 @@ describe("scoreContentCiteability", () => {
     expect(issue).toBeUndefined();
   });
 
-  it("UNIFORM_SENTENCE_LENGTH: no deduction when variance >= 15", () => {
+  it("UNIFORM_SENTENCE_LENGTH: no deduction for ordinary varied prose (variance 8-15)", () => {
+    // Regression: variance of 10 is normal varied writing and used to be
+    // flagged as robotic. Only genuinely monotonous (<8) content should trip.
     const page = makePage({ wordCount: 500 });
-    page.extracted.sentence_length_variance = 20;
+    page.extracted.sentence_length_variance = 12;
     const result = scoreContentCiteability(page);
     const issue = result.issues.find(
       (i) => i.code === "UNIFORM_SENTENCE_LENGTH",
@@ -508,10 +525,13 @@ describe("scoreContentCiteability", () => {
 
   // --- LOW_EEAT_SCORE ---
 
-  it("LOW_EEAT_SCORE: deducts 15 when no experience markers in headings and wordCount >= 500", () => {
+  it("LOW_EEAT_SCORE: deducts 15 when the page has no E-E-A-T signal at all", () => {
     const page = makePage({ wordCount: 600 });
     page.extracted.h1 = ["SEO Guide"];
     page.extracted.h2 = ["Best Practices", "Key Takeaways"];
+    page.extracted.schema_types = [];
+    page.extracted.structured_data = [];
+    page.extracted.external_links = ["https://competitor.com/blog"];
     const result = scoreContentCiteability(page);
     expect(result.issues).toContainEqual(
       expect.objectContaining({ code: "LOW_EEAT_SCORE" }),
@@ -521,6 +541,32 @@ describe("scoreContentCiteability", () => {
   it("LOW_EEAT_SCORE: no deduction when experience markers present in H1", () => {
     const page = makePage({ wordCount: 600 });
     // Default page has "My Experience Testing This Product" in h1
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "LOW_EEAT_SCORE");
+    expect(issue).toBeUndefined();
+  });
+
+  it("LOW_EEAT_SCORE: no deduction for attributed content (Article + author schema)", () => {
+    // Regression: headings-only detection fired on nearly every long page.
+    // Authorship structured data is a real E-E-A-T signal.
+    const page = makePage({ wordCount: 600 });
+    page.extracted.h1 = ["SEO Guide"];
+    page.extracted.h2 = ["Best Practices"];
+    page.extracted.external_links = [];
+    page.extracted.schema_types = ["Article"];
+    page.extracted.structured_data = [{ "@type": "Article", author: "Jane" }];
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "LOW_EEAT_SCORE");
+    expect(issue).toBeUndefined();
+  });
+
+  it("LOW_EEAT_SCORE: no deduction when citing authoritative sources", () => {
+    const page = makePage({ wordCount: 600 });
+    page.extracted.h1 = ["SEO Guide"];
+    page.extracted.h2 = ["Best Practices"];
+    page.extracted.schema_types = [];
+    page.extracted.structured_data = [];
+    page.extracted.external_links = ["https://nih.gov/study"];
     const result = scoreContentCiteability(page);
     const issue = result.issues.find((i) => i.code === "LOW_EEAT_SCORE");
     expect(issue).toBeUndefined();
@@ -561,6 +607,30 @@ describe("scoreContentCiteability", () => {
   it("MISSING_AUTHORITATIVE_CITATIONS: no deduction when wordCount <= 300", () => {
     const page = makePage({ wordCount: 200 });
     page.extracted.external_links = ["https://example.com"];
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find(
+      (i) => i.code === "MISSING_AUTHORITATIVE_CITATIONS",
+    );
+    expect(issue).toBeUndefined();
+  });
+
+  it("MISSING_AUTHORITATIVE_CITATIONS: '.org' in a URL path no longer counts as authoritative", () => {
+    // Regression: includes('.org') matched the substring anywhere in the URL
+    // (paths, slugs), so junk links falsely passed as authoritative citations.
+    const page = makePage({ wordCount: 500 });
+    page.extracted.external_links = [
+      "https://shop.com/blog/best.organic-foods",
+      "https://news.com/category/.org-charts",
+    ];
+    const result = scoreContentCiteability(page);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "MISSING_AUTHORITATIVE_CITATIONS" }),
+    );
+  });
+
+  it("MISSING_AUTHORITATIVE_CITATIONS: recognizes ccTLD government/academic hosts", () => {
+    const page = makePage({ wordCount: 500 });
+    page.extracted.external_links = ["https://www.nhs.gov.uk/guidance"];
     const result = scoreContentCiteability(page);
     const issue = result.issues.find(
       (i) => i.code === "MISSING_AUTHORITATIVE_CITATIONS",
