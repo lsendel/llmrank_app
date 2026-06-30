@@ -1,5 +1,6 @@
 import {
   ISSUE_DEFINITIONS,
+  issuePriority,
   LLM_PLATFORMS,
   type Issue,
 } from "@llm-boost/shared";
@@ -240,18 +241,6 @@ export const RECOMMENDATION_TEMPLATES: Record<string, RecommendationTemplate> =
     ]),
   );
 
-const priorityRank: Record<RecommendationPriority, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
-};
-
-const impactRank: Record<RecommendationImpact, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
-};
-
 export function generateRecommendations(
   issues: Issue[],
   overallScore: number,
@@ -282,6 +271,9 @@ export function generateRecommendations(
   // A single fix can't add back more than the page is currently missing.
   const headroom = Math.max(0, 100 - overallScore);
   const recommendations: Recommendation[] = [];
+  // Unified impact×severity÷effort priority (same model as cross-page
+  // quick-wins) so per-page ordering surfaces the biggest, easiest wins first.
+  const priorityByCode = new Map<string, number>();
   for (const issue of issueByCode.values()) {
     const code = issue.code;
     const def = ISSUE_DEFINITIONS[code];
@@ -307,6 +299,20 @@ export function generateRecommendations(
       description = `${description} ${specifics}`;
     }
     const lift = predictedLift(issue);
+    // Prioritise on the real applied deduction (dynamic factors carry a nominal
+    // def.scoreImpact of 0), matching predictedLift's basis.
+    const appliedImpact =
+      typeof issue.scoreImpact === "number" && issue.scoreImpact !== 0
+        ? issue.scoreImpact
+        : (def?.scoreImpact ?? 5);
+    priorityByCode.set(
+      code,
+      issuePriority({
+        scoreImpact: appliedImpact,
+        severity: issue.severity,
+        effortLevel: def?.effortLevel ?? "medium",
+      }),
+    );
     recommendations.push({
       issueCode: code,
       ...template,
@@ -315,13 +321,23 @@ export function generateRecommendations(
     });
   }
 
+  // Severity tier is the primary key — a page-breaking critical (HTTP error,
+  // noindex, missing title) must lead even when it's higher-effort to fix than
+  // some quick warning. Within a tier, the unified impact×effort priority
+  // surfaces the biggest, easiest wins first.
+  const tierRank: Record<RecommendationPriority, number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+  };
   recommendations.sort((a, b) => {
-    if (priorityRank[a.priority] !== priorityRank[b.priority]) {
-      return priorityRank[a.priority] - priorityRank[b.priority];
+    if (tierRank[a.priority] !== tierRank[b.priority]) {
+      return tierRank[a.priority] - tierRank[b.priority];
     }
-    if (impactRank[a.impact] !== impactRank[b.impact]) {
-      return impactRank[a.impact] - impactRank[b.impact];
-    }
+    const pa = priorityByCode.get(a.issueCode) ?? 0;
+    const pb = priorityByCode.get(b.issueCode) ?? 0;
+    if (pa !== pb) return pb - pa;
+    // Tiebreak by honest headline lift.
     return b.estimatedImprovement - a.estimatedImprovement;
   });
 
