@@ -359,12 +359,25 @@ impl JobManager {
             None
         };
 
-        let js_renderer = if crawl_config.run_js_render {
+        // The JS renderer requires BOTH the per-crawl request flag and the
+        // process-level kill switch (`JS_RENDER_ENABLED`, default off). The
+        // global gate exists because headless Chromium hangs/crashes on the Fly
+        // host — leaving the renderer on just burns a doomed subprocess per page
+        // and spams "JS renderer failed" WARNs. SSR sites are fully served by
+        // the raw-HTML fallback, so this is safe to leave off.
+        let js_renderer = if config.renderer_enabled && crawl_config.run_js_render {
             Some(JsRenderer::new(
                 config.max_concurrent_renderers,
                 config.renderer_script_path.clone(),
+                config.renderer_timeout_s,
             ))
         } else {
+            if crawl_config.run_js_render && !config.renderer_enabled {
+                tracing::debug!(
+                    job_id = %payload.job_id,
+                    "JS renderer disabled (JS_RENDER_ENABLED off); using raw-HTML fallback"
+                );
+            }
             None
         };
 

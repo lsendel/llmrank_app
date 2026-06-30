@@ -26,6 +26,17 @@ pub struct Config {
     pub lighthouse_failure_threshold: usize,
     pub max_concurrent_renderers: usize,
     pub renderer_script_path: String,
+    /// Whether the headless-Chromium JS renderer is enabled at all. Default
+    /// **off**: the renderer spawns `node`+Chromium, which hangs/crashes on the
+    /// 2 GB Fly host (returns empty stdout → "EOF while parsing" on every page).
+    /// SSR sites are fully covered by the raw-HTML fallback, so this stays off
+    /// unless `JS_RENDER_ENABLED` is explicitly truthy. Read once at process
+    /// start, so toggling it via `flyctl` env + machine restart takes effect
+    /// without a code redeploy.
+    pub renderer_enabled: bool,
+    /// Per-render subprocess timeout (seconds). The spawn also sets
+    /// `kill_on_drop(true)` so a hung/timed-out render can't leak a child.
+    pub renderer_timeout_s: u64,
     pub batch_page_threshold: usize,
     pub batch_interval_secs: u64,
 }
@@ -114,6 +125,21 @@ impl Config {
         let renderer_script_path = env::var("RENDERER_SCRIPT_PATH")
             .unwrap_or_else(|_| "/app/scripts/render-links.mjs".to_string());
 
+        // JS renderer is OFF unless explicitly enabled. Chromium-on-Fly is
+        // broken (empty stdout → EOF parse error per page); SSR raw-HTML
+        // fallback covers our targets. Accepts true/1/yes/on (case-insensitive).
+        let renderer_enabled = env::var("JS_RENDER_ENABLED")
+            .ok()
+            .map(|s| parse_bool_flag(&s))
+            .unwrap_or(false);
+
+        let renderer_timeout_s = env::var("RENDERER_TIMEOUT_S")
+            .unwrap_or_else(|_| "15".to_string())
+            .parse::<u64>()
+            .map_err(|_| {
+                ConfigError::InvalidValue("RENDERER_TIMEOUT_S", "must be a valid u64")
+            })?;
+
         let batch_page_threshold = env::var("BATCH_PAGE_THRESHOLD")
             .unwrap_or_else(|_| "10".to_string())
             .parse::<usize>()
@@ -144,10 +170,21 @@ impl Config {
             lighthouse_failure_threshold,
             max_concurrent_renderers,
             renderer_script_path,
+            renderer_enabled,
+            renderer_timeout_s,
             batch_page_threshold,
             batch_interval_secs,
         })
     }
+}
+
+/// Parse a truthy boolean env flag. `true`/`1`/`yes`/`on` (case-insensitive,
+/// surrounding whitespace ignored) are truthy; everything else is false.
+fn parse_bool_flag(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "true" | "1" | "yes" | "on"
+    )
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -156,4 +193,23 @@ pub enum ConfigError {
     Missing(&'static str),
     #[error("Invalid value for {0}: {1}")]
     InvalidValue(&'static str, &'static str),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_bool_flag;
+
+    #[test]
+    fn truthy_values_parse_true() {
+        for v in ["true", "TRUE", "True", "1", "yes", "YES", "on", "ON", " on "] {
+            assert!(parse_bool_flag(v), "expected {v:?} to be truthy");
+        }
+    }
+
+    #[test]
+    fn falsy_and_garbage_values_parse_false() {
+        for v in ["false", "FALSE", "0", "no", "off", "", "  ", "enable", "maybe"] {
+            assert!(!parse_bool_flag(v), "expected {v:?} to be falsy");
+        }
+    }
 }
