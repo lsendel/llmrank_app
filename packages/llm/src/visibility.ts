@@ -48,6 +48,35 @@ const PROVIDER_MAP: Record<string, ProviderCheckFn> = {
   grok: checkGrok,
 };
 
+export type EngineMode = "live_retrieval" | "recall";
+
+/**
+ * How each provider produced its answer.
+ * - `live_retrieval`: grounded on a live web search (Perplexity sonar, Copilot
+ *   via Bing) — "is my page cited" reflects the real web.
+ * - `recall`: a plain completion from model memory with NO web tool, so any
+ *   citation reflects training recall and may be fabricated. Notably
+ *   `gemini_ai_mode` is *prompted* to answer like a sourced search engine
+ *   despite having no retrieval, so its citations are the least trustworthy.
+ *
+ * Persisted per visibility check so the UI and recommendations don't treat a
+ * recalled (possibly hallucinated) citation as a measured fact.
+ */
+export const PROVIDER_ENGINE_MODE: Record<string, EngineMode> = {
+  perplexity: "live_retrieval",
+  copilot: "live_retrieval",
+  chatgpt: "recall",
+  claude: "recall",
+  gemini: "recall",
+  gemini_ai_mode: "recall",
+  grok: "recall",
+};
+
+/** Engine mode for a provider; defaults to the conservative `recall`. */
+export function engineModeFor(provider: string): EngineMode {
+  return PROVIDER_ENGINE_MODE[provider] ?? "recall";
+}
+
 export class VisibilityChecker {
   async checkAllProviders(
     options: VisibilityCheckOptions,

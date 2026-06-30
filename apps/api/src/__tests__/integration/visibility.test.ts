@@ -90,6 +90,8 @@ vi.mock("@llm-boost/db", async () => {
 
 // Mock the LLM visibility checker to avoid real API calls
 vi.mock("@llm-boost/llm", () => ({
+  engineModeFor: (p: string) =>
+    p === "perplexity" || p === "copilot" ? "live_retrieval" : "recall",
   VisibilityChecker: vi.fn().mockImplementation(() => ({
     checkAllProviders: vi.fn().mockResolvedValue([
       {

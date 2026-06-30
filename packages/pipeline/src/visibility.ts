@@ -3,7 +3,11 @@ import {
   canRunVisibilityChecks,
   type PlanTier,
 } from "@llm-boost/shared";
-import { VisibilityChecker, analyzeBrandSentiment } from "@llm-boost/llm";
+import {
+  VisibilityChecker,
+  analyzeBrandSentiment,
+  engineModeFor,
+} from "@llm-boost/llm";
 import type {
   ProjectRepository,
   UserRepository,
@@ -130,6 +134,9 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
             citedUrl: result.citedUrl,
             citationPosition: result.citationPosition,
             competitorMentions: result.competitorMentions,
+            // Tag whether this provider used live web retrieval or just recall,
+            // so a recalled (possibly hallucinated) citation isn't read as fact.
+            engineMode: engineModeFor(result.provider),
             ...(sentiment && {
               sentiment: sentiment.sentiment,
               brandDescription: sentiment.brandDescription,
