@@ -273,6 +273,30 @@ describe("Performance Factors", () => {
     expect(result.issues).toHaveLength(0);
   });
 
+  // --- measured flag (drives engine renormalisation) ---
+
+  it("measured is true when Lighthouse is present", () => {
+    expect(scorePerformanceFactors(makePageData()).measured).toBe(true);
+  });
+
+  it("measured is true (no Lighthouse) when a page weight was transferred", () => {
+    const page = makePageData({ lighthouse: null });
+    page.siteContext = {
+      ...page.siteContext!,
+      pageSizeBytes: 1 * 1024 * 1024,
+    };
+    const result = scorePerformanceFactors(page);
+    expect(result.measured).toBe(true);
+  });
+
+  it("measured is false when nothing was measured (no Lighthouse, no page weight)", () => {
+    const page = makePageData({ lighthouse: null });
+    const result = scorePerformanceFactors(page);
+    // Score stays at the 100 baseline, but the engine must treat it as absent.
+    expect(result.score).toBe(100);
+    expect(result.measured).toBe(false);
+  });
+
   // --- Multiple issues ---
 
   it("accumulates multiple performance deductions", () => {

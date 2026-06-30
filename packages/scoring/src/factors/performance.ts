@@ -4,6 +4,8 @@ import { THRESHOLDS } from "../thresholds";
 
 export function scorePerformanceFactors(page: PageData): FactorResult {
   const s: ScoreState = { score: 100, issues: [] };
+  const hasLighthouse = !!page.lighthouse;
+  const hasPageSize = !!page.siteContext?.pageSizeBytes;
 
   if (page.lighthouse) {
     // LH_PERF_LOW: -20 if <0.5, -10 if 0.5-0.79
@@ -54,5 +56,12 @@ export function scorePerformanceFactors(page: PageData): FactorResult {
     });
   }
 
-  return { score: Math.max(0, s.score), issues: s.issues };
+  // Performance is only a real signal when something was actually measured —
+  // Lighthouse, or at least a transferred page weight. Bulk crawls run with
+  // Lighthouse gated off (`run_lighthouse: false`), so without this flag every
+  // such page would contribute a fabricated 100 and inflate the overall and
+  // per-platform scores. The engine drops performance's weight when unmeasured.
+  const measured = hasLighthouse || hasPageSize;
+
+  return { score: Math.max(0, s.score), issues: s.issues, measured };
 }

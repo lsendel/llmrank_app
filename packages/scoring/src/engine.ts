@@ -54,18 +54,39 @@ export function scorePage(
   const content = scoreContentFactors(page);
   const aiReadiness = scoreAiReadinessFactors(page);
   const performance = scorePerformanceFactors(page);
-  const platformScores = calculatePlatformScores({
-    technicalScore: technical.score,
-    contentScore: content.score,
-    aiReadinessScore: aiReadiness.score,
-    performanceScore: performance.score,
-  });
+  const performanceMeasured = performance.measured !== false;
+
+  // When performance wasn't measured (no Lighthouse on a bulk crawl), drop its
+  // weight and renormalize the measured categories so they sum to 1. Otherwise
+  // the 100 baseline from `scorePerformanceFactors` would silently inflate both
+  // the overall and per-platform scores for every unmeasured page.
+  const ew = performanceMeasured
+    ? w
+    : (() => {
+        const sum = w.technical + w.content + w.ai_readiness;
+        return {
+          technical: w.technical / sum,
+          content: w.content / sum,
+          ai_readiness: w.ai_readiness / sum,
+          performance: 0,
+        };
+      })();
+
+  const platformScores = calculatePlatformScores(
+    {
+      technicalScore: technical.score,
+      contentScore: content.score,
+      aiReadinessScore: aiReadiness.score,
+      performanceScore: performance.score,
+    },
+    performanceMeasured,
+  );
 
   const overallScore = Math.round(
-    technical.score * w.technical +
-      content.score * w.content +
-      aiReadiness.score * w.ai_readiness +
-      performance.score * w.performance,
+    technical.score * ew.technical +
+      content.score * ew.content +
+      aiReadiness.score * ew.ai_readiness +
+      performance.score * ew.performance,
   );
 
   const allIssues: Issue[] = [
