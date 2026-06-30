@@ -288,21 +288,53 @@ async function runWorkersAiScoring(
 }
 
 /**
- * Strip stored HTML to plain scoreable text. Removes <script>/<style> blocks
- * (INCLUDING their contents — e.g. JSON-LD structured data) and HTML comments
- * BEFORE stripping tags, so the LLM content scorer isn't fed raw JSON-LD as
- * noise. Mirrors the crawler's get_all_text extraction (which excludes
- * <script>/<style>); these paths previously stripped only tags, leaking the
- * JSON-LD text into the scoring prompt and depressing content scores.
+ * Strip stored HTML to plain scoreable text, isolating MAIN CONTENT on nav-heavy
+ * pages while leaving content-dense pages untouched.
+ *
+ * 1. Always removes <script>/<style> blocks (INCLUDING their contents — e.g.
+ *    JSON-LD structured data) and HTML comments, so the scorer isn't fed raw
+ *    JSON-LD/CSS as noise.
+ * 2. Builds a chrome-free candidate by removing site chrome
+ *    (<nav>/<header>/<footer>/<aside>, wherever it appears incl. nested inside
+ *    <main>) and preferring a <main>/<article> region with real text.
+ * 3. Uses the chrome-free candidate ONLY when chrome was a LARGE share of the
+ *    page (>25% of words). On nav-heavy pages (e.g. marketing sites) chrome
+ *    otherwise dominates the truncated scoring window and depresses the score;
+ *    but on content-dense pages, stripping minor chrome only risks trimming
+ *    legitimate header/title signal for no gain — so those keep the full text
+ *    (identical to the prior behaviour, i.e. no regression).
  */
 export function htmlToScoringText(html: string): string {
-  return html
+  const noResources = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/<!--[\s\S]*?-->/g, " ");
+
+  const toText = (s: string) =>
+    s
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const wordCount = (s: string) =>
+    s ? s.split(" ").filter(Boolean).length : 0;
+
+  const full = toText(noResources);
+
+  const chromeStripped = noResources
+    .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, " ")
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<aside\b[^>]*>[\s\S]*?<\/aside>/gi, " ");
+  const main = chromeStripped.match(/<(main|article)\b[^>]*>([\s\S]*?)<\/\1>/i);
+  const mainText = main ? toText(main[2]) : "";
+  const cleaned =
+    wordCount(mainText) >= 120 ? mainText : toText(chromeStripped);
+
+  // Only prefer the cleaned text when chrome was a large share of the page.
+  const fullWords = wordCount(full);
+  return fullWords > 0 && wordCount(cleaned) < 0.75 * fullWords
+    ? cleaned
+    : full;
 }
 
 /** Helper: extract plain text from R2-stored HTML, handling gzip encoding. */
