@@ -134,6 +134,7 @@ export function createVisibilityService(deps: VisibilityServiceDeps) {
             citedUrl: result.citedUrl,
             citationPosition: result.citationPosition,
             competitorMentions: result.competitorMentions,
+            citedSources: result.citedSources,
             // Tag whether this provider used live web retrieval or just recall,
             // so a recalled (possibly hallucinated) citation isn't read as fact.
             engineMode: engineModeFor(result.provider),
