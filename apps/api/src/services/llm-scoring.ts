@@ -6,7 +6,7 @@ import {
   batchJobQueries,
 } from "@llm-boost/db";
 import { LLMScorer, WorkersAiScorer, type WorkersAi } from "@llm-boost/llm";
-import type { CrawlPageResult } from "@llm-boost/shared";
+import type { CrawlPageResult, LLMContentScores } from "@llm-boost/shared";
 import { pMap } from "../lib/concurrent";
 import { createLogger } from "@llm-boost/shared";
 
@@ -35,6 +35,68 @@ function classifyLLMError(message: string): LLMUnavailableCause {
   if (m.includes("rate limit") || m.includes("429") || m.includes("overloaded"))
     return "rate_limit";
   return "other";
+}
+
+/**
+ * Additive calibration for the Workers AI content scorer ONLY.
+ *
+ * Phase 0 validation (n=60 families.care pages, Haiku-batch reference vs the
+ * production Workers AI small model) found the small model systematically
+ * UNDER-scores three of the five content dimensions, stable across 16 page
+ * types:
+ *   - structure            mean +15.9 (σ7.8) — robust, positive on every page
+ *                          type (+9..+26); small models judge structural
+ *                          quality worst.            → corrected (+13)
+ *   - authority            mean +10.5 (σ11.7) — real but noisy.   → +8
+ *   - clarity              mean  +6.3 (σ7.1) — small, consistent. → +5
+ *   - citation_worthiness  mean  +3.1 — within noise.            → 0 (uncorrected)
+ *   - comprehensiveness    mean  -2.2 — within noise.            → 0 (uncorrected)
+ *
+ * Offsets are ~80% of the measured means (deliberately under-correct), and the
+ * two within-noise dimensions are left untouched.
+ *
+ * SCOPE & CAVEAT: Workers AI path only — the Anthropic/Haiku scorer is the
+ * reference and must NOT be calibrated. The sample is a single domain
+ * (eldercare); cross-domain generalization is NOT yet validated. This ships as a
+ * reviewable proposal: re-validate on mixed-domain content before relying on it,
+ * tune the offsets, or instead route paid tiers to Haiku-batch and keep Workers
+ * AI for free-tier screening.
+ *
+ * Applied exactly ONCE, at the Workers AI boundary (runWorkersAiScoring), to the
+ * raw model output before it is stored or feeds the scoring deductions. The
+ * scorer's KV cache stores RAW scores, so re-reads re-apply cleanly and the
+ * offsets can change without busting the cache. Clamped to [0,100].
+ */
+export const WORKERS_AI_CALIBRATION: Readonly<LLMContentScores> = {
+  clarity: 5,
+  authority: 8,
+  comprehensiveness: 0,
+  structure: 13,
+  citation_worthiness: 0,
+};
+
+const clamp100 = (n: number): number => Math.max(0, Math.min(100, n));
+
+/**
+ * Apply {@link WORKERS_AI_CALIBRATION} to a raw Workers AI score. Pure — does not
+ * mutate the input. Each dimension is offset then clamped to [0,100], so an
+ * already-high score (e.g. structure 92 → 105) saturates at 100 rather than
+ * exceeding the scale.
+ */
+export function applyWorkersAiCalibration(
+  raw: LLMContentScores,
+): LLMContentScores {
+  return {
+    clarity: clamp100(raw.clarity + WORKERS_AI_CALIBRATION.clarity),
+    authority: clamp100(raw.authority + WORKERS_AI_CALIBRATION.authority),
+    comprehensiveness: clamp100(
+      raw.comprehensiveness + WORKERS_AI_CALIBRATION.comprehensiveness,
+    ),
+    structure: clamp100(raw.structure + WORKERS_AI_CALIBRATION.structure),
+    citation_worthiness: clamp100(
+      raw.citation_worthiness + WORKERS_AI_CALIBRATION.citation_worthiness,
+    ),
+  };
 }
 
 /**
@@ -163,8 +225,12 @@ async function runWorkersAiScoring(
     pageTexts,
     async (p) => {
       try {
-        const scores = await scorer.scoreContent(p.text, p.contentHash);
-        if (!scores) return; // thin or unparseable — keep deterministic score
+        const raw = await scorer.scoreContent(p.text, p.contentHash);
+        if (!raw) return; // thin or unparseable — keep deterministic score
+        // Correct the small model's known, validated under-scoring before the
+        // scores are stored and feed the content/ai-readiness deductions. Raw
+        // scores remain in the scorer's KV cache (see WORKERS_AI_CALIBRATION).
+        const scores = applyWorkersAiCalibration(raw);
         await persistLLMScore(
           appDb,
           p.scoreRowId,
