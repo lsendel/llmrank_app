@@ -110,6 +110,7 @@ visibilityRoutes.post(
         users: createUserRepository(db),
         visibility: createVisibilityRepository(c.get("agencyDb")),
         competitors: createCompetitorRepository(db),
+        archive: c.env.R2,
       });
 
       const allResults = [];
@@ -181,6 +182,7 @@ visibilityRoutes.get("/:projectId", async (c) => {
     users: createUserRepository(db),
     visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
+    archive: c.env.R2,
   });
 
   try {
@@ -286,10 +288,9 @@ visibilityRoutes.get("/:projectId/brand-performance", async (c) => {
     );
   }
 
-  const checks = await createVisibilityRepository(c.get("agencyDb")).listByProject(
-    projectId,
-    localeResolution.locale,
-  );
+  const checks = await createVisibilityRepository(
+    c.get("agencyDb"),
+  ).listByProject(projectId, localeResolution.locale);
 
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
@@ -535,6 +536,7 @@ visibilityRoutes.get("/:projectId/gaps", async (c) => {
     users: createUserRepository(db),
     visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
+    archive: c.env.R2,
   });
 
   try {
@@ -642,6 +644,7 @@ visibilityRoutes.get("/:projectId/trends", async (c) => {
     users: createUserRepository(db),
     visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
+    archive: c.env.R2,
   });
 
   try {

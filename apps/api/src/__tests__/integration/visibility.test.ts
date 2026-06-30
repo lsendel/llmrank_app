@@ -214,6 +214,13 @@ describe("Visibility Routes", () => {
       // Rate limit headers should be present
       expect(res.headers.get("x-ratelimit-limit")).toBeTruthy();
       expect(res.headers.get("x-ratelimit-remaining")).toBeTruthy();
+
+      // The raw response was archived to R2 and its key persisted (#1C-R2).
+      expect(mockVisibilityRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          r2ResponseKey: expect.stringContaining("visibility/proj-1/"),
+        }),
+      );
     });
 
     it("returns 422 when required fields are missing", async () => {
