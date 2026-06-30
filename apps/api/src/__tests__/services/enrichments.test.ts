@@ -92,13 +92,33 @@ function baseInput(overrides: Record<string, unknown> = {}) {
 describe("runIntegrationEnrichments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetById.mockReset();
+    mockListByProject.mockReset();
+    mockUpdateCredentials.mockReset();
+    mockCreateBatch.mockReset();
+    mockUpdateLastSync.mockReset();
+    mockRunEnrichments.mockReset();
+    mockDecrypt.mockReset();
+    mockEncrypt.mockReset();
+    mockRefreshAccessToken.mockReset();
+    mockListPagesByJob.mockReset();
+
     mockGetById.mockResolvedValue({
       id: "proj-1",
       domain: "https://example.com",
       name: "Test Project",
     });
+    mockListByProject.mockResolvedValue([]);
     mockDecrypt.mockResolvedValue(JSON.stringify({ accessToken: "token-123" }));
     mockEncrypt.mockResolvedValue("encrypted-new-creds");
+    mockRunEnrichments.mockResolvedValue({
+      results: [],
+      providerResults: [],
+    });
+    mockRefreshAccessToken.mockResolvedValue({
+      accessToken: "new-token",
+      expiresIn: 3600,
+    });
     mockListPagesByJob.mockResolvedValue([
       { id: "page-1", url: "https://example.com/page1" },
       { id: "page-2", url: "https://example.com/page2" },
@@ -172,6 +192,7 @@ describe("runIntegrationEnrichments", () => {
     await runIntegrationEnrichments(baseInput());
 
     expect(mockDecrypt).toHaveBeenCalledWith("encrypted-creds", "abc123hex");
+    expect(mockListPagesByJob).toHaveBeenCalledWith("job-1", { limit: 10 });
     expect(mockRunEnrichments).toHaveBeenCalledWith(
       [
         {
@@ -257,6 +278,160 @@ describe("runIntegrationEnrichments", () => {
     await runIntegrationEnrichments(baseInput());
 
     expect(mockRefreshAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("parses JSON string config before running fetchers", async () => {
+    mockListByProject.mockResolvedValue([
+      {
+        id: "int-1",
+        provider: "meta",
+        enabled: true,
+        encryptedCredentials: "encrypted-creds",
+        config: JSON.stringify({ adAccountId: "act_123" }),
+        tokenExpiresAt: null,
+      },
+    ]);
+
+    await runIntegrationEnrichments(baseInput());
+
+    expect(mockRunEnrichments).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          provider: "meta",
+          integrationId: "int-1",
+          config: { adAccountId: "act_123" },
+        }),
+      ],
+      "https://example.com",
+      ["https://example.com/page1", "https://example.com/page2"],
+    );
+  });
+
+  it("uses inserted pages when no pages are found in the crawl table", async () => {
+    mockListPagesByJob.mockResolvedValue([]);
+    mockListByProject.mockResolvedValue([
+      {
+        id: "int-1",
+        provider: "psi",
+        enabled: true,
+        encryptedCredentials: "encrypted-creds",
+        config: {},
+        tokenExpiresAt: null,
+      },
+    ]);
+
+    await runIntegrationEnrichments(baseInput());
+
+    expect(mockRunEnrichments).toHaveBeenCalledWith(
+      [expect.objectContaining({ provider: "psi" })],
+      "https://example.com",
+      ["https://example.com/page1", "https://example.com/page2"],
+    );
+  });
+
+  it("records sync error when credentials cannot be decrypted", async () => {
+    mockListByProject.mockResolvedValue([
+      {
+        id: "int-1",
+        provider: "psi",
+        enabled: true,
+        encryptedCredentials: "bad-creds",
+        config: {},
+        tokenExpiresAt: null,
+      },
+    ]);
+    mockDecrypt.mockRejectedValue(new Error("invalid key"));
+
+    const output = await runIntegrationEnrichments(baseInput());
+
+    expect(mockRunEnrichments).not.toHaveBeenCalled();
+    expect(mockUpdateLastSync).toHaveBeenCalledWith(
+      "int-1",
+      expect.stringContaining("Credential decrypt failed"),
+    );
+    expect(output.providerResults).toEqual([
+      expect.objectContaining({
+        provider: "psi",
+        ok: false,
+        count: 0,
+        error: expect.stringContaining("Credential decrypt failed"),
+      }),
+    ]);
+  });
+
+  it("continues other providers when one OAuth token refresh fails", async () => {
+    const expiredDate = new Date(Date.now() - 1000);
+    mockListByProject.mockResolvedValue([
+      {
+        id: "int-gsc",
+        provider: "gsc",
+        enabled: true,
+        encryptedCredentials: "enc-gsc",
+        config: {},
+        tokenExpiresAt: expiredDate,
+      },
+      {
+        id: "int-psi",
+        provider: "psi",
+        enabled: true,
+        encryptedCredentials: "enc-psi",
+        config: {},
+        tokenExpiresAt: null,
+      },
+    ]);
+    mockDecrypt
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          accessToken: "expired-token",
+          refreshToken: "refresh-token",
+        }),
+      )
+      .mockResolvedValueOnce(JSON.stringify({ apiKey: "psi-key" }));
+    mockRefreshAccessToken.mockRejectedValue(new Error("invalid_grant"));
+    mockRunEnrichments.mockResolvedValue({
+      results: [
+        {
+          pageUrl: "https://example.com/page1",
+          provider: "psi",
+          data: { score: 95 },
+        },
+      ],
+      providerResults: [{ provider: "psi", ok: true, count: 1 }],
+    });
+
+    const output = await runIntegrationEnrichments(baseInput());
+
+    expect(mockRunEnrichments).toHaveBeenCalledWith(
+      [
+        {
+          provider: "psi",
+          integrationId: "int-psi",
+          credentials: { apiKey: "psi-key" },
+          config: {},
+        },
+      ],
+      "https://example.com",
+      ["https://example.com/page1", "https://example.com/page2"],
+    );
+    expect(mockCreateBatch).toHaveBeenCalledWith([
+      {
+        pageId: "page-1",
+        jobId: "job-1",
+        provider: "psi",
+        data: { score: 95 },
+      },
+    ]);
+    expect(mockUpdateLastSync).toHaveBeenCalledWith(
+      "int-gsc",
+      expect.stringContaining("OAuth token refresh failed"),
+    );
+    expect(mockUpdateLastSync).toHaveBeenCalledWith("int-psi", null);
+    expect(output.providerResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ provider: "gsc", ok: false }),
+        expect.objectContaining({ provider: "psi", ok: true, count: 1 }),
+      ]),
+    );
   });
 
   it("does not refresh tokens for non-OAuth providers", async () => {

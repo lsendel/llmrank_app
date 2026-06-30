@@ -518,12 +518,10 @@ describe("IngestService", () => {
     expect(ctx.waitUntil).toHaveBeenCalled();
   });
 
-  it("enqueues integration enrichments on final batch when keys are set", async () => {
+  it("enqueues integration enrichments on final batch when encryption key is set", async () => {
     const env = {
       ...makeMockEnv(),
       integrationKey: "int-key",
-      googleClientId: "goog-id",
-      googleClientSecret: "goog-secret",
     };
     const service = createIngestService({ crawls, pages, scores, outbox });
     await service.processBatch({

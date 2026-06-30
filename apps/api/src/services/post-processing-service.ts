@@ -114,27 +114,16 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
       }
 
       if (batch.is_final) {
-        const hasIntegrationKeys = !!(
-          env.integrationKey &&
-          env.googleClientId &&
-          env.googleClientSecret
-        );
+        const hasIntegrationKeys = !!env.integrationKey;
         if (!hasIntegrationKeys) {
           console.warn(
             `[post-processing] Skipping enrichment dispatch for job ${batch.job_id}: ` +
-              `missing env vars (integrationKey=${!!env.integrationKey}, ` +
-              `googleClientId=${!!env.googleClientId}, ` +
-              `googleClientSecret=${!!env.googleClientSecret})`,
+              `missing env vars (integrationKey=${!!env.integrationKey})`,
           );
         }
       }
 
-      if (
-        batch.is_final &&
-        env.integrationKey &&
-        env.googleClientId &&
-        env.googleClientSecret
-      ) {
+      if (batch.is_final && env.integrationKey) {
         try {
           await dispatchOrRun(deps.outbox, args.executionCtx, {
             type: "integration_enrichment",
