@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
@@ -17,37 +18,108 @@ pub enum LighthouseError {
     NotInstalled,
 }
 
-/// Lighthouse runner that either runs locally or offloads to Cloudflare.
+/// Lighthouse runner that runs locally (default) or offloads to a remote service.
+///
+/// Hardened so it can never stall the crawler: audits are budget-capped
+/// (sampling), the subprocess is killed on timeout (`kill_on_drop`, see
+/// `run_local_audit`), and a per-crawl circuit-breaker stops attempting audits
+/// after repeated failures — so a broken Chromium degrades to "no Lighthouse
+/// data" instead of piling up orphaned processes and exhausting the machine.
 #[derive(Clone)]
 pub struct LighthouseRunner {
     semaphore: Arc<Semaphore>,
     timeout_secs: u64,
-    api_url: Option<String>, // Cloudflare API URL for offloading
+    api_url: Option<String>, // remote audit URL; None = run locally
+    /// Remaining per-crawl audit budget (sampling cap). `None` = unlimited.
+    budget: Option<Arc<AtomicUsize>>,
+    /// Consecutive audit failures this crawl (circuit-breaker input), shared
+    /// across clones.
+    consecutive_failures: Arc<AtomicUsize>,
+    /// Stop attempting audits once `consecutive_failures` reaches this. `0` =
+    /// breaker disabled.
+    failure_threshold: usize,
 }
 
 impl LighthouseRunner {
-    /// Create a new runner.
-    pub fn new(max_concurrent: usize, api_url: Option<String>) -> Self {
+    /// Create a new runner. `max_pages` caps audits per crawl (`0` = unlimited);
+    /// `failure_threshold` trips the circuit-breaker after that many consecutive
+    /// failures (`0` = disabled).
+    pub fn new(
+        max_concurrent: usize,
+        api_url: Option<String>,
+        max_pages: usize,
+        timeout_secs: u64,
+        failure_threshold: usize,
+    ) -> Self {
         LighthouseRunner {
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
-            timeout_secs: 60,
+            timeout_secs,
             api_url,
+            budget: if max_pages > 0 {
+                Some(Arc::new(AtomicUsize::new(max_pages)))
+            } else {
+                None
+            },
+            consecutive_failures: Arc::new(AtomicUsize::new(0)),
+            failure_threshold,
         }
     }
 
-    /// Run a Lighthouse audit. Offloads to Cloudflare if api_url is set.
-    pub async fn run_lighthouse(&self, url: &str) -> Result<LighthouseResult, LighthouseError> {
+    /// Claim one unit of the per-crawl audit budget. `true` = audit this page,
+    /// `false` = sampled out. Unlimited when no budget is set.
+    fn try_claim_budget(&self) -> bool {
+        match &self.budget {
+            None => true,
+            Some(b) => b
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                    if n > 0 {
+                        Some(n - 1)
+                    } else {
+                        None
+                    }
+                })
+                .is_ok(),
+        }
+    }
+
+    /// Circuit-breaker: true once this crawl has hit `failure_threshold`
+    /// consecutive failures (e.g. Chromium not launchable on the host) — stop
+    /// wasting time on audits that won't succeed.
+    fn breaker_tripped(&self) -> bool {
+        self.failure_threshold > 0
+            && self.consecutive_failures.load(Ordering::SeqCst) >= self.failure_threshold
+    }
+
+    /// Run a Lighthouse audit. Returns `Ok(None)` when the page is skipped
+    /// (sampled out or breaker tripped) — distinct from `Err` (a real audit
+    /// failure). Offloads to a remote service when `api_url` is set.
+    pub async fn run_lighthouse(
+        &self,
+        url: &str,
+    ) -> Result<Option<LighthouseResult>, LighthouseError> {
+        if self.breaker_tripped() || !self.try_claim_budget() {
+            return Ok(None);
+        }
+
         let _permit = self
             .semaphore
             .acquire()
             .await
             .map_err(|e| LighthouseError::ProcessError(e.to_string()))?;
 
-        if let Some(ref api_base) = self.api_url {
-            return self.run_remote_audit(url, api_base).await;
-        }
+        let result = if let Some(ref api_base) = self.api_url {
+            self.run_remote_audit(url, api_base).await
+        } else {
+            self.run_local_audit(url).await
+        };
 
-        self.run_local_audit(url).await
+        match &result {
+            Ok(_) => self.consecutive_failures.store(0, Ordering::SeqCst),
+            Err(_) => {
+                self.consecutive_failures.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        result.map(Some)
     }
 
     async fn run_remote_audit(
@@ -94,6 +166,11 @@ impl LighthouseRunner {
                 .arg("--output=json")
                 .arg("--quiet")
                 .arg("--chrome-flags=--headless --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-extensions --disable-background-networking --no-first-run")
+                // CRITICAL: kill the lighthouse/Chromium subprocess when the
+                // timeout fires and this future is dropped. Without this, a hung
+                // audit leaves orphaned Chromium processes that pile up and
+                // exhaust the Fly machine — the #87 incident that stalled crawls.
+                .kill_on_drop(true)
                 .output(),
         )
         .await
@@ -176,5 +253,40 @@ mod tests {
     fn test_extract_score_missing() {
         let json: serde_json::Value = serde_json::from_str(r#"{}"#).unwrap();
         assert!(extract_score(&json, "performance").is_err());
+    }
+
+    #[test]
+    fn test_budget_caps_audits() {
+        let r = LighthouseRunner::new(1, None, 2, 20, 3);
+        assert!(r.try_claim_budget());
+        assert!(r.try_claim_budget());
+        assert!(!r.try_claim_budget());
+    }
+
+    #[test]
+    fn test_budget_unlimited_when_zero() {
+        let r = LighthouseRunner::new(1, None, 0, 20, 3);
+        for _ in 0..100 {
+            assert!(r.try_claim_budget());
+        }
+    }
+
+    #[test]
+    fn test_circuit_breaker_trips_after_threshold() {
+        let r = LighthouseRunner::new(1, None, 0, 20, 3);
+        assert!(!r.breaker_tripped());
+        r.consecutive_failures.fetch_add(2, Ordering::SeqCst);
+        assert!(!r.breaker_tripped()); // 2 < 3
+        r.consecutive_failures.fetch_add(1, Ordering::SeqCst);
+        assert!(r.breaker_tripped()); // 3 >= 3
+        r.consecutive_failures.store(0, Ordering::SeqCst); // a success resets it
+        assert!(!r.breaker_tripped());
+    }
+
+    #[test]
+    fn test_circuit_breaker_disabled_when_zero() {
+        let r = LighthouseRunner::new(1, None, 0, 20, 0);
+        r.consecutive_failures.fetch_add(50, Ordering::SeqCst);
+        assert!(!r.breaker_tripped()); // threshold 0 = never trips
     }
 }
