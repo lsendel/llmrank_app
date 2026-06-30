@@ -218,6 +218,7 @@ promptResearchRoutes.post("/:projectId/check", async (c) => {
     users: createUserRepository(db),
     visibility: createVisibilityRepository(c.get("agencyDb")),
     competitors: createCompetitorRepository(db),
+    archive: c.env.R2,
   });
 
   try {
