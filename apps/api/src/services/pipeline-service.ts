@@ -30,7 +30,10 @@ type StepName = (typeof PIPELINE_STEPS)[number];
 interface PipelineKeys {
   databaseUrl: string;
   anthropicApiKey: string;
+  openaiApiKey?: string;
   perplexityApiKey?: string;
+  googleApiKey?: string;
+  bingApiKey?: string;
   grokApiKey?: string;
   reportServiceUrl?: string;
   sharedSecret?: string;
@@ -92,13 +95,22 @@ export function createPipelineService(
           });
           break;
         case "visibility_check":
+          // The visibility checker filters providers by provider-name key
+          // (apiKeys["chatgpt"] etc.), NOT by SDK name. Passing
+          // anthropicApiKey/perplexityApiKey here matched nothing, so
+          // post-crawl visibility silently ran zero providers. Mirror the
+          // working wiring in routes/visibility.ts + scheduled.ts.
           await runAutoVisibilityChecks({
             databaseUrl: keys.databaseUrl,
             projectId,
             apiKeys: {
-              anthropicApiKey: keys.anthropicApiKey,
-              perplexityApiKey: keys.perplexityApiKey ?? "",
-              grokApiKey: keys.grokApiKey ?? "",
+              chatgpt: keys.openaiApiKey ?? "",
+              claude: keys.anthropicApiKey ?? "",
+              perplexity: keys.perplexityApiKey ?? "",
+              gemini: keys.googleApiKey ?? "",
+              copilot: keys.bingApiKey ?? "",
+              gemini_ai_mode: keys.googleApiKey ?? "",
+              grok: keys.grokApiKey ?? "",
             },
           });
           break;

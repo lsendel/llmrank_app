@@ -109,9 +109,13 @@ export function buildPageIssueByCode(
 }
 
 function toImpactScore(recommendation?: Recommendation) {
-  if (typeof recommendation?.estimatedImprovement === "number") {
-    return Math.max(10, Math.min(95, recommendation.estimatedImprovement));
-  }
+  // The "Impact" badge is a qualitative 0-100 magnitude. Derive it from the
+  // recommendation's impact/priority, NOT estimatedImprovement — that field is
+  // now the literal headline-point lift (a small absolute number), a different
+  // scale that would otherwise collapse every badge to its floor.
+  if (recommendation?.impact === "high") return 85;
+  if (recommendation?.impact === "medium") return 60;
+  if (recommendation?.impact === "low") return 35;
   if (recommendation?.priority === "high") return 70;
   if (recommendation?.priority === "medium") return 50;
   return 35;

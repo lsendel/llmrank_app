@@ -42,5 +42,8 @@ export function deduct(
     message: def.message,
     recommendation: customRecommendation ?? def.recommendation,
     data: issueData,
+    // The real applied deduction (signed). Tiered/LLM-scored factors compute
+    // this dynamically, so it's the only honest basis for predicted lift.
+    scoreImpact: amount,
   });
 }

@@ -12,6 +12,10 @@ const makeIssue = (overrides: Partial<Issue> = {}): Issue => ({
   severity: overrides.severity ?? "warning",
   message: overrides.message ?? "",
   recommendation: overrides.recommendation ?? "Add the missing element.",
+  ...(overrides.data ? { data: overrides.data } : {}),
+  ...(overrides.scoreImpact !== undefined
+    ? { scoreImpact: overrides.scoreImpact }
+    : {}),
 });
 
 describe("generateRecommendations", () => {
@@ -43,6 +47,146 @@ describe("generateRecommendations", () => {
     expect(generateRecommendations(issues, 50, 5).length).toBeLessThanOrEqual(
       5,
     );
+  });
+});
+
+describe("page-specific recommendations (#2A)", () => {
+  it("names the exact count from issue.data", () => {
+    const [rec] = generateRecommendations(
+      [
+        makeIssue({
+          code: "MISSING_ALT_TEXT",
+          recommendation: "Add descriptive alt text to all images.",
+          data: { imagesWithoutAlt: 12 },
+        }),
+      ],
+      80,
+    );
+    expect(rec.description).toContain("12 images are missing alt text");
+  });
+
+  it("lists the blocked crawlers by name", () => {
+    const [rec] = generateRecommendations(
+      [
+        makeIssue({
+          code: "AI_CRAWLER_BLOCKED",
+          category: "ai_readiness",
+          recommendation: "Allow AI crawlers in robots.txt.",
+          data: { blockedCrawlers: ["GPTBot", "ClaudeBot"] },
+        }),
+      ],
+      80,
+    );
+    expect(rec.description).toContain("GPTBot");
+    expect(rec.description).toContain("ClaudeBot");
+  });
+
+  it("prefers the factor's per-instance recommendation and does not double-count", () => {
+    const custom =
+      "This page has only 80 words and isn't optimized for LLM citations. Aim for 500+ words.";
+    const [rec] = generateRecommendations(
+      [
+        makeIssue({
+          code: "THIN_CONTENT",
+          category: "content",
+          recommendation: custom,
+          data: { wordCount: 80 },
+        }),
+      ],
+      70,
+    );
+    // Uses the custom recommendation verbatim...
+    expect(rec.description).toContain("only 80 words");
+    // ...and does NOT append a redundant "This page has 80 words." clause.
+    expect(rec.description.match(/80/g) ?? []).toHaveLength(1);
+  });
+
+  it("appends the heading jump even though the template mentions H1/H2/H3", () => {
+    // Regression: dataValueAlreadyShown used to substring-match "H1"/"H3" in the
+    // generic template ("...H1 > H2 > H3...") and drop the specifics clause.
+    const [rec] = generateRecommendations(
+      [
+        makeIssue({
+          code: "HEADING_HIERARCHY",
+          recommendation:
+            "Ensure headings follow a logical hierarchy: H1 > H2 > H3 without skipping levels.",
+          data: { skippedFrom: "H1", skippedTo: "H3" },
+        }),
+      ],
+      80,
+    );
+    expect(rec.description).toContain("Headings jump from H1 to H3");
+  });
+
+  it("renders the page weight from the LARGE_PAGE_SIZE payload", () => {
+    const [rec] = generateRecommendations(
+      [
+        makeIssue({
+          code: "LARGE_PAGE_SIZE",
+          category: "performance",
+          recommendation: "Reduce the total page weight.",
+          data: { pageSizeBytes: 3_500_000, pageSizeMB: 3.34 },
+        }),
+      ],
+      80,
+    );
+    expect(rec.description).toContain("3.34MB");
+  });
+
+  it("falls back to the template when there is no presentable data", () => {
+    const [rec] = generateRecommendations(
+      [makeIssue({ code: "MISSING_TITLE" })],
+      70,
+    );
+    expect(rec.description.length).toBeGreaterThan(0);
+  });
+});
+
+describe("real predicted score lift (#2B)", () => {
+  it("returns the category-weighted headline delta, not the raw deduction", () => {
+    // MISSING_TITLE is technical (weight .25) with scoreImpact -15 → +4 overall.
+    const [rec] = generateRecommendations(
+      [makeIssue({ code: "MISSING_TITLE", category: "technical" })],
+      50,
+    );
+    expect(rec.estimatedImprovement).toBe(4);
+  });
+
+  it("uses the per-instance applied deduction for dynamic factors (scoreImpact:0 defs)", () => {
+    // CONTENT_DEPTH's definition has scoreImpact 0 (computed at runtime). Without
+    // the per-instance amount this collapsed to the +1 floor and mis-sorted.
+    const [rec] = generateRecommendations(
+      [
+        makeIssue({
+          code: "CONTENT_DEPTH",
+          category: "content",
+          scoreImpact: -15,
+          data: { llmScore: 25 },
+        }),
+      ],
+      50,
+    );
+    // content weight .30 → round(15 * .30) = 5, not the +1 floor.
+    expect(rec.estimatedImprovement).toBe(5);
+  });
+
+  it("never reports more lift than the page's remaining headroom", () => {
+    // overall 98 → only 2 points to gain, so a +4 fix is capped at +2.
+    const [rec] = generateRecommendations(
+      [makeIssue({ code: "MISSING_TITLE", category: "technical" })],
+      98,
+    );
+    expect(rec.estimatedImprovement).toBe(2);
+  });
+
+  it("floors every real issue at +1 (never +0)", () => {
+    const recs = generateRecommendations(
+      Object.keys(RECOMMENDATION_TEMPLATES).map((code) => makeIssue({ code })),
+      55,
+    );
+    for (const rec of recs) {
+      expect(rec.estimatedImprovement).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 
