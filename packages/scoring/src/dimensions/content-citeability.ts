@@ -1,5 +1,9 @@
 import type { PageData, FactorResult } from "../types";
-import { deduct, type ScoreState } from "../factors/helpers";
+import {
+  deduct,
+  isAuthoritativeUrl,
+  type ScoreState,
+} from "../factors/helpers";
 import { applyContentFactors } from "../factors/content";
 import { THRESHOLDS } from "../thresholds";
 import { hasSummaryHeading } from "../summary-heading";
@@ -53,11 +57,10 @@ export function scoreContentCiteability(page: PageData): FactorResult {
 
   // === From ai-readiness.ts ===
 
-  // MISSING_AUTHORITATIVE_CITATIONS: -5 if no links to high-authority domains
-  const authoritativeTlds = [".gov", ".edu", ".org"];
-  const hasAuthCitation = page.extracted.external_links.some((link) =>
-    authoritativeTlds.some((tld) => link.toLowerCase().includes(tld)),
-  );
+  // MISSING_AUTHORITATIVE_CITATIONS: -5 if no links to high-authority domains.
+  // Matches on the parsed hostname's TLD, not a substring of the whole URL.
+  const hasAuthCitation =
+    page.extracted.external_links.some(isAuthoritativeUrl);
   if (
     !hasAuthCitation &&
     page.wordCount > THRESHOLDS.authoritativeCitationMinWords

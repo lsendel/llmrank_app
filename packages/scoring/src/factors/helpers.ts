@@ -11,6 +11,39 @@ export interface ScoreState {
 }
 
 /**
+ * True when a link points at a high-authority host (.gov / .edu / .org, plus
+ * ccTLD government/academic like .gov.uk / .ac.uk / .edu.au). Parses the actual
+ * hostname instead of substring-matching the whole URL — the old
+ * `url.includes('.org')` matched paths/queries (e.g. `/blog.organic`,
+ * `?ref=.organization`), badly misjudging citations. Returns false for relative
+ * or malformed URLs.
+ */
+export function isAuthoritativeUrl(link: string): boolean {
+  let host: string;
+  try {
+    host = new URL(link).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  // filter(Boolean) drops the empty label from an FQDN trailing dot ("x.org.").
+  const labels = host.split(".").filter(Boolean);
+  if (labels.length < 2) return false;
+  const tld = labels[labels.length - 1];
+  // Authoritative gTLDs.
+  if (tld === "gov" || tld === "edu" || tld === "org" || tld === "mil") {
+    return true;
+  }
+  // ccTLD government/academic second level: nih.gov.uk, ox.ac.uk, anu.edu.au.
+  // Require a 3+ label host ending in a 2-letter ccTLD so we don't accept
+  // commercial domains like gov.com / gov.io / edu.io.
+  if (labels.length >= 3 && tld.length === 2) {
+    const sld = labels[labels.length - 2];
+    return sld === "gov" || sld === "edu" || sld === "ac";
+  }
+  return false;
+}
+
+/**
  * Apply a deduction to the score state and record the issue.
  * Amount defaults to the definition's scoreImpact; pass an explicit
  * amount only for dynamic deductions (LLM-scored factors, tiered penalties).

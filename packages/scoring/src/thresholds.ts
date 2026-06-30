@@ -20,7 +20,10 @@ export const THRESHOLDS = {
   excessiveLinkRatio: 3,
   llmScoreDeductionScale: 0.2,
   aiAssistantSpeakMinCount: 3,
-  sentenceLengthVarianceMin: 15,
+  // Below this sentence-length variance, prose reads as robotically uniform.
+  // Tightened from 15 → 8 so only genuinely monotonous content trips it;
+  // ordinary varied writing sits comfortably above 8 (a top false-positive).
+  sentenceLengthVarianceMin: 8,
   eeatMinWords: 500,
   fleschPoor: 50,
   fleschModerate: 60,
