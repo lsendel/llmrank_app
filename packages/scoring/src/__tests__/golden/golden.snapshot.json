@@ -1,0 +1,711 @@
+{
+  "clean-healthcare-article": {
+    "overallScore": 100,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": [],
+    "issues": [],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 100,
+      "copilot": 100,
+      "gemini": 100,
+      "gemini_ai_mode": 100,
+      "grok": 100,
+      "perplexity": 100
+    }
+  },
+  "clean-generic-seo-guide": {
+    "overallScore": 100,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": [],
+    "issues": [],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 100,
+      "copilot": 100,
+      "gemini": 100,
+      "gemini_ai_mode": 100,
+      "grok": 100,
+      "perplexity": 100
+    }
+  },
+  "thin-content-stub": {
+    "overallScore": 88,
+    "letterGrade": "B",
+    "technicalScore": 100,
+    "contentScore": 60,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["THIN_CONTENT"],
+    "issues": [
+      {
+        "code": "THIN_CONTENT",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -40
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 88,
+      "claude": 84,
+      "copilot": 90,
+      "gemini": 90,
+      "gemini_ai_mode": 88,
+      "grok": 84,
+      "perplexity": 86
+    }
+  },
+  "thin-content-borderline": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 85,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["THIN_CONTENT"],
+    "issues": [
+      {
+        "code": "THIN_CONTENT",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -15
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 96,
+      "claude": 94,
+      "copilot": 96,
+      "gemini": 96,
+      "gemini_ai_mode": 96,
+      "grok": 94,
+      "perplexity": 95
+    }
+  },
+  "nav-heavy-marketing": {
+    "overallScore": 90,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 81,
+    "aiReadinessScore": 85,
+    "performanceScore": 100,
+    "issueCodes": [
+      "EXCESSIVE_LINKS",
+      "LOW_TEXT_HTML_RATIO",
+      "NO_STRUCTURED_DATA",
+      "THIN_CONTENT"
+    ],
+    "issues": [
+      {
+        "code": "EXCESSIVE_LINKS",
+        "severity": "info",
+        "category": "content",
+        "scoreImpact": -3
+      },
+      {
+        "code": "LOW_TEXT_HTML_RATIO",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -8
+      },
+      {
+        "code": "NO_STRUCTURED_DATA",
+        "severity": "warning",
+        "category": "ai_readiness",
+        "scoreImpact": -15
+      },
+      {
+        "code": "THIN_CONTENT",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -8
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 87,
+      "claude": 88,
+      "copilot": 93,
+      "gemini": 91,
+      "gemini_ai_mode": 89,
+      "grok": 89,
+      "perplexity": 90
+    }
+  },
+  "duplicate-content": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 85,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["DUPLICATE_CONTENT"],
+    "issues": [
+      {
+        "code": "DUPLICATE_CONTENT",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -15
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 96,
+      "claude": 94,
+      "copilot": 96,
+      "gemini": 96,
+      "gemini_ai_mode": 96,
+      "grok": 94,
+      "perplexity": 95
+    }
+  },
+  "readability-clinical-short-sentences": {
+    "overallScore": 100,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": [],
+    "issues": [],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 100,
+      "copilot": 100,
+      "gemini": 100,
+      "gemini_ai_mode": 100,
+      "grok": 100,
+      "perplexity": 100
+    }
+  },
+  "readability-run-on-sentences": {
+    "overallScore": 98,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 94,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["POOR_READABILITY"],
+    "issues": [
+      {
+        "code": "POOR_READABILITY",
+        "severity": "info",
+        "category": "content",
+        "scoreImpact": -6
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 98,
+      "claude": 98,
+      "copilot": 99,
+      "gemini": 99,
+      "gemini_ai_mode": 98,
+      "grok": 98,
+      "perplexity": 98
+    }
+  },
+  "readability-long-sentences-mild": {
+    "overallScore": 99,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 97,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["POOR_READABILITY"],
+    "issues": [
+      {
+        "code": "POOR_READABILITY",
+        "severity": "info",
+        "category": "content",
+        "scoreImpact": -3
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 99,
+      "claude": 99,
+      "copilot": 99,
+      "gemini": 99,
+      "gemini_ai_mode": 99,
+      "grok": 99,
+      "perplexity": 99
+    }
+  },
+  "readability-flesch-fallback-difficult": {
+    "overallScore": 99,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 97,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["POOR_READABILITY"],
+    "issues": [
+      {
+        "code": "POOR_READABILITY",
+        "severity": "info",
+        "category": "content",
+        "scoreImpact": -3
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 99,
+      "claude": 99,
+      "copilot": 99,
+      "gemini": 99,
+      "gemini_ai_mode": 99,
+      "grok": 99,
+      "perplexity": 99
+    }
+  },
+  "readability-flesch-fallback-very-difficult": {
+    "overallScore": 98,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 94,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["POOR_READABILITY"],
+    "issues": [
+      {
+        "code": "POOR_READABILITY",
+        "severity": "info",
+        "category": "content",
+        "scoreImpact": -6
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 98,
+      "claude": 98,
+      "copilot": 99,
+      "gemini": 99,
+      "gemini_ai_mode": 98,
+      "grok": 98,
+      "perplexity": 98
+    }
+  },
+  "llm-scored-clean": {
+    "overallScore": 100,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": [],
+    "issues": [],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 100,
+      "copilot": 100,
+      "gemini": 100,
+      "gemini_ai_mode": 100,
+      "grok": 100,
+      "perplexity": 100
+    }
+  },
+  "llm-scored-poor-with": {
+    "overallScore": 84,
+    "letterGrade": "B",
+    "technicalScore": 100,
+    "contentScore": 67,
+    "aiReadinessScore": 80,
+    "performanceScore": 100,
+    "issueCodes": [
+      "CITATION_WORTHINESS",
+      "CONTENT_AUTHORITY",
+      "CONTENT_CLARITY",
+      "CONTENT_DEPTH",
+      "POOR_QUESTION_COVERAGE"
+    ],
+    "issues": [
+      {
+        "code": "CITATION_WORTHINESS",
+        "severity": "warning",
+        "category": "ai_readiness",
+        "scoreImpact": -10
+      },
+      {
+        "code": "CONTENT_AUTHORITY",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -10
+      },
+      {
+        "code": "CONTENT_CLARITY",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -11
+      },
+      {
+        "code": "CONTENT_DEPTH",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -12
+      },
+      {
+        "code": "POOR_QUESTION_COVERAGE",
+        "severity": "warning",
+        "category": "ai_readiness",
+        "scoreImpact": -10
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 80,
+      "claude": 81,
+      "copilot": 89,
+      "gemini": 86,
+      "gemini_ai_mode": 83,
+      "grok": 82,
+      "perplexity": 83
+    }
+  },
+  "llm-scored-poor-without": {
+    "overallScore": 100,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": [],
+    "issues": [],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 100,
+      "copilot": 100,
+      "gemini": 100,
+      "gemini_ai_mode": 100,
+      "grok": 100,
+      "perplexity": 100
+    }
+  },
+  "missing-title": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 85,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["MISSING_TITLE"],
+    "issues": [
+      {
+        "code": "MISSING_TITLE",
+        "severity": "critical",
+        "category": "technical",
+        "scoreImpact": -15
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 99,
+      "claude": 97,
+      "copilot": 95,
+      "gemini": 96,
+      "gemini_ai_mode": 96,
+      "grok": 98,
+      "perplexity": 96
+    }
+  },
+  "missing-structured-data": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 85,
+    "performanceScore": 100,
+    "issueCodes": ["NO_STRUCTURED_DATA"],
+    "issues": [
+      {
+        "code": "NO_STRUCTURED_DATA",
+        "severity": "warning",
+        "category": "ai_readiness",
+        "scoreImpact": -15
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 93,
+      "claude": 96,
+      "copilot": 98,
+      "gemini": 96,
+      "gemini_ai_mode": 95,
+      "grok": 96,
+      "perplexity": 96
+    }
+  },
+  "missing-llms-txt": {
+    "overallScore": 94,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 80,
+    "performanceScore": 100,
+    "issueCodes": ["MISSING_LLMS_TXT"],
+    "issues": [
+      {
+        "code": "MISSING_LLMS_TXT",
+        "severity": "critical",
+        "category": "ai_readiness",
+        "scoreImpact": -20
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 90,
+      "claude": 94,
+      "copilot": 97,
+      "gemini": 94,
+      "gemini_ai_mode": 93,
+      "grok": 95,
+      "perplexity": 95
+    }
+  },
+  "noindex-set": {
+    "overallScore": 95,
+    "letterGrade": "A",
+    "technicalScore": 80,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["NOINDEX_SET"],
+    "issues": [
+      {
+        "code": "NOINDEX_SET",
+        "severity": "critical",
+        "category": "technical",
+        "scoreImpact": -20
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 98,
+      "claude": 96,
+      "copilot": 93,
+      "gemini": 94,
+      "gemini_ai_mode": 95,
+      "grok": 97,
+      "perplexity": 95
+    }
+  },
+  "ai-crawler-blocked": {
+    "overallScore": 93,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 75,
+    "performanceScore": 100,
+    "issueCodes": ["AI_CRAWLER_BLOCKED"],
+    "issues": [
+      {
+        "code": "AI_CRAWLER_BLOCKED",
+        "severity": "critical",
+        "category": "ai_readiness",
+        "scoreImpact": -25
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 88,
+      "claude": 93,
+      "copilot": 96,
+      "gemini": 93,
+      "gemini_ai_mode": 91,
+      "grok": 94,
+      "perplexity": 94
+    }
+  },
+  "faq-missing-schema": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 95,
+    "aiReadinessScore": 90,
+    "performanceScore": 100,
+    "issueCodes": ["MISSING_FAQ_STRUCTURE", "NO_DIRECT_ANSWERS"],
+    "issues": [
+      {
+        "code": "MISSING_FAQ_STRUCTURE",
+        "severity": "info",
+        "category": "content",
+        "scoreImpact": -5
+      },
+      {
+        "code": "NO_DIRECT_ANSWERS",
+        "severity": "warning",
+        "category": "ai_readiness",
+        "scoreImpact": -10
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 94,
+      "claude": 95,
+      "copilot": 97,
+      "gemini": 96,
+      "gemini_ai_mode": 95,
+      "grok": 96,
+      "perplexity": 96
+    }
+  },
+  "faq-proper": {
+    "overallScore": 100,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": [],
+    "issues": [],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 100,
+      "copilot": 100,
+      "gemini": 100,
+      "gemini_ai_mode": 100,
+      "grok": 100,
+      "perplexity": 100
+    }
+  },
+  "images-missing-alt": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 85,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["MISSING_ALT_TEXT"],
+    "issues": [
+      {
+        "code": "MISSING_ALT_TEXT",
+        "severity": "warning",
+        "category": "technical",
+        "scoreImpact": -15
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 99,
+      "claude": 97,
+      "copilot": 95,
+      "gemini": 96,
+      "gemini_ai_mode": 96,
+      "grok": 98,
+      "perplexity": 96
+    }
+  },
+  "missing-sitemap": {
+    "overallScore": 99,
+    "letterGrade": "A",
+    "technicalScore": 95,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["MISSING_SITEMAP"],
+    "issues": [
+      {
+        "code": "MISSING_SITEMAP",
+        "severity": "info",
+        "category": "technical",
+        "scoreImpact": -5
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 100,
+      "claude": 99,
+      "copilot": 98,
+      "gemini": 99,
+      "gemini_ai_mode": 99,
+      "grok": 99,
+      "perplexity": 99
+    }
+  },
+  "bulk-crawl-no-lighthouse": {
+    "overallScore": 97,
+    "letterGrade": "A",
+    "technicalScore": 100,
+    "contentScore": 92,
+    "aiReadinessScore": 100,
+    "performanceScore": 100,
+    "issueCodes": ["THIN_CONTENT"],
+    "issues": [
+      {
+        "code": "THIN_CONTENT",
+        "severity": "warning",
+        "category": "content",
+        "scoreImpact": -8
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 97,
+      "claude": 96,
+      "copilot": 97,
+      "gemini": 98,
+      "gemini_ai_mode": 97,
+      "grok": 96,
+      "perplexity": 97
+    }
+  },
+  "large-slow-page": {
+    "overallScore": 96,
+    "letterGrade": "A",
+    "technicalScore": 90,
+    "contentScore": 100,
+    "aiReadinessScore": 100,
+    "performanceScore": 90,
+    "issueCodes": ["LARGE_PAGE_SIZE", "SLOW_RESPONSE"],
+    "issues": [
+      {
+        "code": "LARGE_PAGE_SIZE",
+        "severity": "warning",
+        "category": "performance",
+        "scoreImpact": -10
+      },
+      {
+        "code": "SLOW_RESPONSE",
+        "severity": "warning",
+        "category": "technical",
+        "scoreImpact": -10
+      }
+    ],
+    "platformScores": {
+      "chatgpt": 98,
+      "claude": 97,
+      "copilot": 94,
+      "gemini": 96,
+      "gemini_ai_mode": 97,
+      "grok": 97,
+      "perplexity": 96
+    }
+  },
+  "http-404": {
+    "overallScore": 0,
+    "letterGrade": "F",
+    "technicalScore": 0,
+    "contentScore": 0,
+    "aiReadinessScore": 0,
+    "performanceScore": 0,
+    "issueCodes": ["HTTP_STATUS"],
+    "issues": [
+      {
+        "code": "HTTP_STATUS",
+        "severity": "critical",
+        "category": "technical",
+        "scoreImpact": null
+      }
+    ],
+    "platformScores": {}
+  },
+  "http-500": {
+    "overallScore": 0,
+    "letterGrade": "F",
+    "technicalScore": 0,
+    "contentScore": 0,
+    "aiReadinessScore": 0,
+    "performanceScore": 0,
+    "issueCodes": ["HTTP_STATUS"],
+    "issues": [
+      {
+        "code": "HTTP_STATUS",
+        "severity": "critical",
+        "category": "technical",
+        "scoreImpact": null
+      }
+    ],
+    "platformScores": {}
+  }
+}
