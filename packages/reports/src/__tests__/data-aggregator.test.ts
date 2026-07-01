@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { aggregateReportData, type RawDbResults } from "../data-aggregator";
+import {
+  aggregateReportData,
+  contentAssessedNote,
+  type RawDbResults,
+} from "../data-aggregator";
 
 function makeRawResults(overrides: Partial<RawDbResults> = {}): RawDbResults {
   return {
@@ -263,6 +267,105 @@ describe("aggregateReportData", () => {
     const result = aggregateReportData(makeRawResults(), { type: "summary" });
     expect(result.readinessCoverage.length).toBeGreaterThan(0);
     expect(result.actionPlan.length).toBeGreaterThan(0);
+  });
+
+  it("splits content into assessed-vs-total under top-N LLM gating", () => {
+    // Two pages: one LLM-assessed (contentScore 60), one unscored (inflated 90).
+    // The legacy `content` averages both (75); `contentAssessed` reflects only the
+    // assessed page (60) so the PDF doesn't overstate content quality (#114/#115).
+    const result = aggregateReportData(
+      makeRawResults({
+        pageScores: [
+          {
+            url: "https://example.com/",
+            title: "Home",
+            overallScore: 70,
+            technicalScore: 80,
+            contentScore: 60,
+            aiReadinessScore: 75,
+            lighthousePerf: null,
+            lighthouseSeo: null,
+            detail: {
+              llmContentScores: {
+                clarity: 60,
+                authority: 55,
+                comprehensiveness: 62,
+                structure: 58,
+                citation_worthiness: 50,
+              },
+            },
+            issueCount: 1,
+          },
+          {
+            url: "https://example.com/unscored",
+            title: "Unscored",
+            overallScore: 92,
+            technicalScore: 90,
+            contentScore: 90,
+            aiReadinessScore: 91,
+            lighthousePerf: null,
+            lighthouseSeo: null,
+            detail: null,
+            issueCount: 0,
+          },
+        ],
+      }),
+      { type: "detailed" },
+    );
+    expect(result.scores.content).toBe(75); // legacy avg over all pages
+    expect(result.scores.contentAssessed).toBe(60); // assessed pages only
+    expect(result.scores.assessedPages).toBe(1);
+    expect(result.scores.totalPages).toBe(2);
+  });
+
+  it("reports contentAssessed=null and 0 assessed pages when none are LLM-scored", () => {
+    const result = aggregateReportData(makeRawResults(), { type: "summary" });
+    expect(result.scores.contentAssessed).toBeNull();
+    expect(result.scores.assessedPages).toBe(0);
+    expect(result.scores.totalPages).toBe(2);
+  });
+
+  describe("contentAssessedNote", () => {
+    it("discloses the denominator + assessed avg on a partial gap", () => {
+      expect(
+        contentAssessedNote({
+          contentAssessed: 60,
+          assessedPages: 20,
+          totalPages: 2000,
+        }),
+      ).toBe(
+        "Content quality assessed on 20 of 2000 pages (assessed avg 60/100).",
+      );
+    });
+
+    it("flags 'not yet assessed' when no page was LLM-scored", () => {
+      const note = contentAssessedNote({
+        contentAssessed: null,
+        assessedPages: 0,
+        totalPages: 500,
+      });
+      expect(note).toContain("not yet assessed");
+    });
+
+    it("returns null when every page was assessed (no inflation to disclose)", () => {
+      expect(
+        contentAssessedNote({
+          contentAssessed: 72,
+          assessedPages: 10,
+          totalPages: 10,
+        }),
+      ).toBeNull();
+    });
+
+    it("returns null for an empty crawl", () => {
+      expect(
+        contentAssessedNote({
+          contentAssessed: null,
+          assessedPages: 0,
+          totalPages: 0,
+        }),
+      ).toBeNull();
+    });
   });
 
   it("includes history crawls", () => {

@@ -1,6 +1,7 @@
 import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import type { ReportData } from "../../types";
+import { contentAssessedNote } from "../../data-aggregator";
 import { ReportHeader } from "../components/header";
 import { ReportFooter } from "../components/footer";
 import { Section } from "../components/section";
@@ -37,6 +38,7 @@ const styles = StyleSheet.create({
   },
   scoreLabel: { fontSize: 9, color: "#6b7280" },
   scoreValue: { fontSize: 16, fontFamily: "Helvetica-Bold" },
+  scoreNote: { fontSize: 7, color: "#6b7280", marginTop: 2 },
   summaryText: { fontSize: 10, lineHeight: 1.5, color: "#374151" },
   quickWinRow: {
     padding: 8,
@@ -60,9 +62,10 @@ function gradeColor(score: number): string {
 export function SummaryReportPdf({ data }: { data: ReportData }) {
   const brandColor = data.config.brandingColor ?? "#4f46e5";
   const brandName = data.project.branding?.companyName;
-  const categories = [
+  const contentNote = contentAssessedNote(data.scores);
+  const categories: { label: string; score: number; note?: string | null }[] = [
     { label: "Technical SEO", score: data.scores.technical },
-    { label: "Content Quality", score: data.scores.content },
+    { label: "Content Quality", score: data.scores.content, note: contentNote },
     { label: "AI Readiness", score: data.scores.aiReadiness },
     { label: "Performance", score: data.scores.performance ?? 0 },
   ];
@@ -110,6 +113,7 @@ export function SummaryReportPdf({ data }: { data: ReportData }) {
                   >
                     {Math.round(cat.score)}
                   </Text>
+                  {cat.note && <Text style={styles.scoreNote}>{cat.note}</Text>}
                 </View>
               ))}
             </View>

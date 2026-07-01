@@ -26,7 +26,19 @@ export interface ReportData {
   scores: {
     overall: number;
     technical: number;
+    /**
+     * Site-wide average contentScore over ALL pages. Under top-N LLM
+     * content-scoring gating (#106-#108) this is inflated by unscored pages;
+     * kept for backward compatibility. Prefer `contentAssessed` for an honest
+     * figure and surface the assessed/total denominator (see #114/#115).
+     */
     content: number;
+    /** Average contentScore over LLM-assessed pages only; null when none scored. */
+    contentAssessed: number | null;
+    /** Number of pages that received LLM content scoring. */
+    assessedPages: number;
+    /** Total pages scored in the crawl. */
+    totalPages: number;
     aiReadiness: number;
     performance: number | null;
     letterGrade: string;
