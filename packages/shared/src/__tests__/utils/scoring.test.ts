@@ -133,4 +133,57 @@ describe("aggregatePageScores", () => {
     // Other categories remain real numbers.
     expect(result.scores.technical).toBe(90);
   });
+
+  it("splits content into an LLM-assessed average + denominator (top-N gating)", () => {
+    const rows = [
+      // Assessed page: has llmContentScores → its (lower) content counts toward
+      // contentAssessed.
+      {
+        overallScore: 70,
+        technicalScore: 80,
+        contentScore: 74,
+        aiReadinessScore: 70,
+        detail: { llmContentScores: { clarity: 60 } },
+      },
+      // Unassessed pages: no llmContentScores → inflated content, excluded from
+      // contentAssessed but still counted in the legacy `content` average.
+      {
+        overallScore: 90,
+        technicalScore: 85,
+        contentScore: 92,
+        aiReadinessScore: 80,
+        detail: {},
+      },
+      {
+        overallScore: 91,
+        technicalScore: 86,
+        contentScore: 92,
+        aiReadinessScore: 81,
+        detail: null,
+      },
+    ];
+
+    const result = aggregatePageScores(rows);
+    // Honest content over assessed pages only (74), NOT the inflated blend (86).
+    expect(result.assessment.contentAssessed).toBe(74);
+    expect(result.scores.content).toBe(86);
+    expect(result.assessment.assessedPages).toBe(1);
+    expect(result.assessment.totalPages).toBe(3);
+  });
+
+  it("reports null contentAssessed + zero denominator when no page is LLM-scored", () => {
+    const rows = [
+      {
+        overallScore: 90,
+        technicalScore: 85,
+        contentScore: 92,
+        aiReadinessScore: 80,
+        detail: {},
+      },
+    ];
+    const result = aggregatePageScores(rows);
+    expect(result.assessment.contentAssessed).toBeNull();
+    expect(result.assessment.assessedPages).toBe(0);
+    expect(result.assessment.totalPages).toBe(1);
+  });
 });
