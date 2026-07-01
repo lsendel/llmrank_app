@@ -36,6 +36,8 @@ export interface IngestServiceDeps {
   users?: UserRepository;
   projects?: ProjectRepository;
   db?: import("@llm-boost/db").Database;
+  /** Override the db-derived insight capture (for tests). */
+  insightCaptureService?: ReturnType<typeof createInsightCaptureService>;
 }
 
 export interface BatchEnvironment {
@@ -74,11 +76,13 @@ export function createIngestService(deps: IngestServiceDeps) {
     outbox: deps.outbox,
   });
   const insightCaptureService =
-    deps.db &&
-    createInsightCaptureService({
-      crawlInsights: createCrawlInsightRepository(deps.db),
-      pageInsights: createPageInsightRepository(deps.db),
-    });
+    deps.insightCaptureService ??
+    (deps.db
+      ? createInsightCaptureService({
+          crawlInsights: createCrawlInsightRepository(deps.db),
+          pageInsights: createPageInsightRepository(deps.db),
+        })
+      : undefined);
 
   return {
     async processBatch(args: {
@@ -227,18 +231,31 @@ export function createIngestService(deps: IngestServiceDeps) {
       await deps.crawls.updateStatus(crawlJob.id, updateData);
 
       if (batch.is_final && insightCaptureService) {
-        const [allScores, allIssues, allPages] = await Promise.all([
-          deps.scores.listByJob(crawlJob.id),
-          deps.scores.getIssuesByJob(crawlJob.id),
-          deps.pages.listByJob(crawlJob.id),
-        ]);
-        await insightCaptureService.capture({
-          crawlId: crawlJob.id,
-          projectId: crawlJob.projectId,
-          scores: allScores as CaptureArgs["scores"],
-          issues: allIssues as CaptureArgs["issues"],
-          pages: allPages as CaptureArgs["pages"],
-        });
+        // Agency insight capture must NEVER block the crawl's core post-processing.
+        // A throw here (e.g. loading issues for a large crawl exceeded D1's
+        // response-size limit, or a Supabase write error) used to abort
+        // processBatch with a 500 BEFORE schedule() ran — so large crawls silently
+        // got no LLM scoring / summary / narrative / insights pipeline. Isolate it:
+        // log and continue so post-processing still runs.
+        try {
+          const [allScores, allIssues, allPages] = await Promise.all([
+            deps.scores.listByJob(crawlJob.id),
+            deps.scores.getIssuesByJob(crawlJob.id),
+            deps.pages.listByJob(crawlJob.id),
+          ]);
+          await insightCaptureService.capture({
+            crawlId: crawlJob.id,
+            projectId: crawlJob.projectId,
+            scores: allScores as CaptureArgs["scores"],
+            issues: allIssues as CaptureArgs["issues"],
+            pages: allPages as CaptureArgs["pages"],
+          });
+        } catch (err) {
+          console.error(
+            `[ingest] insight capture failed for job ${crawlJob.id}; continuing to post-processing:`,
+            err,
+          );
+        }
       }
 
       // 5. Schedule post-processing

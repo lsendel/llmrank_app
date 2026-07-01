@@ -534,6 +534,35 @@ describe("IngestService", () => {
     );
   });
 
+  it("continues to post-processing when insight capture throws (is_final batch does not 500)", async () => {
+    // Reproduces the large-crawl failure: insight capture throwing must NOT abort
+    // the batch or block the LLM scoring / summary dispatch that follows it.
+    const insightCaptureService = {
+      capture: vi.fn().mockRejectedValue(new Error("D1 response too large")),
+    };
+    const env = { ...makeMockEnv(), anthropicApiKey: "sk-test" };
+    const service = createIngestService({
+      crawls,
+      pages,
+      scores,
+      outbox,
+      insightCaptureService: insightCaptureService as never,
+    });
+
+    const result = await service.processBatch({
+      rawBody: validBatchPayload({ is_final: true }),
+      env,
+      executionCtx: makeMockCtx(),
+    });
+
+    expect(insightCaptureService.capture).toHaveBeenCalled();
+    // Batch completes (no throw / 500) AND post-processing still dispatched.
+    expect(result.is_final).toBe(true);
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "llm_scoring" }),
+    );
+  });
+
   it("does NOT enqueue LLM scoring for Free/Starter tiers (paid-only feature)", async () => {
     mockUserGetById.mockResolvedValueOnce({
       id: "user-1",
