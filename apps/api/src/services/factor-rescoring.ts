@@ -41,11 +41,6 @@ interface StoredDetail {
   extracted?: ExtractedData;
   lighthouse?: LighthouseResult | null;
   llmContentScores?: LLMContentScores | null;
-  // Per-page perf signals persisted by page-scoring-service so a rescore from
-  // stored data can reproduce SLOW_RESPONSE / LARGE_PAGE_SIZE (the job-level
-  // site_context blob doesn't carry per-page values).
-  responseTimeMs?: number | null;
-  pageSizeBytes?: number | null;
   [key: string]: unknown;
 }
 
@@ -119,31 +114,6 @@ export interface RescorePageInput {
   llmScores?: LLMContentScores;
 }
 
-/** Overlay per-page perf signals (from detail) onto the job-level site context. */
-function mergePerPageSignals(
-  base: PageData["siteContext"],
-  detail: StoredDetail,
-): PageData["siteContext"] {
-  const responseTimeMs = detail.responseTimeMs ?? undefined;
-  const pageSizeBytes = detail.pageSizeBytes ?? undefined;
-  if (!base) {
-    if (responseTimeMs == null && pageSizeBytes == null) return undefined;
-    return {
-      hasLlmsTxt: false,
-      aiCrawlersBlocked: [],
-      hasSitemap: false,
-      contentHashes: new Map(),
-      responseTimeMs,
-      pageSizeBytes,
-    };
-  }
-  return {
-    ...base,
-    responseTimeMs: responseTimeMs ?? base.responseTimeMs,
-    pageSizeBytes: pageSizeBytes ?? base.pageSizeBytes,
-  };
-}
-
 /**
  * Re-score ONE page from stored data (the page row + page_scores.detail.extracted
  * + the job's site_context) and rewrite its score row + issues in place. Shared
@@ -176,7 +146,7 @@ export async function rescorePageFromStored(
     extracted: detail.extracted,
     lighthouse: detail.lighthouse ?? null,
     llmScores,
-    siteContext: mergePerPageSignals(siteContext, detail),
+    siteContext,
   };
 
   const result = scorePage(pageData);
