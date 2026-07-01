@@ -87,6 +87,9 @@ async function runScheduledTasks(env: Bindings) {
       slackWebhookUrl: env.SLACK_ALERT_WEBHOOK_URL,
       resendApiKey: env.RESEND_API_KEY,
     });
+    // Backstop for the #108-class silent breakage: alert when recent completed
+    // crawls stop populating llmContentScores relative to their own baseline.
+    await monitor.checkLlmScorePopulation(env.KV);
   } catch (err) {
     log.error("Health check failed", {
       error: err instanceof Error ? err.message : String(err),

@@ -25,7 +25,37 @@ export interface MonitoringService {
     kv: KVLike,
     alertConfig?: AlertConfig,
   ): Promise<void>;
+  checkLlmScorePopulation(kv: KVLike): Promise<void>;
   getSystemMetrics(): Promise<Record<string, unknown>>;
+}
+
+// --- LLM content-score population watchdog tunables ------------------------
+// Detects the #108-class silent breakage where `llmContentScores` stopped being
+// written (dropped ~100%→1% for a day, quietly inflating content_score). We
+// self-baseline off a KV rolling history rather than a hard threshold, because
+// the *steady-state* population rate depends on the plan mix (only paid top-N
+// pages get LLM-scored). A sudden collapse relative to that baseline is the tell.
+const LLM_POP_WINDOW_HOURS = 24; // completed-crawl window we sample each run
+const LLM_POP_MIN_SCORED = 20; // ignore low-volume windows (too noisy to judge)
+const LLM_POP_MIN_HISTORY = 3; // need this many prior samples to have a baseline
+const LLM_POP_BASELINE_MIN = 0.2; // only alert if LLM scoring was historically real
+const LLM_POP_DROP_FACTOR = 0.25; // alert when current < 25% of the trailing median
+const LLM_POP_HISTORY_MAX = 30; // rolling samples retained in KV
+
+interface LlmPopSample {
+  checkedAt: string;
+  totalScored: number;
+  populated: number;
+  rate: number;
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
 }
 
 export function createMonitoringService(
@@ -178,6 +208,90 @@ export function createMonitoringService(
           }
         }
       }
+    },
+
+    async checkLlmScorePopulation(kv: KVLike) {
+      // Fraction of freshly-scored pages that carry `llmContentScores`, over the
+      // recent completed-crawl window. `json_extract(... '$.llmContentScores')`
+      // is NULL when the LLM metric never wrote (the #108 breakage).
+      const cutoff = new Date(
+        Date.now() - LLM_POP_WINDOW_HOURS * 60 * 60 * 1000,
+      ).toISOString();
+
+      const rows = (await db.all(
+        sql`
+          SELECT
+            COUNT(*) AS total,
+            SUM(
+              CASE WHEN json_extract(ps.detail, '$.llmContentScores') IS NOT NULL
+                   THEN 1 ELSE 0 END
+            ) AS populated
+          FROM page_scores ps
+          JOIN crawl_jobs cj ON cj.id = ps.job_id
+          WHERE cj.status = 'complete'
+            AND datetime(COALESCE(cj.completed_at, cj.updated_at, cj.created_at))
+                >= datetime(${cutoff})
+        `,
+      )) as unknown as Array<{ total: number; populated: number | null }>;
+
+      const totalScored = Number(rows[0]?.total ?? 0);
+      const populated = Number(rows[0]?.populated ?? 0);
+
+      // Too few scored pages in the window to draw any conclusion — skip without
+      // polluting the baseline history.
+      if (totalScored < LLM_POP_MIN_SCORED) {
+        log.info("LLM score population: window too small to evaluate", {
+          totalScored,
+          populated,
+        });
+        return;
+      }
+
+      const rate = populated / totalScored;
+
+      // Load rolling history and compute the trailing baseline from PRIOR samples.
+      const historyRaw = await kv.get("llm:score:population:history");
+      const history: LlmPopSample[] = historyRaw ? JSON.parse(historyRaw) : [];
+      const priorRates = history.map((h) => h.rate);
+      const baseline = median(priorRates);
+
+      const anomaly =
+        priorRates.length >= LLM_POP_MIN_HISTORY &&
+        baseline >= LLM_POP_BASELINE_MIN &&
+        rate < baseline * LLM_POP_DROP_FACTOR;
+
+      if (anomaly) {
+        // The signal collapsed relative to its own history — almost certainly a
+        // silent LLM-scoring pipeline breakage, not an organic mix shift.
+        log.error("CRITICAL: llmContentScores population dropped sharply", {
+          currentRate: Number(rate.toFixed(4)),
+          baselineRate: Number(baseline.toFixed(4)),
+          totalScored,
+          populated,
+          windowHours: LLM_POP_WINDOW_HOURS,
+        });
+      } else {
+        log.info("LLM score population healthy", {
+          currentRate: Number(rate.toFixed(4)),
+          baselineRate: Number(baseline.toFixed(4)),
+          totalScored,
+          populated,
+        });
+      }
+
+      // Append this (meaningful-volume) sample and retain the last N.
+      history.push({
+        checkedAt: new Date().toISOString(),
+        totalScored,
+        populated,
+        rate,
+      });
+      if (history.length > LLM_POP_HISTORY_MAX) {
+        history.splice(0, history.length - LLM_POP_HISTORY_MAX);
+      }
+      await kv.put("llm:score:population:history", JSON.stringify(history), {
+        expirationTtl: 30 * 24 * 3600,
+      });
     },
 
     async getSystemMetrics() {

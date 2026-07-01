@@ -5,17 +5,23 @@ import { createMonitoringService } from "../../services/monitoring-service";
 // Mocks
 // ---------------------------------------------------------------------------
 
+// Shared logger instance so tests can assert on log.error / log.info. Hoisted
+// so the vi.mock factory (also hoisted) can close over it.
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(),
+  },
+}));
+
 vi.mock("@llm-boost/shared", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@llm-boost/shared")>();
   return {
     ...orig,
-    createLogger: vi.fn(() => ({
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      child: vi.fn(),
-    })),
+    createLogger: vi.fn(() => mockLogger),
   };
 });
 
@@ -53,15 +59,31 @@ function createMockDb(
   setMock.mockReturnValue({ where: whereUpdateMock });
   whereUpdateMock.mockResolvedValue(undefined);
 
+  // Raw-SQL aggregate path (db.all(sql`…`)), used by checkLlmScorePopulation.
+  const allMock = vi.fn().mockResolvedValue([]);
+
   return {
     select: selectMock,
     update: updateFn ?? updateMock,
+    all: allMock,
     _fromMock: fromMock,
     _whereMock: whereMock,
+    _allMock: allMock,
     _updateMock: updateFn ?? updateMock,
     _setMock: setMock,
     _whereUpdateMock: whereUpdateMock,
   } as any;
+}
+
+function createMockKv(initial: Record<string, string> = {}) {
+  const store: Record<string, string> = { ...initial };
+  return {
+    get: vi.fn(async (key: string) => store[key] ?? null),
+    put: vi.fn(async (key: string, value: string) => {
+      store[key] = value;
+    }),
+    _store: store,
+  };
 }
 
 function createMockNotifier() {
@@ -136,6 +158,95 @@ describe("MonitoringService", () => {
       await service.checkSystemHealth();
 
       expect(updateMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("checkLlmScorePopulation", () => {
+    function makeHistory(rates: number[]): string {
+      return JSON.stringify(
+        rates.map((rate, i) => ({
+          checkedAt: new Date(2026, 0, i + 1).toISOString(),
+          totalScored: 100,
+          populated: Math.round(rate * 100),
+          rate,
+        })),
+      );
+    }
+
+    it("skips low-volume windows without recording a baseline sample", async () => {
+      const db = createMockDb();
+      db._allMock.mockResolvedValueOnce([{ total: 5, populated: 5 }]);
+      const kv = createMockKv();
+
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkLlmScorePopulation(kv as any);
+
+      // Too few scored pages → no history written, no alert.
+      expect(kv.put).not.toHaveBeenCalled();
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+
+    it("records a healthy sample when no baseline exists yet", async () => {
+      const db = createMockDb();
+      db._allMock.mockResolvedValueOnce([{ total: 100, populated: 42 }]);
+      const kv = createMockKv();
+
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkLlmScorePopulation(kv as any);
+
+      expect(mockLogger.error).not.toHaveBeenCalled();
+      expect(kv.put).toHaveBeenCalledWith(
+        "llm:score:population:history",
+        expect.stringContaining('"rate":0.42'),
+        expect.objectContaining({ expirationTtl: expect.any(Number) }),
+      );
+    });
+
+    it("alerts when population collapses relative to its baseline (#108)", async () => {
+      const db = createMockDb();
+      // 1/100 populated now, but the trailing history sat near 50%.
+      db._allMock.mockResolvedValueOnce([{ total: 100, populated: 1 }]);
+      const kv = createMockKv({
+        "llm:score:population:history": makeHistory([0.5, 0.48, 0.52, 0.5]),
+      });
+
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkLlmScorePopulation(kv as any);
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("population dropped sharply"),
+        expect.objectContaining({ totalScored: 100, populated: 1 }),
+      );
+    });
+
+    it("does NOT alert on an organic dip within the baseline band", async () => {
+      const db = createMockDb();
+      // 35% now vs a ~50% baseline — a dip, but not a collapse (> 25% of median).
+      db._allMock.mockResolvedValueOnce([{ total: 100, populated: 35 }]);
+      const kv = createMockKv({
+        "llm:score:population:history": makeHistory([0.5, 0.48, 0.52, 0.5]),
+      });
+
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkLlmScorePopulation(kv as any);
+
+      expect(mockLogger.error).not.toHaveBeenCalled();
+      expect(kv.put).toHaveBeenCalled();
+    });
+
+    it("does NOT alert when LLM scoring was never meaningfully populated", async () => {
+      const db = createMockDb();
+      // Everything at ~0 now, but the baseline was also ~0 (e.g. all free-tier
+      // crawls) — nothing broke, so no false alarm.
+      db._allMock.mockResolvedValueOnce([{ total: 100, populated: 0 }]);
+      const kv = createMockKv({
+        "llm:score:population:history": makeHistory([0.0, 0.01, 0.0, 0.0]),
+      });
+
+      const service = createMonitoringService(db, notifier as any);
+      await service.checkLlmScorePopulation(kv as any);
+
+      expect(mockLogger.error).not.toHaveBeenCalled();
     });
   });
 
