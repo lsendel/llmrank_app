@@ -755,4 +755,109 @@ describe("runPerCrawlSonnetScoring (paid path: contentScoringModel + d1)", () =>
     // Nothing eligible → no scoring, no cost.
     expect(mockScoreContent).not.toHaveBeenCalled();
   });
+
+  it("submits an async batch (50% cost) when >= BATCH_THRESHOLD uncached pages", async () => {
+    const pages = Array.from({ length: 5 }, (_, i) => ({
+      id: `page-${i}`,
+      url: `https://example.com/p${i}`,
+      statusCode: 200,
+      title: "T",
+      metaDesc: "d",
+      canonicalUrl: `https://example.com/p${i}`,
+      wordCount: 900,
+      contentHash: `hash${i}`,
+      r2RawKey: `raw/page${i}.html`,
+    }));
+    mockTopScoreable.mockResolvedValue(pages);
+    mockGetByPage.mockResolvedValue({
+      id: "score-1",
+      detail: JSON.stringify({ extracted: { h1: [], schema_types: [] } }),
+    });
+    mockCrawlGetById.mockResolvedValue({ id: "job-1", siteContext: null });
+    mockBatchCreate.mockResolvedValue({ id: "batch_abc" });
+    const kvPut = vi.fn().mockResolvedValue(undefined);
+    const r2Objects = Object.fromEntries(
+      pages.map((p) => [
+        p.r2RawKey,
+        {
+          body: "<html><body><p>" + "word ".repeat(250) + "</p></body></html>",
+        },
+      ]),
+    );
+    const input = {
+      ...baseLLMInput(),
+      jobId: "job-1",
+      d1: {},
+      anthropicApiKey: "sk-test",
+      contentScoringModel: "claude-sonnet-5",
+      kvNamespace: { put: kvPut, get: vi.fn(), list: vi.fn(), delete: vi.fn() },
+      r2Bucket: createMockR2Bucket(r2Objects),
+    };
+
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
+
+    // Batch submitted; NOT scored synchronously (that's the 50% saving).
+    expect(mockBatchCreate).toHaveBeenCalled();
+    expect(mockScoreContent).not.toHaveBeenCalled();
+    // The pending batch is tracked in KV for the poller to apply later.
+    expect(kvPut).toHaveBeenCalledWith(
+      "llm-batch:batch_abc",
+      expect.any(String),
+      expect.objectContaining({ expirationTtl: expect.any(Number) }),
+    );
+  });
+
+  it("scores synchronously when uncached pages are below BATCH_THRESHOLD", async () => {
+    // 2 pages (< 5) → a batch round-trip isn't worth it; score inline.
+    const pages = Array.from({ length: 2 }, (_, i) => ({
+      id: `page-${i}`,
+      url: `https://example.com/p${i}`,
+      statusCode: 200,
+      title: "T",
+      metaDesc: "d",
+      canonicalUrl: `https://example.com/p${i}`,
+      wordCount: 900,
+      contentHash: `hash${i}`,
+      r2RawKey: `raw/page${i}.html`,
+    }));
+    mockTopScoreable.mockResolvedValue(pages);
+    mockGetByPage.mockResolvedValue({
+      id: "score-1",
+      detail: JSON.stringify({ extracted: { h1: [], schema_types: [] } }),
+    });
+    mockCrawlGetById.mockResolvedValue({ id: "job-1", siteContext: null });
+    mockScoreContent.mockResolvedValue({
+      clarity: 80,
+      authority: 75,
+      comprehensiveness: 78,
+      structure: 82,
+      citation_worthiness: 70,
+    });
+    const r2Objects = Object.fromEntries(
+      pages.map((p) => [
+        p.r2RawKey,
+        {
+          body: "<html><body><p>" + "word ".repeat(250) + "</p></body></html>",
+        },
+      ]),
+    );
+    const input = {
+      ...baseLLMInput(),
+      jobId: "job-1",
+      d1: {},
+      anthropicApiKey: "sk-test",
+      contentScoringModel: "claude-sonnet-5",
+      kvNamespace: {
+        put: vi.fn().mockResolvedValue(undefined),
+        get: vi.fn(),
+        list: vi.fn(),
+        delete: vi.fn(),
+      },
+      r2Bucket: createMockR2Bucket(r2Objects),
+    };
+
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
+    expect(mockScoreContent).toHaveBeenCalled();
+    expect(mockBatchCreate).not.toHaveBeenCalled();
+  });
 });

@@ -145,7 +145,7 @@ async function runScheduledTasks(env: Bindings) {
     });
   }
 
-  // 5. Poll pending LLM batch jobs
+  // 5. Poll pending LLM batch jobs (Supabase report-service path)
   try {
     const { pollPendingBatches } =
       await import("./services/batch-polling-service");
@@ -157,6 +157,21 @@ async function runScheduledTasks(env: Bindings) {
     });
   } catch (err) {
     log.error("Batch polling failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // 5b. Poll pending per-crawl content-scoring batches (D1 path). These are the
+  // paid-tier Sonnet batches submitted on is_final; results are applied to D1.
+  try {
+    const { pollLLMScoreBatches } = await import("./services/llm-batch-poller");
+    await pollLLMScoreBatches({
+      d1: env.D1_APP,
+      ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      KV: env.KV,
+    });
+  } catch (err) {
+    log.error("Content-scoring batch polling failed", {
       error: err instanceof Error ? err.message : String(err),
     });
   }

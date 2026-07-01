@@ -123,7 +123,7 @@ export function applyWorkersAiCalibration(
  * Persist a per-job LLM-scoring status so a silent failure becomes visible
  * (read by monitoring/UI). Best-effort; never throws.
  */
-async function markLLMStatus(
+export async function markLLMStatus(
   kv:
     | {
         put(
@@ -135,10 +135,12 @@ async function markLLMStatus(
     | undefined,
   jobId: string,
   data: {
-    status: "ok" | "partial" | "unavailable";
+    status: "ok" | "partial" | "unavailable" | "pending";
     cause?: LLMUnavailableCause;
     scored: number;
     failed: number;
+    /** Pages submitted to an async batch, results not yet applied. */
+    pending?: number;
   },
 ): Promise<void> {
   if (!kv) return;
@@ -329,6 +331,51 @@ async function runWorkersAiScoring(
  * calibration (Sonnet doesn't under-rate). LLMScorer caches by content hash, so
  * re-crawls only re-pay for changed pages.
  */
+/** KV key prefix for pending async score batches (consumed by the batch poller). */
+export const LLM_BATCH_KV_PREFIX = "llm-batch:";
+
+/** Metadata stored in KV per submitted batch; the poller uses it to apply results. */
+export interface PendingScoreBatch {
+  jobId: string;
+  projectId: string | null;
+  ownerId: string | null;
+  plan: string | null;
+  model: string;
+  submittedAt: string;
+}
+
+/** Record one aggregated content_scoring llm_usage row (best-effort; never throws). */
+export async function recordContentScoringUsage(
+  db: ReturnType<typeof createAppDb>,
+  params: {
+    inputTokens: number;
+    outputTokens: number;
+    model: string;
+    costUsd: number;
+    projectId?: string | null;
+    ownerId?: string | null;
+    plan?: string | null;
+  },
+): Promise<void> {
+  if (params.inputTokens === 0 && params.outputTokens === 0) return;
+  try {
+    await llmUsageQueries(db).record({
+      feature: "content_scoring",
+      model: params.model,
+      inputTokens: params.inputTokens,
+      outputTokens: params.outputTokens,
+      costUsd: params.costUsd,
+      projectId: params.projectId ?? null,
+      userId: params.ownerId ?? null,
+      plan: params.plan ?? null,
+    });
+  } catch (err) {
+    log.error("llm_usage record failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 async function runPerCrawlSonnetScoring(
   input: LLMScoringInput,
   d1: D1Database,
@@ -347,94 +394,197 @@ async function runPerCrawlSonnetScoring(
   );
   if (topPages.length === 0) return;
 
-  // Collect per-call token usage, then record ONE aggregated llm_usage row after
-  // scoring (awaited, so the cost write completes in-worker).
+  const model = input.contentScoringModel ?? PAID_CONTENT_SCORING_MODEL;
   const usages: LLMUsage[] = [];
   const scorer = new LLMScorer({
     anthropicApiKey: input.anthropicApiKey,
     kvNamespace: input.kvNamespace,
-    model: input.contentScoringModel,
+    model,
     onUsage: (u) => usages.push(u),
   });
 
-  let scored = 0;
-  let failed = 0;
-  let lastError = "";
+  const pageMap = new Map(topPages.map((p) => [p.id, p]));
+  const applyScores = async (
+    pageId: string,
+    scores: NonNullable<Awaited<ReturnType<LLMScorer["scoreContent"]>>>,
+  ): Promise<boolean> => {
+    const page = pageMap.get(pageId);
+    if (!page) return false;
+    const outcome = await rescorePageFromStored({
+      db: appDb,
+      jobId: input.jobId,
+      page,
+      siteContext,
+      llmScores: scores,
+    });
+    return outcome === "updated";
+  };
+
+  // --- Fetch R2 text for each top page (thin/no-text pages drop out). ---
+  const entries: { pageId: string; text: string; contentHash: string }[] = [];
   await pMap(
     topPages,
     async (page) => {
+      if (!page.r2RawKey || !page.contentHash) return;
       try {
-        if (!page.r2RawKey || !page.contentHash) return;
         const text = await extractTextFromR2(input.r2Bucket, page.r2RawKey);
-        if (!text) return;
-        const scores = await scorer.scoreContent(text, page.contentHash);
-        if (!scores) return; // thin or unparseable — keep deterministic score
-        const outcome = await rescorePageFromStored({
-          db: appDb,
-          jobId: input.jobId,
-          page,
-          siteContext,
-          llmScores: scores,
-        });
-        if (outcome === "updated") scored++;
+        if (text) {
+          entries.push({
+            pageId: page.id,
+            text,
+            contentHash: page.contentHash,
+          });
+        }
       } catch (err) {
-        failed++;
-        lastError = err instanceof Error ? err.message : String(err);
+        log.error("R2 text extraction failed", {
+          pageId: page.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     },
     { concurrency: 4, settle: true },
   );
+  if (entries.length === 0) return;
 
-  // Record aggregated LLM cost for this crawl (best-effort — never throws).
-  if (usages.length > 0) {
-    const inTok = usages.reduce((s, u) => s + u.inputTokens, 0);
-    const outTok = usages.reduce((s, u) => s + u.outputTokens, 0);
-    const model = usages[0].model;
+  // --- Split into KV-cached (apply now, no cost) vs uncached (need scoring). ---
+  const { cached, requests } = await scorer.buildBatchRequests(entries);
+
+  let scored = 0;
+  let failed = 0;
+  let lastError = "";
+  for (const c of cached) {
     try {
-      await llmUsageQueries(appDb).record({
-        feature: "content_scoring",
-        model,
-        inputTokens: inTok,
-        outputTokens: outTok,
-        costUsd: estimateCostUsd(model, inTok, outTok),
-        projectId: input.projectId ?? null,
-        userId: input.ownerId ?? null,
-        plan: input.plan ?? null,
-      });
+      if (await applyScores(c.pageId, c.scores)) scored++;
     } catch (err) {
-      log.error("llm_usage record failed", {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      failed++;
+      lastError = err instanceof Error ? err.message : String(err);
     }
   }
 
-  if (failed > 0) {
-    log.error(
-      "Sonnet content scoring degraded — pages keep deterministic scores",
-      {
-        jobId: input.jobId,
-        failed,
-        total: topPages.length,
-        cause: classifyLLMError(lastError),
-        error: lastError.slice(0, 300),
+  // Score the uncached `requests` synchronously (used for the small-batch and
+  // batch-submission-failure paths) and record their full-price usage.
+  const scoreSync = async () => {
+    const byId = new Map(entries.map((e) => [e.pageId, e]));
+    await pMap(
+      requests,
+      async (req) => {
+        const entry = byId.get(req.custom_id);
+        if (!entry) return;
+        try {
+          const scores = await scorer.scoreContent(
+            entry.text,
+            entry.contentHash,
+          );
+          if (!scores) return;
+          if (await applyScores(entry.pageId, scores)) scored++;
+        } catch (err) {
+          failed++;
+          lastError = err instanceof Error ? err.message : String(err);
+        }
       },
+      { concurrency: 4, settle: true },
     );
+    const inTok = usages.reduce((s, u) => s + u.inputTokens, 0);
+    const outTok = usages.reduce((s, u) => s + u.outputTokens, 0);
+    await recordContentScoringUsage(appDb, {
+      inputTokens: inTok,
+      outputTokens: outTok,
+      model,
+      costUsd: estimateCostUsd(model, inTok, outTok),
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      plan: input.plan,
+    });
+  };
+
+  const finishSync = async (denom: number) => {
+    await markLLMStatus(input.kvNamespace, input.jobId, {
+      status: failed === 0 ? "ok" : failed >= denom ? "unavailable" : "partial",
+      cause: failed > 0 ? classifyLLMError(lastError) : undefined,
+      scored,
+      failed,
+    });
+    if (failed > 0) {
+      throw new Error(
+        `Sonnet content scoring failed for ${failed}/${denom} page(s) (job ${input.jobId})`,
+      );
+    }
+  };
+
+  // --- Everything came from cache: done, no API cost. ---
+  if (requests.length === 0) {
+    await finishSync(cached.length || 1);
+    return;
   }
-  await markLLMStatus(input.kvNamespace, input.jobId, {
-    status:
-      failed === 0
-        ? "ok"
-        : failed >= topPages.length
-          ? "unavailable"
-          : "partial",
-    cause: failed > 0 ? classifyLLMError(lastError) : undefined,
-    scored,
-    failed,
-  });
-  if (failed > 0) {
-    throw new Error(
-      `Sonnet content scoring failed for ${failed}/${topPages.length} page(s) (job ${input.jobId})`,
+
+  // --- Few uncached pages (or no KV to track a batch): sync is cheaper than a
+  //     batch round-trip. ---
+  if (requests.length < BATCH_THRESHOLD || !input.kvNamespace) {
+    await scoreSync();
+    await finishSync(requests.length);
+    return;
+  }
+
+  // --- Enough uncached pages: submit an async batch (50% cheaper). The poller
+  //     (pollLLMScoreBatches) applies the results + records usage on completion. ---
+  try {
+    const batch = await scorer.anthropicClient.messages.batches.create({
+      requests,
+    });
+    const meta: PendingScoreBatch = {
+      jobId: input.jobId,
+      projectId: input.projectId ?? null,
+      ownerId: input.ownerId ?? null,
+      plan: input.plan ?? null,
+      model,
+      submittedAt: new Date().toISOString(),
+    };
+    await input.kvNamespace.put(
+      `${LLM_BATCH_KV_PREFIX}${batch.id}`,
+      JSON.stringify(meta),
+      { expirationTtl: 26 * 60 * 60 },
     );
+    await markLLMStatus(input.kvNamespace, input.jobId, {
+      status: "pending",
+      scored, // cached pages already applied inline
+      failed,
+      pending: requests.length,
+    });
+    log.info("Submitted content-scoring batch (50% cost)", {
+      jobId: input.jobId,
+      batchId: batch.id,
+      pages: requests.length,
+      cached: cached.length,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const cause = classifyLLMError(msg);
+    if (cause !== "other") {
+      // Hard provider unavailability — a sync retry fails the same way.
+      log.error(
+        "LLM content scoring UNAVAILABLE — pages keep deterministic scores",
+        {
+          jobId: input.jobId,
+          cause,
+          pages: requests.length,
+          error: msg.slice(0, 300),
+        },
+      );
+      await markLLMStatus(input.kvNamespace, input.jobId, {
+        status: "unavailable",
+        cause,
+        scored,
+        failed: requests.length,
+      });
+      return;
+    }
+    // Transient/unknown batch error → fall back to per-page sync.
+    log.error("Batch submission failed, falling back to sync", {
+      jobId: input.jobId,
+      error: msg,
+    });
+    await scoreSync();
+    await finishSync(requests.length);
   }
 }
 
