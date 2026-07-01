@@ -147,16 +147,33 @@ export function applyContentFactors(page: PageData, s: ScoreState): void {
     deduct(s, "MISSING_FAQ_STRUCTURE");
   }
 
-  // POOR_READABILITY
+  // POOR_READABILITY — recalibrated for AI-readiness.
+  //
+  // Raw Flesch reading-ease is a NOISY proxy here: its syllables-per-word term
+  // punishes polysyllabic technical/clinical vocabulary ("rehabilitation",
+  // "medication") that is NOT a comprehension barrier for an LLM. What actually
+  // hurts machine extraction is STRUCTURE — long/run-on sentences and
+  // wall-of-text — which shows up as a very LOW Flesch. So we penalise only the
+  // genuinely-difficult bands and halve the severity vs. the old 60+ bar, which
+  // false-fired on ~100% of legitimately-written healthcare pages. The penalty
+  // is bounded at -6 so a single noisy proxy can never dominate the content
+  // score. (Domain-neutral: applies identically to every site; a truly
+  // unreadable wall-of-text page still scores < 30 and keeps the -6.)
   const flesch = page.extracted.flesch_score;
   if (flesch != null) {
-    if (flesch < THRESHOLDS.fleschPoor) {
-      deduct(s, "POOR_READABILITY", {
+    if (flesch < THRESHOLDS.fleschVeryPoor) {
+      // Flesch < 30 ("Very Difficult") means BOTH long sentences AND dense
+      // vocabulary — the sentence-length component is a real extractability
+      // problem, so this band keeps a meaningful (if softened) penalty.
+      deduct(s, "POOR_READABILITY", -6, {
         fleschScore: flesch,
         classification: page.extracted.flesch_classification,
       });
-    } else if (flesch < THRESHOLDS.fleschModerate) {
-      deduct(s, "POOR_READABILITY", -5, {
+    } else if (flesch < THRESHOLDS.fleschPoor) {
+      // Flesch 30-49 ("Difficult"): common for authoritative technical prose.
+      // A light nudge, not a heavy penalty — we can't tell scoring-side how much
+      // of this is structure vs. vocabulary, so we stay conservative.
+      deduct(s, "POOR_READABILITY", -3, {
         fleschScore: flesch,
         classification: page.extracted.flesch_classification,
       });
