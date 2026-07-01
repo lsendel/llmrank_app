@@ -4,6 +4,7 @@ import { authMiddleware } from "../middleware/auth";
 import { personaQueries, userQueries, projectQueries } from "@llm-boost/db";
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { handleServiceError } from "../lib/error-handler";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 
 export const personaRoutes = new Hono<AppEnv>();
 personaRoutes.use("*", authMiddleware);
@@ -276,6 +277,15 @@ Return ONLY valid JSON with: { "name", "role", "jobToBeDone", "constraints", "su
         messages: [{ role: "user", content: prompt }],
       });
 
+      await trackLlmUsage(c.get("db"), {
+        feature: "personas",
+        model: "claude-haiku-4-5-20251001",
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        userId: c.get("userId"),
+        projectId: project.id,
+      });
+
       const text =
         response.content[0]?.type === "text" ? response.content[0].text : "{}";
       const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();
@@ -357,6 +367,15 @@ Return ONLY valid JSON with the same structure as the input, with improved value
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
+    });
+
+    await trackLlmUsage(c.get("db"), {
+      feature: "personas_refine",
+      model: "claude-haiku-4-5-20251001",
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      userId: c.get("userId"),
+      projectId: persona.projectId,
     });
 
     const text =

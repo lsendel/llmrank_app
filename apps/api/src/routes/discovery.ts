@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { rateLimit } from "../middleware/rate-limit";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 import {
   projectQueries,
   personaQueries,
@@ -183,6 +184,15 @@ discoveryRoutes.post(
             content: `Identify the top competitors for this website:\n\n${contextParts}`,
           },
         ],
+      });
+
+      await trackLlmUsage(db, {
+        feature: "discovery_competitors",
+        model: "claude-haiku-4-5-20251001",
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        userId,
+        projectId,
       });
 
       const text =

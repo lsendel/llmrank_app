@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { authMiddleware } from "../middleware/auth";
 import { suggestKeywords } from "@llm-boost/llm";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 
 export const wizardRoutes = new Hono<AppEnv>();
 wizardRoutes.use("*", authMiddleware);
@@ -71,6 +72,14 @@ wizardRoutes.post("/suggest-competitors", async (c) => {
         content: `Find competitors for ${domain}. Their focus keywords: ${keywords.join(", ")}. Return JSON array.`,
       },
     ],
+  });
+
+  await trackLlmUsage(c.get("db"), {
+    feature: "wizard_competitors",
+    model: "claude-haiku-4-5-20251001",
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    userId: c.get("userId"),
   });
 
   const text =
