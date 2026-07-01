@@ -41,29 +41,29 @@ describe("buildContentScoringPrompt", () => {
     expect(prompt.user).toContain(pageText);
   });
 
-  it("truncates text longer than 4000 words", () => {
-    // Generate text with 5000 words
-    const words = Array.from({ length: 5000 }, (_, i) => `word${i}`);
+  it("truncates text longer than 2500 words", () => {
+    // Generate text with 3500 words
+    const words = Array.from({ length: 3500 }, (_, i) => `word${i}`);
     const longText = words.join(" ");
     const prompt = buildContentScoringPrompt(longText);
 
-    // The prompt should contain the first 4000 words but not word4000 (0-indexed)
+    // The prompt should contain the first 2500 words but not word2500 (0-indexed)
     expect(prompt.user).toContain("word0");
-    expect(prompt.user).toContain("word3999");
-    expect(prompt.user).not.toContain("word4000");
-    expect(prompt.user).not.toContain("word4999");
+    expect(prompt.user).toContain("word2499");
+    expect(prompt.user).not.toContain("word2500");
+    expect(prompt.user).not.toContain("word3499");
   });
 
-  it("does not truncate text with exactly 4000 words", () => {
-    const words = Array.from({ length: 4000 }, (_, i) => `word${i}`);
+  it("does not truncate text with exactly 2500 words", () => {
+    const words = Array.from({ length: 2500 }, (_, i) => `word${i}`);
     const text = words.join(" ");
     const prompt = buildContentScoringPrompt(text);
 
     expect(prompt.user).toContain("word0");
-    expect(prompt.user).toContain("word3999");
+    expect(prompt.user).toContain("word2499");
   });
 
-  it("does not truncate text shorter than 4000 words", () => {
+  it("does not truncate text shorter than 2500 words", () => {
     const words = Array.from({ length: 100 }, (_, i) => `word${i}`);
     const text = words.join(" ");
     const prompt = buildContentScoringPrompt(text);

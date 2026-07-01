@@ -1,4 +1,10 @@
-const MAX_WORDS = 4000;
+// Cap the page text sent to the scorer. The 5 content dimensions are judgeable
+// from the first ~2.5k words + the already-extracted structure, so this bounds
+// worst-case input cost on long-form/content-heavy pages (input is ~95% of the
+// per-call cost) while leaving typical pages (< 2.5k words) untouched. Kept
+// conservative so genuinely long articles aren't unfairly under-rated on the
+// comprehensiveness dimension.
+const MAX_WORDS = 2500;
 
 /**
  * Truncates text to a maximum number of words.
