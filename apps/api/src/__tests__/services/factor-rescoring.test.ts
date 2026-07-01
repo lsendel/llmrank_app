@@ -20,7 +20,11 @@ vi.mock("@llm-boost/db", () => ({
   crawlQueries: () => ({ getById: mocks.getById }),
 }));
 
-import { rescoreFactors } from "../../services/factor-rescoring";
+import {
+  rescoreFactors,
+  rescorePageFromStored,
+  buildSiteContext,
+} from "../../services/factor-rescoring";
 
 const SITE_CONTEXT = JSON.stringify({
   has_llms_txt: true,
@@ -175,5 +179,53 @@ describe("rescoreFactors", () => {
     await expect(
       rescoreFactors({ db: {} as never, jobId: "missing", limit: 100 }),
     ).rejects.toMatchObject({ code: "NOT_FOUND", status: 404 });
+  });
+});
+
+describe("rescorePageFromStored", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.update.mockResolvedValue({});
+    mocks.clearIssues.mockResolvedValue(undefined);
+    mocks.createIssues.mockResolvedValue([]);
+  });
+
+  it("applies + persists a fresh llmScores override into detail (per-crawl paid path)", async () => {
+    mocks.getByPage.mockResolvedValue(storedScore());
+    const llmScores = {
+      clarity: 90,
+      authority: 85,
+      comprehensiveness: 88,
+      structure: 92,
+      citation_worthiness: 80,
+    };
+
+    const outcome = await rescorePageFromStored({
+      db: {} as never,
+      jobId: "job-1",
+      page: familiesCarePage(),
+      siteContext: buildSiteContext(SITE_CONTEXT),
+      llmScores,
+    });
+
+    expect(outcome).toBe("updated");
+    // The fresh Sonnet scores are written durably into detail so the dashboard
+    // "LLM Quality" card + any later factor-rescore reuse them.
+    const updateArg = mocks.update.mock.calls[0][1];
+    expect(updateArg.detail.llmContentScores).toEqual(llmScores);
+  });
+
+  it("skips when there is no stored extracted data", async () => {
+    mocks.getByPage.mockResolvedValue(null);
+
+    const outcome = await rescorePageFromStored({
+      db: {} as never,
+      jobId: "job-1",
+      page: familiesCarePage(),
+      siteContext: buildSiteContext(SITE_CONTEXT),
+    });
+
+    expect(outcome).toBe("skipped");
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });

@@ -8,9 +8,16 @@ const mockUpdate = vi.fn().mockResolvedValue(undefined);
 const mockUpdateDetail = vi.fn().mockResolvedValue(undefined);
 const mockClearIssues = vi.fn().mockResolvedValue(undefined);
 const mockCreateIssues = vi.fn().mockResolvedValue(undefined);
+const mockGetByPage = vi.fn();
 const mockScoreContent = vi.fn();
 const mockListByJob = vi.fn().mockResolvedValue([]);
 const mockListPagesByJob = vi.fn().mockResolvedValue([]);
+const mockTopScoreable = vi.fn().mockResolvedValue([]);
+const mockCrawlGetById = vi.fn().mockResolvedValue({
+  id: "job-1",
+  siteContext: null,
+});
+const mockUsageRecord = vi.fn().mockResolvedValue(undefined);
 const mockBatchCreate = vi.fn();
 const mockBatchJobCreate = vi.fn().mockResolvedValue({ id: "bj-1" });
 const mockWorkersScoreContent = vi.fn();
@@ -24,9 +31,17 @@ vi.mock("@llm-boost/db", () => ({
     clearIssues: mockClearIssues,
     createIssues: mockCreateIssues,
     listByJob: mockListByJob,
+    getByPage: mockGetByPage,
   })),
   pageQueries: vi.fn(() => ({
     listByJob: mockListPagesByJob,
+    topScoreableByWordCount: mockTopScoreable,
+  })),
+  crawlQueries: vi.fn(() => ({
+    getById: mockCrawlGetById,
+  })),
+  llmUsageQueries: vi.fn(() => ({
+    record: mockUsageRecord,
   })),
   batchJobQueries: vi.fn(() => ({
     create: mockBatchJobCreate,
@@ -47,6 +62,7 @@ vi.mock("@llm-boost/llm", () => ({
   WorkersAiScorer: vi.fn().mockImplementation(() => ({
     scoreContent: mockWorkersScoreContent,
   })),
+  estimateCostUsd: vi.fn().mockReturnValue(0.01),
 }));
 
 vi.mock("@llm-boost/scoring", () => ({
@@ -59,6 +75,15 @@ vi.mock("@llm-boost/scoring", () => ({
     letterGrade: "B",
     platformScores: {},
     issues: [],
+  }),
+  scoringResultToDimensions: vi.fn().mockReturnValue({
+    llms_txt: 100,
+    robots_crawlability: 100,
+    sitemap: 100,
+    schema_markup: 100,
+    meta_tags: 100,
+    bot_access: 100,
+    content_citeability: 80,
   }),
   generateRecommendations: vi.fn().mockReturnValue([]),
 }));
@@ -663,12 +688,35 @@ describe("runWorkersAiScoring (worker path: input.ai + input.d1)", () => {
   });
 });
 
-describe("runAnthropicD1Scoring (paid path: contentScoringModel + d1)", () => {
+describe("runPerCrawlSonnetScoring (paid path: contentScoringModel + d1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCrawlGetById.mockResolvedValue({ id: "job-1", siteContext: null });
+    // A stored score row with reconstruction-ready detail.
+    mockGetByPage.mockResolvedValue({
+      id: "score-1",
+      detail: JSON.stringify({
+        extracted: { h1: [], schema_types: [] },
+        responseTimeMs: 120,
+        pageSizeBytes: 4096,
+      }),
+    });
   });
 
-  it("routes paid tiers to the Anthropic LLMScorer, not Workers AI", async () => {
+  it("routes paid tiers to the Anthropic LLMScorer over the crawl's top pages, not Workers AI", async () => {
+    mockTopScoreable.mockResolvedValue([
+      {
+        id: "page-1",
+        url: "https://example.com/page1",
+        statusCode: 200,
+        title: "Test",
+        metaDesc: "desc",
+        canonicalUrl: "https://example.com/page1",
+        wordCount: 900,
+        contentHash: "hash123",
+        r2RawKey: "raw/page1.html",
+      },
+    ]);
     mockScoreContent.mockResolvedValue({
       clarity: 88,
       authority: 80,
@@ -678,6 +726,7 @@ describe("runAnthropicD1Scoring (paid path: contentScoringModel + d1)", () => {
     });
     const input = {
       ...baseLLMInput(),
+      jobId: "job-1",
       d1: {},
       ai: {}, // present, but the Anthropic path must take precedence
       anthropicApiKey: "sk-test",
@@ -686,5 +735,24 @@ describe("runAnthropicD1Scoring (paid path: contentScoringModel + d1)", () => {
     await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
     expect(mockScoreContent).toHaveBeenCalled();
     expect(mockWorkersScoreContent).not.toHaveBeenCalled();
+    // Applied via stored-data reconstruction: score row + issues rewritten.
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockCreateIssues).toHaveBeenCalled();
+  });
+
+  it("selects the top-N pages of the WHOLE crawl from D1 (not the ingest batch)", async () => {
+    mockTopScoreable.mockResolvedValue([]);
+    const input = {
+      ...baseLLMInput(),
+      jobId: "job-1",
+      d1: {},
+      anthropicApiKey: "sk-test",
+      contentScoringModel: "claude-sonnet-5",
+    };
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
+    // The page set is a DB query over the crawl, capped at PAID_CONTENT_TOP_N.
+    expect(mockTopScoreable).toHaveBeenCalledWith("job-1", 20);
+    // Nothing eligible → no scoring, no cost.
+    expect(mockScoreContent).not.toHaveBeenCalled();
   });
 });

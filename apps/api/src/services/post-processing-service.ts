@@ -154,7 +154,16 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
           );
         }
       }
-      if (isPaidPlus) {
+      // Pro+ → high-quality Sonnet content scoring on the top pages; without an
+      // Anthropic key, falls back to Workers AI.
+      const useSonnet = !!env.anthropicApiKey;
+      // The Sonnet path scores the true top-N highest-word-count pages of the
+      // WHOLE crawl, so it dispatches ONCE on the final batch — dispatching per
+      // batch would re-score ~every page (batches are ~10 pages → hundreds of
+      // Sonnet calls per crawl). The Workers AI fallback (no Anthropic key, ~8x
+      // cheaper) stays per-batch on the fresh in-memory CrawlPageResult.
+      const shouldDispatchScoring = useSonnet ? batch.is_final : true;
+      if (isPaidPlus && shouldDispatchScoring) {
         await dispatchOrRun(deps.outbox, args.executionCtx, {
           type: "llm_scoring",
           payload: {
@@ -167,6 +176,8 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             anthropicApiKey: env.anthropicApiKey,
             kvNamespace: env.kvNamespace,
             r2Bucket: env.r2,
+            // The Sonnet (per-crawl) path re-reads all pages from D1; batchPages
+            // is used only by the per-batch Workers AI fallback.
             batchPages: batch.pages,
             insertedPages,
             insertedScores,
@@ -175,9 +186,7 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             projectId,
             ownerId: scoringOwnerId,
             plan: scoringPlan,
-            // Pro+ → high-quality Sonnet content scoring on the top pages.
-            // Requires an Anthropic key; without one, falls back to Workers AI.
-            contentScoringModel: env.anthropicApiKey
+            contentScoringModel: useSonnet
               ? PAID_CONTENT_SCORING_MODEL
               : undefined,
           },

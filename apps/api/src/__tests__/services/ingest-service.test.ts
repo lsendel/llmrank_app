@@ -493,14 +493,16 @@ describe("IngestService", () => {
 
   // ---- Post-processing paths ----
 
-  it("enqueues LLM scoring with the Sonnet model for paid tiers when anthropicApiKey is set", async () => {
+  it("enqueues Sonnet LLM scoring for paid tiers on the FINAL batch (per-crawl top-N)", async () => {
     const env = {
       ...makeMockEnv(),
       anthropicApiKey: "sk-test",
     };
     const service = createIngestService({ crawls, pages, scores, outbox });
     await service.processBatch({
-      rawBody: validBatchPayload(),
+      // Sonnet scores the whole crawl's top pages, so it dispatches once on the
+      // final batch (not per ingest batch).
+      rawBody: validBatchPayload({ is_final: true }),
       env,
       executionCtx: makeMockCtx(),
     });
@@ -515,6 +517,23 @@ describe("IngestService", () => {
     );
   });
 
+  it("does NOT enqueue Sonnet LLM scoring on non-final batches (per-crawl, once at the end)", async () => {
+    const env = {
+      ...makeMockEnv(),
+      anthropicApiKey: "sk-test",
+    };
+    const service = createIngestService({ crawls, pages, scores, outbox });
+    await service.processBatch({
+      rawBody: validBatchPayload({ is_final: false }),
+      env,
+      executionCtx: makeMockCtx(),
+    });
+
+    expect(outbox.enqueue).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "llm_scoring" }),
+    );
+  });
+
   it("does NOT enqueue LLM scoring for Free/Starter tiers (paid-only feature)", async () => {
     mockUserGetById.mockResolvedValueOnce({
       id: "user-1",
@@ -524,7 +543,8 @@ describe("IngestService", () => {
     const env = { ...makeMockEnv(), anthropicApiKey: "sk-test" };
     const service = createIngestService({ crawls, pages, scores, outbox });
     await service.processBatch({
-      rawBody: validBatchPayload(),
+      // Even on the final batch, Free stays deterministic-only.
+      rawBody: validBatchPayload({ is_final: true }),
       env,
       executionCtx: makeMockCtx(),
     });
@@ -542,7 +562,9 @@ describe("IngestService", () => {
     const ctx = makeMockCtx();
     const service = createIngestService({ crawls, pages, scores });
     await service.processBatch({
-      rawBody: validBatchPayload(),
+      // Final batch so the (per-crawl) Sonnet scoring dispatches; with no outbox
+      // dispatchOrRun falls back to waitUntil for deferred processing.
+      rawBody: validBatchPayload({ is_final: true }),
       env,
       executionCtx: ctx,
     });
