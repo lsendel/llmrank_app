@@ -652,7 +652,7 @@ configuring settings, and running the wizard.</p>`,
 
   POOR_READABILITY: {
     issueCode: "POOR_READABILITY",
-    title: "Improve Flesch Readability Score to 60+",
+    title: "Break up long sentences so AI can extract your content",
     estimatedMinutes: 45,
     difficulty: "intermediate",
     platforms: {
@@ -664,9 +664,9 @@ configuring settings, and running the wizard.</p>`,
           tip: "Read your content aloud. If you run out of breath before the end of a sentence, it is too long.",
         },
         {
-          title: "Simplify vocabulary",
+          title: "Trim filler words (keep the technical terms)",
           description:
-            "Replace jargon and multi-syllable words with simpler alternatives: 'utilize' becomes 'use', 'implementation' becomes 'setup', 'subsequently' becomes 'then'. Only keep technical terms that your audience expects.",
+            "Replace filler like 'utilize' with 'use' or 'subsequently' with 'then'. Do NOT strip domain vocabulary — technical and clinical terms ('rehabilitation', 'diagnosis') do not hurt AI readiness; LLMs handle them fine. Sentence length matters far more than word length here.",
         },
         {
           title: "Use active voice",

@@ -445,12 +445,11 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
   POOR_READABILITY: {
     code: "POOR_READABILITY",
     category: "content",
-    severity: "warning",
-    scoreImpact: -10,
-    message:
-      "Content readability is below recommended level (Flesch score < 50)",
+    severity: "info",
+    scoreImpact: -6,
+    message: "Content reads as very difficult (Flesch reading-ease < 30)",
     recommendation:
-      "Simplify language: use shorter sentences, common words, and active voice. Target Flesch score of 60+.",
+      "The biggest win for AI extractability is shorter sentences: break run-on sentences into two and aim for an average of 15-20 words. Technical vocabulary is fine — LLMs handle it — so focus on sentence structure and active voice rather than swapping out domain terms.",
     effortLevel: "medium",
     dimension: "content_citeability",
   },

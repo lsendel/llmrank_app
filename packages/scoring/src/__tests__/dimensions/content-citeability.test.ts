@@ -375,34 +375,62 @@ describe("scoreContentCiteability", () => {
     expect(issue).toBeUndefined();
   });
 
-  // --- POOR_READABILITY ---
+  // --- POOR_READABILITY (recalibrated for AI-readiness) ---
+  // Flesch is a NOISY proxy: its syllable term punishes polysyllabic
+  // technical/clinical vocabulary that LLMs handle fine. So we only penalise the
+  // genuinely-difficult (structural, long-sentence) bands, halve the severity,
+  // and drop the bar from 60 to 50 — otherwise ~100% of well-written healthcare
+  // pages false-fire. See factors/content.ts.
 
-  it("POOR_READABILITY: deducts 10 for flesch score < 50", () => {
+  it("POOR_READABILITY: deducts 6 for a very-difficult page (flesch < 30)", () => {
     const page = makePage();
-    page.extracted.flesch_score = 30;
-    page.extracted.flesch_classification = "difficult";
-    const result = scoreContentCiteability(page);
-    expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "POOR_READABILITY" }),
-    );
-  });
-
-  it("POOR_READABILITY: deducts 5 for flesch score 50-59", () => {
-    const page = makePage();
-    page.extracted.flesch_score = 55;
-    page.extracted.flesch_classification = "fairly_difficult";
-    const result = scoreContentCiteability(page);
-    expect(result.issues).toContainEqual(
-      expect.objectContaining({ code: "POOR_READABILITY" }),
-    );
-  });
-
-  it("POOR_READABILITY: no deduction for flesch score >= 60", () => {
-    const page = makePage();
-    page.extracted.flesch_score = 65;
+    page.extracted.flesch_score = 20;
+    page.extracted.flesch_classification = "very_difficult";
     const result = scoreContentCiteability(page);
     const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
-    expect(issue).toBeUndefined();
+    expect(issue).toBeDefined();
+    expect(issue?.scoreImpact).toBe(-6);
+  });
+
+  it("POOR_READABILITY: deducts only 3 in the difficult band (30 <= flesch < 50)", () => {
+    const page = makePage();
+    page.extracted.flesch_score = 40; // typical authoritative technical prose
+    page.extracted.flesch_classification = "difficult";
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
+    expect(issue).toBeDefined();
+    expect(issue?.scoreImpact).toBe(-3);
+  });
+
+  it("POOR_READABILITY: fires at the very-poor boundary edges correctly", () => {
+    // Exactly 30 is NOT very-poor (uses `<`), so it lands in the -3 band.
+    const at30 = makePage();
+    at30.extracted.flesch_score = 30;
+    expect(
+      scoreContentCiteability(at30).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      )?.scoreImpact,
+    ).toBe(-3);
+    // Just below 30 is very-poor → -6.
+    const below = makePage();
+    below.extracted.flesch_score = 29.9;
+    expect(
+      scoreContentCiteability(below).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      )?.scoreImpact,
+    ).toBe(-6);
+  });
+
+  it("POOR_READABILITY: no deduction at/above the 50 bar (fairly-difficult prose is fine)", () => {
+    // 55 used to lose -5 under the old 60 bar; recalibration clears it. This is
+    // the healthcare/technical false-positive fix.
+    for (const score of [50, 55, 65]) {
+      const page = makePage();
+      page.extracted.flesch_score = score;
+      const result = scoreContentCiteability(page);
+      const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
+      expect(issue).toBeUndefined();
+    }
   });
 
   it("POOR_READABILITY: no deduction when flesch_score is null", () => {
@@ -852,7 +880,7 @@ describe("scoreContentCiteability", () => {
     page.extracted.h1 = []; // -8 MISSING_H1
     page.extracted.internal_links = []; // -8 NO_INTERNAL_LINKS
     page.extracted.external_links = [];
-    page.extracted.flesch_score = 20; // -10 POOR_READABILITY
+    page.extracted.flesch_score = 20; // -6 POOR_READABILITY (very-difficult band)
     page.extracted.text_html_ratio = 5; // -8 LOW_TEXT_HTML_RATIO
     page.extracted.images_without_alt = 10; // -15 MISSING_ALT_TEXT (capped)
     page.extracted.sentence_length_variance = 5;

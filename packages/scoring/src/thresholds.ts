@@ -25,8 +25,20 @@ export const THRESHOLDS = {
   // ordinary varied writing sits comfortably above 8 (a top false-positive).
   sentenceLengthVarianceMin: 8,
   eeatMinWords: 500,
-  fleschPoor: 50,
-  fleschModerate: 60,
+  // POOR_READABILITY targets STRUCTURAL unreadability — long/run-on sentences
+  // and wall-of-text prose, which is what actually hurts an LLM's ability to
+  // chunk and extract a page — NOT vocabulary difficulty, which LLMs handle
+  // fine. Raw Flesch reading-ease conflates the two: its `-84.6*syllables/word`
+  // term penalises polysyllabic technical/clinical vocabulary ("rehabilitation",
+  // "assisted living facility") that is not a comprehension barrier for machines,
+  // so well-written healthcare/legal/scientific prose scores far below the
+  // classic 60+ "plain English" bar. We therefore treat Flesch as a NOISY proxy
+  // for structure: only the genuinely-difficult bands are penalised, the bar is
+  // dropped from 60 to 50, and the severity is roughly halved (see content.ts).
+  // A cleaner fix — average sentence length / Flesch-Kincaid grade, which
+  // isolate the structural signal — needs a new crawler field and is a follow-up.
+  fleschVeryPoor: 30, // "Very Difficult": dense AND long-sentenced → real penalty
+  fleschPoor: 50, // "Difficult": light nudge only; Flesch >= 50 is unpenalised
   textHtmlRatioMin: 15,
   // A genuine FAQ section (worth FAQPage schema) has several Q&A pairs. A
   // single question-style heading on an informational/directory page does not
