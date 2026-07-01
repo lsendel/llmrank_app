@@ -91,6 +91,14 @@ export function createPageScoringService() {
             is_cross_domain_redirect:
               crawlPageResult.is_cross_domain_redirect || false,
             redirect_url: crawlPageResult.redirect_url ?? null,
+            // Per-page perf signals live only in the crawl batch's site_context,
+            // which is gone by the time the per-crawl paid scoring re-scores from
+            // stored data on the final batch. Persist them so that reconstruction
+            // reproduces SLOW_RESPONSE / LARGE_PAGE_SIZE instead of silently
+            // dropping them (factor-rescoring.buildSiteContext can't recover
+            // per-page values from the job-level site_context blob).
+            responseTimeMs: sc?.response_time_ms ?? null,
+            pageSizeBytes: sc?.page_size_bytes ?? null,
           },
           platformScores: result.platformScores,
           recommendations: generateRecommendations(

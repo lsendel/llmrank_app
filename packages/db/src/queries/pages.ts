@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, gte, isNotNull } from "drizzle-orm";
 import type { AppDatabase as Database } from "../d1-client";
 import { pages } from "../schema";
 import { chunkForD1Insert } from "./d1-batch";
@@ -61,6 +61,27 @@ export function pageQueries(db: Database) {
         where: conditions,
         limit: limit + 1,
         orderBy: (pages, { asc }) => [asc(pages.id)],
+      });
+    },
+
+    /**
+     * The `limit` highest-word-count pages of a job that are eligible for LLM
+     * content scoring (>= 200 words, and have both a content hash and stored R2
+     * HTML). Used by the per-crawl paid-scoring path to pick the true top-N most
+     * citation-worthy pages of the WHOLE crawl (not per ingest batch). The
+     * eligibility filter is in the WHERE clause so the DB returns exactly the
+     * scoreable set, ordered — no over-fetch/in-memory trimming needed.
+     */
+    async topScoreableByWordCount(jobId: string, limit: number) {
+      return db.query.pages.findMany({
+        where: and(
+          eq(pages.jobId, jobId),
+          gte(pages.wordCount, 200),
+          isNotNull(pages.contentHash),
+          isNotNull(pages.r2RawKey),
+        ),
+        limit,
+        orderBy: (pages, { desc }) => [desc(pages.wordCount)],
       });
     },
   };

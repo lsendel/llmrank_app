@@ -3,6 +3,7 @@ import {
   createAgencyDb,
   scoreQueries,
   pageQueries,
+  crawlQueries,
   batchJobQueries,
   llmUsageQueries,
 } from "@llm-boost/db";
@@ -16,6 +17,7 @@ import {
 import type { CrawlPageResult, LLMContentScores } from "@llm-boost/shared";
 import { pMap } from "../lib/concurrent";
 import { createLogger } from "@llm-boost/shared";
+import { buildSiteContext, rescorePageFromStored } from "./factor-rescoring";
 
 const log = createLogger({ service: "llm-scoring" });
 
@@ -27,7 +29,7 @@ const log = createLogger({ service: "llm-scoring" });
  */
 export const PAID_CONTENT_SCORING_MODEL = "claude-sonnet-5";
 
-/** Pages per ingest batch scored on the paid Sonnet path (cost cap). */
+/** Top pages per CRAWL scored on the paid Sonnet path (cost cap). */
 const PAID_CONTENT_TOP_N = 20;
 
 type LLMUnavailableCause = "usage_limit" | "auth" | "rate_limit" | "other";
@@ -173,9 +175,10 @@ export interface LLMScoringInput {
   d1?: D1Database;
   ai?: WorkersAi;
   workersAiModel?: string;
-  // Paid tiers: when set (+ anthropicApiKey + d1), the highest-word-count pages
-  // are scored with this Anthropic model and written straight to D1, instead of
-  // the Workers AI path. Gated to Pro/Agency by the post-processing dispatch.
+  // Paid tiers: when set (+ anthropicApiKey + d1), the top-N highest-word-count
+  // pages of the WHOLE crawl are scored with this Anthropic model and written
+  // straight to D1, instead of the Workers AI path. Dispatched once per crawl
+  // (on the final batch) and gated to Pro/Agency by the post-processing dispatch.
   contentScoringModel?: string;
 }
 
@@ -313,19 +316,39 @@ async function runWorkersAiScoring(
 }
 
 /**
- * Paid-tier (Pro/Agency) content scoring: score the top-N highest-word-count
- * pages with a strong Anthropic model (Sonnet) and write straight to D1. Unlike
- * the Workers AI path there is NO calibration — the model doesn't under-rate, so
- * raw scores stand. Cost is bounded by PAID_CONTENT_TOP_N; LLMScorer caches by
- * content hash, so re-crawls only re-pay for changed pages.
+ * Paid-tier (Pro/Agency) content scoring, strict per-CRAWL: score the top-N
+ * highest-word-count pages of the WHOLE crawl with a strong Anthropic model
+ * (Sonnet) and write straight to D1. Dispatched ONCE, on the final ingest batch
+ * (ingest batches are ~10 pages, so a per-batch top-N scored nearly every page →
+ * hundreds of Sonnet calls per crawl; per-crawl bounds it to PAID_CONTENT_TOP_N).
+ *
+ * Earlier-batch pages' in-memory CrawlPageResult is long gone by the final batch,
+ * so each page is re-scored from stored data (page row + page_scores.detail +
+ * job site_context) via rescorePageFromStored — the same reconstruction the
+ * factor-rescore endpoint uses. Unlike the Workers AI path there is NO
+ * calibration (Sonnet doesn't under-rate). LLMScorer caches by content hash, so
+ * re-crawls only re-pay for changed pages.
  */
-async function runAnthropicD1Scoring(
+async function runPerCrawlSonnetScoring(
   input: LLMScoringInput,
   d1: D1Database,
 ): Promise<void> {
   const appDb = createAppDb(d1);
-  // Collect per-call token usage, then record ONE aggregated llm_usage row for
-  // the batch after scoring (awaited, so the cost write completes in-worker).
+
+  const job = await crawlQueries(appDb).getById(input.jobId);
+  if (!job) return;
+  const siteContext = buildSiteContext(job.siteContext);
+
+  // The true top-N most citation-worthy (highest-word-count) pages of the whole
+  // crawl — selected DB-side across all ingested batches, not per batch.
+  const topPages = await pageQueries(appDb).topScoreableByWordCount(
+    input.jobId,
+    PAID_CONTENT_TOP_N,
+  );
+  if (topPages.length === 0) return;
+
+  // Collect per-call token usage, then record ONE aggregated llm_usage row after
+  // scoring (awaited, so the cost write completes in-worker).
   const usages: LLMUsage[] = [];
   const scorer = new LLMScorer({
     anthropicApiKey: input.anthropicApiKey,
@@ -334,31 +357,26 @@ async function runAnthropicD1Scoring(
     onUsage: (u) => usages.push(u),
   });
 
-  const all = await extractPageTexts(input);
-  // Cost cap: only the most citation-worthy (highest-word-count) pages.
-  const pageTexts = [...all]
-    .sort((a, b) => b.crawlPage.word_count - a.crawlPage.word_count)
-    .slice(0, PAID_CONTENT_TOP_N);
-  if (pageTexts.length === 0) return;
-
   let scored = 0;
   let failed = 0;
   let lastError = "";
   await pMap(
-    pageTexts,
-    async (p) => {
+    topPages,
+    async (page) => {
       try {
-        const scores = await scorer.scoreContent(p.text, p.contentHash);
+        if (!page.r2RawKey || !page.contentHash) return;
+        const text = await extractTextFromR2(input.r2Bucket, page.r2RawKey);
+        if (!text) return;
+        const scores = await scorer.scoreContent(text, page.contentHash);
         if (!scores) return; // thin or unparseable — keep deterministic score
-        await persistLLMScore(
-          appDb,
-          p.scoreRowId,
-          p.pageId,
-          input.jobId,
-          p.crawlPage,
-          scores,
-        );
-        scored++;
+        const outcome = await rescorePageFromStored({
+          db: appDb,
+          jobId: input.jobId,
+          page,
+          siteContext,
+          llmScores: scores,
+        });
+        if (outcome === "updated") scored++;
       } catch (err) {
         failed++;
         lastError = err instanceof Error ? err.message : String(err);
@@ -367,7 +385,7 @@ async function runAnthropicD1Scoring(
     { concurrency: 4, settle: true },
   );
 
-  // Record aggregated LLM cost for this batch (best-effort — never throws).
+  // Record aggregated LLM cost for this crawl (best-effort — never throws).
   if (usages.length > 0) {
     const inTok = usages.reduce((s, u) => s + u.inputTokens, 0);
     const outTok = usages.reduce((s, u) => s + u.outputTokens, 0);
@@ -396,7 +414,7 @@ async function runAnthropicD1Scoring(
       {
         jobId: input.jobId,
         failed,
-        total: pageTexts.length,
+        total: topPages.length,
         cause: classifyLLMError(lastError),
         error: lastError.slice(0, 300),
       },
@@ -406,7 +424,7 @@ async function runAnthropicD1Scoring(
     status:
       failed === 0
         ? "ok"
-        : failed >= pageTexts.length
+        : failed >= topPages.length
           ? "unavailable"
           : "partial",
     cause: failed > 0 ? classifyLLMError(lastError) : undefined,
@@ -415,7 +433,7 @@ async function runAnthropicD1Scoring(
   });
   if (failed > 0) {
     throw new Error(
-      `Sonnet content scoring failed for ${failed}/${pageTexts.length} page(s) (job ${input.jobId})`,
+      `Sonnet content scoring failed for ${failed}/${topPages.length} page(s) (job ${input.jobId})`,
     );
   }
 }
@@ -589,10 +607,11 @@ async function persistLLMScore(
  */
 export async function runLLMScoring(input: LLMScoringInput): Promise<void> {
   // Paid tiers (Pro/Agency): high-quality Anthropic content scoring on the
-  // top-N highest-word-count pages, written straight to D1. Takes precedence
-  // over Workers AI; gated upstream by the post-processing dispatch.
+  // top-N highest-word-count pages of the whole crawl, written straight to D1.
+  // Takes precedence over Workers AI; dispatched once per crawl (final batch)
+  // and gated upstream by the post-processing dispatch.
   if (input.contentScoringModel && input.anthropicApiKey && input.d1) {
-    return runAnthropicD1Scoring(input, input.d1);
+    return runPerCrawlSonnetScoring(input, input.d1);
   }
 
   // Worker context (Cloudflare): score synchronously via Workers AI and write

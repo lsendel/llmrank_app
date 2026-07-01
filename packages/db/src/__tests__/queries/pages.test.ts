@@ -151,4 +151,27 @@ describe("pageQueries", () => {
     const result = await queries.listByJob("j-empty");
     expect(result).toEqual([]);
   });
+
+  // --- topScoreableByWordCount ---
+  it("topScoreableByWordCount returns the highest-word-count scoreable pages, capped at the limit", async () => {
+    const pages = [
+      { id: "pg1", jobId: "j1", wordCount: 1200, r2RawKey: "raw/1.html" },
+      { id: "pg2", jobId: "j1", wordCount: 900, r2RawKey: "raw/2.html" },
+    ];
+    mock.db.query.pages.findMany.mockResolvedValueOnce(pages);
+
+    const result = await queries.topScoreableByWordCount("j1", 20);
+
+    expect(mock.db.query.pages.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 20 }),
+    );
+    expect(result).toEqual(pages);
+  });
+
+  it("topScoreableByWordCount returns empty when nothing is eligible", async () => {
+    mock.db.query.pages.findMany.mockResolvedValueOnce([]);
+
+    const result = await queries.topScoreableByWordCount("j-empty", 20);
+    expect(result).toEqual([]);
+  });
 });
