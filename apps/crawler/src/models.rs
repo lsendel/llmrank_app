@@ -109,6 +109,11 @@ pub struct ExtractedData {
     pub flesch_score: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flesch_classification: Option<String>,
+    /// Average sentence length (words / sentences) — the structural readability
+    /// signal the scorer prefers over vocabulary-driven Flesch. Optional for
+    /// backward-compat: absent on payloads from pre-structural crawler builds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_sentence_length: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_html_ratio: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]

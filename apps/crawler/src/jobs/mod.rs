@@ -1024,6 +1024,7 @@ mod tests {
                 structured_data: None,
                 flesch_score: None,
                 flesch_classification: None,
+                avg_sentence_length: None,
                 text_html_ratio: None,
                 text_length: None,
                 html_length: None,

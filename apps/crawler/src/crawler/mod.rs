@@ -283,6 +283,7 @@ impl CrawlEngine {
                 structured_data,
                 flesch_score: parsed.flesch_score,
                 flesch_classification: parsed.flesch_classification,
+                avg_sentence_length: parsed.avg_sentence_length,
                 text_html_ratio: parsed.text_html_ratio,
                 text_length: parsed.text_length,
                 html_length: parsed.html_length,

@@ -147,20 +147,39 @@ export function applyContentFactors(page: PageData, s: ScoreState): void {
     deduct(s, "MISSING_FAQ_STRUCTURE");
   }
 
-  // POOR_READABILITY — recalibrated for AI-readiness.
+  // POOR_READABILITY — STRUCTURAL readability, not vocabulary.
   //
-  // Raw Flesch reading-ease is a NOISY proxy here: its syllables-per-word term
-  // punishes polysyllabic technical/clinical vocabulary ("rehabilitation",
-  // "medication") that is NOT a comprehension barrier for an LLM. What actually
-  // hurts machine extraction is STRUCTURE — long/run-on sentences and
-  // wall-of-text — which shows up as a very LOW Flesch. So we penalise only the
-  // genuinely-difficult bands and halve the severity vs. the old 60+ bar, which
-  // false-fired on ~100% of legitimately-written healthcare pages. The penalty
-  // is bounded at -6 so a single noisy proxy can never dominate the content
-  // score. (Domain-neutral: applies identically to every site; a truly
-  // unreadable wall-of-text page still scores < 30 and keeps the -6.)
+  // What actually hurts an LLM's ability to chunk and extract a page is
+  // STRUCTURE: long/run-on sentences and wall-of-text prose. Polysyllabic
+  // technical/clinical vocabulary ("rehabilitation", "assisted living facility")
+  // is NOT a comprehension barrier for a machine. So whenever the crawler
+  // supplies it, we drive this factor off AVERAGE SENTENCE LENGTH
+  // (words / sentences) — a pure structural signal with no syllable term — and
+  // penalise only genuinely long sentences. Bands mirror the bounded, capped-at-6,
+  // `info`-severity magnitude of the #112 calibration: a light -3 nudge for long
+  // average sentences (> 25 words), -6 for genuinely run-on prose (> 30 words).
+  //
+  // FALLBACK: older crawls, and pages ingested in the deploy window before the
+  // crawler field is live, carry no avg_sentence_length. There we fall back to
+  // the #112-calibrated raw-Flesch bands — a noisier proxy (its syllable term
+  // re-introduces the vocabulary penalty), but it keeps historical data and
+  // mid-deploy pages scoring sanely instead of silently dropping the signal.
+  const avgSentenceLength = page.extracted.avg_sentence_length;
   const flesch = page.extracted.flesch_score;
-  if (flesch != null) {
+  if (avgSentenceLength != null) {
+    if (avgSentenceLength > THRESHOLDS.avgSentenceLengthVeryPoor) {
+      // > 30 words/sentence: run-on / wall-of-text — a real extractability
+      // problem regardless of vocabulary.
+      deduct(s, "POOR_READABILITY", -6, {
+        avgSentenceLength: Math.round(avgSentenceLength * 10) / 10,
+      });
+    } else if (avgSentenceLength > THRESHOLDS.avgSentenceLengthPoor) {
+      // 25-30 words/sentence: long, but not egregious — a light nudge only.
+      deduct(s, "POOR_READABILITY", -3, {
+        avgSentenceLength: Math.round(avgSentenceLength * 10) / 10,
+      });
+    }
+  } else if (flesch != null) {
     if (flesch < THRESHOLDS.fleschVeryPoor) {
       // Flesch < 30 ("Very Difficult") means BOTH long sentences AND dense
       // vocabulary — the sentence-length component is a real extractability
