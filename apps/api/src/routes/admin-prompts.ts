@@ -5,6 +5,7 @@ import { promptTemplates, promptMetrics } from "@llm-boost/db";
 import Anthropic from "@anthropic-ai/sdk";
 import { authMiddleware } from "../middleware/auth";
 import { adminMiddleware } from "../middleware/admin";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 
 export const adminPromptRoutes = new Hono<AppEnv>();
 
@@ -301,6 +302,15 @@ adminPromptRoutes.post("/:id/test", async (c) => {
     });
 
     const latencyMs = Date.now() - startTime;
+
+    await trackLlmUsage(db, {
+      feature: "admin_prompt_test",
+      model: prompt.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      userId: c.get("userId"),
+    });
+
     const outputText =
       response.content
         .filter((block): block is Anthropic.TextBlock => block.type === "text")
