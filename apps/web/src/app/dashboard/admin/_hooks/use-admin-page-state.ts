@@ -4,6 +4,7 @@ import type {
   AdminIngestDetails,
   AdminStats,
   BlockedDomain,
+  LlmSpend,
   Promo,
 } from "@/lib/api";
 import { api } from "@/lib/api";
@@ -68,6 +69,12 @@ export function useAdminPageState() {
     "admin-metrics",
     useCallback(() => api.admin.getMetrics(), []),
     { refreshInterval: 5_000 },
+  );
+
+  const { data: llmSpend } = useApiSWR<LlmSpend>(
+    "admin-llm-spend",
+    useCallback(() => api.admin.getLlmSpend(), []),
+    { refreshInterval: 30_000 },
   );
 
   const { data: ingestDetails, mutate: refreshIngestDetails } =
@@ -362,6 +369,7 @@ export function useAdminPageState() {
     accessDenied: statsError?.status === 403,
     stats,
     metrics,
+    llmSpend,
     ingestDetails,
     promos: promos ?? [],
     customers,

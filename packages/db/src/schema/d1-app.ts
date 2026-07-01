@@ -1035,3 +1035,34 @@ export const aiPrompts = sqliteTable(
   },
   (t) => [index("idx_prompts_project").on(t.projectId)],
 );
+
+// ─── LLM cost tracking ───────────────────────────────────────────────────────
+// One row per LLM API call (scoring / AI-fix / narrative / etc.) with token
+// usage + an estimated cost. Powers the admin spend view + per-account budget
+// caps. project_id / user_id are nullable because some calls (wizard, prompt
+// research) aren't project-scoped.
+export const llmUsage = sqliteTable(
+  "llm_usage",
+  {
+    id: uuidText("id").primaryKey(),
+    projectId: uuidText("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    feature: text("feature").notNull(), // content_scoring | ai_fix | narrative | wizard | ...
+    model: text("model").notNull(),
+    plan: text("plan"), // plan tier at call time (for breakdown)
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    costUsd: real("cost_usd").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("idx_llm_usage_created").on(t.createdAt),
+    index("idx_llm_usage_user").on(t.userId),
+    index("idx_llm_usage_project").on(t.projectId),
+    index("idx_llm_usage_feature").on(t.feature),
+  ],
+);

@@ -14,6 +14,7 @@ import {
   billingQueries,
   apiTokenQueries,
   adminQueries,
+  llmUsageQueries,
 } from "@llm-boost/db";
 import { normalizeDomain } from "@llm-boost/shared";
 import { adminPromptRoutes } from "./admin-prompts";
@@ -32,6 +33,16 @@ adminRoutes.get("/stats", async (c) => {
   const service = buildAdminService(c);
   const stats = await service.getStats();
   return c.json({ data: stats });
+});
+
+// LLM spend this month: headline total + breakdown by feature/model.
+adminRoutes.get("/llm-spend", async (c) => {
+  const q = llmUsageQueries(c.get("db"));
+  const [total, breakdown] = await Promise.all([
+    q.totalThisMonth(),
+    q.summaryThisMonth(),
+  ]);
+  return c.json({ data: { total, breakdown } });
 });
 
 adminRoutes.get("/metrics", async (c) => {

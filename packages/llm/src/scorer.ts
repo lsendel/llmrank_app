@@ -6,10 +6,20 @@ import type { KVNamespace } from "./cache";
 import { withRetry } from "./retry";
 import { LLM_MODELS } from "./llm-config";
 
+/** Per-call token usage, reported via LLMScorerOptions.onUsage for cost tracking. */
+export interface LLMUsage {
+  inputTokens: number;
+  outputTokens: number;
+  model: string;
+}
+
 export interface LLMScorerOptions {
   anthropicApiKey: string;
   kvNamespace?: KVNamespace;
   model?: string;
+  /** Called after each real (non-cached) API call with its token usage. Kept as
+   * a callback so this package stays DB-free; the API layer records the cost. */
+  onUsage?: (usage: LLMUsage) => void;
 }
 
 const MIN_WORD_COUNT = 200;
@@ -18,11 +28,13 @@ export class LLMScorer {
   private client: Anthropic;
   private kv?: KVNamespace;
   private model: string;
+  private onUsage?: (usage: LLMUsage) => void;
 
   constructor(options: LLMScorerOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
     this.kv = options.kvNamespace;
     this.model = options.model ?? LLM_MODELS.scoring;
+    this.onUsage = options.onUsage;
   }
 
   /**
@@ -55,6 +67,14 @@ export class LLMScorer {
         messages: [{ role: "user", content: prompt.user }],
       }),
     );
+
+    if (this.onUsage && response.usage) {
+      this.onUsage({
+        inputTokens: response.usage.input_tokens ?? 0,
+        outputTokens: response.usage.output_tokens ?? 0,
+        model: this.model,
+      });
+    }
 
     let text =
       response.content[0].type === "text" ? response.content[0].text : "";
