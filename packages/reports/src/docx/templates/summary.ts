@@ -10,6 +10,7 @@ import {
   PageNumber,
 } from "docx";
 import type { ReportData } from "../../types";
+import { contentAssessedNote } from "../../data-aggregator";
 import {
   heading,
   bodyText,
@@ -99,6 +100,7 @@ export function buildSummaryDocx(data: ReportData): Document {
   sections.push({ children: coverParagraphs });
 
   // --- Scores + Summary section ---
+  const contentNote = contentAssessedNote(data.scores);
   const scoresParagraphs: FileChild[] = [
     heading("Category Scorecard", HeadingLevel.HEADING_1),
     scoreText(
@@ -111,6 +113,9 @@ export function buildSummaryDocx(data: ReportData): Document {
       data.scores.content,
       gradeColor(data.scores.content),
     ),
+    ...(contentNote
+      ? [bodyText(contentNote, { color: GRAY_600, size: 16 })]
+      : []),
     scoreText(
       "AI Readiness",
       data.scores.aiReadiness,

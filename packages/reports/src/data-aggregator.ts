@@ -115,6 +115,30 @@ function average(nums: (number | null | undefined)[]): number {
   );
 }
 
+/**
+ * Disclosure note for the Content Quality scorecard. Under top-N LLM
+ * content-scoring gating (#106-#108) the site-wide `content` average is inflated
+ * by pages that never received LLM scoring, so a bare number misreads as "great".
+ * Returns a note surfacing the honest assessed value + denominator so reports
+ * don't silently show the inflated figure. Returns null when every scored page
+ * was assessed (no gap to disclose).
+ */
+export function contentAssessedNote(scores: {
+  contentAssessed: number | null;
+  assessedPages: number;
+  totalPages: number;
+}): string | null {
+  const { contentAssessed, assessedPages, totalPages } = scores;
+  if (totalPages === 0) return null;
+  if (assessedPages === 0 || contentAssessed == null) {
+    return "Content quality not yet assessed by LLM — score reflects structural signals only.";
+  }
+  if (assessedPages >= totalPages) return null; // fully assessed, no gap
+  return `Content quality assessed on ${assessedPages} of ${totalPages} pages (assessed avg ${Math.round(
+    contentAssessed,
+  )}/100).`;
+}
+
 type IssueMetadata = {
   label: string;
   pillar: ReportPillar;
@@ -355,6 +379,23 @@ export function aggregateReportData(
   const technical = average(pageScores.map((p) => p.technicalScore));
   const content = average(pageScores.map((p) => p.contentScore));
   const aiReadiness = average(pageScores.map((p) => p.aiReadinessScore));
+
+  // Content assessment split (mirrors aggregatePageScores in @llm-boost/shared,
+  // shipped for the dashboard in #115). Under top-N LLM content-scoring gating
+  // (#106-#108) most pages carry NO llmContentScores, so they skip the
+  // LLM-content deduction and their contentScore reads ~+17pts high — inflating
+  // the site-level `content` average above. Expose an honest average taken ONLY
+  // over LLM-assessed pages plus the denominator (assessed vs total) so the PDF
+  // can present "assessed vs pending" instead of an inflated figure. `content`
+  // is kept unchanged for backward compatibility.
+  const assessedPageScores = pageScores.filter((p) => {
+    const d = p.detail as Record<string, unknown> | null | undefined;
+    return d != null && (d.llmContentScores ?? null) != null;
+  });
+  const contentAssessed = assessedPageScores.length
+    ? average(assessedPageScores.map((p) => p.contentScore))
+    : null;
+  const assessedPages = assessedPageScores.length;
   const lighthousePages = pageScores.filter(
     (p) => p.lighthousePerf != null || p.lighthouseSeo != null,
   );
@@ -650,6 +691,9 @@ export function aggregateReportData(
       overall,
       technical,
       content,
+      contentAssessed,
+      assessedPages,
+      totalPages: pageScores.length,
       aiReadiness,
       performance: performanceAvg,
       letterGrade: getLetterGrade(overall),

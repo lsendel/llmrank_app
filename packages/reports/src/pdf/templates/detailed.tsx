@@ -1,6 +1,7 @@
 import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import type { ReportData, ReportIssue, ReportPillar } from "../../types";
+import { contentAssessedNote } from "../../data-aggregator";
 import { ReportHeader } from "../components/header";
 import { ReportFooter } from "../components/footer";
 import { Section } from "../components/section";
@@ -41,6 +42,7 @@ const styles = StyleSheet.create({
   },
   scoreLabel: { fontSize: 9, color: "#6b7280" },
   scoreValue: { fontSize: 16, fontFamily: "Helvetica-Bold" },
+  scoreNote: { fontSize: 7, color: "#6b7280", marginTop: 2 },
   deltaText: {
     fontSize: 8,
     marginTop: 2,
@@ -283,7 +285,13 @@ function groupIssuesBySeverity(
 export function DetailedReportPdf({ data }: { data: ReportData }) {
   const brandColor = data.config.brandingColor ?? "#4f46e5";
   const brandName = data.project.branding?.companyName;
-  const categories = [
+  const contentNote = contentAssessedNote(data.scores);
+  const categories: {
+    label: string;
+    score: number;
+    delta: number;
+    note?: string | null;
+  }[] = [
     {
       label: "Technical SEO",
       score: data.scores.technical,
@@ -293,6 +301,7 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
       label: "Content Quality",
       score: data.scores.content,
       delta: data.scoreDeltas.content,
+      note: contentNote,
     },
     {
       label: "AI Readiness",
@@ -372,6 +381,7 @@ export function DetailedReportPdf({ data }: { data: ReportData }) {
                   >
                     {Math.round(cat.score)}
                   </Text>
+                  {cat.note && <Text style={styles.scoreNote}>{cat.note}</Text>}
                 </View>
               ))}
             </View>

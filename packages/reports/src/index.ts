@@ -26,6 +26,7 @@ export type {
 export {
   aggregateReportData,
   computePrioritizedActions,
+  contentAssessedNote,
   type RawDbResults,
   type AggregateOptions,
 } from "./data-aggregator";
