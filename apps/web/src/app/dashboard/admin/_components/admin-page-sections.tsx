@@ -8,7 +8,7 @@ import {
   TrendingUp,
   UserCheck,
 } from "lucide-react";
-import type { AdminCustomer, Promo } from "@/lib/api";
+import type { AdminCustomer, LlmSpend, Promo } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +80,56 @@ export function AdminStatsGrid({
         </Card>
       ))}
     </div>
+  );
+}
+
+export function AdminLlmSpendCard({
+  llmSpend,
+}: {
+  llmSpend: LlmSpend | undefined;
+}) {
+  if (!llmSpend) {
+    return null;
+  }
+  const fmt = (n: number) =>
+    `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          LLM spend — this month
+        </CardTitle>
+        <span className="text-xs text-muted-foreground">
+          {llmSpend.total.calls.toLocaleString()} calls
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-bold">{fmt(llmSpend.total.costUsd)}</p>
+        {llmSpend.breakdown.length > 0 ? (
+          <div className="mt-4 space-y-1">
+            {llmSpend.breakdown.map((b) => (
+              <div
+                key={`${b.feature}:${b.model}`}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="text-muted-foreground">
+                  {b.feature}{" "}
+                  <span className="text-xs opacity-60">({b.model})</span>
+                </span>
+                <span className="tabular-nums">
+                  {fmt(b.costUsd)}{" "}
+                  <span className="text-xs opacity-60">· {b.calls}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            No LLM calls recorded this month.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -114,6 +114,36 @@ describe("LLMScorer", () => {
     );
   });
 
+  it("reports token usage via onUsage on a real (non-cached) call", async () => {
+    const usages: {
+      inputTokens: number;
+      outputTokens: number;
+      model: string;
+    }[] = [];
+    const usageScorer = new LLMScorer({
+      anthropicApiKey: "test-api-key",
+      kvNamespace: createMockKV(),
+      model: "claude-sonnet-5",
+      onUsage: (u) => usages.push(u),
+    });
+    const instance = (
+      Anthropic as unknown as ReturnType<typeof vi.fn>
+    ).mock.results.at(-1)!.value;
+    instance.messages.create.mockResolvedValue({
+      content: [{ type: "text", text: JSON.stringify(sampleScores) }],
+      usage: { input_tokens: 244, output_tokens: 247 },
+    });
+
+    await usageScorer.scoreContent(generateText(300), "hash-usage");
+
+    expect(usages).toHaveLength(1);
+    expect(usages[0]).toEqual({
+      inputTokens: 244,
+      outputTokens: 247,
+      model: "claude-sonnet-5",
+    });
+  });
+
   it("caches scores after a successful API call", async () => {
     const text = generateText(300);
     await scorer.scoreContent(text, "hash-to-cache");

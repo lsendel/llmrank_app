@@ -1,6 +1,7 @@
 export { buildContentScoringPrompt } from "./prompts";
+export { LLM_MODELS, MODEL_PRICING, estimateCostUsd } from "./llm-config";
 export { LLMScorer } from "./scorer";
-export type { LLMScorerOptions } from "./scorer";
+export type { LLMScorerOptions, LLMUsage } from "./scorer";
 export {
   WorkersAiScorer,
   DEFAULT_WORKERS_AI_MODEL,

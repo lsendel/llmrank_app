@@ -218,6 +218,7 @@ export type {
   AdminIngestDetails,
   AdminStats,
   BlockedDomain,
+  LlmSpend,
   OutboxEventSummary,
   Promo,
 } from "./api/domains/admin";

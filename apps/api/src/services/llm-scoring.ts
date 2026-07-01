@@ -4,8 +4,15 @@ import {
   scoreQueries,
   pageQueries,
   batchJobQueries,
+  llmUsageQueries,
 } from "@llm-boost/db";
-import { LLMScorer, WorkersAiScorer, type WorkersAi } from "@llm-boost/llm";
+import {
+  LLMScorer,
+  WorkersAiScorer,
+  estimateCostUsd,
+  type WorkersAi,
+  type LLMUsage,
+} from "@llm-boost/llm";
 import type { CrawlPageResult, LLMContentScores } from "@llm-boost/shared";
 import { pMap } from "../lib/concurrent";
 import { createLogger } from "@llm-boost/shared";
@@ -154,7 +161,10 @@ export interface LLMScoringInput {
   insertedPages: { id: string; url: string }[];
   insertedScores: { id: string; pageId: string }[];
   jobId: string;
-  projectId?: string;
+  projectId?: string | null;
+  // Attribution for LLM cost tracking (llm_usage rows).
+  ownerId?: string | null;
+  plan?: string | null;
   // Worker context (Cloudflare): the app D1 binding (where page_scores actually
   // live) and the Workers AI binding. When both are present, scoring runs
   // synchronously via Workers AI and persists straight to D1 — the correct, cheap
@@ -314,10 +324,14 @@ async function runAnthropicD1Scoring(
   d1: D1Database,
 ): Promise<void> {
   const appDb = createAppDb(d1);
+  // Collect per-call token usage, then record ONE aggregated llm_usage row for
+  // the batch after scoring (awaited, so the cost write completes in-worker).
+  const usages: LLMUsage[] = [];
   const scorer = new LLMScorer({
     anthropicApiKey: input.anthropicApiKey,
     kvNamespace: input.kvNamespace,
     model: input.contentScoringModel,
+    onUsage: (u) => usages.push(u),
   });
 
   const all = await extractPageTexts(input);
@@ -352,6 +366,29 @@ async function runAnthropicD1Scoring(
     },
     { concurrency: 4, settle: true },
   );
+
+  // Record aggregated LLM cost for this batch (best-effort — never throws).
+  if (usages.length > 0) {
+    const inTok = usages.reduce((s, u) => s + u.inputTokens, 0);
+    const outTok = usages.reduce((s, u) => s + u.outputTokens, 0);
+    const model = usages[0].model;
+    try {
+      await llmUsageQueries(appDb).record({
+        feature: "content_scoring",
+        model,
+        inputTokens: inTok,
+        outputTokens: outTok,
+        costUsd: estimateCostUsd(model, inTok, outTok),
+        projectId: input.projectId ?? null,
+        userId: input.ownerId ?? null,
+        plan: input.plan ?? null,
+      });
+    } catch (err) {
+      log.error("llm_usage record failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   if (failed > 0) {
     log.error(

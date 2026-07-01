@@ -92,11 +92,30 @@ export interface AdminCustomerDetail {
   payments: PaymentRecord[];
 }
 
+export interface LlmSpend {
+  total: { calls: number; costUsd: number };
+  breakdown: {
+    feature: string;
+    model: string;
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+  }[];
+}
+
 export function createAdminApi() {
   return {
     async getStats(): Promise<AdminStats> {
       const res =
         await apiClient.get<ApiEnvelope<AdminStats>>("/api/admin/stats");
+      return res.data;
+    },
+
+    async getLlmSpend(): Promise<LlmSpend> {
+      const res = await apiClient.get<ApiEnvelope<LlmSpend>>(
+        "/api/admin/llm-spend",
+      );
       return res.data;
     },
 

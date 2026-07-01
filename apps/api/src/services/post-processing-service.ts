@@ -34,6 +34,7 @@ import {
   createAppDb,
   createAdminDb,
   createAgencyDb,
+  llmUsageQueries,
   outboxEvents,
   projectQueries,
   userQueries,
@@ -57,6 +58,10 @@ export interface PostProcessingEnv {
   d1Admin?: D1Database;
   supabaseConnectionString?: string;
   anthropicApiKey?: string;
+  /** Kill-switch: "false" disables ALL LLM content scoring (+ its spend). */
+  LLM_SCORING_ENABLED?: string;
+  /** Per-account monthly LLM budget cap in USD; 0/unset = no cap. */
+  LLM_MONTHLY_BUDGET_USD?: string;
   kvNamespace?: KVNamespace;
   r2: R2Bucket;
   ai?: WorkersAi;
@@ -102,7 +107,12 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
       // included. The provider check short-circuits the plan lookup on
       // no-provider deployments.
       let isPaidPlus = false;
-      if (env.ai || env.anthropicApiKey) {
+      let scoringOwnerId: string | null = null;
+      let scoringPlan: string | null = null;
+      // Global kill-switch: set LLM_SCORING_ENABLED="false" to stop ALL LLM
+      // content scoring (and its spend) without touching provider keys.
+      const llmScoringEnabled = env.LLM_SCORING_ENABLED !== "false";
+      if (llmScoringEnabled && (env.ai || env.anthropicApiKey)) {
         try {
           const scoringDb = createAppDb(env.d1);
           const scoringProject =
@@ -116,6 +126,22 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
               trialEndsAt: scoringOwner.trialEndsAt,
             });
             isPaidPlus = effectivePlan === "pro" || effectivePlan === "agency";
+            scoringOwnerId = scoringOwner.id;
+            scoringPlan = effectivePlan;
+            // Per-account monthly budget cap: skip scoring once an account's
+            // LLM spend this month reaches LLM_MONTHLY_BUDGET_USD (0/unset = off).
+            const cap = Number(env.LLM_MONTHLY_BUDGET_USD ?? 0);
+            if (isPaidPlus && cap > 0) {
+              const spent = await llmUsageQueries(
+                scoringDb,
+              ).accountSpendThisMonth(scoringOwner.id);
+              if (spent >= cap) {
+                isPaidPlus = false;
+                console.warn(
+                  `[post-processing] account ${scoringOwner.id} hit LLM budget cap $${cap} (spent $${spent.toFixed(2)}); skipping LLM scoring`,
+                );
+              }
+            }
           }
         } catch (err) {
           // A plan-read fault must NEVER abort the rest of schedule() — the
@@ -145,6 +171,10 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
             insertedPages,
             insertedScores,
             jobId: crawlJobId,
+            // Attribution for LLM cost tracking (llm_usage rows).
+            projectId,
+            ownerId: scoringOwnerId,
+            plan: scoringPlan,
             // Pro+ → high-quality Sonnet content scoring on the top pages.
             // Requires an Anthropic key; without one, falls back to Workers AI.
             contentScoringModel: env.anthropicApiKey

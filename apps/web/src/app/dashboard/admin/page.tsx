@@ -4,6 +4,7 @@ import {
   AdminAccessDeniedState,
   AdminBlockedDomainsCard,
   AdminCustomersCard,
+  AdminLlmSpendCard,
   AdminPageHeader,
   AdminPipelineHealthCard,
   AdminPromoCodesCard,
@@ -31,6 +32,7 @@ export default function AdminPage() {
       <AdminPageHeader />
       <AdminStatsGrid statCards={state.statCards} />
       <AdminSystemHealthGrid metrics={state.metrics} />
+      <AdminLlmSpendCard llmSpend={state.llmSpend} />
       <AdminPipelineHealthCard
         ingestCards={state.ingestCards}
         onOpenDetail={state.setDetailType}
