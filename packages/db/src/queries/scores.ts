@@ -4,6 +4,28 @@ import { pageScores, pages, issues } from "../schema";
 import type { IssueCategory, IssueSeverity } from "../schema/enums";
 import { chunkForD1Insert } from "./d1-batch";
 
+/** Rows per chunk when loading a whole job's issues/pages (D1 response-size safe). */
+const ISSUE_LOAD_CHUNK = 500;
+
+/**
+ * Load every row of an id-ordered query by paging with an id cursor, so a large
+ * result set never lands in a single D1 response (which can exceed its size
+ * limit and throw). The fetcher must order by `id asc` and use `gt(id, cursor)`.
+ */
+async function loadAllById<T extends { id: string }>(
+  fetch: (cursor: string | undefined) => Promise<T[]>,
+): Promise<T[]> {
+  const all: T[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const rows = await fetch(cursor);
+    all.push(...rows);
+    if (rows.length < ISSUE_LOAD_CHUNK) break;
+    cursor = rows[rows.length - 1].id;
+  }
+  return all;
+}
+
 interface ScoreCreateData {
   pageId: string;
   jobId: string;
@@ -182,9 +204,29 @@ export function scoreQueries(db: Database) {
     },
 
     async getIssuesByJob(jobId: string) {
+      // Load issues + pages in bounded id-cursor chunks. A single unbounded
+      // findMany over a large crawl (thousands of issues/pages) can exceed D1's
+      // response-size limit and THROW — which used to abort the is_final ingest
+      // batch (500) before post-processing ran. Chunked reads stay safe.
       const [jobIssues, pageRows] = await Promise.all([
-        db.query.issues.findMany({ where: eq(issues.jobId, jobId) }),
-        db.query.pages.findMany({ where: eq(pages.jobId, jobId) }),
+        loadAllById((cursor) =>
+          db.query.issues.findMany({
+            where: cursor
+              ? and(eq(issues.jobId, jobId), gt(issues.id, cursor))
+              : eq(issues.jobId, jobId),
+            orderBy: (i, { asc }) => [asc(i.id)],
+            limit: ISSUE_LOAD_CHUNK,
+          }),
+        ),
+        loadAllById((cursor) =>
+          db.query.pages.findMany({
+            where: cursor
+              ? and(eq(pages.jobId, jobId), gt(pages.id, cursor))
+              : eq(pages.jobId, jobId),
+            orderBy: (p, { asc }) => [asc(p.id)],
+            limit: ISSUE_LOAD_CHUNK,
+          }),
+        ),
       ]);
       const pageMap = new Map(pageRows.map((p) => [p.id, p]));
       return jobIssues.map((issue) => ({

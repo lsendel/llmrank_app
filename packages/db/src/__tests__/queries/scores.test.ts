@@ -200,6 +200,31 @@ describe("scoreQueries", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("getIssuesByJob pages through large result sets in chunks (no unbounded query)", async () => {
+    // A full 500-row first chunk must trigger a cursor-paged refetch; a short
+    // second chunk stops the loop. This keeps a large crawl's issues off a
+    // single (throw-prone) D1 response.
+    const chunk1 = Array.from({ length: 500 }, (_, i) => ({
+      id: `issue-${String(i).padStart(4, "0")}`,
+      pageId: "pg1",
+      code: "X",
+    }));
+    const chunk2 = [{ id: "issue-9999", pageId: "pg1", code: "X" }];
+    mock.db.query.issues.findMany
+      .mockResolvedValueOnce(chunk1)
+      .mockResolvedValueOnce(chunk2);
+    mock.db.query.pages.findMany.mockResolvedValueOnce([
+      { id: "pg1", url: "https://example.com/" },
+    ]);
+
+    const result = await queries.getIssuesByJob("j1");
+
+    // Two issue fetches (full chunk → refetch, short chunk → stop).
+    expect(mock.db.query.issues.findMany).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(501);
+    expect(result[0].pageUrl).toBe("https://example.com/");
+  });
+
   // --- getByPageWithIssues ---
   it("getByPageWithIssues returns score and issues together", async () => {
     const score = { id: "s1", pageId: "pg1", overallScore: 82 };
