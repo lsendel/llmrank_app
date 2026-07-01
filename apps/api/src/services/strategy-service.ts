@@ -30,9 +30,32 @@ export interface StrategyServiceDeps {
   pages: PageRepository;
   scores: ScoreRepository;
   crawls: CrawlRepository;
+  /**
+   * Best-effort LLM usage recorder for admin spend tracking. Wired by the
+   * route with the request-scoped db; must never throw into the strategy path.
+   */
+  recordUsage?: (usage: {
+    feature: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    userId?: string;
+    projectId?: string;
+  }) => void | Promise<void>;
 }
 
 export function createStrategyService(deps: StrategyServiceDeps) {
+  const makeOnUsage =
+    (feature: string, ctx: { userId?: string; projectId?: string }) =>
+    (usage: { model: string; inputTokens: number; outputTokens: number }) =>
+      deps.recordUsage?.({
+        feature,
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        ...ctx,
+      });
+
   return {
     async getTopicMap(userId: string, projectId: string) {
       const project = await assertProjectOwnership(
@@ -145,7 +168,11 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       apiKey: string,
     ) {
       await assertPageOwnership(userId, pageId);
-      const optimizer = new StrategyOptimizer(apiKey);
+      const optimizer = new StrategyOptimizer(
+        apiKey,
+        undefined,
+        makeOnUsage("strategy_rewrite", { userId }),
+      );
       return optimizer.rewriteForAIVisibility(content);
     },
 
@@ -163,12 +190,20 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       apiKey: string,
     ) {
       await assertPageOwnership(userId, pageId);
-      const optimizer = new StrategyOptimizer(apiKey);
+      const optimizer = new StrategyOptimizer(
+        apiKey,
+        undefined,
+        makeOnUsage("strategy_improve_dimension", { userId }),
+      );
       return optimizer.improveDimension({ content, dimension, tone });
     },
 
     async brief(keyword: string, apiKey: string) {
-      const optimizer = new StrategyOptimizer(apiKey);
+      const optimizer = new StrategyOptimizer(
+        apiKey,
+        undefined,
+        makeOnUsage("strategy_brief", {}),
+      );
       return optimizer.generateContentBrief(keyword);
     },
 
@@ -189,7 +224,14 @@ export function createStrategyService(deps: StrategyServiceDeps) {
       if (args.pageId && (!page || page.projectId !== project.id)) {
         throw new ServiceError("NOT_FOUND", 404, "Page not found");
       }
-      const optimizer = new StrategyOptimizer(args.apiKey);
+      const optimizer = new StrategyOptimizer(
+        args.apiKey,
+        undefined,
+        makeOnUsage("strategy_gap_analysis", {
+          userId: args.userId,
+          projectId: args.projectId,
+        }),
+      );
       return optimizer.analyzeStructuralGap({
         userDomain: project.domain,
         competitorDomain: args.competitorDomain,
@@ -218,7 +260,10 @@ export function createStrategyService(deps: StrategyServiceDeps) {
           "AI service not configured",
         );
       }
-      const generator = new PersonaGenerator({ anthropicApiKey: apiKey });
+      const generator = new PersonaGenerator({
+        anthropicApiKey: apiKey,
+        onUsage: makeOnUsage("strategy_personas", { userId, projectId }),
+      });
       return generator.generatePersonas({
         domain: project.domain,
         description: payload.description || project.name,

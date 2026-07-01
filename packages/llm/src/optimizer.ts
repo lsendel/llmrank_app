@@ -21,10 +21,34 @@ export interface ContentBrief {
 export class StrategyOptimizer {
   private client: Anthropic;
   private model: string;
+  private onUsage?: (usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => void | Promise<void>;
 
-  constructor(apiKey: string, model?: string) {
+  constructor(
+    apiKey: string,
+    model?: string,
+    onUsage?: (usage: {
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+    }) => void | Promise<void>,
+  ) {
     this.client = new Anthropic({ apiKey });
     this.model = model ?? LLM_MODELS.optimizer;
+    this.onUsage = onUsage;
+  }
+
+  private async recordUsage(response: {
+    usage: { input_tokens: number; output_tokens: number };
+  }): Promise<void> {
+    await this.onUsage?.({
+      model: this.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    });
   }
 
   /**
@@ -57,6 +81,8 @@ Return only the JSON.`;
         messages: [{ role: "user", content: prompt }],
       }),
     );
+
+    await this.recordUsage(response);
 
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
@@ -97,6 +123,8 @@ Return ONLY a JSON object matching the structure:
       }),
     );
 
+    await this.recordUsage(response);
+
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
     return JSON.parse(stripFences(text));
@@ -136,6 +164,8 @@ Return only the JSON.`;
         messages: [{ role: "user", content: prompt }],
       }),
     );
+
+    await this.recordUsage(response);
 
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
@@ -187,6 +217,8 @@ Return ONLY a JSON object:
         messages: [{ role: "user", content: prompt }],
       }),
     );
+
+    await this.recordUsage(response);
 
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
@@ -276,6 +308,8 @@ Return only the JSON.`;
         messages: [{ role: "user", content: prompt }],
       }),
     );
+
+    await this.recordUsage(response);
 
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";

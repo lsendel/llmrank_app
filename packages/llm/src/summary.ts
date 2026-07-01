@@ -6,15 +6,22 @@ import { LLM_MODELS } from "./llm-config";
 export interface SummaryGeneratorOptions {
   anthropicApiKey: string;
   model?: string;
+  onUsage?: (usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => void | Promise<void>;
 }
 
 export class SummaryGenerator {
   private client: Anthropic;
   private model: string;
+  private onUsage?: SummaryGeneratorOptions["onUsage"];
 
   constructor(options: SummaryGeneratorOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
     this.model = options.model ?? LLM_MODELS.summary;
+    this.onUsage = options.onUsage;
   }
 
   /**
@@ -79,6 +86,12 @@ ${quickWinsText}
         messages: [{ role: "user", content: prompt }],
       }),
     );
+
+    await this.onUsage?.({
+      model: this.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    });
 
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";

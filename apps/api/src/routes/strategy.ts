@@ -13,6 +13,7 @@ import {
 } from "@llm-boost/repositories";
 import { handleServiceError } from "../lib/error-handler";
 import { StrategyOptimizer, FactExtractor } from "@llm-boost/llm";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 import { meetsMinimumTier, type PlanTier } from "@llm-boost/shared";
 
 export const strategyRoutes = new Hono<AppEnv>();
@@ -27,6 +28,7 @@ function buildStrategyService(c: Context<AppEnv>) {
     pages: createPageRepository(db),
     scores: createScoreRepository(db),
     crawls: createCrawlRepository(db),
+    recordUsage: (usage) => trackLlmUsage(db, usage),
   });
 }
 
@@ -112,7 +114,19 @@ strategyRoutes.post("/apply-fix", enforcePlan("starter"), async (c) => {
     );
   }
 
-  const optimizer = new StrategyOptimizer(c.env.ANTHROPIC_API_KEY);
+  const optimizer = new StrategyOptimizer(
+    c.env.ANTHROPIC_API_KEY,
+    undefined,
+    (usage) =>
+      trackLlmUsage(db, {
+        feature: "strategy_content_fix",
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        userId,
+        projectId: page.projectId,
+      }),
+  );
 
   try {
     const result = await optimizer.generateContentFix({
@@ -158,7 +172,19 @@ strategyRoutes.post("/semantic-gap", enforcePlan("pro"), async (c) => {
     );
   }
 
-  const extractor = new FactExtractor(c.env.ANTHROPIC_API_KEY);
+  const extractor = new FactExtractor(
+    c.env.ANTHROPIC_API_KEY,
+    undefined,
+    (usage) =>
+      trackLlmUsage(db, {
+        feature: "strategy_fact_extract",
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        userId,
+        projectId: page.projectId,
+      }),
+  );
 
   const userContent = `Title: ${page.title}. URL: ${page.url}. Word Count: ${page.wordCount}`;
 

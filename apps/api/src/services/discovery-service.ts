@@ -145,6 +145,16 @@ export interface DiscoveryDeps {
     add: (projectId: string, domain: string) => Promise<unknown>;
     listByProject: (projectId: string) => Promise<Array<{ domain: string }>>;
   };
+  /**
+   * Best-effort LLM usage recorder for admin spend tracking. Called after each
+   * Anthropic response; must never throw into the discovery path.
+   */
+  recordUsage?: (usage: {
+    feature: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => Promise<void> | void;
 }
 
 export function createDiscoveryService(deps: DiscoveryDeps) {
@@ -218,6 +228,13 @@ Return ONLY valid JSON with this structure: { "personas": [...], "keywords": [..
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
         messages: [{ role: "user", content: prompt }],
+      });
+
+      await deps.recordUsage?.({
+        feature: "discovery_personas",
+        model: "claude-haiku-4-5-20251001",
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
       });
 
       const text =

@@ -25,6 +25,11 @@ export async function discoverPrompts(
     competitors: string[];
     count?: number;
   },
+  onUsage?: (usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => void | Promise<void>,
 ): Promise<DiscoveredPrompt[]> {
   const count = options.count ?? 20;
   const client = new Anthropic({ apiKey });
@@ -121,6 +126,12 @@ Generate diverse prompts across these categories:
       ],
     }),
   );
+
+  await onUsage?.({
+    model: LLM_MODELS.personas,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  });
 
   const toolBlock = response.content.find(
     (block) => block.type === "tool_use" && block.name === "return_prompts",

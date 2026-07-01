@@ -25,6 +25,7 @@ import type {
   ProjectRepository,
   UserRepository,
 } from "@llm-boost/repositories";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 
 interface Deps {
   db: AppDatabase;
@@ -132,6 +133,16 @@ export function createNarrativeService(deps: Deps) {
           sectionPrompts,
         });
         const result = await engine.generate(narrativeInput);
+
+        await trackLlmUsage(deps.db, {
+          feature: "narrative",
+          model: defaultModel,
+          inputTokens: result.tokenUsage.input,
+          outputTokens: result.tokenUsage.output,
+          userId,
+          projectId: crawl.projectId,
+          plan: user.plan,
+        });
 
         await deps.narratives.updateStatus(record.id, "ready", {
           sections: result.sections as any,
@@ -267,6 +278,16 @@ export function createNarrativeService(deps: Deps) {
         anthropicApiKey: env.anthropicApiKey,
         model: defaultModel,
         sectionPrompts,
+        onUsage: (usage) =>
+          trackLlmUsage(deps.db, {
+            feature: "narrative_regenerate",
+            model: usage.model,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            userId,
+            projectId: crawl.projectId,
+            plan: user.plan,
+          }),
       });
 
       let newSection;

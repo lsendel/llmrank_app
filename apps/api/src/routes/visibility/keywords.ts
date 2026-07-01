@@ -7,6 +7,7 @@ import {
 } from "@llm-boost/repositories";
 import { handleServiceError } from "../../lib/error-handler";
 import { suggestKeywords } from "@llm-boost/llm";
+import { trackLlmUsage } from "../../lib/llm-usage-tracker";
 import {
   enrichmentQueries,
   crawlQueries,
@@ -56,7 +57,20 @@ visibilityKeywordRoutes.post(
       },
       llm: {
         async generateKeywords(domain: string, context: string) {
-          return suggestKeywords(c.env.ANTHROPIC_API_KEY, domain, context);
+          return suggestKeywords(
+            c.env.ANTHROPIC_API_KEY,
+            domain,
+            context,
+            (usage) =>
+              trackLlmUsage(db, {
+                feature: "keyword_discovery",
+                model: usage.model,
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
+                userId,
+                projectId,
+              }),
+          );
         },
       },
     });

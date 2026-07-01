@@ -9,6 +9,7 @@ import {
 } from "@llm-boost/repositories";
 import { aiPromptQueries, savedKeywordQueries } from "@llm-boost/db";
 import { discoverPrompts } from "@llm-boost/llm";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 import { createVisibilityService } from "@llm-boost/pipeline";
 import { ServiceError } from "@llm-boost/shared";
 import { resolveLocaleForPlan } from "../lib/visibility-locale";
@@ -100,14 +101,26 @@ promptResearchRoutes.post("/:projectId/discover", async (c) => {
   // Get competitors
   const competitors = (settings.competitors ?? []) as string[];
 
-  const discovered = await discoverPrompts(c.env.ANTHROPIC_API_KEY, {
-    domain: project.domain,
-    industry,
-    siteDescription,
-    existingKeywords,
-    competitors,
-    count: Math.min(remaining, 20),
-  });
+  const discovered = await discoverPrompts(
+    c.env.ANTHROPIC_API_KEY,
+    {
+      domain: project.domain,
+      industry,
+      siteDescription,
+      existingKeywords,
+      competitors,
+      count: Math.min(remaining, 20),
+    },
+    (usage) =>
+      trackLlmUsage(db, {
+        feature: "prompt_discovery",
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        userId,
+        projectId,
+      }),
+  );
 
   if (discovered.length === 0) {
     return c.json({ data: [] });

@@ -39,6 +39,14 @@ wizardRoutes.post("/extract-keywords", async (c) => {
     c.env.ANTHROPIC_API_KEY,
     domain,
     extractedKeywords.join(", "),
+    (usage) =>
+      trackLlmUsage(c.get("db"), {
+        feature: "wizard_keywords",
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        userId: c.get("userId"),
+      }),
   );
 
   return c.json({

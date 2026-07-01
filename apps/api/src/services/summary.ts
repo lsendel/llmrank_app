@@ -15,6 +15,7 @@ import {
 import { toAggregateInput } from "./score-helpers";
 import { createNotificationService } from "./notification-service";
 import { createProgressService } from "./progress-service";
+import { trackLlmUsage } from "../lib/llm-usage-tracker";
 
 export interface SummaryDataInput {
   d1: D1Database;
@@ -72,12 +73,21 @@ export async function persistCrawlSummaryData(
  */
 export async function generateCrawlSummary(input: SummaryInput): Promise<void> {
   const db = createAppDb(input.d1);
-  const summaryGenerator = new SummaryGenerator({
-    anthropicApiKey: input.anthropicApiKey,
-  });
 
   const summaryData = await persistSummaryWithDb(db, input);
   if (!summaryData) return;
+
+  const summaryGenerator = new SummaryGenerator({
+    anthropicApiKey: input.anthropicApiKey,
+    onUsage: (usage) =>
+      trackLlmUsage(db, {
+        feature: "executive_summary",
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        projectId: input.projectId,
+      }),
+  });
 
   const summary = await summaryGenerator.generateExecutiveSummary({
     projectName: summaryData.project.name,

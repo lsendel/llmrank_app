@@ -5,6 +5,11 @@ export async function suggestKeywords(
   apiKey: string,
   domain: string,
   contextKeywords: string,
+  onUsage?: (usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => void | Promise<void>,
 ): Promise<string[]> {
   const client = new Anthropic({ apiKey });
 
@@ -24,6 +29,12 @@ Suggest 20 search queries a user might ask an AI assistant (ChatGPT, Claude, Per
 Return ONLY a JSON array of strings, no explanation. Example: ["keyword 1", "keyword 2"]`,
       },
     ],
+  });
+
+  await onUsage?.({
+    model: LLM_MODELS.scoring,
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
   });
 
   const text =

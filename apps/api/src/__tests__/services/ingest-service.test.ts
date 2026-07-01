@@ -147,6 +147,10 @@ vi.mock("@llm-boost/db", () => ({
     }),
   }),
   userQueries: vi.fn().mockReturnValue({ getById: mockUserGetById }),
+  adminQueries: vi.fn().mockReturnValue({
+    getSetting: vi.fn().mockResolvedValue(null),
+  }),
+  llmUsageQueries: vi.fn().mockReturnValue({ record: vi.fn() }),
   outboxEvents: { crawlCompleted: "crawl.completed" },
 }));
 

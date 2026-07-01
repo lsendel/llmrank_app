@@ -85,6 +85,8 @@ discoveryRoutes.post(
         personaRepo: personaQueries(db),
         keywordRepo: savedKeywordQueries(db),
         competitorRepo: competitorQueries(db),
+        recordUsage: (usage) =>
+          trackLlmUsage(db, { ...usage, userId, projectId }),
       });
 
       const result = await service.runFullDiscovery(

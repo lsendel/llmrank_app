@@ -17,6 +17,16 @@ export interface NarrativeEngineOptions {
   sectionPrompts?: Partial<
     Record<NarrativeSectionType, NarrativeResolvedPrompt>
   >;
+  /**
+   * Best-effort per-call usage hook for admin cost tracking. Invoked after each
+   * Anthropic response. `generate()` also returns aggregate `tokenUsage`, so
+   * this is primarily for single-call paths like `regenerateSection`.
+   */
+  onUsage?: (usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => void | Promise<void>;
 }
 
 export class NarrativeEngine {
@@ -25,11 +35,13 @@ export class NarrativeEngine {
   private sectionPrompts: Partial<
     Record<NarrativeSectionType, NarrativeResolvedPrompt>
   >;
+  private onUsage?: NarrativeEngineOptions["onUsage"];
 
   constructor(options: NarrativeEngineOptions) {
     this.client = new Anthropic({ apiKey: options.anthropicApiKey });
     this.model = options.model ?? DEFAULT_MODEL;
     this.sectionPrompts = options.sectionPrompts ?? {};
+    this.onUsage = options.onUsage;
   }
 
   async generate(input: NarrativeInput): Promise<NarrativeReport> {
@@ -112,6 +124,12 @@ ${JSON.stringify(dataContext, null, 2)}`;
       ...(resolvedPrompt?.temperature != null
         ? { temperature: resolvedPrompt.temperature }
         : {}),
+    });
+
+    await this.onUsage?.({
+      model: resolvedPrompt?.model ?? this.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
     });
 
     const content =

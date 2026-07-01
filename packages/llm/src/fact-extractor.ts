@@ -12,10 +12,24 @@ export interface ExtractedFact {
 export class FactExtractor {
   private client: Anthropic;
   private model: string;
+  private onUsage?: (usage: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => void | Promise<void>;
 
-  constructor(apiKey: string, model = LLM_MODELS.factExtraction) {
+  constructor(
+    apiKey: string,
+    model = LLM_MODELS.factExtraction,
+    onUsage?: (usage: {
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+    }) => void | Promise<void>,
+  ) {
     this.client = new Anthropic({ apiKey });
     this.model = model;
+    this.onUsage = onUsage;
   }
 
   /**
@@ -47,6 +61,12 @@ Return ONLY a JSON array of objects:
         messages: [{ role: "user", content: prompt }],
       }),
     );
+
+    await this.onUsage?.({
+      model: this.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    });
 
     const content =
       response.content[0].type === "text" ? response.content[0].text : "";
