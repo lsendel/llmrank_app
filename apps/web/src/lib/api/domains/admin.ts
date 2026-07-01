@@ -257,9 +257,17 @@ export function createAdminApi() {
       return res.data;
     },
 
-    async getSettings(): Promise<{ http_fallback_enabled: boolean }> {
+    async getSettings(): Promise<{
+      http_fallback_enabled: boolean;
+      llm_scoring_enabled: boolean;
+      llm_monthly_budget_usd: number;
+    }> {
       const res = await apiClient.get<
-        ApiEnvelope<{ http_fallback_enabled: boolean }>
+        ApiEnvelope<{
+          http_fallback_enabled: boolean;
+          llm_scoring_enabled: boolean;
+          llm_monthly_budget_usd: number;
+        }>
       >("/api/admin/settings");
       return res.data;
     },

@@ -492,16 +492,24 @@ export function AdminPromoCodesCard({
 export function AdminSettingsCard({
   httpFallbackEnabled,
   onToggleHttpFallback,
+  llmScoringEnabled,
+  onToggleLlmScoring,
+  llmMonthlyBudget,
+  onSaveLlmBudget,
 }: {
   httpFallbackEnabled: boolean;
   onToggleHttpFallback: () => void;
+  llmScoringEnabled: boolean;
+  onToggleLlmScoring: () => void;
+  llmMonthlyBudget: number;
+  onSaveLlmBudget: (value: number) => void;
 }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Settings</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-5">
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -517,6 +525,45 @@ export function AdminSettingsCard({
             </p>
           </div>
         </label>
+
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={llmScoringEnabled}
+            onChange={onToggleLlmScoring}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          <div>
+            <span className="font-medium">LLM content scoring enabled</span>
+            <p className="text-xs text-muted-foreground">
+              Master kill-switch. When off, ALL paid LLM content scoring (and
+              its spend) stops immediately — deterministic scoring continues.
+            </p>
+          </div>
+        </label>
+
+        <div>
+          <span className="font-medium">Per-account monthly LLM budget</span>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Skip LLM scoring for an account once its month spend reaches this
+            cap (USD). 0 = no cap.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">$</span>
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              defaultValue={llmMonthlyBudget}
+              className="w-32"
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (v !== llmMonthlyBudget) onSaveLlmBudget(v);
+              }}
+            />
+            <span className="text-xs text-muted-foreground">/ month</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

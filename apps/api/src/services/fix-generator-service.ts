@@ -18,6 +18,15 @@ interface FixGeneratorDeps {
     create: (data: any) => Promise<any>;
     countByUserThisMonth: (userId: string) => Promise<number>;
   };
+  /** Best-effort LLM cost tracking (admin spend view). Optional so callers that
+   * don't wire it (or tests) still work; failures never break fix generation. */
+  recordUsage?: (u: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    userId: string;
+    projectId: string;
+  }) => Promise<void>;
 }
 
 const FIX_PROMPTS: Record<
@@ -222,6 +231,20 @@ export function createFixGeneratorService(deps: FixGeneratorDeps) {
         tokensUsed: message.usage.input_tokens + message.usage.output_tokens,
         model: "claude-sonnet-4-6",
       });
+
+      if (deps.recordUsage) {
+        try {
+          await deps.recordUsage({
+            model: "claude-sonnet-4-6",
+            inputTokens: message.usage.input_tokens,
+            outputTokens: message.usage.output_tokens,
+            userId: args.userId,
+            projectId: args.projectId,
+          });
+        } catch {
+          // best-effort: cost tracking must never fail an AI fix
+        }
+      }
 
       return fix;
     },

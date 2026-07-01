@@ -84,6 +84,14 @@ export default function AdminPage() {
         onToggleHttpFallback={() => {
           void state.handleToggleHttpFallback();
         }}
+        llmScoringEnabled={state.llmScoringEnabled}
+        onToggleLlmScoring={() => {
+          void state.handleToggleLlmScoring();
+        }}
+        llmMonthlyBudget={state.llmMonthlyBudget}
+        onSaveLlmBudget={(v) => {
+          void state.handleSaveLlmBudget(v);
+        }}
       />
 
       <AdminBlockedDomainsCard

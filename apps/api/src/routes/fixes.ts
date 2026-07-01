@@ -5,11 +5,38 @@ import { handleServiceError } from "../lib/error-handler";
 import { createFixGeneratorService } from "../services/fix-generator-service";
 import {
   contentFixQueries,
+  llmUsageQueries,
   userQueries,
   projectQueries,
   pageQueries,
   crawlQueries,
 } from "@llm-boost/db";
+import { estimateCostUsd } from "@llm-boost/llm";
+
+/** Best-effort AI-fix cost recorder for the admin LLM-spend view. */
+function makeFixUsageRecorder(
+  db: Parameters<typeof llmUsageQueries>[0],
+  plan?: string | null,
+) {
+  return async (u: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    userId: string;
+    projectId: string;
+  }) => {
+    await llmUsageQueries(db).record({
+      feature: "ai_fix",
+      model: u.model,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      costUsd: estimateCostUsd(u.model, u.inputTokens, u.outputTokens),
+      userId: u.userId,
+      projectId: u.projectId,
+      plan: plan ?? null,
+    });
+  };
+}
 import { PLAN_LIMITS } from "@llm-boost/shared";
 import { parseHtml } from "@llm-boost/parsers";
 
@@ -225,6 +252,7 @@ fixRoutes.post("/generate", async (c) => {
 
     const service = createFixGeneratorService({
       contentFixes: contentFixQueries(db),
+      recordUsage: makeFixUsageRecorder(db, user?.plan),
     });
 
     const limits =
@@ -286,6 +314,7 @@ fixRoutes.post("/generate-batch", async (c) => {
 
     const service = createFixGeneratorService({
       contentFixes: contentFixQueries(db),
+      recordUsage: makeFixUsageRecorder(db, user?.plan),
     });
 
     const supportedCodes = new Set(service.getSupportedIssueCodes());

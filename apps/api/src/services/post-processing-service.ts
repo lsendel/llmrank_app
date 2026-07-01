@@ -31,6 +31,7 @@ import { createRegressionService } from "./regression-service";
 import { createFrontierService } from "./frontier-service";
 import {
   actionItemQueries,
+  adminQueries,
   createAppDb,
   createAdminDb,
   createAgencyDb,
@@ -109,37 +110,53 @@ export function createPostProcessingService(deps: PostProcessingDeps) {
       let isPaidPlus = false;
       let scoringOwnerId: string | null = null;
       let scoringPlan: string | null = null;
-      // Global kill-switch: set LLM_SCORING_ENABLED="false" to stop ALL LLM
-      // content scoring (and its spend) without touching provider keys.
-      const llmScoringEnabled = env.LLM_SCORING_ENABLED !== "false";
-      if (llmScoringEnabled && (env.ai || env.anthropicApiKey)) {
+      if (env.ai || env.anthropicApiKey) {
         try {
           const scoringDb = createAppDb(env.d1);
-          const scoringProject =
-            await projectQueries(scoringDb).getById(projectId);
-          const scoringOwner = scoringProject
-            ? await userQueries(scoringDb).getById(scoringProject.userId)
-            : null;
-          if (scoringOwner) {
-            const effectivePlan = resolveEffectivePlan({
-              plan: scoringOwner.plan as PlanTier,
-              trialEndsAt: scoringOwner.trialEndsAt,
-            });
-            isPaidPlus = effectivePlan === "pro" || effectivePlan === "agency";
-            scoringOwnerId = scoringOwner.id;
-            scoringPlan = effectivePlan;
-            // Per-account monthly budget cap: skip scoring once an account's
-            // LLM spend this month reaches LLM_MONTHLY_BUDGET_USD (0/unset = off).
-            const cap = Number(env.LLM_MONTHLY_BUDGET_USD ?? 0);
-            if (isPaidPlus && cap > 0) {
-              const spent = await llmUsageQueries(
-                scoringDb,
-              ).accountSpendThisMonth(scoringOwner.id);
-              if (spent >= cap) {
-                isPaidPlus = false;
-                console.warn(
-                  `[post-processing] account ${scoringOwner.id} hit LLM budget cap $${cap} (spent $${spent.toFixed(2)}); skipping LLM scoring`,
-                );
+          const settingsQ = adminQueries(scoringDb);
+          // Kill-switch: the admin setting (if present) overrides the env flag;
+          // default ON (only an explicit "false" disables). Stops ALL LLM
+          // content scoring + its spend without touching provider keys.
+          const ksSetting = await settingsQ
+            .getSetting("llm_scoring_enabled")
+            .catch(() => null);
+          const llmScoringEnabled = ksSetting
+            ? ksSetting.value !== "false"
+            : env.LLM_SCORING_ENABLED !== "false";
+          if (llmScoringEnabled) {
+            const scoringProject =
+              await projectQueries(scoringDb).getById(projectId);
+            const scoringOwner = scoringProject
+              ? await userQueries(scoringDb).getById(scoringProject.userId)
+              : null;
+            if (scoringOwner) {
+              const effectivePlan = resolveEffectivePlan({
+                plan: scoringOwner.plan as PlanTier,
+                trialEndsAt: scoringOwner.trialEndsAt,
+              });
+              isPaidPlus =
+                effectivePlan === "pro" || effectivePlan === "agency";
+              scoringOwnerId = scoringOwner.id;
+              scoringPlan = effectivePlan;
+              // Per-account monthly budget cap: admin setting overrides env;
+              // skip scoring once the account's month spend reaches the cap
+              // (0/unset = no cap).
+              const budgetSetting = await settingsQ
+                .getSetting("llm_monthly_budget_usd")
+                .catch(() => null);
+              const cap = Number(
+                budgetSetting?.value ?? env.LLM_MONTHLY_BUDGET_USD ?? 0,
+              );
+              if (isPaidPlus && cap > 0) {
+                const spent = await llmUsageQueries(
+                  scoringDb,
+                ).accountSpendThisMonth(scoringOwner.id);
+                if (spent >= cap) {
+                  isPaidPlus = false;
+                  console.warn(
+                    `[post-processing] account ${scoringOwner.id} hit LLM budget cap $${cap} (spent $${spent.toFixed(2)}); skipping LLM scoring`,
+                  );
+                }
               }
             }
           }

@@ -58,6 +58,8 @@ export function useAdminPageState() {
   const [newBlockDomain, setNewBlockDomain] = useState("");
   const [newBlockReason, setNewBlockReason] = useState("");
   const [httpFallbackEnabled, setHttpFallbackEnabled] = useState(false);
+  const [llmScoringEnabled, setLlmScoringEnabled] = useState(true);
+  const [llmMonthlyBudget, setLlmMonthlyBudget] = useState(0);
 
   const { data: stats, error: statsError } = useApiSWR<AdminStats>(
     "admin-stats",
@@ -139,6 +141,8 @@ export function useAdminPageState() {
       .then((settings) => {
         if (!cancelled) {
           setHttpFallbackEnabled(settings.http_fallback_enabled);
+          setLlmScoringEnabled(settings.llm_scoring_enabled);
+          setLlmMonthlyBudget(settings.llm_monthly_budget_usd);
         }
       })
       .catch(() => {});
@@ -361,6 +365,26 @@ export function useAdminPageState() {
     }
   }, [httpFallbackEnabled]);
 
+  const handleToggleLlmScoring = useCallback(async () => {
+    const nextValue = !llmScoringEnabled;
+    try {
+      await api.admin.updateSetting("llm_scoring_enabled", nextValue);
+      setLlmScoringEnabled(nextValue);
+    } catch (error) {
+      console.error("Failed to update LLM scoring setting:", error);
+    }
+  }, [llmScoringEnabled]);
+
+  const handleSaveLlmBudget = useCallback(async (value: number) => {
+    const safe = Number.isFinite(value) && value >= 0 ? value : 0;
+    try {
+      await api.admin.updateSetting("llm_monthly_budget_usd", safe);
+      setLlmMonthlyBudget(safe);
+    } catch (error) {
+      console.error("Failed to update LLM budget setting:", error);
+    }
+  }, []);
+
   const customers = customersData?.data ?? [];
   const statCards = buildAdminStatCards(stats);
   const ingestCards = buildAdminIngestCards(stats, pendingHistory);
@@ -390,6 +414,8 @@ export function useAdminPageState() {
     newBlockDomain,
     newBlockReason,
     httpFallbackEnabled,
+    llmScoringEnabled,
+    llmMonthlyBudget,
     statCards,
     ingestCards,
     setSearch,
@@ -414,5 +440,7 @@ export function useAdminPageState() {
     handleAddBlocked,
     handleRemoveBlocked,
     handleToggleHttpFallback,
+    handleToggleLlmScoring,
+    handleSaveLlmBudget,
   };
 }

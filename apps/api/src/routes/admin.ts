@@ -578,10 +578,17 @@ adminRoutes.delete("/blocked-domains/:id", async (c) => {
 adminRoutes.get("/settings", async (c) => {
   const db = c.get("db");
   const queries = adminQueries(db);
-  const httpFallback = await queries.getSetting("http_fallback_enabled");
+  const [httpFallback, llmScoring, llmBudget] = await Promise.all([
+    queries.getSetting("http_fallback_enabled"),
+    queries.getSetting("llm_scoring_enabled"),
+    queries.getSetting("llm_monthly_budget_usd"),
+  ]);
   return c.json({
     data: {
       http_fallback_enabled: httpFallback?.value === "true",
+      // Default ON (matches env behaviour: only "false" disables scoring).
+      llm_scoring_enabled: llmScoring?.value !== "false",
+      llm_monthly_budget_usd: Number(llmBudget?.value ?? 0) || 0,
     },
   });
 });
@@ -594,7 +601,11 @@ adminRoutes.put("/settings/:key", async (c) => {
   const key = c.req.param("key");
   const body = await c.req.json<{ value: unknown }>();
 
-  const allowedKeys = ["http_fallback_enabled"];
+  const allowedKeys = [
+    "http_fallback_enabled",
+    "llm_scoring_enabled",
+    "llm_monthly_budget_usd",
+  ];
   if (!allowedKeys.includes(key)) {
     return c.json(
       {
