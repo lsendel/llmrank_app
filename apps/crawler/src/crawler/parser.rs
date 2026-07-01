@@ -64,6 +64,9 @@ pub struct ParsedPage {
     pub word_count: u32,
     pub flesch_score: Option<f64>,
     pub flesch_classification: Option<String>,
+    /// Average sentence length (words / sentences) — the structural readability
+    /// signal the scorer prefers over vocabulary-driven Flesch.
+    pub avg_sentence_length: Option<f64>,
     pub text_html_ratio: Option<f64>,
     pub text_length: Option<usize>,
     pub html_length: Option<usize>,
@@ -157,6 +160,7 @@ impl Parser {
             word_count,
             flesch_score: flesch.as_ref().map(|f| f.score),
             flesch_classification: flesch.as_ref().map(|f| f.classification.clone()),
+            avg_sentence_length: flesch.as_ref().map(|f| f.avg_sentence_length),
             text_html_ratio: Some(text_ratio.ratio),
             text_length: Some(text_ratio.text_length),
             html_length: Some(text_ratio.html_length),

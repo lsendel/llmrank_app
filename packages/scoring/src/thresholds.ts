@@ -28,15 +28,29 @@ export const THRESHOLDS = {
   // POOR_READABILITY targets STRUCTURAL unreadability — long/run-on sentences
   // and wall-of-text prose, which is what actually hurts an LLM's ability to
   // chunk and extract a page — NOT vocabulary difficulty, which LLMs handle
-  // fine. Raw Flesch reading-ease conflates the two: its `-84.6*syllables/word`
+  // fine.
+  //
+  // PRIMARY signal: AVERAGE SENTENCE LENGTH (words / sentences), emitted by the
+  // crawler (readability.rs). This is the pure structural component — it carries
+  // no syllable/vocabulary term at all. Research on readability consistently
+  // puts the "difficult" bar around 20-25 words/sentence and "hard/very hard"
+  // above ~30; we take a deliberately conservative 25 (well clear of the 15-20
+  // that ordinary good prose averages, so it never false-fires on normal
+  // writing) for a light nudge, and 30 for the real penalty. Long sentences are
+  // exactly what blows past an LLM's chunk boundaries and dilutes the
+  // subject-predicate signal, so this is the right thing to penalise.
+  avgSentenceLengthPoor: 25, // > this ("difficult"): long avg sentences → light -3 nudge
+  avgSentenceLengthVeryPoor: 30, // > this ("hard"): run-on / wall-of-text → -6
+  //
+  // FALLBACK signal: raw Flesch reading-ease, used ONLY when avg_sentence_length
+  // is absent (historical crawls + the deploy window before the crawler field is
+  // live). Flesch conflates structure and vocabulary: its `-84.6*syllables/word`
   // term penalises polysyllabic technical/clinical vocabulary ("rehabilitation",
   // "assisted living facility") that is not a comprehension barrier for machines,
   // so well-written healthcare/legal/scientific prose scores far below the
-  // classic 60+ "plain English" bar. We therefore treat Flesch as a NOISY proxy
-  // for structure: only the genuinely-difficult bands are penalised, the bar is
+  // classic 60+ "plain English" bar. We therefore treat it as a NOISY proxy for
+  // structure: only the genuinely-difficult bands are penalised, the bar is
   // dropped from 60 to 50, and the severity is roughly halved (see content.ts).
-  // A cleaner fix — average sentence length / Flesch-Kincaid grade, which
-  // isolate the structural signal — needs a new crawler field and is a follow-up.
   fleschVeryPoor: 30, // "Very Difficult": dense AND long-sentenced → real penalty
   fleschPoor: 50, // "Difficult": light nudge only; Flesch >= 50 is unpenalised
   textHtmlRatioMin: 15,

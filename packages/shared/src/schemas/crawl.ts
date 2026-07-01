@@ -52,6 +52,11 @@ export const ExtractedDataSchema = z.object({
   // Readability (Tier 1)
   flesch_score: z.number().nullable().optional(),
   flesch_classification: z.string().nullable().optional(),
+  // Structural readability: average sentence length (words / sentences) over the
+  // main-content sample. The scorer prefers this pure structural signal over
+  // vocabulary-driven Flesch. OPTIONAL for backward-compat — absent on payloads
+  // from pre-structural crawler builds and on historical crawls.
+  avg_sentence_length: z.number().nullable().optional(),
   // Text-to-HTML ratio (Tier 2)
   text_html_ratio: z.number().nullable().optional(),
   text_length: z.number().int().nullable().optional(),

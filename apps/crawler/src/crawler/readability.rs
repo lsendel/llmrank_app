@@ -13,6 +13,13 @@ pub struct FleschScore {
     pub classification: String,
     pub sentence_count: u32,
     pub syllable_count: u32,
+    /// Average sentence length (words / sentences) over the SAME main-content
+    /// sample the Flesch score uses. A PURE STRUCTURAL readability signal: long
+    /// average sentences hurt machine extraction, whereas polysyllabic
+    /// vocabulary — which Flesch's `-84.6*syllables/word` term penalises — does
+    /// not. Deliberately NOT Flesch-Kincaid grade, whose `11.8*syllables/word`
+    /// term would re-introduce the very vocabulary penalty we want to drop.
+    pub avg_sentence_length: f64,
 }
 
 /// Text-to-HTML ratio — immutable value object.
@@ -76,9 +83,11 @@ pub fn compute_flesch(document: &Html) -> Option<FleschScore> {
         return None;
     }
 
-    let score = 206.835
-        - 1.015 * (words as f64 / sentences as f64)
-        - 84.6 * (syllables as f64 / words as f64);
+    // The pure structural signal: words per sentence. Reused as the Flesch
+    // sentence-length term so the two can never diverge.
+    let avg_sentence_length = words as f64 / sentences as f64;
+
+    let score = 206.835 - 1.015 * avg_sentence_length - 84.6 * (syllables as f64 / words as f64);
 
     // Clamp to 0-100 range
     let score = score.clamp(0.0, 100.0);
@@ -89,6 +98,7 @@ pub fn compute_flesch(document: &Html) -> Option<FleschScore> {
         classification,
         sentence_count: sentences,
         syllable_count: syllables,
+        avg_sentence_length,
     })
 }
 
@@ -246,6 +256,68 @@ mod tests {
     fn test_flesch_empty() {
         let html = Html::parse_document("<html><body></body></html>");
         assert!(compute_flesch(&html).is_none());
+    }
+
+    #[test]
+    fn test_avg_sentence_length_short_sentences() {
+        // Two short sentences: "The cat sat on the mat." (6 words) +
+        // "The dog ran fast." (4 words) = 10 words / 2 sentences = 5.0.
+        let html = Html::parse_document(
+            "<html><body><p>The cat sat on the mat. The dog ran fast.</p></body></html>",
+        );
+        let result = compute_flesch(&html).unwrap();
+        assert_eq!(result.sentence_count, 2);
+        assert!(
+            (result.avg_sentence_length - 5.0).abs() < 1e-6,
+            "expected avg sentence length 5.0, got {}",
+            result.avg_sentence_length,
+        );
+        // Structural signal is low → well within the "well-structured" band.
+        assert!(result.avg_sentence_length < 20.0);
+    }
+
+    #[test]
+    fn test_avg_sentence_length_flags_run_on_prose() {
+        // One long run-on sentence (no internal punctuation): the words/sentence
+        // ratio must be high even though the vocabulary is plain — this is the
+        // structural signal the scorer keys on, independent of syllables.
+        let html = Html::parse_document(
+            "<html><body><p>The team met in the room and then they went to the hall \
+             and then they sat down and then they read the plan and then they went \
+             home for the day after a very long and tiring shift at the busy office.</p>\
+             </body></html>",
+        );
+        let result = compute_flesch(&html).unwrap();
+        assert_eq!(result.sentence_count, 1);
+        assert!(
+            result.avg_sentence_length > 30.0,
+            "run-on sentence should have a high avg sentence length, got {}",
+            result.avg_sentence_length,
+        );
+    }
+
+    #[test]
+    fn test_avg_sentence_length_matches_flesch_sample() {
+        // The avg sentence length is computed over the SAME main-content sample
+        // as the Flesch score (chrome stripped), so long chrome sentences must
+        // not inflate it. Simple, short main prose wrapped in a run-on nav line.
+        let html = Html::parse_document(
+            "<html><body>\
+             <nav><p>This exceedingly long navigation sentence rambles on and on and on \
+             without any punctuation whatsoever so that it would badly skew any \
+             structural readability measurement taken across the entire document body.</p></nav>\
+             <main>\
+             <p>The cat sat. The dog ran. The bird flew. We had fun. She read a book.</p>\
+             <p>He ate a plum. They went home. Kids play here. Birds sing songs. Sun is hot.</p>\
+             </main></body></html>",
+        );
+        let result = compute_flesch(&html).unwrap();
+        // Main content is all short sentences → low avg, NOT dragged up by chrome.
+        assert!(
+            result.avg_sentence_length < 10.0,
+            "avg sentence length should reflect the short main prose, got {}",
+            result.avg_sentence_length,
+        );
     }
 
     /// Flesch over the given text using the same formula `compute_flesch` applies,

@@ -375,25 +375,123 @@ describe("scoreContentCiteability", () => {
     expect(issue).toBeUndefined();
   });
 
-  // --- POOR_READABILITY (recalibrated for AI-readiness) ---
-  // Flesch is a NOISY proxy: its syllable term punishes polysyllabic
-  // technical/clinical vocabulary that LLMs handle fine. So we only penalise the
-  // genuinely-difficult (structural, long-sentence) bands, halve the severity,
-  // and drop the bar from 60 to 50 — otherwise ~100% of well-written healthcare
-  // pages false-fire. See factors/content.ts.
+  // --- POOR_READABILITY: STRUCTURAL signal (avg sentence length) ---
+  // The primary signal is AVERAGE SENTENCE LENGTH (words / sentences) — a pure
+  // structural measure with no vocabulary term. Long sentences hurt machine
+  // extraction; polysyllabic technical vocabulary does not. Bands: > 30 → -6,
+  // 25-30 → -3, <= 25 → none. See factors/content.ts.
 
-  it("POOR_READABILITY: deducts 6 for a very-difficult page (flesch < 30)", () => {
+  it("POOR_READABILITY: deducts 6 for run-on prose (avg sentence length > 30)", () => {
     const page = makePage();
+    page.extracted.avg_sentence_length = 35;
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
+    expect(issue).toBeDefined();
+    expect(issue?.scoreImpact).toBe(-6);
+    expect(issue?.data).toMatchObject({ avgSentenceLength: 35 });
+  });
+
+  it("POOR_READABILITY: deducts only 3 for long-but-not-egregious sentences (25 < avg <= 30)", () => {
+    const page = makePage();
+    page.extracted.avg_sentence_length = 28;
+    const result = scoreContentCiteability(page);
+    const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
+    expect(issue).toBeDefined();
+    expect(issue?.scoreImpact).toBe(-3);
+  });
+
+  it("POOR_READABILITY: no deduction for well-structured technical prose (avg <= 25)", () => {
+    // A page with hard vocabulary but short sentences must NOT flag — this is
+    // the technical/clinical false-positive fix. Even a very LOW Flesch (dense
+    // vocabulary) is ignored once the structural signal is present.
+    for (const avg of [15, 20, 25]) {
+      const page = makePage();
+      page.extracted.avg_sentence_length = avg;
+      page.extracted.flesch_score = 20; // dense vocabulary — must be ignored
+      const result = scoreContentCiteability(page);
+      const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
+      expect(issue).toBeUndefined();
+    }
+  });
+
+  it("POOR_READABILITY: structural signal boundaries fire correctly", () => {
+    // Exactly 25 is NOT poor (uses `>`), so no deduction.
+    const at25 = makePage();
+    at25.extracted.avg_sentence_length = 25;
+    expect(
+      scoreContentCiteability(at25).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      ),
+    ).toBeUndefined();
+    // Just above 25 lands in the -3 band.
+    const above25 = makePage();
+    above25.extracted.avg_sentence_length = 25.1;
+    expect(
+      scoreContentCiteability(above25).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      )?.scoreImpact,
+    ).toBe(-3);
+    // Exactly 30 is NOT very-poor (uses `>`), so it stays in the -3 band.
+    const at30 = makePage();
+    at30.extracted.avg_sentence_length = 30;
+    expect(
+      scoreContentCiteability(at30).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      )?.scoreImpact,
+    ).toBe(-3);
+    // Just above 30 → -6.
+    const above30 = makePage();
+    above30.extracted.avg_sentence_length = 30.1;
+    expect(
+      scoreContentCiteability(above30).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      )?.scoreImpact,
+    ).toBe(-6);
+  });
+
+  it("POOR_READABILITY: structural signal takes precedence over Flesch", () => {
+    // avg_sentence_length present AND fine, but Flesch is very-difficult. The
+    // structural signal wins — no deduction (vocabulary alone never flags).
+    const page = makePage();
+    page.extracted.avg_sentence_length = 18;
+    page.extracted.flesch_score = 15;
+    const result = scoreContentCiteability(page);
+    expect(
+      result.issues.find((i) => i.code === "POOR_READABILITY"),
+    ).toBeUndefined();
+
+    // Conversely: long sentences flag even when Flesch reads "easy" (short
+    // words, but strung into run-on sentences).
+    const runon = makePage();
+    runon.extracted.avg_sentence_length = 34;
+    runon.extracted.flesch_score = 80;
+    expect(
+      scoreContentCiteability(runon).issues.find(
+        (i) => i.code === "POOR_READABILITY",
+      )?.scoreImpact,
+    ).toBe(-6);
+  });
+
+  // --- POOR_READABILITY: FALLBACK to #112-calibrated Flesch bands ---
+  // When avg_sentence_length is absent (old crawls + the deploy window before
+  // the crawler field is live), we fall back to the raw-Flesch bands: < 30 → -6,
+  // 30-49 → -3, >= 50 → none.
+
+  it("POOR_READABILITY fallback: deducts 6 for a very-difficult page (flesch < 30)", () => {
+    const page = makePage();
+    page.extracted.avg_sentence_length = null;
     page.extracted.flesch_score = 20;
     page.extracted.flesch_classification = "very_difficult";
     const result = scoreContentCiteability(page);
     const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
     expect(issue).toBeDefined();
     expect(issue?.scoreImpact).toBe(-6);
+    expect(issue?.data).toMatchObject({ fleschScore: 20 });
   });
 
-  it("POOR_READABILITY: deducts only 3 in the difficult band (30 <= flesch < 50)", () => {
+  it("POOR_READABILITY fallback: deducts only 3 in the difficult band (30 <= flesch < 50)", () => {
     const page = makePage();
+    page.extracted.avg_sentence_length = null;
     page.extracted.flesch_score = 40; // typical authoritative technical prose
     page.extracted.flesch_classification = "difficult";
     const result = scoreContentCiteability(page);
@@ -402,9 +500,10 @@ describe("scoreContentCiteability", () => {
     expect(issue?.scoreImpact).toBe(-3);
   });
 
-  it("POOR_READABILITY: fires at the very-poor boundary edges correctly", () => {
+  it("POOR_READABILITY fallback: fires at the very-poor boundary edges correctly", () => {
     // Exactly 30 is NOT very-poor (uses `<`), so it lands in the -3 band.
     const at30 = makePage();
+    at30.extracted.avg_sentence_length = null;
     at30.extracted.flesch_score = 30;
     expect(
       scoreContentCiteability(at30).issues.find(
@@ -413,6 +512,7 @@ describe("scoreContentCiteability", () => {
     ).toBe(-3);
     // Just below 30 is very-poor → -6.
     const below = makePage();
+    below.extracted.avg_sentence_length = null;
     below.extracted.flesch_score = 29.9;
     expect(
       scoreContentCiteability(below).issues.find(
@@ -421,11 +521,12 @@ describe("scoreContentCiteability", () => {
     ).toBe(-6);
   });
 
-  it("POOR_READABILITY: no deduction at/above the 50 bar (fairly-difficult prose is fine)", () => {
+  it("POOR_READABILITY fallback: no deduction at/above the 50 bar (fairly-difficult prose is fine)", () => {
     // 55 used to lose -5 under the old 60 bar; recalibration clears it. This is
-    // the healthcare/technical false-positive fix.
+    // the healthcare/technical false-positive fix on historical data.
     for (const score of [50, 55, 65]) {
       const page = makePage();
+      page.extracted.avg_sentence_length = null;
       page.extracted.flesch_score = score;
       const result = scoreContentCiteability(page);
       const issue = result.issues.find((i) => i.code === "POOR_READABILITY");
@@ -433,8 +534,9 @@ describe("scoreContentCiteability", () => {
     }
   });
 
-  it("POOR_READABILITY: no deduction when flesch_score is null", () => {
+  it("POOR_READABILITY: no deduction when both signals are null", () => {
     const page = makePage();
+    page.extracted.avg_sentence_length = null;
     page.extracted.flesch_score = null;
     const result = scoreContentCiteability(page);
     const issue = result.issues.find((i) => i.code === "POOR_READABILITY");

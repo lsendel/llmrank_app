@@ -447,9 +447,10 @@ export const ISSUE_DEFINITIONS: Record<string, IssueDefinition> = {
     category: "content",
     severity: "info",
     scoreImpact: -6,
-    message: "Content reads as difficult (low Flesch reading-ease)",
+    message:
+      "Long average sentence length makes content harder for AI to extract",
     recommendation:
-      "The biggest win for AI extractability is shorter sentences: break run-on sentences into two and aim for an average of 15-20 words. Technical vocabulary is fine — LLMs handle it — so focus on sentence structure and active voice rather than swapping out domain terms.",
+      "Split long sentences; keep technical terms. The biggest win for AI extractability is shorter sentences: break run-on sentences into two and aim for an average of 15-20 words. Technical vocabulary is fine — LLMs handle it — so focus on sentence structure and active voice rather than swapping out domain terms.",
     effortLevel: "medium",
     dimension: "content_citeability",
   },
