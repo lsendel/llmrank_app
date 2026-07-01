@@ -41,9 +41,29 @@ export function aggregatePageScores(
     ? averageScores(performanceSamples)
     : null;
 
+  // Content assessment split. Under top-N LLM content-scoring gating (#106-#108)
+  // most pages carry NO llmContentScores, so they skip the LLM-content deduction
+  // and their contentScore reads ~+17pts high — inflating the site-level `content`
+  // average above. Expose an honest average taken ONLY over LLM-assessed pages,
+  // plus the denominator (assessed vs total), so callers can present "assessed vs
+  // pending" instead of a number inflated by unscored pages. `content` is kept
+  // unchanged for backward compatibility.
+  const assessedRows = rows.filter((s) => {
+    const d = s.detail as Record<string, unknown> | null | undefined;
+    return d != null && (d.llmContentScores ?? null) != null;
+  });
+  const contentAssessed = assessedRows.length
+    ? averageScores(assessedRows.map((s) => s.contentScore))
+    : null;
+
   return {
     overallScore,
     letterGrade: letterGrade(overallScore),
     scores: { technical, content, aiReadiness, performance },
+    assessment: {
+      contentAssessed,
+      assessedPages: assessedRows.length,
+      totalPages: rows.length,
+    },
   };
 }

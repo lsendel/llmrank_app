@@ -9,7 +9,9 @@ import { ContentRepairEditor } from "./content-repair-editor";
 import { useParams } from "next/navigation";
 
 interface PageLlmQualitySectionProps {
-  scores: Record<string, number>;
+  // Null when this page was NOT LLM-content-scored. LLM scoring is gated to the
+  // top-N pages per crawl (#106-#108), so most pages carry no llmContentScores.
+  scores: Record<string, number> | null;
 }
 
 const DIMENSIONS = [
@@ -44,13 +46,19 @@ export function PageLlmQualitySection({ scores }: PageLlmQualitySectionProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [selectedDim, setSelectedDim] = useState<string>("clarity");
 
+  // A page is "assessed" only when it actually carries at least one LLM
+  // content-score dimension. Otherwise render a distinct "not yet assessed"
+  // state — never a 0/avg, which would misread a pending page as poor quality.
+  const assessed =
+    scores != null && DIMENSIONS.some((d) => scores[d.key] != null);
+
   const avg = Math.round(
-    DIMENSIONS.reduce((sum, d) => sum + (scores[d.key] ?? 0), 0) /
+    DIMENSIONS.reduce((sum, d) => sum + (scores?.[d.key] ?? 0), 0) /
       DIMENSIONS.length,
   );
 
   const handleRepair = (dim: string) => {
-    const dimScore = scores[dim] ?? 0;
+    const dimScore = scores?.[dim] ?? 0;
     track("quickwin.clicked", {
       issueCode: dim,
       severity:
@@ -65,6 +73,23 @@ export function PageLlmQualitySection({ scores }: PageLlmQualitySectionProps) {
     setSelectedDim(dim);
     setEditorOpen(true);
   };
+
+  if (!assessed) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+          <p className="text-sm font-medium">
+            Content quality not yet assessed
+          </p>
+          <p className="max-w-md text-xs text-muted-foreground">
+            LLM content scoring runs on the top pages of each crawl, so this
+            page hasn&apos;t been assessed yet. Its content score reflects
+            deterministic checks only.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

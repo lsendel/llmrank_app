@@ -123,10 +123,11 @@ export default function PageDetailPage() {
     );
   }
 
-  const llmScores = (page.score?.detail ?? {}).llmContentScores as Record<
-    string,
-    number
-  > | null;
+  // Null when this page wasn't LLM-content-scored (LLM scoring is gated to the
+  // top-N pages per crawl, #106-#108). The tab still renders a "not yet
+  // assessed" state so the absence is explicit rather than silently hidden.
+  const llmScores = ((page.score?.detail ?? {}).llmContentScores ??
+    null) as Record<string, number> | null;
 
   return (
     <div className="space-y-8">
@@ -178,12 +179,10 @@ export default function PageDetailPage() {
             <Bug className="mr-1.5 h-4 w-4" />
             Issues ({page.issues.length})
           </TabsTrigger>
-          {llmScores && (
-            <TabsTrigger value="llm-quality">
-              <Brain className="mr-1.5 h-4 w-4" />
-              LLM Quality
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="llm-quality">
+            <Brain className="mr-1.5 h-4 w-4" />
+            LLM Quality
+          </TabsTrigger>
           {enrichments.length > 0 && (
             <TabsTrigger value="enrichments">
               <Plug className="mr-1.5 h-4 w-4" />
@@ -236,11 +235,9 @@ export default function PageDetailPage() {
           />
         </TabsContent>
 
-        {llmScores && (
-          <TabsContent value="llm-quality" className="space-y-4 pt-4">
-            <PageLlmQualitySection scores={llmScores} />
-          </TabsContent>
-        )}
+        <TabsContent value="llm-quality" className="space-y-4 pt-4">
+          <PageLlmQualitySection scores={llmScores} />
+        </TabsContent>
 
         {enrichments.length > 0 && (
           <TabsContent value="enrichments" className="space-y-4 pt-4">

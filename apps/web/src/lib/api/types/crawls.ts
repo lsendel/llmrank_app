@@ -157,6 +157,10 @@ export interface FusedInsights {
   contentHealthMatrix: {
     scoring: number;
     llmQuality: number | null;
+    /** Pages that received LLM content scoring (denominator numerator for llmQuality). */
+    llmScoredPages: number;
+    /** Total scored pages in the crawl (llmQuality samples llmScoredPages of these). */
+    totalPages: number;
     engagement: number | null;
     uxQuality: number | null;
   };

@@ -144,7 +144,7 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
                 {
                   key: "llmQuality",
                   label: "LLM Quality",
-                  nullLabel: "Needs LLM scoring",
+                  nullLabel: "Not yet assessed",
                 },
                 {
                   key: "engagement",
@@ -159,6 +159,15 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
               ] as const
             ).map(({ key, label, nullLabel }) => {
               const value = contentHealthMatrix[key];
+              // LLM content scoring is gated to the top-N pages per crawl, so
+              // llmQuality is an average over only `llmScoredPages` of the crawl.
+              // Surface that denominator so the number never reads as site-wide.
+              const scored = contentHealthMatrix.llmScoredPages;
+              const total = contentHealthMatrix.totalPages;
+              const denominator =
+                key === "llmQuality" && total > 0 && scored > 0
+                  ? `top ${scored} of ${total} pages`
+                  : null;
               return (
                 <div
                   key={key}
@@ -171,7 +180,7 @@ export function PlatformOpportunityCards({ crawlId }: { crawlId: string }) {
                         {value.toFixed(0)}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {scoreGrade(value)}
+                        {denominator ?? scoreGrade(value)}
                       </p>
                     </>
                   ) : (

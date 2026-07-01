@@ -207,6 +207,13 @@ export function createIntelligenceService(deps: IntelligenceServiceDeps) {
         contentHealthMatrix: {
           scoring: avgOverall,
           llmQuality: avgLlm,
+          // Denominator for LLM Quality: under top-N LLM content-scoring gating
+          // (#106-#108) only a subset of pages carry llmContentScores, so avgLlm
+          // is an average over `llmScoredPages` of `totalPages` — not the whole
+          // crawl. Surfaced so the card can label the sample honestly and not
+          // read as a site-wide KPI.
+          llmScoredPages: llmScores.length,
+          totalPages: allScores.length,
           engagement: engagementScore,
           uxQuality: uxScore,
         },

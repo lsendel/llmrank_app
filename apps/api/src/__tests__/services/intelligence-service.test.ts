@@ -87,9 +87,96 @@ describe("intelligence-service", () => {
     expect(result.aiVisibilityReadiness).toBeLessThanOrEqual(100);
     expect(result.contentHealthMatrix.scoring).toBe(75);
     expect(result.contentHealthMatrix.llmQuality).toBeGreaterThan(0);
+    // Denominator: this single page was LLM-scored, so 1 of 1.
+    expect(result.contentHealthMatrix.llmScoredPages).toBe(1);
+    expect(result.contentHealthMatrix.totalPages).toBe(1);
     expect(result.contentHealthMatrix.engagement).toBeNull(); // no GA4 data
     expect(result.roiQuickWins.length).toBeGreaterThan(0);
     expect(result.roiQuickWins[0].issueCode).toBe("NO_STRUCTURED_DATA");
+  });
+
+  it("averages LLM Quality only over LLM-scored pages and exposes the denominator", async () => {
+    const deps = makeDeps();
+    deps.crawls.getById.mockResolvedValue({ id: crawlId, projectId });
+    deps.projects.getById.mockResolvedValue({ id: projectId, userId });
+    // 3 pages, only 1 LLM-scored (top-N gating). llmQuality must reflect the
+    // scored page alone; the 2 unscored pages must NOT drag it toward null/0.
+    deps.scores.listByJob.mockResolvedValue([
+      {
+        pageId: "pg1",
+        overallScore: 70,
+        technicalScore: 80,
+        contentScore: 74,
+        aiReadinessScore: 70,
+        detail: {
+          llmContentScores: {
+            clarity: 80,
+            authority: 80,
+            comprehensiveness: 80,
+            structure: 80,
+            citation_worthiness: 80,
+          },
+        },
+      },
+      {
+        pageId: "pg2",
+        overallScore: 91,
+        technicalScore: 86,
+        contentScore: 92,
+        aiReadinessScore: 81,
+        detail: {},
+      },
+      {
+        pageId: "pg3",
+        overallScore: 90,
+        technicalScore: 85,
+        contentScore: 92,
+        aiReadinessScore: 80,
+        detail: null,
+      },
+    ]);
+    deps.scores.getIssuesByJob.mockResolvedValue([]);
+    deps.pages.listByJob.mockResolvedValue([
+      { id: "pg1", url: "https://ex.com/a", wordCount: 800 },
+      { id: "pg2", url: "https://ex.com/b", wordCount: 800 },
+      { id: "pg3", url: "https://ex.com/c", wordCount: 800 },
+    ]);
+
+    const service = createIntelligenceService(deps as any);
+    const result = await service.getFusedInsights(userId, crawlId);
+
+    // Average over the single scored page (all dims = 80), not diluted by the 2
+    // unscored pages.
+    expect(result.contentHealthMatrix.llmQuality).toBe(80);
+    expect(result.contentHealthMatrix.llmScoredPages).toBe(1);
+    expect(result.contentHealthMatrix.totalPages).toBe(3);
+  });
+
+  it("returns null LLM Quality with a zero numerator when no page is LLM-scored", async () => {
+    const deps = makeDeps();
+    deps.crawls.getById.mockResolvedValue({ id: crawlId, projectId });
+    deps.projects.getById.mockResolvedValue({ id: projectId, userId });
+    deps.scores.listByJob.mockResolvedValue([
+      {
+        pageId: "pg1",
+        overallScore: 91,
+        technicalScore: 86,
+        contentScore: 92,
+        aiReadinessScore: 81,
+        detail: {},
+      },
+    ]);
+    deps.scores.getIssuesByJob.mockResolvedValue([]);
+    deps.pages.listByJob.mockResolvedValue([
+      { id: "pg1", url: "https://ex.com/a", wordCount: 800 },
+    ]);
+
+    const service = createIntelligenceService(deps as any);
+    const result = await service.getFusedInsights(userId, crawlId);
+
+    expect(result.contentHealthMatrix.llmQuality).toBeNull();
+    expect(result.contentHealthMatrix.llmScoredPages).toBe(0);
+    expect(result.contentHealthMatrix.totalPages).toBe(1);
   });
 
   it("includes platform opportunities when platform scores exist", async () => {
