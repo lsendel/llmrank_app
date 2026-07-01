@@ -183,6 +183,37 @@ describe("pollLLMScoreBatches", () => {
     expect(res.completed).toBe(1);
   });
 
+  it("defers usage recording when the KV delete fails (no double-charge)", async () => {
+    const kv = makeKV([{ name: "llm-batch:batch_4" }], {
+      "llm-batch:batch_4": META,
+    });
+    kv.delete.mockRejectedValue(new Error("KV delete failed"));
+    mockRetrieve.mockResolvedValue({
+      processing_status: "ended",
+      request_counts: { succeeded: 1, errored: 0 },
+    });
+    mockResults.mockResolvedValue([
+      {
+        custom_id: "page-1",
+        result: {
+          type: "succeeded",
+          message: { usage: { input_tokens: 5000, output_tokens: 50 } },
+        },
+      },
+    ]);
+
+    await pollLLMScoreBatches({
+      d1: {} as never,
+      ANTHROPIC_API_KEY: "sk",
+      KV: kv as never,
+    });
+
+    // Scores still applied, but usage NOT recorded — it's deferred to the next
+    // tick (after a successful delete), so a delete failure can't double-charge.
+    expect(mockRescore).toHaveBeenCalled();
+    expect(mockRecordUsage).not.toHaveBeenCalled();
+  });
+
   it("leaves a still-processing batch pending (no apply, no delete)", async () => {
     const kv = makeKV([{ name: "llm-batch:batch_2" }], {
       "llm-batch:batch_2": META,

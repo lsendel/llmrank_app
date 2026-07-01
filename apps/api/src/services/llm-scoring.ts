@@ -527,36 +527,14 @@ async function runPerCrawlSonnetScoring(
 
   // --- Enough uncached pages: submit an async batch (50% cheaper). The poller
   //     (pollLLMScoreBatches) applies the results + records usage on completion. ---
+  let batch: Awaited<
+    ReturnType<typeof scorer.anthropicClient.messages.batches.create>
+  >;
   try {
-    const batch = await scorer.anthropicClient.messages.batches.create({
-      requests,
-    });
-    const meta: PendingScoreBatch = {
-      jobId: input.jobId,
-      projectId: input.projectId ?? null,
-      ownerId: input.ownerId ?? null,
-      plan: input.plan ?? null,
-      model,
-      submittedAt: new Date().toISOString(),
-    };
-    await input.kvNamespace.put(
-      `${LLM_BATCH_KV_PREFIX}${batch.id}`,
-      JSON.stringify(meta),
-      { expirationTtl: 26 * 60 * 60 },
-    );
-    await markLLMStatus(input.kvNamespace, input.jobId, {
-      status: "pending",
-      scored, // cached pages already applied inline
-      failed,
-      pending: requests.length,
-    });
-    log.info("Submitted content-scoring batch (50% cost)", {
-      jobId: input.jobId,
-      batchId: batch.id,
-      pages: requests.length,
-      cached: cached.length,
-    });
+    batch = await scorer.anthropicClient.messages.batches.create({ requests });
   } catch (err) {
+    // SUBMISSION failed — no batch was accepted/billed, so a per-page sync retry
+    // cannot double-charge. Fall back so pages still get scored.
     const msg = err instanceof Error ? err.message : String(err);
     const cause = classifyLLMError(msg);
     if (cause !== "other") {
@@ -578,13 +556,59 @@ async function runPerCrawlSonnetScoring(
       });
       return;
     }
-    // Transient/unknown batch error → fall back to per-page sync.
     log.error("Batch submission failed, falling back to sync", {
       jobId: input.jobId,
       error: msg,
     });
     await scoreSync();
     await finishSync(requests.length);
+    return;
+  }
+
+  // Batch accepted + BILLED (at 50%). Post-submission bookkeeping must NOT
+  // sync-fallback on failure — re-scoring these pages synchronously would charge
+  // full price on top of the batch Anthropic is already running (150% total).
+  // The key TTL is kept > ORPHAN_AFTER_MS so the poller can always mark a
+  // never-ending batch failed before its tracking key expires.
+  try {
+    const meta: PendingScoreBatch = {
+      jobId: input.jobId,
+      projectId: input.projectId ?? null,
+      ownerId: input.ownerId ?? null,
+      plan: input.plan ?? null,
+      model,
+      submittedAt: new Date().toISOString(),
+    };
+    await input.kvNamespace.put(
+      `${LLM_BATCH_KV_PREFIX}${batch.id}`,
+      JSON.stringify(meta),
+      { expirationTtl: 30 * 60 * 60 },
+    );
+    await markLLMStatus(input.kvNamespace, input.jobId, {
+      status: "pending",
+      scored, // cached pages already applied inline
+      failed,
+      pending: requests.length,
+    });
+    log.info("Submitted content-scoring batch (50% cost)", {
+      jobId: input.jobId,
+      batchId: batch.id,
+      pages: requests.length,
+      cached: cached.length,
+    });
+  } catch (err) {
+    // The batch is running + billed; we only failed to record its tracking key.
+    // Do NOT sync-rescore (that double-charges). The batch is orphaned — its
+    // results won't be applied (pages keep deterministic scores) — but no extra
+    // spend is incurred. Log loudly so it's visible.
+    log.error(
+      "Batch submitted but tracking failed — orphaned batch, NOT re-scoring (would double-charge)",
+      {
+        jobId: input.jobId,
+        batchId: batch.id,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
   }
 }
 

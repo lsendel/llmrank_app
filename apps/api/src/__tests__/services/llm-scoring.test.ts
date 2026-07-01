@@ -807,6 +807,53 @@ describe("runPerCrawlSonnetScoring (paid path: contentScoringModel + d1)", () =>
     );
   });
 
+  it("does NOT sync re-charge when the batch submits but KV bookkeeping fails", async () => {
+    // The batch is accepted + billed at 50%; a KV.put failure must NOT trigger a
+    // full-price sync re-score (that would be 150% for the same pages).
+    const pages = Array.from({ length: 5 }, (_, i) => ({
+      id: `page-${i}`,
+      url: `https://example.com/p${i}`,
+      statusCode: 200,
+      title: "T",
+      metaDesc: "d",
+      canonicalUrl: `https://example.com/p${i}`,
+      wordCount: 900,
+      contentHash: `hash${i}`,
+      r2RawKey: `raw/page${i}.html`,
+    }));
+    mockTopScoreable.mockResolvedValue(pages);
+    mockCrawlGetById.mockResolvedValue({ id: "job-1", siteContext: null });
+    mockBatchCreate.mockResolvedValue({ id: "batch_abc" });
+    const r2Objects = Object.fromEntries(
+      pages.map((p) => [
+        p.r2RawKey,
+        {
+          body: "<html><body><p>" + "word ".repeat(250) + "</p></body></html>",
+        },
+      ]),
+    );
+    const input = {
+      ...baseLLMInput(),
+      jobId: "job-1",
+      d1: {},
+      anthropicApiKey: "sk-test",
+      contentScoringModel: "claude-sonnet-5",
+      kvNamespace: {
+        put: vi.fn().mockRejectedValue(new Error("KV rate limited")),
+        get: vi.fn(),
+        list: vi.fn(),
+        delete: vi.fn(),
+      },
+      r2Bucket: createMockR2Bucket(r2Objects),
+    };
+
+    await expect(runLLMScoring(input as any)).resolves.toBeUndefined();
+    // Batch was submitted (billed); bookkeeping failed → orphaned, but NO
+    // full-price sync re-score.
+    expect(mockBatchCreate).toHaveBeenCalled();
+    expect(mockScoreContent).not.toHaveBeenCalled();
+  });
+
   it("scores synchronously when uncached pages are below BATCH_THRESHOLD", async () => {
     // 2 pages (< 5) → a batch round-trip isn't worth it; score inline.
     const pages = Array.from({ length: 2 }, (_, i) => ({

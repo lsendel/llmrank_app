@@ -106,8 +106,15 @@ export async function pollLLMScoreBatches(env: {
           failed++;
           continue;
         }
+        const message = result.result.message;
+        // Anthropic BILLED every "succeeded" result — count its tokens even if we
+        // can't parse/apply it, so llm_usage (+ the budget cap) reflects real spend.
+        const u = message.usage;
+        if (u) {
+          inTok += u.input_tokens ?? 0;
+          outTok += u.output_tokens ?? 0;
+        }
         try {
-          const message = result.result.message;
           const scores = scorer.processBatchResult(message);
           if (!scores) {
             failed++;
@@ -135,11 +142,6 @@ export async function pollLLMScoreBatches(env: {
               meta.model,
             ).catch(() => {});
           }
-          const u = message.usage;
-          if (u) {
-            inTok += u.input_tokens ?? 0;
-            outTok += u.output_tokens ?? 0;
-          }
         } catch (err) {
           failed++;
           log.error("Failed to apply batch result", {
@@ -149,7 +151,30 @@ export async function pollLLMScoreBatches(env: {
         }
       }
 
-      // Record ONE aggregated, 50%-priced usage row for the batch.
+      await markLLMStatus(kv, meta.jobId, {
+        status: failed === 0 ? "ok" : scored === 0 ? "unavailable" : "partial",
+        scored,
+        failed,
+      });
+
+      // The successful KV delete is the exactly-once commit point: record the
+      // aggregated 50%-priced usage row ONLY if the delete succeeds. If delete
+      // fails, the key survives and the next tick re-applies (idempotent) +
+      // re-deletes + records exactly once — so a delete failure can never
+      // double-charge. (A worker crash between a successful delete and the usage
+      // write under-counts one batch — safer than double-counting spend.)
+      let deleted = false;
+      try {
+        await kv.delete(key.name);
+        deleted = true;
+      } catch (err) {
+        log.error("Batch key delete failed — usage deferred to next tick", {
+          batchId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      if (!deleted) continue;
+
       await recordContentScoringUsage(appDb, {
         inputTokens: inTok,
         outputTokens: outTok,
@@ -160,14 +185,6 @@ export async function pollLLMScoreBatches(env: {
         ownerId: meta.ownerId,
         plan: meta.plan,
       });
-      await markLLMStatus(kv, meta.jobId, {
-        status: failed === 0 ? "ok" : scored === 0 ? "unavailable" : "partial",
-        scored,
-        failed,
-      });
-      // Delete LAST: if applying threw above, the key stays so the next tick
-      // re-polls (results are collectible for ~29d); double-apply is idempotent.
-      await kv.delete(key.name).catch(() => {});
       completed++;
       log.info("Applied content-scoring batch (50% cost)", {
         batchId,
