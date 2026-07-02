@@ -101,21 +101,27 @@ impl RobotsChecker {
 
         for agent in &agents_to_check {
             if let Some(rules) = self.rules.get(*agent) {
-                // Find the longest matching rule path.
-                let best: Option<&RobotsRule> = rules
+                // Collect every rule whose path is a prefix of the request path.
+                // (Empty-path rules never match here; an empty `Disallow:` means
+                // "allow all" and is handled by the default-allow fallthrough below.)
+                let matched = rules
                     .iter()
-                    .filter(|r| {
-                        // Empty Disallow means allow all — treat as a zero-length match
-                        // only if there are no other rules; handled by returning true below.
-                        if r.path.is_empty() {
-                            return false;
-                        }
-                        path.starts_with(r.path.as_str())
-                    })
-                    .max_by_key(|r| r.path.len());
+                    .filter(|r| !r.path.is_empty() && path.starts_with(r.path.as_str()));
 
-                if let Some(rule) = best {
-                    return rule.allow;
+                if let Some(max_len) = matched.clone().map(|r| r.path.len()).max() {
+                    // Longest-match precedence selects the most specific rules. On
+                    // an equal-length tie between an Allow and a Disallow, the
+                    // robots.txt spec says the least-restrictive rule wins: Allow
+                    // beats Disallow regardless of their order in the file
+                    // (https://developers.google.com/search/docs/crawling-indexing/robots/robots_txt#order-of-precedence-for-rules).
+                    // So a URL is blocked only when EVERY longest-matching rule is
+                    // a Disallow — if any is an Allow, it is allowed. Using
+                    // `max_by_key(len).allow` instead would return whichever tied
+                    // rule appears last in the file, falsely flagging a site that
+                    // lists `Allow: /` before a same-length `Disallow: /`.
+                    return matched
+                        .filter(|r| r.path.len() == max_len)
+                        .any(|r| r.allow);
                 }
 
                 // If this agent has rules but none matched, check for an empty Disallow
@@ -392,5 +398,111 @@ Disallow: /api/internal/
         assert!(blocked.contains(&"GPTBot".to_string()));
         assert!(blocked.contains(&"ClaudeBot".to_string()));
         assert!(!blocked.contains(&"PerplexityBot".to_string()));
+    }
+
+    // --- Equal-length tie-break: least-restrictive (Allow) wins regardless of order ---
+    //
+    // When an Allow and a Disallow match at the SAME longest path length, the
+    // robots.txt spec resolves the tie to the least-restrictive rule (Allow),
+    // independent of their order in the file. The previous `max_by_key(len)`
+    // returned whichever tied rule appeared LAST, so `Allow: /` then
+    // `Disallow: /` (same UA) was falsely resolved to blocked.
+
+    #[test]
+    fn test_equal_length_tie_disallow_then_allow_is_allowed() {
+        // Disallow first, Allow second.
+        let content = "User-agent: *\nDisallow: /\nAllow: /\n";
+        let checker = RobotsChecker::from_content(content);
+        assert!(checker.is_allowed("/", "*"));
+        assert!(checker.is_allowed("https://example.com/", "*"));
+    }
+
+    #[test]
+    fn test_equal_length_tie_allow_then_disallow_is_allowed() {
+        // Allow first, Disallow second — the order that regressed before the fix.
+        let content = "User-agent: *\nAllow: /\nDisallow: /\n";
+        let checker = RobotsChecker::from_content(content);
+        assert!(checker.is_allowed("/", "*"));
+        assert!(checker.is_allowed("https://example.com/", "*"));
+    }
+
+    // Mirrors families.care's REAL two-section shape: a managed block that
+    // `Disallow: /` for named AI bots, then a later custom section for the SAME
+    // bots that re-allows everything except a couple of /api/ paths
+    // ("AI crawlers — allow for LLM discoverability"). The Allow and the managed
+    // Disallow tie at length 1 on "/", so least-restrictive-wins must resolve to
+    // allowed and `blocked_bots` must be empty.
+    const FAMILIES_CARE_TWO_SECTION: &str = r#"
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+"#;
+
+    // The reversed shape: the custom Allow section comes FIRST, the managed
+    // Disallow SECOND. Allow must still win the equal-length tie.
+    const FAMILIES_CARE_TWO_SECTION_REVERSED: &str = r#"
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+"#;
+
+    #[test]
+    fn test_families_care_two_section_allow_wins_bare_path() {
+        let checker = RobotsChecker::from_content(FAMILIES_CARE_TWO_SECTION);
+        assert!(checker.is_allowed("/", "GPTBot"));
+        assert!(checker.is_allowed("/", "ClaudeBot"));
+        assert_eq!(checker.blocked_bots("/"), Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_families_care_two_section_allow_wins_full_url() {
+        let checker = RobotsChecker::from_content(FAMILIES_CARE_TWO_SECTION);
+        assert_eq!(
+            checker.blocked_bots("https://families.care/"),
+            Vec::<String>::new()
+        );
+        // The /api/ Disallow is longer than the Allow, so it still applies there.
+        assert!(!checker.is_allowed("https://families.care/api/internal", "GPTBot"));
+    }
+
+    #[test]
+    fn test_families_care_two_section_reversed_allow_still_wins() {
+        let checker = RobotsChecker::from_content(FAMILIES_CARE_TWO_SECTION_REVERSED);
+        assert_eq!(checker.blocked_bots("/"), Vec::<String>::new());
+        assert_eq!(
+            checker.blocked_bots("https://families.care/"),
+            Vec::<String>::new()
+        );
+    }
+
+    // Control: a genuine block with NO allow override must still report blocked —
+    // the fix must not regress real AI_CRAWLER_BLOCKED detection.
+    #[test]
+    fn test_genuine_block_without_override_still_blocked() {
+        let content = "User-agent: GPTBot\nDisallow: /\n";
+        let checker = RobotsChecker::from_content(content);
+        assert!(!checker.is_allowed("/", "GPTBot"));
+        assert!(!checker.is_allowed("https://example.com/", "GPTBot"));
+        assert!(checker.blocked_bots("/").contains(&"GPTBot".to_string()));
     }
 }
