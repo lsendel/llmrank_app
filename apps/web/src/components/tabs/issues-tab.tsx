@@ -10,6 +10,7 @@ const IssueHeatmap = dynamic(
   { ssr: false },
 );
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { IssueCodeBreakdown } from "@/components/issue-code-breakdown";
 import { usePlan } from "@/hooks/use-plan";
 import { useUser } from "@/lib/auth-hooks";
 import { type PageIssue } from "@/lib/api";
@@ -92,6 +93,8 @@ export function IssuesTab({
       {crawlId && projectId && (
         <IssueHeatmap crawlId={crawlId} projectId={projectId} />
       )}
+
+      {crawlId && <IssueCodeBreakdown crawlId={crawlId} />}
 
       {isFree && (
         <UpgradePrompt

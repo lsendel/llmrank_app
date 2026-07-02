@@ -200,6 +200,32 @@ describe("scoreQueries", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("countIssuesByCode aggregates SQL-side (select→groupBy→orderBy, no row load)", async () => {
+    const aggregated = [
+      {
+        code: "THIN_CONTENT",
+        category: "content",
+        severity: "warning",
+        count: 106,
+      },
+      {
+        code: "NOINDEX_SET",
+        category: "technical",
+        severity: "critical",
+        count: 7,
+      },
+    ];
+    mock.chain.orderBy.mockResolvedValueOnce(aggregated);
+
+    const result = await queries.countIssuesByCode("j1");
+
+    expect(result).toEqual(aggregated);
+    expect(mock.chain.select).toHaveBeenCalled();
+    expect(mock.chain.groupBy).toHaveBeenCalled();
+    // Must never load raw issue rows for aggregation
+    expect(mock.db.query.issues.findMany).not.toHaveBeenCalled();
+  });
+
   it("getIssuesByJob pages through large result sets in chunks (no unbounded query)", async () => {
     // A full 500-row first chunk must trigger a cursor-paged refetch; a short
     // second chunk stops the loop. This keeps a large crawl's issues off a

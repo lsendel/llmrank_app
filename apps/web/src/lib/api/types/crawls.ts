@@ -7,6 +7,14 @@ export interface ComparisonItem {
   delta: number;
 }
 
+/** One row of a crawl's SQL-side issue aggregation (GROUP BY code). */
+export interface IssueCodeCount {
+  code: string;
+  category: string;
+  severity: string;
+  count: number;
+}
+
 export interface SiteContext {
   hasLlmsTxt: boolean;
   aiCrawlersBlocked: string[];

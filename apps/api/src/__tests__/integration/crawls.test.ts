@@ -58,6 +58,21 @@ vi.mock("@llm-boost/repositories", () => ({
   createPageRepository: () => ({}),
 }));
 
+// The issue-codes route calls scoreQueries straight from @llm-boost/db (not
+// the repository layer), which would otherwise run against the stub D1
+// binding. Everything else keeps the real module.
+const mockCountIssuesByCode = vi.fn();
+
+vi.mock("@llm-boost/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@llm-boost/db")>();
+  return {
+    ...actual,
+    scoreQueries: vi.fn(() => ({
+      countIssuesByCode: mockCountIssuesByCode,
+    })),
+  };
+});
+
 // Mock signPayload and fetch for crawler dispatch
 vi.mock("../../middleware/hmac", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../../middleware/hmac")>();
@@ -235,6 +250,54 @@ describe("Crawl Routes", () => {
   // -----------------------------------------------------------------------
   // GET /api/crawls/project/:projectId
   // -----------------------------------------------------------------------
+
+  describe("GET /api/crawls/:id/issue-codes", () => {
+    it("returns issue counts grouped by code", async () => {
+      mockCrawlRepo.getById.mockResolvedValue(
+        buildCrawlJob({ id: "crawl-1", projectId: "proj-1" }),
+      );
+      mockCountIssuesByCode.mockResolvedValue([
+        {
+          code: "THIN_CONTENT",
+          category: "content",
+          severity: "warning",
+          count: 106,
+        },
+        {
+          code: "NOINDEX_SET",
+          category: "technical",
+          severity: "critical",
+          count: 7,
+        },
+      ]);
+
+      const res = await request("/api/crawls/crawl-1/issue-codes");
+      expect(res.status).toBe(200);
+
+      const body: any = await res.json();
+      expect(body.data).toHaveLength(2);
+      expect(body.data[0]).toEqual({
+        code: "THIN_CONTENT",
+        category: "content",
+        severity: "warning",
+        count: 106,
+      });
+      expect(mockCountIssuesByCode).toHaveBeenCalledWith("crawl-1");
+    });
+
+    it("returns 404 for a crawl the user does not own", async () => {
+      mockCrawlRepo.getById.mockResolvedValue(
+        buildCrawlJob({ id: "crawl-1", projectId: "proj-other" }),
+      );
+      mockProjectRepo.getById.mockResolvedValue(
+        buildProject({ id: "proj-other", userId: "someone-else" }),
+      );
+
+      const res = await request("/api/crawls/crawl-1/issue-codes");
+      expect(res.status).toBe(404);
+      expect(mockCountIssuesByCode).not.toHaveBeenCalled();
+    });
+  });
 
   describe("GET /api/crawls/project/:projectId", () => {
     it("returns 200 with crawl list and pagination metadata", async () => {
