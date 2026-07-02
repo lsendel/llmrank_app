@@ -107,6 +107,39 @@ fn collect_backlink_entries(pages: &[CrawlPageResult]) -> Vec<BacklinkEntry> {
     entries
 }
 
+/// Assemble the `SiteContext` — the site-level *inputs* the scoring engine reads — from
+/// already-fetched signals. Kept pure and network-free so this wiring can be unit-tested:
+/// the scorer itself is covered by the `packages/scoring` golden harness (#117), but
+/// nothing verified that the crawler populates the scorer's inputs correctly, which is how
+/// the #119 `AI_CRAWLER_BLOCKED` regression slipped through.
+///
+/// `ai_crawlers_blocked` is derived by probing the site *root* against robots.txt, and it
+/// MUST use an absolute URL (`https://{domain}/`). `blocked_bots` -> `is_allowed` runs the
+/// argument through `Url::parse`; a bare `"/"` fails to parse and silently falls back to
+/// "allowed", so every site reports `[]` and the `AI_CRAWLER_BLOCKED` (-25) factor never
+/// fires. That was #119 — a wrong *input* to a correct scorer.
+fn build_site_context(
+    robots: Option<&RobotsChecker>,
+    domain: Option<&str>,
+    has_llms_txt: bool,
+    sitemap_analysis: Option<SitemapAnalysis>,
+) -> SiteContext {
+    let ai_crawlers_blocked = match (robots, domain) {
+        (Some(checker), Some(d)) => checker.blocked_bots(&format!("https://{}/", d)),
+        _ => Vec::new(),
+    };
+
+    SiteContext {
+        has_llms_txt,
+        ai_crawlers_blocked,
+        has_sitemap: sitemap_analysis.is_some(),
+        sitemap_analysis,
+        content_hashes: HashMap::new(),
+        response_time_ms: None,
+        page_size_bytes: None,
+    }
+}
+
 /// Internal state for a running or completed job.
 #[derive(Debug)]
 struct JobEntry {
@@ -395,37 +428,25 @@ impl JobManager {
             .and_then(|u| Url::parse(u).ok())
             .and_then(|u| u.host_str().map(|h| h.to_string()));
 
-        // Initialize SiteContext data
-        let mut site_context = SiteContext {
-            has_llms_txt: false,
-            ai_crawlers_blocked: Vec::new(),
-            has_sitemap: false,
-            sitemap_analysis: None,
-            content_hashes: HashMap::new(),
-            response_time_ms: None,
-            page_size_bytes: None,
-        };
+        // SiteContext pieces, collected below and assembled via `build_site_context`
+        // right before the crawl engine is constructed.
+        let mut sitemap_analysis: Option<SitemapAnalysis> = None;
+        let mut has_llms_txt = false;
 
         // Always fetch robots.txt for sitemap discovery and bot analysis.
-        // Only use it for URL blocking when respect_robots is true.
+        // The checker feeds two independent things: (1) SiteContext's `ai_crawlers_blocked`
+        // bot analysis — always, regardless of respect_robots — and (2) per-URL crawl
+        // blocking, only when respect_robots. Keep the checker bound here so
+        // `build_site_context` can read it even when we don't enforce it for crawling.
         let mut sitemap_urls_from_robots: Vec<String> = Vec::new();
-        let robots = if let Some(ref d) = domain {
-            match RobotsChecker::new(d).await {
-                Ok(checker) => {
-                    site_context.ai_crawlers_blocked =
-                        checker.blocked_bots(&format!("https://{}/", d));
-                    sitemap_urls_from_robots = checker.sitemaps.clone();
-                    if crawl_config.respect_robots {
-                        Some(checker)
-                    } else {
-                        None
-                    }
-                }
-                Err(_) => None,
-            }
+        let robots_checker: Option<RobotsChecker> = if let Some(ref d) = domain {
+            RobotsChecker::new(d).await.ok()
         } else {
             None
         };
+        if let Some(ref checker) = robots_checker {
+            sitemap_urls_from_robots = checker.sitemaps.clone();
+        }
 
         // Fallback: if robots.txt declared no `Sitemap:`, probe the well-known
         // /sitemap.xml (Googlebot does this too). Sites that omit the directive
@@ -457,23 +478,21 @@ impl JobManager {
                     "Sitemap discovery complete"
                 );
 
-                site_context.has_sitemap = true;
-                site_context.sitemap_analysis = Some(SitemapAnalysis {
+                sitemap_analysis = Some(SitemapAnalysis {
                     is_valid: true,
                     url_count: sitemap_result.total_count,
                     stale_url_count: 0,
                     discovered_page_count: sitemap_result.urls.len() as u32,
                 });
 
-                // Filter sitemap URLs through robots.txt if applicable
-                let sitemap_seed_urls: Vec<String> = if let Some(ref checker) = robots {
-                    sitemap_result
+                // Filter sitemap URLs through robots.txt only when we're enforcing it.
+                let sitemap_seed_urls: Vec<String> = match robots_checker.as_ref() {
+                    Some(checker) if crawl_config.respect_robots => sitemap_result
                         .urls
                         .into_iter()
                         .filter(|u| checker.is_allowed(u, &crawl_config.user_agent))
-                        .collect()
-                } else {
-                    sitemap_result.urls
+                        .collect(),
+                    _ => sitemap_result.urls,
                 };
 
                 // These will be added to the frontier below
@@ -485,10 +504,26 @@ impl JobManager {
         if crawl_config.check_llms_txt {
             if let Some(ref d) = domain {
                 if crate::crawler::robots::fetch_llms_txt(d).await.is_some() {
-                    site_context.has_llms_txt = true;
+                    has_llms_txt = true;
                 }
             }
         }
+
+        // Assemble the scorer's site-level inputs from the fetched signals. Borrows the
+        // robots checker (for root bot analysis) before it's handed to the engine below.
+        let site_context = build_site_context(
+            robots_checker.as_ref(),
+            domain.as_deref(),
+            has_llms_txt,
+            sitemap_analysis,
+        );
+
+        // Only enforce robots.txt for per-URL crawl blocking when respect_robots is set.
+        let robots = if crawl_config.respect_robots {
+            robots_checker
+        } else {
+            None
+        };
 
         // Initialize CrawlEngine wrapped in Arc for sharing across workers
         let engine = Arc::new(CrawlEngine::new(
@@ -1103,5 +1138,104 @@ mod tests {
 
         let entries = collect_backlink_entries(&pages);
         assert_eq!(entries.len(), 0); // Skipped because domain_from_url returns empty
+    }
+
+    // --- SiteContext population -------------------------------------------------------
+    //
+    // These lock down that the crawler feeds the *right inputs* to the scoring engine.
+    // The scorer itself is covered by the packages/scoring golden harness (#117), but
+    // nothing tested that the crawler builds the scorer's `SiteContext` inputs correctly —
+    // exactly the gap that let #119 ship (`AI_CRAWLER_BLOCKED` never fired for any site).
+
+    /// KEY regression guard: a genuinely-blocking robots.txt (`GPTBot Disallow: /`) MUST
+    /// surface GPTBot in `ai_crawlers_blocked` — the list must NOT be empty. This is the
+    /// #119 failure mode: had this existed beforehand it would have been red, because the
+    /// pre-#119 crawler probed a bare `"/"` (which failed `Url::parse` → default-allow →
+    /// `[]` for every site). It still fails today for the broader wrong-input class —
+    /// e.g. a revert to a scheme-less `blocked_bots(domain)`, a dropped/`None` checker, or
+    /// an empty domain — any of which would silently zero out the -25 factor again.
+    #[test]
+    fn blocking_robots_populates_ai_crawlers_blocked() {
+        let robots = RobotsChecker::from_content("User-agent: GPTBot\nDisallow: /\n");
+        let ctx = build_site_context(Some(&robots), Some("example.com"), false, None);
+
+        assert!(
+            !ctx.ai_crawlers_blocked.is_empty(),
+            "a blocking robots.txt must not yield an empty ai_crawlers_blocked (#119)"
+        );
+        assert!(
+            ctx.ai_crawlers_blocked.contains(&"GPTBot".to_string()),
+            "GPTBot `Disallow: /` must surface in ai_crawlers_blocked, got: {:?}",
+            ctx.ai_crawlers_blocked
+        );
+    }
+
+    /// The families.care shape: a managed `Disallow: /` block for the AI bots, followed by
+    /// a later custom section that overrides it with `Allow: /`. The site is NOT actually
+    /// blocking, so `ai_crawlers_blocked` must be empty — this guards against a false
+    /// positive (and exercises the #120 least-restrictive-wins tie-break at the root path).
+    #[test]
+    fn families_care_allow_override_yields_no_blocked_bots() {
+        let robots = RobotsChecker::from_content(
+            "User-agent: GPTBot\n\
+             User-agent: ClaudeBot\n\
+             User-agent: PerplexityBot\n\
+             User-agent: GoogleOther\n\
+             Disallow: /\n\
+             \n\
+             User-agent: GPTBot\n\
+             User-agent: ClaudeBot\n\
+             User-agent: PerplexityBot\n\
+             User-agent: GoogleOther\n\
+             Allow: /\n",
+        );
+        let ctx = build_site_context(Some(&robots), Some("families.care"), false, None);
+
+        assert!(
+            ctx.ai_crawlers_blocked.is_empty(),
+            "a later `Allow: /` override must clear all blocked bots, got: {:?}",
+            ctx.ai_crawlers_blocked
+        );
+    }
+
+    /// `has_llms_txt` and `has_sitemap` must reflect the presence of their inputs — and
+    /// `has_sitemap` is derived from the sitemap analysis being present, never diverging.
+    #[test]
+    fn site_context_reflects_llms_and_sitemap_presence() {
+        // Both present.
+        let sitemap = SitemapAnalysis {
+            is_valid: true,
+            url_count: 42,
+            stale_url_count: 0,
+            discovered_page_count: 10,
+        };
+        let present = build_site_context(None, None, true, Some(sitemap));
+        assert!(present.has_llms_txt);
+        assert!(present.has_sitemap);
+        assert_eq!(present.sitemap_analysis.map(|s| s.url_count), Some(42));
+
+        // Both absent.
+        let absent = build_site_context(None, None, false, None);
+        assert!(!absent.has_llms_txt);
+        assert!(!absent.has_sitemap);
+        assert!(absent.sitemap_analysis.is_none());
+    }
+
+    /// Belt-and-suspenders on the match arms: with no robots checker (or no domain) there
+    /// is nothing to probe, so `ai_crawlers_blocked` is empty — this is a genuine
+    /// "couldn't fetch robots.txt" case, distinct from the #119 "fetched but mis-probed" bug.
+    #[test]
+    fn missing_robots_or_domain_yields_no_blocked_bots() {
+        let robots = RobotsChecker::from_content("User-agent: GPTBot\nDisallow: /\n");
+
+        // No checker at all.
+        assert!(build_site_context(None, Some("example.com"), false, None)
+            .ai_crawlers_blocked
+            .is_empty());
+
+        // Checker present but no domain to build the probe URL from.
+        assert!(build_site_context(Some(&robots), None, false, None)
+            .ai_crawlers_blocked
+            .is_empty());
     }
 }
