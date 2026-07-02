@@ -16,6 +16,8 @@ const mockCrawlGetLatest = vi.fn();
 const mockScoreListByJob = vi.fn();
 const mockScoreListByJobWithPages = vi.fn();
 const mockScoreGetIssuesByJob = vi.fn();
+const mockScoreAggregateByJob = vi.fn();
+const mockScoreCountByJob = vi.fn();
 const mockVisListByProject = vi.fn();
 const mockVisGetTrends = vi.fn();
 const mockProjectGetById = vi.fn();
@@ -52,6 +54,8 @@ vi.mock("@llm-boost/db", () => ({
     listByJob: mockScoreListByJob,
     listByJobWithPages: mockScoreListByJobWithPages,
     getIssuesByJob: mockScoreGetIssuesByJob,
+    aggregateByJob: mockScoreAggregateByJob,
+    countByJob: mockScoreCountByJob,
   })),
   visibilityQueries: vi.fn(() => ({
     listByProject: mockVisListByProject,
@@ -126,6 +130,14 @@ describe("apiTokenAuth middleware", () => {
     mockCrawlGetLatest.mockResolvedValue(null);
     mockScoreListByJob.mockResolvedValue([]);
     mockScoreListByJobWithPages.mockResolvedValue([]);
+    mockScoreAggregateByJob.mockResolvedValue({
+      totalPages: 0,
+      avgOverall: null,
+      avgTechnical: null,
+      avgContent: null,
+      avgAiReadiness: null,
+    });
+    mockScoreCountByJob.mockResolvedValue(0);
     mockScoreGetIssuesByJob.mockResolvedValue([]);
     mockVisListByProject.mockResolvedValue([]);
     mockVisGetTrends.mockResolvedValue([]);
@@ -500,6 +512,14 @@ describe("v1Routes (token-authenticated)", () => {
     mockCrawlGetLatest.mockResolvedValue(null);
     mockScoreListByJob.mockResolvedValue([]);
     mockScoreListByJobWithPages.mockResolvedValue([]);
+    mockScoreAggregateByJob.mockResolvedValue({
+      totalPages: 0,
+      avgOverall: null,
+      avgTechnical: null,
+      avgContent: null,
+      avgAiReadiness: null,
+    });
+    mockScoreCountByJob.mockResolvedValue(0);
     mockScoreGetIssuesByJob.mockResolvedValue([]);
     mockVisListByProject.mockResolvedValue([]);
     mockVisGetTrends.mockResolvedValue([]);
@@ -600,20 +620,13 @@ describe("v1Routes (token-authenticated)", () => {
         completedAt: new Date("2024-01-01"),
         createdAt: new Date("2024-01-01"),
       });
-      mockScoreListByJob.mockResolvedValue([
-        {
-          overallScore: 85,
-          technicalScore: 80,
-          contentScore: 90,
-          aiReadinessScore: 75,
-        },
-        {
-          overallScore: 95,
-          technicalScore: 90,
-          contentScore: 88,
-          aiReadinessScore: 85,
-        },
-      ]);
+      mockScoreAggregateByJob.mockResolvedValue({
+        totalPages: 2,
+        avgOverall: 90,
+        avgTechnical: 85,
+        avgContent: 89,
+        avgAiReadiness: 80,
+      });
 
       const res = await app.fetch(
         new Request("http://localhost/api/v1/projects/proj-1/metrics", {
@@ -692,6 +705,9 @@ describe("v1Routes (token-authenticated)", () => {
         id: "crawl-1",
         status: "complete",
       });
+      mockScoreCountByJob.mockResolvedValue(2);
+      // limit=1 fetch returns limit+1 rows (has-more sentinel) — the route
+      // must trim to `limit`.
       mockScoreListByJobWithPages.mockResolvedValue([
         {
           pageId: "page-1",
@@ -734,6 +750,11 @@ describe("v1Routes (token-authenticated)", () => {
       expect(body.data.limit).toBe(1);
       expect(body.data.offset).toBe(0);
       expect(body.data.pages[0].url).toBe("https://example.com/1");
+      // Pagination must be pushed into the query, not sliced from a 50-row window
+      expect(mockScoreListByJobWithPages).toHaveBeenCalledWith("crawl-1", {
+        limit: 1,
+        offset: 0,
+      });
     });
   });
 

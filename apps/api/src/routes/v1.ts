@@ -93,38 +93,9 @@ v1Routes.get("/projects/:id/metrics", async (c) => {
     });
   }
 
-  // Get scores for that crawl
-  const scores = await sq.listByJob(latestCrawl.id);
-
-  // Aggregate metrics
-  const totalPages = scores.length;
-  const avgOverall =
-    totalPages > 0
-      ? Math.round(
-          scores.reduce((sum, s) => sum + s.overallScore, 0) / totalPages,
-        )
-      : 0;
-  const avgTechnical =
-    totalPages > 0
-      ? Math.round(
-          scores.reduce((sum, s) => sum + (s.technicalScore ?? 0), 0) /
-            totalPages,
-        )
-      : 0;
-  const avgContent =
-    totalPages > 0
-      ? Math.round(
-          scores.reduce((sum, s) => sum + (s.contentScore ?? 0), 0) /
-            totalPages,
-        )
-      : 0;
-  const avgAiReadiness =
-    totalPages > 0
-      ? Math.round(
-          scores.reduce((sum, s) => sum + (s.aiReadinessScore ?? 0), 0) /
-            totalPages,
-        )
-      : 0;
+  // Aggregate metrics over ALL scored pages (SQL-side). Averaging a paginated
+  // listByJob() sample here used to report totalPages=51 for a 2000-page crawl.
+  const agg = await sq.aggregateByJob(latestCrawl.id);
 
   return c.json({
     data: {
@@ -132,12 +103,12 @@ v1Routes.get("/projects/:id/metrics", async (c) => {
       crawlId: latestCrawl.id,
       crawlStatus: latestCrawl.status,
       crawledAt: latestCrawl.completedAt ?? latestCrawl.createdAt,
-      totalPages,
+      totalPages: agg.totalPages,
       averageScores: {
-        overall: avgOverall,
-        technical: avgTechnical,
-        content: avgContent,
-        aiReadiness: avgAiReadiness,
+        overall: Math.round(agg.avgOverall ?? 0),
+        technical: Math.round(agg.avgTechnical ?? 0),
+        content: Math.round(agg.avgContent ?? 0),
+        aiReadiness: Math.round(agg.avgAiReadiness ?? 0),
       },
     },
   });
@@ -177,13 +148,17 @@ v1Routes.get("/projects/:id/pages", async (c) => {
     });
   }
 
-  // Get page scores with page info
-  const pagesWithScores = await sq.listByJobWithPages(latestCrawl.id);
-
-  // Pagination
+  // Push pagination into the query (the old code sliced offset/limit within
+  // listByJobWithPages' default 50-row window, so total capped at 51 and
+  // offsets past it returned nothing) and count the true total SQL-side.
   const limit = Math.min(Number(c.req.query("limit")) || 50, 100);
   const offset = Number(c.req.query("offset")) || 0;
-  const paginated = pagesWithScores.slice(offset, offset + limit);
+  const [total, pagesWithScores] = await Promise.all([
+    sq.countByJob(latestCrawl.id),
+    sq.listByJobWithPages(latestCrawl.id, { limit, offset }),
+  ]);
+  // listByJobWithPages fetches limit+1 rows (has-more sentinel) — trim it.
+  const paginated = pagesWithScores.slice(0, limit);
 
   return c.json({
     data: {
@@ -199,7 +174,7 @@ v1Routes.get("/projects/:id/pages", async (c) => {
         aiReadinessScore: p.aiReadinessScore,
         issueCount: p.issueCount,
       })),
-      total: pagesWithScores.length,
+      total,
       limit,
       offset,
     },
@@ -428,22 +403,18 @@ v1Routes.get("/projects/:id", async (c) => {
   let latestCrawlData = null;
 
   if (latestCrawl) {
-    const scores = await sq.listByJob(latestCrawl.id);
-    const totalPages = scores.length;
-    const avg = (fn: (s: (typeof scores)[0]) => number | null) =>
-      totalPages > 0
-        ? Math.round(
-            scores.reduce((sum, s) => sum + (fn(s) ?? 0), 0) / totalPages,
-          )
-        : null;
+    // Aggregate over ALL scored pages SQL-side (see /metrics — a paginated
+    // listByJob() sample capped this at 51 pages).
+    const agg = await sq.aggregateByJob(latestCrawl.id);
+    const round = (v: number | null) => (v == null ? null : Math.round(v));
 
     latestCrawlData = {
-      overallScore: avg((s) => s.overallScore),
-      technicalScore: avg((s) => s.technicalScore),
-      contentScore: avg((s) => s.contentScore),
-      aiReadinessScore: avg((s) => s.aiReadinessScore),
+      overallScore: round(agg.avgOverall),
+      technicalScore: round(agg.avgTechnical),
+      contentScore: round(agg.avgContent),
+      aiReadinessScore: round(agg.avgAiReadiness),
       completedAt: latestCrawl.completedAt ?? null,
-      pagesScored: totalPages,
+      pagesScored: agg.totalPages,
     };
   }
 
