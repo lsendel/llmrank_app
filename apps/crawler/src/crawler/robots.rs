@@ -84,8 +84,12 @@ impl RobotsChecker {
     /// Implements longest-match precedence per the robots.txt spec:
     /// the most specific (longest) matching rule wins regardless of allow/disallow order.
     pub fn is_allowed(&self, url: &str, user_agent: &str) -> bool {
+        // Accept either a full absolute URL or a bare path. A bare path like "/"
+        // fails `Url::parse` (relative URL without a base); previously that hit the
+        // default-allow branch, which silently made bot-blocking checks a no-op.
         let path = match Url::parse(url) {
             Ok(u) => u.path().to_string(),
+            Err(_) if url.starts_with('/') => url.to_string(),
             Err(_) => return true,
         };
 
@@ -308,5 +312,85 @@ Disallow: /search
         let checker = RobotsChecker::from_content(content);
         assert!(!checker.is_allowed("https://example.com/private/secret", "*"));
         assert!(checker.is_allowed("https://example.com/private/public/page", "*"));
+    }
+
+    // Regression: `Url::parse("/")` errors (relative URL without a base). The old
+    // `Err(_) => return true` branch then reported every bot as "allowed", so
+    // `blocked_bots("/")` always returned `[]` and the -25 AI_CRAWLER_BLOCKED
+    // scoring factor never fired for any site. `is_allowed` now treats a leading
+    // '/' input as a bare path.
+    #[test]
+    fn test_is_allowed_accepts_bare_path() {
+        let checker = RobotsChecker::from_content(SAMPLE_ROBOTS);
+        // Bare path must behave identically to the equivalent full URL.
+        assert!(!checker.is_allowed("/", "GPTBot"));
+        assert!(!checker.is_allowed("/admin/page", "*"));
+        assert!(checker.is_allowed("/public", "*"));
+    }
+
+    #[test]
+    fn test_blocked_bots_bare_path_root() {
+        // The exact bug: a bare "/" used to yield an empty list.
+        let checker = RobotsChecker::from_content(SAMPLE_ROBOTS);
+        let blocked = checker.blocked_bots("/");
+        assert!(blocked.contains(&"GPTBot".to_string()));
+        assert!(blocked.contains(&"ClaudeBot".to_string()));
+        assert!(!blocked.contains(&"GoogleOther".to_string()));
+    }
+
+    #[test]
+    fn test_blocked_bots_full_url_root() {
+        // A full absolute URL must agree with the bare-path result.
+        let checker = RobotsChecker::from_content(SAMPLE_ROBOTS);
+        let blocked = checker.blocked_bots("https://example.com/");
+        assert!(blocked.contains(&"GPTBot".to_string()));
+        assert!(blocked.contains(&"ClaudeBot".to_string()));
+        assert!(!blocked.contains(&"GoogleOther".to_string()));
+    }
+
+    // Mirrors families.care's real robots.txt shape: a wildcard Allow-all block,
+    // then several specific AI-bot blocks each `Disallow: /`, then a SECOND
+    // wildcard block that re-allows everything except a few /api/ paths.
+    // PerplexityBot has no specific block, so it falls back to the wildcard and
+    // must NOT be reported as blocked.
+    const FAMILIES_CARE_ROBOTS: &str = r#"
+User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /api/internal/
+"#;
+
+    #[test]
+    fn test_families_care_shape_bare_path() {
+        let checker = RobotsChecker::from_content(FAMILIES_CARE_ROBOTS);
+        let blocked = checker.blocked_bots("/");
+        assert!(blocked.contains(&"GPTBot".to_string()));
+        assert!(blocked.contains(&"ClaudeBot".to_string()));
+        // PerplexityBot has no specific block -> wildcard Allow: / -> not blocked.
+        assert!(!blocked.contains(&"PerplexityBot".to_string()));
+    }
+
+    #[test]
+    fn test_families_care_shape_full_url() {
+        let checker = RobotsChecker::from_content(FAMILIES_CARE_ROBOTS);
+        let blocked = checker.blocked_bots("https://families.care/");
+        assert!(blocked.contains(&"GPTBot".to_string()));
+        assert!(blocked.contains(&"ClaudeBot".to_string()));
+        assert!(!blocked.contains(&"PerplexityBot".to_string()));
     }
 }

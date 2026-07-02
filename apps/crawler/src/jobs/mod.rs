@@ -412,7 +412,8 @@ impl JobManager {
         let robots = if let Some(ref d) = domain {
             match RobotsChecker::new(d).await {
                 Ok(checker) => {
-                    site_context.ai_crawlers_blocked = checker.blocked_bots("/");
+                    site_context.ai_crawlers_blocked =
+                        checker.blocked_bots(&format!("https://{}/", d));
                     sitemap_urls_from_robots = checker.sitemaps.clone();
                     if crawl_config.respect_robots {
                         Some(checker)
