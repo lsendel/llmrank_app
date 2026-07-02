@@ -9,6 +9,7 @@ import type {
   CrawlInsights,
   CrawlJob,
   FusedInsights,
+  IssueCodeCount,
   IssueHeatmapData,
 } from "../types/crawls";
 import type { PaginatedResponse } from "../types/pagination";
@@ -129,6 +130,13 @@ export function createCrawlsApi() {
       return apiClient.get<ApiEnvelope<ComparisonItem[]>>(
         `/api/crawls/${crawlId}/compare/${otherId}`,
       );
+    },
+
+    async getIssueCodeCounts(crawlId: string): Promise<IssueCodeCount[]> {
+      const res = await apiClient.get<ApiEnvelope<IssueCodeCount[]>>(
+        `/api/crawls/${crawlId}/issue-codes`,
+      );
+      return res.data;
     },
   };
 }

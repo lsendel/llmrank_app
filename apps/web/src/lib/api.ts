@@ -45,7 +45,7 @@ import { createWizardApi } from "./api/domains/wizard";
 
 // ─── Error handling ─────────────────────────────────────────────────
 
-export type { ComparisonItem } from "./api/types/crawls";
+export type { ComparisonItem, IssueCodeCount } from "./api/types/crawls";
 
 export { ApiError };
 

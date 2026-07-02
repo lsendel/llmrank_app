@@ -240,6 +240,27 @@ export function scoreQueries(db: Database) {
       return db.query.issues.findMany({ where: eq(issues.pageId, pageId) });
     },
 
+    /**
+     * Aggregate a crawl's issues by code (SQL-side GROUP BY — one cheap query,
+     * never loads the raw issue rows). Backs the issue-code breakdown and
+     * crawl-over-crawl delta views: issue-code counts are the trustworthy way
+     * to measure content/SEO change across crawls (score averages are
+     * top-N-gated and sampling-sensitive).
+     */
+    async countIssuesByCode(jobId: string) {
+      return db
+        .select({
+          code: issues.code,
+          category: issues.category,
+          severity: issues.severity,
+          count: sql<number>`count(*)`,
+        })
+        .from(issues)
+        .where(eq(issues.jobId, jobId))
+        .groupBy(issues.code, issues.category, issues.severity)
+        .orderBy(sql`count(*) desc`);
+    },
+
     async getIssuesByJob(jobId: string) {
       // Load issues + pages in bounded id-cursor chunks. A single unbounded
       // findMany over a large crawl (thousands of issues/pages) can exceed D1's

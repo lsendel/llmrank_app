@@ -281,6 +281,24 @@ crawlRoutes.get("/:id/compare/:otherId", withOwnership("crawl"), async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /:id/issue-codes — Issue counts grouped by code (SQL-side aggregate).
+// Issue-code counts are the reliable way to measure content/SEO change
+// across crawls; fetch this for two crawls to build a delta view.
+// ---------------------------------------------------------------------------
+
+crawlRoutes.get("/:id/issue-codes", withOwnership("crawl"), async (c) => {
+  const db = c.get("db");
+  const crawlId = c.req.param("id");
+
+  try {
+    const counts = await scoreQueries(db).countIssuesByCode(crawlId);
+    return c.json({ data: counts });
+  } catch (error) {
+    return handleServiceError(c, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /:id/ai-audit — AI-specific crawlability audit
 // ---------------------------------------------------------------------------
 

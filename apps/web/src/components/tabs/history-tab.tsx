@@ -20,6 +20,7 @@ import { cn, gradeColor } from "@/lib/utils";
 import type { CrawlJob } from "@/lib/api";
 import { CrawlHistoryChart } from "@/components/score-trend-chart";
 import { CrawlComparison } from "@/components/crawl-comparison";
+import { IssueCodeDelta } from "@/components/issue-code-breakdown";
 
 export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
   const [selected, setSelected] = useState<string[]>([]);
@@ -78,9 +79,12 @@ export function HistoryTab({ crawlHistory }: { crawlHistory: CrawlJob[] }) {
       )}
 
       {comparing && selected.length === 2 && (
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold">Crawl Comparison</h3>
-          <CrawlComparison jobId={selected[0]} otherId={selected[1]} />
+        <Card className="space-y-4 p-4">
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Crawl Comparison</h3>
+            <CrawlComparison jobId={selected[0]} otherId={selected[1]} />
+          </div>
+          <IssueCodeDelta jobId={selected[0]} otherId={selected[1]} />
         </Card>
       )}
 
