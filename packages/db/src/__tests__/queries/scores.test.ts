@@ -301,6 +301,68 @@ describe("scoreQueries", () => {
     expect(result[0].issueCount).toBe(0);
   });
 
+  it("listByJobWithPages passes offset through to the paginated query", async () => {
+    mock.db.query.pageScores.findMany.mockResolvedValueOnce([]);
+
+    await queries.listByJobWithPages("j1", { limit: 10, offset: 40 });
+
+    expect(mock.db.query.pageScores.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 11, offset: 40 }),
+    );
+  });
+
+  // --- countByJob / aggregateByJob ---
+  it("countByJob returns the SQL-side count for the job", async () => {
+    mock.chain.where.mockResolvedValueOnce([{ n: 2000 }]);
+
+    const n = await queries.countByJob("j1");
+
+    expect(n).toBe(2000);
+    expect(mock.chain.select).toHaveBeenCalled();
+  });
+
+  it("countByJob returns 0 when no row comes back", async () => {
+    mock.chain.where.mockResolvedValueOnce([]);
+
+    expect(await queries.countByJob("j-empty")).toBe(0);
+  });
+
+  it("aggregateByJob returns SQL-side count and category averages", async () => {
+    mock.chain.where.mockResolvedValueOnce([
+      {
+        totalPages: 2000,
+        avgOverall: 87.4,
+        avgTechnical: 91.2,
+        avgContent: 78.9,
+        avgAiReadiness: 88.1,
+      },
+    ]);
+
+    const agg = await queries.aggregateByJob("j1");
+
+    expect(agg).toEqual({
+      totalPages: 2000,
+      avgOverall: 87.4,
+      avgTechnical: 91.2,
+      avgContent: 78.9,
+      avgAiReadiness: 88.1,
+    });
+  });
+
+  it("aggregateByJob returns an empty aggregate when the job has no scores", async () => {
+    mock.chain.where.mockResolvedValueOnce([]);
+
+    const agg = await queries.aggregateByJob("j-empty");
+
+    expect(agg).toEqual({
+      totalPages: 0,
+      avgOverall: null,
+      avgTechnical: null,
+      avgContent: null,
+      avgAiReadiness: null,
+    });
+  });
+
   // --- updateDetail ---
   it("updateDetail patches the detail JSONB column", async () => {
     const updated = { id: "s1", detail: { contentAnalysis: { score: 90 } } };

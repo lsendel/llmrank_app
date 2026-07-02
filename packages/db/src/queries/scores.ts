@@ -169,6 +169,43 @@ export function scoreQueries(db: Database) {
       return rows.map(deserializeScore);
     },
 
+    /** Total number of scored pages for a job (SQL-side, pagination-safe). */
+    async countByJob(jobId: string) {
+      const [row] = await db
+        .select({ n: sql<number>`count(*)` })
+        .from(pageScores)
+        .where(eq(pageScores.jobId, jobId));
+      return row?.n ?? 0;
+    },
+
+    /**
+     * SQL-side aggregate over ALL scores for a job (count + category averages).
+     * Use this for metrics endpoints instead of averaging a paginated
+     * `listByJob` sample — one cheap query, no 2000-row transfer, and no risk
+     * of the D1 response-size limit that full-row loads carry.
+     */
+    async aggregateByJob(jobId: string) {
+      const [row] = await db
+        .select({
+          totalPages: sql<number>`count(*)`,
+          avgOverall: sql<number | null>`avg(${pageScores.overallScore})`,
+          avgTechnical: sql<number | null>`avg(${pageScores.technicalScore})`,
+          avgContent: sql<number | null>`avg(${pageScores.contentScore})`,
+          avgAiReadiness: sql<
+            number | null
+          >`avg(${pageScores.aiReadinessScore})`,
+        })
+        .from(pageScores)
+        .where(eq(pageScores.jobId, jobId));
+      return {
+        totalPages: row?.totalPages ?? 0,
+        avgOverall: row?.avgOverall ?? null,
+        avgTechnical: row?.avgTechnical ?? null,
+        avgContent: row?.avgContent ?? null,
+        avgAiReadiness: row?.avgAiReadiness ?? null,
+      };
+    },
+
     async listByJobs(
       jobIds: string[],
       options?: { cursor?: string; limit?: number },
@@ -255,10 +292,11 @@ export function scoreQueries(db: Database) {
      */
     async listByJobWithPages(
       jobId: string,
-      options?: { cursor?: string; limit?: number },
+      options?: { cursor?: string; limit?: number; offset?: number },
     ) {
       const limit = options?.limit ?? 50;
       const cursor = options?.cursor;
+      const offset = options?.offset ?? 0;
 
       // Build condition for paginated score fetch
       const scoreConditions = cursor
@@ -270,6 +308,7 @@ export function scoreQueries(db: Database) {
         await db.query.pageScores.findMany({
           where: scoreConditions,
           limit: limit + 1,
+          offset,
           orderBy: (pageScores, { asc }) => [asc(pageScores.id)],
         })
       ).map(deserializeScore);
